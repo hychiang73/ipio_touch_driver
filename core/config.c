@@ -2,12 +2,13 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
 
 #include "../chip.h"
 #include "config.h"
 #include "i2c.h"
-
-#define SUCCESS 0
 
 #define DBG_LEVEL
 
@@ -17,23 +18,21 @@
 #define DBG_ERR(fmt, arg...) \
 			printk(KERN_ERR "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
 
+static signed int vfIceRegRead(unsigned int addr);
+static signed int ReadWriteOneByte(unsigned int addr);
+static signed int ReadWriteICEMode(unsigned int addr);
+static int WriteICEMode(unsigned int addr, unsigned int data, unsigned int size);
+static int EnterICEMode(void);
 static int ICEInit_212x(void);
 
-typedef struct _CONFIG_TAB {
-    unsigned int chip_id;
-    unsigned int slave_i2c_addr;
-    unsigned int ice_mode_addr;
-    unsigned int pid_addr;
-    int (*IceModeInit)(void);
-} CONFIG_TAB;
-
-CONFIG_TAB CTAB[] = {
-    {CHIP_TYPE_ILI2120, 0x41, 0x181062, 0x4009C, ICEInit_212x}
+// This array stores the list of chips supported by the driver.
+// Add an id here if you're going to support a new chip.
+unsigned short SupChipList[] = {
+	CHIP_TYPE_ILI2121
 };
 
-unsigned int SLAVE_I2C_ADDR = 0;
-unsigned int ICE_MODE_ADDR = 0;
-unsigned int PID_ADDR = 0;
+CORE_CONFIG *core_config;
+EXPORT_SYMBOL(core_config);
 
 static signed int ReadWriteICEMode(unsigned int addr)
 {
@@ -48,8 +47,8 @@ static signed int ReadWriteICEMode(unsigned int addr)
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
     szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-//    rc = core_i2c_write(SLAVE_I2C_ADDR, szOutBuf, 4);
-//    rc = core_i2c_read(SLAVE_I2C_ADDR, szOutBuf, 4);
+    rc = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+    rc = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
 
     data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
 
@@ -76,7 +75,7 @@ static int WriteICEMode(unsigned int addr, unsigned int data, unsigned int size)
         szOutBuf[i + 4] = (char)(data >> (8 * i));
     }
 
-//    rc = core_i2c_write(SLAVE_I2C_ADDR, szOutBuf, size + 4);
+    rc = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
 
     return rc;
 }
@@ -94,8 +93,8 @@ static signed int ReadWriteOneByte(unsigned int addr)
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
     szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-//    rc = core_i2c_write(SLAVE_I2C_ID_DWI2C, szOutBuf, 4);
-//    rc = core_i2c_read(SLAVE_I2C_ID_DWI2C, szOutBuf, 1);
+    rc = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+    rc = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
 
     data = (szOutBuf[0]);
 
@@ -130,37 +129,38 @@ static signed int vfIceRegRead(unsigned int addr)
 static int ExitIceMode(void)
 {
     int rc;
-    int MS_TS_MSG_IC_GPIO_RST = 0;
 
-    DBG_INFO();
+	DBG_INFO("ICE mode reset\n");
 
-    if (MS_TS_MSG_IC_GPIO_RST > 0)
-    {
-    //    DrvTouchDeviceHwReset();
-    }
-	else
+	rc = WriteICEMode(0x04004C, 0x2120, 2);
+	if (rc < 0)
 	{
-        DBG_INFO("ICE mode reset\n");
+		DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, rc = %d\n", rc);
+		return rc;
+	}
+	mdelay(10);
 
-        rc = WriteICEMode(0x04004C, 0x2120, 2);
-        if (rc < 0)
-        {
-            DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, rc = %d\n", rc);
-            return rc;
-        }
-        mdelay(10);
-
-        rc = WriteICEMode(0x04004E, 0x01, 1);
-        if (rc < 0)
-        {
-            DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, rc = %d\n", rc);
-            return rc;
-        }
-    }
+	rc = WriteICEMode(0x04004E, 0x01, 1);
+	if (rc < 0)
+	{
+		DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, rc = %d\n", rc);
+		return rc;
+	}
 
     mdelay(50);
 
     return SUCCESS;
+}
+
+static int EnterICEMode(void)
+{
+    DBG_INFO();
+
+    // Entry ICE Mode
+    if (WriteICEMode(core_config->ice_mode_addr, 0x0, 0) < 0)
+        return -EFAULT;
+
+	return SUCCESS;
 }
 
 static int ICEInit_212x(void)
@@ -195,66 +195,84 @@ static int ICEInit_212x(void)
     return SUCCESS;
 }
 
-static int EnterICEMode(void)
+void core_config_HWReset(void)
 {
-    DBG_INFO();
+	DBG_INFO();
 
-    // Entry ICE Mode
-    if (WriteICEMode(ICE_MODE_ADDR, 0x0, 0) < 0)
-        return -EFAULT;
-
-	return SUCCESS;
+//	gpio_direction_output(MS_TS_MSG_IC_GPIO_RST, 1);
+	mdelay(10);
+//	gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 0);
+	mdelay(100);
+//	gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 1);
+	mdelay(25);
 }
 
-int core_config_get_chip(unsigned int id)
+int core_config_GetChipID(void)
 {
     int i, rc = 0;
     unsigned int RealID = 0, PIDData = 0;
 
-    DBG_INFO();
+	rc = EnterICEMode();
 
-    if(id != 0)
-    {
-        for(i = 0; i < sizeof(CTAB); i++)
-        {
-            if(id == CTAB[i].chip_id)
-            {
-                SLAVE_I2C_ADDR = CTAB[i].slave_i2c_addr;
-                ICE_MODE_ADDR = CTAB[i].ice_mode_addr;
-                PID_ADDR = CTAB[i].pid_addr;
+	core_config->IceModeInit();
+	PIDData = ReadWriteICEMode(core_config->pid_addr);
 
-                rc = EnterICEMode();
+	if ((PIDData & 0xFFFFFF00) == 0)
+	{
+		RealID = (vfIceRegRead(0xF001) << (8 * 1)) + (vfIceRegRead(0xF000));
+		
+		if (0xFFFF == RealID)
+		{
+			RealID = CHIP_TYPE_ILI2121;
+		}
 
-                if(rc)
-                {
-                    CTAB[i].IceModeInit();
-                    PIDData = ReadWriteICEMode(PID_ADDR);
-                    if ((PIDData & 0xFFFFFF00) == 0)
-                    {
-                        RealID = (vfIceRegRead(0xF001) << (8 * 1)) + (vfIceRegRead(0xF000));
+		ExitIceMode();
+			
+		if(core_config->chip_id == RealID)
+			return RealID;
+		else
+		{
+			DBG_ERR("CHIP ID error : 0x%x , ", RealID, core_config->chip_id);
+			return -ENODEV;
+		}
+	}
 
-                        DBG_INFO("Chip = 0x%x", RealID);
-
-                        if (0xFFFF == RealID)
-                        {
-                            RealID = CHIP_TYPE_ILI2120;
-                        }
-                    }
-
-                    ExitIceMode();
-                }
-
-                DBG_INFO(" CHIP ID = %x ", RealID);
-
-                if(RealID != CTAB[i].chip_id)
-                {
-                    DBG_ERR("Get Wrong Chip ID %x : %x", RealID, CTAB[i].chip_id);
-                    return -ENODEV;
-                }
-                return RealID;
-            }
-        }
-        return -ENODEV;
-    }
-    return -EFAULT;
+	DBG_ERR("PID DATA error : 0x%x", PIDData);
+	return -ENODEV;
 }
+EXPORT_SYMBOL(core_config_GetChipID);
+
+int core_config_init(unsigned int chip_type)
+{
+	int i = 0;
+
+	DBG_INFO();
+	
+	for(; i < sizeof(SupChipList); i++)
+	{
+		if(SupChipList[i] == chip_type)
+		{
+			core_config = (CORE_CONFIG*)kmalloc(sizeof(*core_config), GFP_KERNEL);
+			core_config->scl = SupChipList;
+			core_config->scl_size = sizeof(SupChipList);
+
+			if(chip_type = CHIP_TYPE_ILI2121)
+			{
+				core_config->chip_id = chip_type;
+				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
+				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
+				core_config->pid_addr = ILI21XX_PID_ADDR;
+				core_config->IceModeInit = ICEInit_212x;
+			}
+		}
+	}
+
+	if(core_config == NULL) 
+	{
+		DBG_ERR("Can't find id from support list, init core-config failed ");
+		return -EINVAL;
+	}
+
+	return SUCCESS;
+}
+EXPORT_SYMBOL(core_config_init);

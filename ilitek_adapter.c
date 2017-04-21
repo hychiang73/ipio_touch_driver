@@ -1,4 +1,5 @@
 #include "ilitek.h"
+
 #include "core/config.h"
 #include "core/dbbus.h"
 #include "core/firmware.h"
@@ -9,44 +10,50 @@
 
 ilitek_device *ilitek_adapter;
 
-unsigned short SupportChipTable[] = {
-	CHIP_TYPE_ILI2121,
-	CHIP_TYPE_ILI2120
-};
-
-int ilitek_get_chip_type(void)
+static int ilitek_init_core_func(void)
 {
-	int i = 0;
-	unsigned int res = 0;
+	if(core_config_init(CHIP_TYPE_ILI2121) < 0 ||
+		core_i2c_init(ilitek_adapter->client) < 0)
+			return -EINVAL;
 
-//	res = core_config_chip(ilitek_adapter);
+	return SUCCESS;
+}
 
-	for(; i < sizeof(SupportChipTable); i++)
-	{
-		if(res == SupportChipTable[i])
-			return SupportChipTable[i];
-	}
+static int ilitek_get_chip_type(void)
+{
+	int res = 0;
 
-	return -EINVAL;
+	DBG_INFO();
+
+	res = core_config_GetChipID();
+
+	return res;
 }
 
 int ilitek_read_tp_info(void)
 {
 	unsigned int chip_id = 0;
-	unsigned char szWriteBuf[2] = {0};
-	unsigned char szReadBuf[64] = {0};
 
 	DBG_INFO();
 
 	chip_id = ilitek_get_chip_type();
 
+	if(chip_id < 0)
+	{
+		DBG_ERR("Get Chip ID failed %d", chip_id);
+		return -ENODEV;
+	}
+
 	ilitek_adapter->chip_id = chip_id;
 
-	return 0;
+	return SUCCESS;
 }
+EXPORT_SYMBOL(ilitek_read_tp_info);
 
-ilitek_device *ilitek_init(struct i2c_client *client, const struct i2c_device_id *id)
+int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id)
 {
+	int res;
+
 	DBG_INFO();
 
 	ilitek_adapter = (ilitek_device*)kmalloc(sizeof(ilitek_device), GFP_KERNEL);
@@ -55,7 +62,13 @@ ilitek_device *ilitek_init(struct i2c_client *client, const struct i2c_device_id
 
 	ilitek_adapter->id = id;
 
-	return ilitek_adapter;
-}
+	res = ilitek_init_core_func();
+	if(res < 0)
+	{
+		DBG_ERR("init core funcs failed %d", res);
+		return res;
+	}
 
+	return SUCCESS;
+}
 EXPORT_SYMBOL(ilitek_init);

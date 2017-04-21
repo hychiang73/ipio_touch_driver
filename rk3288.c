@@ -1,16 +1,14 @@
 #include "ilitek.h"
+#include "chip.h"
 
 #define I2C_DEVICE_ID	"RK3288_TP_ID"
 
 MODULE_AUTHOR("ILITEK");
 MODULE_LICENSE("GPL");
 
-ilitek_device *ilitek;
-
 static int rk3288_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-	int type;
-
+	int res = 0;
 	DBG_INFO("Enter probe function"); 
 
     if (client == NULL)
@@ -19,12 +17,21 @@ static int rk3288_probe(struct i2c_client *client, const struct i2c_device_id *i
         return -ENODEV;
 	}
 
-	ilitek = ilitek_init(client, id);
+	res = ilitek_init(client, id);
+	if(res < 0)
+	{
+        DBG_ERR("init ilitek-adapter failed %d ", res);
+		return -EINVAL;
+	}
 
+	res = ilitek_read_tp_info();
+	if(res < 0)
+	{
+        DBG_ERR("Getting TP Info failed %d ", res);
+		return -EINVAL;
+	}
 
-//	DBG_INFO("DeviceInfo = %x", DeviceInfo);
-
-	return 0;
+	return SUCCESS;
 }
 
 static int rk3288_remove(struct i2c_client *client)
@@ -59,11 +66,11 @@ static struct i2c_driver tp_i2c_driver =
 
 static int __init rk3288_init(void)
 {
-	int ret = 0;
+	int res = 0;
 
-	ret = i2c_add_driver(&tp_i2c_driver);
+	res = i2c_add_driver(&tp_i2c_driver);
 
-	if(ret < 0)
+	if(res < 0)
 	{
 		DBG_ERR("Failed to add i2c driver");
 		return -ENODEV;
@@ -71,7 +78,7 @@ static int __init rk3288_init(void)
 
 	DBG_INFO("Succeed to add i2c driver");
 
-	return ret;
+	return SUCCESS;
 }
 
 static void __exit rk3288_exit(void)

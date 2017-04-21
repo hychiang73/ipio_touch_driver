@@ -48,7 +48,8 @@ typedef struct  _ilitek_device {
 } ilitek_device;
 
 
-ilitek_device *ilitek_init(struct i2c_client *client, const struct i2c_device_id *id);
+extern int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id);
+extern int ilitek_read_tp_info(void);
 
 
 /*
