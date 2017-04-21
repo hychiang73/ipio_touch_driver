@@ -6,9 +6,12 @@
 MODULE_AUTHOR("ILITEK");
 MODULE_LICENSE("GPL");
 
+extern ilitek_device *ilitek_adapter;
+
 static int rk3288_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
+	unsigned char *fw_ver;
 	DBG_INFO("Enter probe function"); 
 
     if (client == NULL)
@@ -20,17 +23,16 @@ static int rk3288_probe(struct i2c_client *client, const struct i2c_device_id *i
 	res = ilitek_init(client, id);
 	if(res < 0)
 	{
-        DBG_ERR("init ilitek-adapter failed %d ", res);
+        DBG_ERR("Initialising ilitek-adapter failed %d ", res);
 		return -EINVAL;
 	}
 
-	res = ilitek_read_tp_info();
-	if(res < 0)
-	{
-        DBG_ERR("Getting TP Info failed %d ", res);
-		return -EINVAL;
-	}
+	ilitek_get_chip_type();
 
+	ilitek_get_fw_ver();
+
+	ilitek_get_protocol_ver();
+	
 	return SUCCESS;
 }
 

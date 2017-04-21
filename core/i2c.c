@@ -19,7 +19,7 @@ extern CORE_CONFIG *core_config;
 
 int core_i2c_write(unsigned char nSlaveId, unsigned char *pBuf, unsigned short nSize)
 {
-    int rc = -EINVAL, i;
+    int res = -EINVAL, i;
 
     struct i2c_msg msgs[] =
     {
@@ -33,16 +33,16 @@ int core_i2c_write(unsigned char nSlaveId, unsigned char *pBuf, unsigned short n
 
 	msgs[0].scl_rate = 400000;
 
-	DBG_INFO();
-
     /*
      * If everything went ok (i.e. 1 msg transmitted), return #bytes
      * transmitted, else error code.
      */
 	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) > 0)
-		rc = nSize;
-
-    return rc;
+		res = nSize;
+	else
+		DBG_ERR("I2C Write Error");
+	
+	return res;
 }
 EXPORT_SYMBOL(core_i2c_write);
 
@@ -62,10 +62,10 @@ int core_i2c_read(unsigned char nSlaveId, unsigned char *pBuf, unsigned short nS
 
     msgs[0].scl_rate = 400000;
 
-	DBG_INFO();
-
 	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) > 0)
 		rc = nSize;
+	else
+		DBG_ERR("I2C Write Error");
 
     return rc;
 }

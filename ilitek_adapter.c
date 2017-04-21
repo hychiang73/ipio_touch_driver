@@ -19,36 +19,56 @@ static int ilitek_init_core_func(void)
 	return SUCCESS;
 }
 
-static int ilitek_get_chip_type(void)
+int ilitek_get_chip_type(void)
 {
-	int res = 0;
-
-	DBG_INFO();
+	int res;
 
 	res = core_config_GetChipID();
+
+	ilitek_adapter->chip_id = res;
+
+	DBG_INFO("CHIP ID = 0x%x", ilitek_adapter->chip_id);
 
 	return res;
 }
 
-int ilitek_read_tp_info(void)
+unsigned char* ilitek_get_fw_ver(void)
 {
-	unsigned int chip_id = 0;
+	unsigned char *fw_ver;
 
-	DBG_INFO();
+	fw_ver = core_config_GetFWVer();
 
-	chip_id = ilitek_get_chip_type();
-
-	if(chip_id < 0)
+	if(!fw_ver)
 	{
-		DBG_ERR("Get Chip ID failed %d", chip_id);
-		return -ENODEV;
+		DBG_ERR("Getting FW Ver error");
+		return NULL;
 	}
 
-	ilitek_adapter->chip_id = chip_id;
+	ilitek_adapter->firmware_ver = fw_ver;
 
-	return SUCCESS;
+	DBG_INFO("Firmware Version = %d.%d.%d.%d", *fw_ver, *(fw_ver+1), *(fw_ver+2), *(fw_ver+3));
+
+	return fw_ver;
 }
-EXPORT_SYMBOL(ilitek_read_tp_info);
+
+unsigned short ilitek_get_protocol_ver(void)
+{
+	unsigned short ptl_ver = -1;
+
+	ptl_ver = core_config_GetProtocolVer();
+
+	if(ptl_ver < 0)
+	{
+		DBG_ERR("Getting Protocol Ver error");
+		return -EFAULT;
+	}
+
+	ilitek_adapter->protocol_ver = ptl_ver;
+
+	DBG_INFO("Protocol Version = %x", ptl_ver);
+
+	return ptl_ver;
+}
 
 int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id)
 {

@@ -12,8 +12,9 @@ typedef struct _CORE_CONFIG {
 } CORE_CONFIG;
 
 extern CORE_CONFIG *core_config;
-
 extern void core_config_HWReset(void);
+extern unsigned short core_config_GetProtocolVer(void);
+extern unsigned char* core_config_GetFWVer(void);
 extern int core_config_GetChipID(void);
 extern int core_config_init(unsigned int chip_type);
 

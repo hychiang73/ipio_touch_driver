@@ -40,8 +40,6 @@ static signed int ReadWriteICEMode(unsigned int addr)
     unsigned int data = 0;
     char szOutBuf[64] = {0};
 
-    DBG_INFO();
-
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
@@ -52,8 +50,6 @@ static signed int ReadWriteICEMode(unsigned int addr)
 
     data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
 
-    DBG_INFO("nData=0x%x, szOutBuf[0]=%x, szOutBuf[1]=%x, szOutBuf[2]=%x, szOutBuf[3]=%x\n", data, szOutBuf[0], szOutBuf[1], szOutBuf[2], szOutBuf[3]);
-
     return data;
 
 }
@@ -62,8 +58,6 @@ static int WriteICEMode(unsigned int addr, unsigned int data, unsigned int size)
 {
     int rc = 0, i = 0;
     char szOutBuf[64] = {0};
-
-    DBG_INFO();
 
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
@@ -86,8 +80,6 @@ static signed int ReadWriteOneByte(unsigned int addr)
     signed int data = 0;
     char szOutBuf[64] = {0};
 
-    DBG_INFO();
-
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
@@ -105,8 +97,6 @@ static signed int vfIceRegRead(unsigned int addr)
 {
     int i, nInTimeCount = 100;
     unsigned char szBuf[4] = {0};
-
-    DBG_INFO();
 
     WriteICEMode(0x41000, 0x3B | (addr << 8), 4);
     WriteICEMode(0x041004, 0x66AA5500, 4);
@@ -130,8 +120,6 @@ static int ExitIceMode(void)
 {
     int rc;
 
-	DBG_INFO("ICE mode reset\n");
-
 	rc = WriteICEMode(0x04004C, 0x2120, 2);
 	if (rc < 0)
 	{
@@ -154,8 +142,6 @@ static int ExitIceMode(void)
 
 static int EnterICEMode(void)
 {
-    DBG_INFO();
-
     // Entry ICE Mode
     if (WriteICEMode(core_config->ice_mode_addr, 0x0, 0) < 0)
         return -EFAULT;
@@ -165,8 +151,6 @@ static int EnterICEMode(void)
 
 static int ICEInit_212x(void)
 {
-    DBG_INFO();
-
     // close watch dog
     if (WriteICEMode(0x5200C, 0x0000, 2) < 0)
         return -EFAULT;
@@ -206,6 +190,69 @@ void core_config_HWReset(void)
 //	gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 1);
 	mdelay(25);
 }
+EXPORT_SYMBOL(core_config_HWReset);
+
+unsigned short core_config_GetProtocolVer(void)
+{
+	int res = 0, i = 0, protocol_length = 2;
+	unsigned char szWriteBuf[2] = {0};
+	unsigned char szReadBuf[2] = {0};
+	unsigned short ptl_ver;
+
+    szWriteBuf[0] = ILITEK_TP_ILI2121_CMD_GET_PROTOCOL_VERSION;
+
+    res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
+	if(res < 0)
+	{
+		DBG_ERR("Get firmware version error %d", res);
+		return -EFAULT;
+	}
+        
+	mdelay(10);
+
+    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], protocol_length);
+	if(res < 0)
+	{
+		DBG_ERR("Get firmware version error %d", res);
+		return -EFAULT;
+	}
+        
+	ptl_ver = (szReadBuf[0] << 8) + szReadBuf[1];
+
+	return ptl_ver;
+}
+EXPORT_SYMBOL(core_config_GetProtocolVer);
+
+unsigned char* core_config_GetFWVer(void)
+{
+	int res = -1, fw_length = 4;
+	unsigned char szWriteBuf[2] = {0};
+	unsigned char szReadBuf[4] = {0};
+	unsigned char *fw_ver;
+
+    szWriteBuf[0] = ILITEK_TP_ILI2121_CMD_GET_FIRMWARE_VERSION;
+
+    res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
+	if(res < 0)
+	{
+		DBG_ERR("Get firmware version error %d", res);
+		return NULL;
+	}
+
+    mdelay(10);
+
+    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_length);
+	if(res < 0)
+	{
+		DBG_ERR("Get firmware version error %d", res);
+		return NULL;
+	}
+
+	fw_ver = szReadBuf;
+
+	return fw_ver;
+}
+EXPORT_SYMBOL(core_config_GetFWVer);
 
 int core_config_GetChipID(void)
 {
@@ -227,6 +274,7 @@ int core_config_GetChipID(void)
 		}
 
 		ExitIceMode();
+		
 			
 		if(core_config->chip_id == RealID)
 			return RealID;
@@ -246,8 +294,6 @@ int core_config_init(unsigned int chip_type)
 {
 	int i = 0;
 
-	DBG_INFO();
-	
 	for(; i < sizeof(SupChipList); i++)
 	{
 		if(SupChipList[i] == chip_type)
