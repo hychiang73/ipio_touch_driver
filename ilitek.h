@@ -13,6 +13,13 @@
 #include <linux/interrupt.h>
 
 #include "chip.h"
+#include "core/config.h"
+#include "core/dbbus.h"
+#include "core/firmware.h"
+#include "core/fr.h"
+#include "core/gesture.h"
+#include "core/glove.h"
+#include "core/i2c.h"
 
 #ifndef __ILITEK_H
 #define __ILITEK_H
@@ -47,9 +54,12 @@ typedef struct  _ilitek_device {
 
 	unsigned short protocol_ver;
 
+	TP_INFO *tp_info;
+
 } ilitek_device;
 
 extern ilitek_device *ilitek_adapter;
+extern int ilitek_get_resolution(void);
 extern unsigned short ilitek_get_protocol_ver(void);
 extern unsigned char* ilitek_get_fw_ver(void);
 extern int ilitek_get_chip_type(void);

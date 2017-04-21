@@ -1,13 +1,5 @@
 #include "ilitek.h"
 
-#include "core/config.h"
-#include "core/dbbus.h"
-#include "core/firmware.h"
-#include "core/fr.h"
-#include "core/gesture.h"
-#include "core/glove.h"
-#include "core/i2c.h"
-
 ilitek_device *ilitek_adapter;
 
 static int ilitek_init_core_func(void)
@@ -15,6 +7,28 @@ static int ilitek_init_core_func(void)
 	if(core_config_init(CHIP_TYPE_ILI2121) < 0 ||
 		core_i2c_init(ilitek_adapter->client) < 0)
 			return -EINVAL;
+
+	return SUCCESS;
+}
+
+int ilitek_get_resolution(void)
+{
+	ilitek_adapter->tp_info = core_config_GetResolution();
+
+	if(ilitek_adapter->tp_info == NULL)
+	{
+		DBG_ERR("Getting TP Resolution failed");
+		return -EFAULT;
+	}
+
+    DBG_INFO("nMaxX=%d, nMaxY=%d, nXChannelNum=%d, nYChannelNum=%d, nMaxTouchNum=%d, nMaxKeyButtonNum=%d, nKeyCount=%d",
+			ilitek_adapter->tp_info->nMaxX,
+			ilitek_adapter->tp_info->nMaxY,
+			ilitek_adapter->tp_info->nXChannelNum,
+			ilitek_adapter->tp_info->nYChannelNum,
+			ilitek_adapter->tp_info->nMaxTouchNum,
+			ilitek_adapter->tp_info->nMaxKeyButtonNum,
+			ilitek_adapter->tp_info->nKeyCount);
 
 	return SUCCESS;
 }

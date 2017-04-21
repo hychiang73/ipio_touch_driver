@@ -33,6 +33,8 @@ static int rk3288_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	ilitek_get_protocol_ver();
 	
+	ilitek_get_resolution();
+
 	return SUCCESS;
 }
 

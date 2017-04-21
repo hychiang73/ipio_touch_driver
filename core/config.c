@@ -45,8 +45,8 @@ static signed int ReadWriteICEMode(unsigned int addr)
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
     szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-    rc = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
-    rc = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
+    core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+    core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
 
     data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
 
@@ -85,8 +85,8 @@ static signed int ReadWriteOneByte(unsigned int addr)
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
     szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-    rc = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
-    rc = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
+    core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+    core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
 
     data = (szOutBuf[0]);
 
@@ -192,6 +192,46 @@ void core_config_HWReset(void)
 }
 EXPORT_SYMBOL(core_config_HWReset);
 
+TP_INFO* core_config_GetResolution(void)
+{
+	int res = 0, i = 0, resolution_length = 10;
+	unsigned char szWriteBuf[2] = {0};
+	unsigned char szReadBuf[10] = {0};
+    
+	szWriteBuf[0] = ILITEK_TP_CMD_GET_RESOLUTION;
+
+    res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
+	if(res < 0)
+	{
+		DBG_ERR("Get firmware version error %d", res);
+		return NULL;
+	}
+        
+	mdelay(10);
+
+    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], resolution_length);
+	if(res < 0)
+	{
+		DBG_ERR("Get firmware version error %d", res);
+		return NULL;
+	}
+
+	core_config->tp_info->nMaxX = szReadBuf[0];
+	core_config->tp_info->nMaxX += (szReadBuf[1]*256);
+	core_config->tp_info->nMaxY = szReadBuf[2];
+	core_config->tp_info->nMaxY += (szReadBuf[3]*256);
+	core_config->tp_info->nMinX = 0;
+	core_config->tp_info->nMinY = 0;
+	core_config->tp_info->nXChannelNum = szReadBuf[4];
+	core_config->tp_info->nYChannelNum = szReadBuf[5];
+	core_config->tp_info->nMaxTouchNum = szReadBuf[6];
+	core_config->tp_info->nMaxKeyButtonNum = szReadBuf[7];
+	core_config->tp_info->nKeyCount = szReadBuf[8];
+
+	return core_config->tp_info;
+}
+EXPORT_SYMBOL(core_config_GetResolution);
+
 unsigned short core_config_GetProtocolVer(void)
 {
 	int res = 0, i = 0, protocol_length = 2;
@@ -256,10 +296,15 @@ EXPORT_SYMBOL(core_config_GetFWVer);
 
 int core_config_GetChipID(void)
 {
-    int i, rc = 0;
+    int i, res = 0;
     unsigned int RealID = 0, PIDData = 0;
 
-	rc = EnterICEMode();
+	res = EnterICEMode();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to enter ICE mode");
+		return res;
+	}
 
 	core_config->IceModeInit();
 	PIDData = ReadWriteICEMode(core_config->pid_addr);
@@ -273,7 +318,9 @@ int core_config_GetChipID(void)
 			RealID = CHIP_TYPE_ILI2121;
 		}
 
-		ExitIceMode();
+		res = ExitIceMode();
+		if(res < 0)
+			DBG_ERR("Failed to exit ICE mode");
 		
 			
 		if(core_config->chip_id == RealID)
@@ -294,11 +341,13 @@ int core_config_init(unsigned int chip_type)
 {
 	int i = 0;
 
+
 	for(; i < sizeof(SupChipList); i++)
 	{
 		if(SupChipList[i] == chip_type)
 		{
 			core_config = (CORE_CONFIG*)kmalloc(sizeof(*core_config), GFP_KERNEL);
+			core_config->tp_info = (TP_INFO*)kmalloc(sizeof(*core_config->tp_info), GFP_KERNEL);
 			core_config->scl = SupChipList;
 			core_config->scl_size = sizeof(SupChipList);
 
