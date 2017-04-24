@@ -3,8 +3,11 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+
+#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
+#endif
 
 #include "../chip.h"
 #include "config.h"
@@ -197,11 +200,11 @@ void core_config_HWReset(void)
 {
 	DBG_INFO();
 
-//	gpio_direction_output(MS_TS_MSG_IC_GPIO_RST, 1);
+	gpio_direction_output(core_config->reset_gpio, 1);
 	mdelay(10);
-//	gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 0);
+	gpio_set_value(core_config->reset_gpio, 0);
 	mdelay(100);
-//	gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 1);
+	gpio_set_value(core_config->reset_gpio, 1);
 	mdelay(25);
 }
 EXPORT_SYMBOL(core_config_HWReset);
@@ -409,10 +412,12 @@ uint32_t core_config_GetChipID(void)
 }
 EXPORT_SYMBOL(core_config_GetChipID);
 
-int core_config_init(uint32_t chip_type)
+int core_config_init(uint32_t *platform_info)
 {
 	int i = 0;
-
+	uint32_t chip_type = *platform_info;
+	uint32_t igpio = *(platform_info+1);
+	uint32_t rgpio = *(platform_info+2);
 
 	for(; i < sizeof(SupChipList); i++)
 	{
@@ -426,6 +431,8 @@ int core_config_init(uint32_t chip_type)
 			if(chip_type = CHIP_TYPE_ILI2121)
 			{
 				core_config->chip_id = chip_type;
+				core_config->irq_gpio = igpio;
+				core_config->reset_gpio = rgpio;
 				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI21XX_PID_ADDR;

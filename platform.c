@@ -1,7 +1,7 @@
 #include "adapter.h"
 #include "chip.h"
 
-#define I2C_DEVICE_ID	"RK3288_TP_ID"
+#define I2C_DEVICE_ID	"ILITEK_TP_ID"
 
 MODULE_AUTHOR("ILITEK");
 MODULE_LICENSE("GPL");
@@ -11,9 +11,11 @@ extern ilitek_device *adapter;
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
-	uint8_t *fw_ver;
-
-	DBG_INFO("Enter probe function"); 
+#ifdef CONFIG_OF
+	struct device_node *dev_node = client->dev.of_node;
+	uint32_t flag;
+	uint32_t pData[2] = {0};
+#endif
 
     if (client == NULL)
     {
@@ -21,24 +23,36 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
         return -ENODEV;
 	}
 
-	res = ilitek_init(client, id);
+#ifdef CONFIG_OF
+	//adapter->irq_gpio = of_get_named_gpio_flags(dev_node, DTS_IRQ_GPIO, 0, &flag);
+	//adapter->reset_gpio = of_get_named_gpio_flags(dev_node, DTS_RESET_GPIO, 0, &flag);
+	pData[0] = of_get_named_gpio_flags(dev_node, DTS_IRQ_GPIO, 0, &flag);
+	pData[1] = of_get_named_gpio_flags(dev_node, DTS_RESET_GPIO, 0, &flag);
+
+	if(!gpio_is_valid(pData[0]))
+	{
+		DBG_ERR("Invalid irq gpio: %d", pData[0]);
+		return -EBADR;
+	}
+
+	if(!gpio_is_valid(pData[1]))
+	{
+		DBG_ERR("Invalid reset gpio: %d", pData[1]);
+		return -EBADR;
+	}
+	DBG_INFO("gpio = %d", pData[0]);
+
+	DBG_INFO("gpio = %d", pData[1]);
+#endif
+
+	res = ilitek_init(client, id, pData);
 	if(res < 0)
 	{
-        DBG_ERR("Initialising ilitek-adapter failed %d ", res);
+        DBG_ERR("Initialising ilitek adapter failed %d ", res);
 		return -EINVAL;
 	}
 
-	ilitek_get_chip_type();
-
-	ilitek_get_fw_ver();
-
-	ilitek_get_protocol_ver();
-	
-	ilitek_get_resolution();
-
-	ilitek_get_keyinfo();
-
-
+	ilitek_read_tp_info();
 
 	return SUCCESS;
 }

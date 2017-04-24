@@ -12,6 +12,13 @@
 #include <linux/kobject.h>
 #include <linux/interrupt.h>
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_gpio.h>
+#define DTS_IRQ_GPIO	"touch,irq-gpio"
+#define DTS_RESET_GPIO	"touch,reset-gpio"
+#endif
+
 #include "chip.h"
 #include "core/config.h"
 #include "core/dbbus.h"
@@ -48,14 +55,14 @@ typedef struct  _ilitek_device {
 
 	TP_INFO *tp_info;
 
+	int irq_gpio;
+
+	int reset_gpio;
+
 } ilitek_device;
 
 extern ilitek_device *ilitek_adapter;
-extern int ilitek_get_keyinfo(void);
-extern int ilitek_get_resolution(void);
-extern uint16_t ilitek_get_protocol_ver(void);
-extern uint8_t *ilitek_get_fw_ver(void);
-extern uint32_t ilitek_get_chip_type(void);
-extern int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id);
+extern int ilitek_read_tp_info(void);
+extern int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id, uint32_t *pData);
 
 #endif

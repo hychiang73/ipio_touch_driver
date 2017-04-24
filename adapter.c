@@ -4,30 +4,51 @@ ilitek_device *adapter;
 
 static int ilitek_init_core_func(void)
 {
-	if(core_config_init(CHIP_TYPE_ILI2121) < 0 ||
+	uint32_t send_to_core[] = {
+		adapter->chip_id,
+		adapter->irq_gpio,
+		adapter->reset_gpio
+	};
+
+	if(core_config_init(send_to_core) < 0 ||
 		core_i2c_init(adapter->client) < 0)
 			return -EINVAL;
 
 	return SUCCESS;
 }
 
-int ilitek_get_keyinfo(void)
+int ilitek_read_tp_info(void)
 {
 	int res;
 
-	res = core_config_GetKeyInfo();
-	if(res < 0)
+	adapter->chip_id = core_config_GetChipID();
+
+	DBG_INFO("CHIP ID = 0x%x", adapter->chip_id);
+
+	adapter->firmware_ver = core_config_GetFWVer();
+
+	if(!adapter->firmware_ver)
 	{
-		DBG_ERR("Getting key information error, res = %d", res);
-		return res;
+		DBG_ERR("Getting FW Ver error");
+		return -EFAULT;
 	}
 
-	return SUCCESS;
+	DBG_INFO("Firmware Version = %d.%d.%d.%d", 
+			*adapter->firmware_ver, 
+			*(adapter->firmware_ver+1),
+			*(adapter->firmware_ver+2),
+			*(adapter->firmware_ver+3));
 
-}
+	adapter->protocol_ver = core_config_GetProtocolVer();
 
-int ilitek_get_resolution(void)
-{
+	if(adapter->protocol_ver < 0)
+	{
+		DBG_ERR("Getting Protocol Ver error");
+		return -EFAULT;
+	}
+
+	DBG_INFO("Protocol Version = %x", adapter->protocol_ver);
+
 	adapter->tp_info = core_config_GetResolution();
 
 	if(adapter->tp_info == NULL)
@@ -45,60 +66,20 @@ int ilitek_get_resolution(void)
 			adapter->tp_info->nMaxKeyButtonNum,
 			adapter->tp_info->nKeyCount);
 
-	return SUCCESS;
-}
-
-uint32_t ilitek_get_chip_type(void)
-{
-
-	adapter->chip_id = core_config_GetChipID();
-
-	DBG_INFO("CHIP ID = 0x%x", adapter->chip_id);
-
-	return adapter->chip_id;
-}
-
-uint8_t* ilitek_get_fw_ver(void)
-{
-	adapter->firmware_ver = core_config_GetFWVer();
-
-	if(!adapter->firmware_ver)
+	res = core_config_GetKeyInfo();
+	if(res < 0)
 	{
-		DBG_ERR("Getting FW Ver error");
-		return NULL;
+		DBG_ERR("Getting key information error, res = %d", res);
+		return res;
 	}
 
-	DBG_INFO("Firmware Version = %d.%d.%d.%d", 
-			*adapter->firmware_ver, 
-			*(adapter->firmware_ver+1),
-			*(adapter->firmware_ver+2),
-			*(adapter->firmware_ver+3));
-
-	return adapter->firmware_ver;
+	return res;
 }
 
-uint16_t ilitek_get_protocol_ver(void)
+
+int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id, uint32_t *platform_info)
 {
-	uint16_t ptl_ver = -1;
-
-	ptl_ver = core_config_GetProtocolVer();
-
-	if(ptl_ver < 0)
-	{
-		DBG_ERR("Getting Protocol Ver error");
-		return -EFAULT;
-	}
-
-	adapter->protocol_ver = ptl_ver;
-
-	DBG_INFO("Protocol Version = %x", ptl_ver);
-
-	return ptl_ver;
-}
-
-int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id)
-{
-	int res;
+	int res = 0;
 
 	DBG_INFO();
 
@@ -108,6 +89,12 @@ int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id)
 
 	adapter->id = id;
 
+	adapter->chip_id = CHIP_TYPE_ILI2121;
+
+	adapter->irq_gpio = *platform_info;
+
+	adapter->reset_gpio = *(platform_info+1);
+
 	res = ilitek_init_core_func();
 	if(res < 0)
 	{
@@ -115,6 +102,5 @@ int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id)
 		return res;
 	}
 
-	return SUCCESS;
+	return res;
 }
-EXPORT_SYMBOL(ilitek_init);

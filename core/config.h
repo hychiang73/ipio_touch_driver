@@ -38,6 +38,8 @@ typedef struct _CORE_CONFIG {
 	TP_INFO *tp_info;
 	uint8_t *firmware_ver;
 	uint16_t protocol_ver;
+	uint32_t irq_gpio;
+	uint32_t reset_gpio;
 } CORE_CONFIG;
 
 extern CORE_CONFIG *core_config;
@@ -47,6 +49,6 @@ extern TP_INFO* core_config_GetResolution(void);
 extern uint16_t core_config_GetProtocolVer(void);
 extern uint8_t* core_config_GetFWVer(void);
 extern uint32_t core_config_GetChipID(void);
-extern int core_config_init(uint32_t chip_type);
+extern int core_config_init(uint32_t *platform_info);
 
 #endif
