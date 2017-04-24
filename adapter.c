@@ -48,41 +48,38 @@ int ilitek_get_resolution(void)
 	return SUCCESS;
 }
 
-int ilitek_get_chip_type(void)
+uint8_t ilitek_get_chip_type(void)
 {
-	int res;
 
-	res = core_config_GetChipID();
-
-	ilitek_adapter->chip_id = res;
+	ilitek_adapter->chip_id = core_config_GetChipID();
 
 	DBG_INFO("CHIP ID = 0x%x", ilitek_adapter->chip_id);
 
-	return res;
+	return ilitek_adapter->chip_id;
 }
 
-unsigned char* ilitek_get_fw_ver(void)
+uint8_t* ilitek_get_fw_ver(void)
 {
-	unsigned char *fw_ver;
+	ilitek_adapter->firmware_ver = core_config_GetFWVer();
 
-	fw_ver = core_config_GetFWVer();
-
-	if(!fw_ver)
+	if(!ilitek_adapter->firmware_ver)
 	{
 		DBG_ERR("Getting FW Ver error");
 		return NULL;
 	}
 
-	ilitek_adapter->firmware_ver = fw_ver;
+	DBG_INFO("Firmware Version = %d.%d.%d.%d", 
+			*ilitek_adapter->firmware_ver, 
+			*(ilitek_adapter->firmware_ver+1),
+			*(ilitek_adapter->firmware_ver+2),
+			*(ilitek_adapter->firmware_ver+3));
 
-	DBG_INFO("Firmware Version = %d.%d.%d.%d", *fw_ver, *(fw_ver+1), *(fw_ver+2), *(fw_ver+3));
-
-	return fw_ver;
+	return ilitek_adapter->firmware_ver;
 }
 
-unsigned short ilitek_get_protocol_ver(void)
+uint16_t ilitek_get_protocol_ver(void)
 {
-	unsigned short ptl_ver = -1;
+	uint16_t ptl_ver = -1;
 
 	ptl_ver = core_config_GetProtocolVer();
 

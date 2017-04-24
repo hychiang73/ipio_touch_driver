@@ -10,43 +10,40 @@
 #include "config.h"
 #include "i2c.h"
 
-#define DBG_LEVEL
-
-#define DBG_INFO(fmt, arg...) \
-			printk(KERN_INFO "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
-
-#define DBG_ERR(fmt, arg...) \
-			printk(KERN_ERR "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
-
-static signed int vfIceRegRead(unsigned int addr);
-static signed int ReadWriteOneByte(unsigned int addr);
-static signed int ReadWriteICEMode(unsigned int addr);
-static int WriteICEMode(unsigned int addr, unsigned int data, unsigned int size);
-static int EnterICEMode(void);
-static int ICEInit_212x(void);
 
 // This array stores the list of chips supported by the driver.
 // Add an id here if you're going to support a new chip.
-unsigned short SupChipList[] = {
+uint16_t SupChipList[] = {
 	CHIP_TYPE_ILI2121
 };
 
 CORE_CONFIG *core_config;
 EXPORT_SYMBOL(core_config);
 
-static signed int ReadWriteICEMode(unsigned int addr)
+static uint32_t ReadWriteICEMode(uint32_t addr)
 {
-    int rc;
-    unsigned int data = 0;
-    char szOutBuf[64] = {0};
+    int res = 0;
+    uint8_t szOutBuf[64] = {0};
+    uint32_t data = 0;
 
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
     szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-    core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
-    core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
+    res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to write data via i2c, res = %d", res);
+		return -EFAULT;
+	}
+
+    res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to read data via i2c, res = %d", res);
+		return -EFAULT;
+	}
 
     data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
 
@@ -54,52 +51,69 @@ static signed int ReadWriteICEMode(unsigned int addr)
 
 }
 
-static int WriteICEMode(unsigned int addr, unsigned int data, unsigned int size)
+static int WriteICEMode(uint32_t addr, uint32_t data, uint32_t size)
 {
-    int rc = 0, i = 0;
-    char szOutBuf[64] = {0};
+    int res = 0, i;
+    uint8_t szOutBuf[64] = {0};
 
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
     szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-    for (i = 0; i < size; i ++)
+    for(i = 0; i < size; i ++)
     {
         szOutBuf[i + 4] = (char)(data >> (8 * i));
     }
 
-    rc = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
+    res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to write data via i2c, res = %d", res);
+		return -EFAULT;
+	}
 
-    return rc;
+    return res;
 }
 
-static signed int ReadWriteOneByte(unsigned int addr)
+static uint32_t ReadWriteOneByte(uint32_t addr)
 {
     int res = 0;
-    signed int data = 0;
-    char szOutBuf[64] = {0};
+    uint32_t data = 0;
+    uint8_t szOutBuf[64] = {0};
 
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
     szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-    core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
-    core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
+    res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to write data via i2c, res = %d", res);
+		return -EFAULT;
+	}
+
+    res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to read data via i2c, res = %d", res);
+		return -EFAULT;
+	}
 
     data = (szOutBuf[0]);
 
     return data;
 }
 
-static signed int vfIceRegRead(unsigned int addr)
+static uint32_t vfIceRegRead(uint32_t addr)
 {
     int i, nInTimeCount = 100;
-    unsigned char szBuf[4] = {0};
+    uint8_t szBuf[4] = {0};
 
     WriteICEMode(0x41000, 0x3B | (addr << 8), 4);
     WriteICEMode(0x041004, 0x66AA5500, 4);
+
     // Check Flag
     // Check Busy Flag
     for (i = 0; i < nInTimeCount; i ++)
@@ -118,7 +132,7 @@ static signed int vfIceRegRead(unsigned int addr)
 
 static int ExitIceMode(void)
 {
-    int res;
+    int res = 0;
 
 	res = WriteICEMode(0x04004C, 0x2120, 2);
 	if (res < 0)
@@ -137,7 +151,7 @@ static int ExitIceMode(void)
 
     mdelay(50);
 
-    return SUCCESS;
+    return res;
 }
 
 static int EnterICEMode(void)
@@ -195,8 +209,8 @@ EXPORT_SYMBOL(core_config_HWReset);
 int core_config_GetKeyInfo(void)
 {
 	int res = 0, i;
-	unsigned char szWriteBuf[2] = {0};
-	unsigned char szReadBuf[64] = {0};
+	uint8_t szWriteBuf[2] = {0};
+	uint8_t szReadBuf[64] = {0};
 
 	if(core_config->protocol_ver == ILITEK_PROTOCOL_VERSION_3_2)
 	{
@@ -228,7 +242,9 @@ int core_config_GetKeyInfo(void)
 		core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
 		core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
 
-		DBG_INFO("nKeyAreaXLength=%d, nKeyAreaYLength= %d", core_config->tp_info->nKeyAreaXLength, core_config->tp_info->nKeyAreaYLength);
+		DBG_INFO("nKeyAreaXLength=%d, nKeyAreaYLength= %d", 
+				core_config->tp_info->nKeyAreaXLength,
+				core_config->tp_info->nKeyAreaYLength);
 
 		for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
 		{
@@ -239,15 +255,15 @@ int core_config_GetKeyInfo(void)
 		}
 	}
 
-	return SUCCESS;
+	return res;
 }
 EXPORT_SYMBOL(core_config_GetKeyInfo);
 
 TP_INFO* core_config_GetResolution(void)
 {
 	int res = 0, i = 0, resolution_length = 10;
-	unsigned char szWriteBuf[2] = {0};
-	unsigned char szReadBuf[10] = {0};
+	uint8_t szWriteBuf[2] = {0};
+	uint8_t szReadBuf[10] = {0};
     
 	szWriteBuf[0] = ILITEK_TP_CMD_GET_RESOLUTION;
 
@@ -283,11 +299,11 @@ TP_INFO* core_config_GetResolution(void)
 }
 EXPORT_SYMBOL(core_config_GetResolution);
 
-unsigned short core_config_GetProtocolVer(void)
+uint16_t core_config_GetProtocolVer(void)
 {
 	int res = 0, i = 0, protocol_length = 2;
-	unsigned char szWriteBuf[2] = {0};
-	unsigned char szReadBuf[2] = {0};
+	uint8_t szWriteBuf[2] = {0};
+	uint8_t szReadBuf[2] = {0};
 
     szWriteBuf[0] = ILITEK_TP_ILI2121_CMD_GET_PROTOCOL_VERSION;
 
@@ -313,11 +329,11 @@ unsigned short core_config_GetProtocolVer(void)
 }
 EXPORT_SYMBOL(core_config_GetProtocolVer);
 
-unsigned char* core_config_GetFWVer(void)
+uint8_t* core_config_GetFWVer(void)
 {
-	int res = -1, fw_length = 4;
-	unsigned char szWriteBuf[2] = {0};
-	unsigned char szReadBuf[4] = {0};
+	int res = 0, fw_length = 4;
+	uint8_t szWriteBuf[2] = {0};
+	uint8_t szReadBuf[4] = {0};
 
     szWriteBuf[0] = ILITEK_TP_ILI2121_CMD_GET_FIRMWARE_VERSION;
 
@@ -346,16 +362,22 @@ EXPORT_SYMBOL(core_config_GetFWVer);
 int core_config_GetChipID(void)
 {
     int i, res = 0;
-    unsigned int RealID = 0, PIDData = 0;
+    uint32_t RealID = 0, PIDData = 0;
 
 	res = EnterICEMode();
 	if(res < 0)
 	{
-		DBG_ERR("Failed to enter ICE mode");
+		DBG_ERR("Failed to enter ICE mode, res = %d", res);
 		return res;
 	}
 
-	core_config->IceModeInit();
+	res = core_config->IceModeInit();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to initialize ICE Mode, res = %d", res);
+		return res;
+	}
+
 	PIDData = ReadWriteICEMode(core_config->pid_addr);
 
 	if ((PIDData & 0xFFFFFF00) == 0)
@@ -382,11 +404,12 @@ int core_config_GetChipID(void)
 	}
 
 	DBG_ERR("PID DATA error : 0x%x", PIDData);
+
 	return -ENODEV;
 }
 EXPORT_SYMBOL(core_config_GetChipID);
 
-int core_config_init(unsigned int chip_type)
+int core_config_init(uint32_t chip_type)
 {
 	int i = 0;
 

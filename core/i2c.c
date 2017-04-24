@@ -6,18 +6,10 @@
 #include "config.h"
 #include "i2c.h"
 
-#define DBG_LEVEL
-
-#define DBG_INFO(fmt, arg...) \
-			printk(KERN_INFO "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
-
-#define DBG_ERR(fmt, arg...) \
-			printk(KERN_ERR "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
-
 CORE_I2C *core_i2c;
 extern CORE_CONFIG *core_config;
 
-int core_i2c_write(unsigned char nSlaveId, unsigned char *pBuf, unsigned short nSize)
+int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
     int res = -EINVAL, i;
 
@@ -46,7 +38,7 @@ int core_i2c_write(unsigned char nSlaveId, unsigned char *pBuf, unsigned short n
 }
 EXPORT_SYMBOL(core_i2c_write);
 
-int core_i2c_read(unsigned char nSlaveId, unsigned char *pBuf, unsigned short nSize)
+int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
     int rc = -EINVAL, i;
 
@@ -87,3 +79,5 @@ int core_i2c_init(struct i2c_client *client)
 
 	return SUCCESS;
 }
+EXPORT_SYMBOL(core_i2c_init);
+

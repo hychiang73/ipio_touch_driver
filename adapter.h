@@ -24,14 +24,6 @@
 #ifndef __ILITEK_H
 #define __ILITEK_H
 
-#define DBG_LEVEL
-
-#define DBG_INFO(fmt, arg...) \
-			printk(KERN_INFO "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
-
-#define DBG_ERR(fmt, arg...) \
-			printk(KERN_ERR "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
-
 
 typedef struct _ilitek_locks {
 
@@ -48,11 +40,11 @@ typedef struct  _ilitek_device {
 
 	ilitek_locks *ilitek_locks;
 
-	unsigned int chip_id;
+	uint8_t chip_id;
 
-	unsigned char *firmware_ver;
+	uint8_t *firmware_ver;
 
-	unsigned short protocol_ver;
+	uint16_t protocol_ver;
 
 	TP_INFO *tp_info;
 
@@ -61,23 +53,9 @@ typedef struct  _ilitek_device {
 extern ilitek_device *ilitek_adapter;
 extern int ilitek_get_keyinfo(void);
 extern int ilitek_get_resolution(void);
-extern unsigned short ilitek_get_protocol_ver(void);
-extern unsigned char* ilitek_get_fw_ver(void);
-extern int ilitek_get_chip_type(void);
+extern uint16_t ilitek_get_protocol_ver(void);
+extern uint8_t *ilitek_get_fw_ver(void);
+extern uint8_t ilitek_get_chip_type(void);
 extern int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id);
-
-/*
-#define u8   unsigned char
-#define u16  unsigned short
-#define u32  unsigned int
-#define s8   signed char
-#define s16  signed short
-#define s32  signed int
-#define s64  int64_t
-#define u64  uint64_t
-*/
-
-
-
 
 #endif

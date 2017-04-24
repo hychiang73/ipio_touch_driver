@@ -11,7 +11,8 @@ extern ilitek_device *ilitek_adapter;
 static int rk3288_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
-	unsigned char *fw_ver;
+	uint8_t *fw_ver;
+
 	DBG_INFO("Enter probe function"); 
 
     if (client == NULL)

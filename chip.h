@@ -1,12 +1,33 @@
 /*
- * This header file include all definiations for different types of Touch IC.
+ * This header file include all definiations with different types of ILITEK Touch IC.
  */
 
-#define SUCCESS 0
+#define SUCCESS		0
+
+#define DBG_LEVEL
+
+#define DBG_INFO(fmt, arg...) \
+			printk(KERN_INFO "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
+
+#define DBG_ERR(fmt, arg...) \
+			printk(KERN_ERR "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
+/*
+ * The short name of data type
+ */
+
+#define uint8_t		unsigned char
+#define uint16_t	unsigned short
+#define uint32_t	unsigned int
+#define int8_t		signed char
+#define int16_t		signed short
+#define int32_t		signed int
+//#define int64_t  int64_t
+//#define uint64_t  uint64_t
 
 /*
  *  ILI21xx
  */
+
 #define CHIP_TYPE_ILI2120   (0x2120)
 #define CHIP_TYPE_ILI2121   (0x2121)
 
@@ -38,6 +59,7 @@
 // The size of hex files for ILI21xx shall be smaller than 160KB.
 #define ILITEK_ILI21XX_FIRMWARE_SIZE (160)
 #define ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH (128)
+
 // The szie of ili file shall be large enough for stored any kind firmware size of ILI21XX(256KB).
 #define ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE (256)
 
@@ -45,4 +67,5 @@
 /*
  * Protocol's definition
  */
+
  #define ILITEK_PROTOCOL_VERSION_3_2		(0x302)
