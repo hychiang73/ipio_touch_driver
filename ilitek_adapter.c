@@ -11,6 +11,21 @@ static int ilitek_init_core_func(void)
 	return SUCCESS;
 }
 
+int ilitek_get_keyinfo(void)
+{
+	int res;
+
+	res = core_config_GetKeyInfo();
+	if(res < 0)
+	{
+		DBG_ERR("Getting key information error, res = %d", res);
+		return res;
+	}
+
+	return SUCCESS;
+
+}
+
 int ilitek_get_resolution(void)
 {
 	ilitek_adapter->tp_info = core_config_GetResolution();

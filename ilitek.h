@@ -59,12 +59,12 @@ typedef struct  _ilitek_device {
 } ilitek_device;
 
 extern ilitek_device *ilitek_adapter;
+extern int ilitek_get_keyinfo(void);
 extern int ilitek_get_resolution(void);
 extern unsigned short ilitek_get_protocol_ver(void);
 extern unsigned char* ilitek_get_fw_ver(void);
 extern int ilitek_get_chip_type(void);
 extern int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id);
-
 
 /*
 #define u8   unsigned char

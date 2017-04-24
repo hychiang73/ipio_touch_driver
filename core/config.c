@@ -76,7 +76,7 @@ static int WriteICEMode(unsigned int addr, unsigned int data, unsigned int size)
 
 static signed int ReadWriteOneByte(unsigned int addr)
 {
-    int rc = 0;
+    int res = 0;
     signed int data = 0;
     char szOutBuf[64] = {0};
 
@@ -118,21 +118,21 @@ static signed int vfIceRegRead(unsigned int addr)
 
 static int ExitIceMode(void)
 {
-    int rc;
+    int res;
 
-	rc = WriteICEMode(0x04004C, 0x2120, 2);
-	if (rc < 0)
+	res = WriteICEMode(0x04004C, 0x2120, 2);
+	if (res < 0)
 	{
-		DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, rc = %d\n", rc);
-		return rc;
+		DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, res = %d\n", res);
+		return res;
 	}
 	mdelay(10);
 
-	rc = WriteICEMode(0x04004E, 0x01, 1);
-	if (rc < 0)
+	res = WriteICEMode(0x04004E, 0x01, 1);
+	if (res < 0)
 	{
-		DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, rc = %d\n", rc);
-		return rc;
+		DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
+		return res;
 	}
 
     mdelay(50);
@@ -192,6 +192,57 @@ void core_config_HWReset(void)
 }
 EXPORT_SYMBOL(core_config_HWReset);
 
+int core_config_GetKeyInfo(void)
+{
+	int res = 0, i;
+	unsigned char szWriteBuf[2] = {0};
+	unsigned char szReadBuf[64] = {0};
+
+	if(core_config->protocol_ver == ILITEK_PROTOCOL_VERSION_3_2)
+	{
+		szWriteBuf[0] = ILITEK_TP_CMD_GET_KEY_INFORMATION;
+		res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to write a command to get key info, res = %d\n", res);
+			return -EIO;
+		}
+
+		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], 29);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
+			return -EIO;
+		}
+
+		if(core_config->tp_info->nKeyCount > 5)
+		{
+			res = core_i2c_read(core_config->slave_i2c_addr, (szReadBuf+29), 25);
+			if(res < 0)
+			{
+				DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
+				return -EIO;
+			}
+		}
+
+		core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
+		core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
+
+		DBG_INFO("nKeyAreaXLength=%d, nKeyAreaYLength= %d", core_config->tp_info->nKeyAreaXLength, core_config->tp_info->nKeyAreaYLength);
+
+		for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
+		{
+			core_config->tp_info->virtual_key[i].nId = szReadBuf[i*5+4];
+			core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
+			core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
+			core_config->tp_info->virtual_key[i].nStatus = 0;
+		}
+	}
+
+	return SUCCESS;
+}
+EXPORT_SYMBOL(core_config_GetKeyInfo);
+
 TP_INFO* core_config_GetResolution(void)
 {
 	int res = 0, i = 0, resolution_length = 10;
@@ -237,7 +288,6 @@ unsigned short core_config_GetProtocolVer(void)
 	int res = 0, i = 0, protocol_length = 2;
 	unsigned char szWriteBuf[2] = {0};
 	unsigned char szReadBuf[2] = {0};
-	unsigned short ptl_ver;
 
     szWriteBuf[0] = ILITEK_TP_ILI2121_CMD_GET_PROTOCOL_VERSION;
 
@@ -257,9 +307,9 @@ unsigned short core_config_GetProtocolVer(void)
 		return -EFAULT;
 	}
         
-	ptl_ver = (szReadBuf[0] << 8) + szReadBuf[1];
+	core_config->protocol_ver = (szReadBuf[0] << 8) + szReadBuf[1];
 
-	return ptl_ver;
+	return core_config->protocol_ver;
 }
 EXPORT_SYMBOL(core_config_GetProtocolVer);
 
@@ -268,7 +318,6 @@ unsigned char* core_config_GetFWVer(void)
 	int res = -1, fw_length = 4;
 	unsigned char szWriteBuf[2] = {0};
 	unsigned char szReadBuf[4] = {0};
-	unsigned char *fw_ver;
 
     szWriteBuf[0] = ILITEK_TP_ILI2121_CMD_GET_FIRMWARE_VERSION;
 
@@ -288,9 +337,9 @@ unsigned char* core_config_GetFWVer(void)
 		return NULL;
 	}
 
-	fw_ver = szReadBuf;
+	core_config->firmware_ver = szReadBuf;
 
-	return fw_ver;
+	return core_config->firmware_ver;
 }
 EXPORT_SYMBOL(core_config_GetFWVer);
 
@@ -364,10 +413,11 @@ int core_config_init(unsigned int chip_type)
 
 	if(core_config == NULL) 
 	{
-		DBG_ERR("Can't find id from support list, init core-config failed ");
+		DBG_ERR("Can't find an id from the support list, init core-config failed ");
 		return -EINVAL;
 	}
 
 	return SUCCESS;
 }
 EXPORT_SYMBOL(core_config_init);
+
