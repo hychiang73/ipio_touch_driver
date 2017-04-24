@@ -21,8 +21,8 @@
 #include "core/glove.h"
 #include "core/i2c.h"
 
-#ifndef __ILITEK_H
-#define __ILITEK_H
+#ifndef __ADAPTER_H
+#define __ADAPTER_H
 
 
 typedef struct _ilitek_locks {
@@ -40,7 +40,7 @@ typedef struct  _ilitek_device {
 
 	ilitek_locks *ilitek_locks;
 
-	uint8_t chip_id;
+	uint32_t chip_id;
 
 	uint8_t *firmware_ver;
 
@@ -55,7 +55,7 @@ extern int ilitek_get_keyinfo(void);
 extern int ilitek_get_resolution(void);
 extern uint16_t ilitek_get_protocol_ver(void);
 extern uint8_t *ilitek_get_fw_ver(void);
-extern uint8_t ilitek_get_chip_type(void);
+extern uint32_t ilitek_get_chip_type(void);
 extern int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id);
 
 #endif

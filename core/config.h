@@ -46,7 +46,7 @@ extern int core_config_GetKeyInfo(void);
 extern TP_INFO* core_config_GetResolution(void);
 extern uint16_t core_config_GetProtocolVer(void);
 extern uint8_t* core_config_GetFWVer(void);
-extern int core_config_GetChipID(void);
+extern uint32_t core_config_GetChipID(void);
 extern int core_config_init(uint32_t chip_type);
 
 #endif

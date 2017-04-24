@@ -1,4 +1,4 @@
-#include "ilitek.h"
+#include "adapter.h"
 #include "chip.h"
 
 #define I2C_DEVICE_ID	"RK3288_TP_ID"
@@ -6,9 +6,9 @@
 MODULE_AUTHOR("ILITEK");
 MODULE_LICENSE("GPL");
 
-extern ilitek_device *ilitek_adapter;
+extern ilitek_device *adapter;
 
-static int rk3288_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
 	uint8_t *fw_ver;
@@ -43,7 +43,7 @@ static int rk3288_probe(struct i2c_client *client, const struct i2c_device_id *i
 	return SUCCESS;
 }
 
-static int rk3288_remove(struct i2c_client *client)
+static int ilitek_platform_remove(struct i2c_client *client)
 {
 	DBG_INFO("Enter remove function");
 }
@@ -68,12 +68,12 @@ static struct i2c_driver tp_i2c_driver =
         .owner = THIS_MODULE,
         .of_match_table = tp_match_table,
     },
-    .probe = rk3288_probe,
-    .remove = rk3288_remove,
+    .probe = ilitek_platform_probe,
+    .remove = ilitek_platform_remove,
     .id_table = tp_device_id,
 };
 
-static int __init rk3288_init(void)
+static int __init ilitek_platform_init(void)
 {
 	int res = 0;
 
@@ -90,7 +90,7 @@ static int __init rk3288_init(void)
 	return SUCCESS;
 }
 
-static void __exit rk3288_exit(void)
+static void __exit ilitek_platform_exit(void)
 {
 	DBG_INFO("i2c driver has been removed");
 
@@ -98,5 +98,5 @@ static void __exit rk3288_exit(void)
 }
 
 
-module_init(rk3288_init);
-module_exit(rk3288_exit);
+module_init(ilitek_platform_init);
+module_exit(ilitek_platform_exit);

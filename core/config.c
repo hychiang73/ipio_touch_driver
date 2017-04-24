@@ -359,7 +359,7 @@ uint8_t* core_config_GetFWVer(void)
 }
 EXPORT_SYMBOL(core_config_GetFWVer);
 
-int core_config_GetChipID(void)
+uint32_t core_config_GetChipID(void)
 {
     int i, res = 0;
     uint32_t RealID = 0, PIDData = 0;
