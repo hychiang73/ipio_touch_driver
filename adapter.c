@@ -95,6 +95,8 @@ int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id, uint3
 
 	adapter->reset_gpio = *(platform_info+1);
 
+	adapter->isIrqEnable = false;
+
 	res = ilitek_init_core_func();
 	if(res < 0)
 	{
@@ -103,4 +105,14 @@ int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id, uint3
 	}
 
 	return res;
+}
+
+void ilitek_remove(void)
+{
+	DBG_INFO();
+
+	kfree(adapter);
+
+	core_config_remove();
+	core_i2c_remove();
 }

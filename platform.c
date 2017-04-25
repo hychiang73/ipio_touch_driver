@@ -3,7 +3,7 @@
 
 #define I2C_DEVICE_ID	"ILITEK_TP_ID"
 
-struct work_struct irq_workqueue;
+struct work_struct irq_work_queue;
 struct mutex MUTEX;
 spinlock_t SPIN_LOCK;
 
@@ -12,14 +12,29 @@ extern ilitek_device *adapter;
 MODULE_AUTHOR("ILITEK");
 MODULE_LICENSE("GPL");
 
-
-static int ilitek_platform_work(struct work_struct *work)
+static void ilitek_platform_finger_report(void)
 {
-	int res = 0;
+	DBG_INFO();
+}
+
+static void ilitek_platform_work_queue(struct work_struct *work)
+{
+    unsigned long nIrqFlag;
 
 	DBG_INFO();
 
-	return res;
+    spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
+
+	if(!adapter->isIrqEnable)
+	{
+		ilitek_platform_finger_report();
+
+		enable_irq(adapter->gpio_to_irq);
+	}
+
+	spin_unlock_irqrestore(&SPIN_LOCK, nIrqFlag);
+
+	adapter->isIrqEnable = true;
 }
 
 static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
@@ -30,10 +45,16 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 
     spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
 
-    schedule_work(&irq_workqueue);
+	if(adapter->isIrqEnable)
+	{
+		disable_irq_nosync(adapter->gpio_to_irq);
+
+		schedule_work(&irq_work_queue);
+	}
 
     spin_unlock_irqrestore(&SPIN_LOCK, nIrqFlag);
 
+	adapter->isIrqEnable = false;
 
     return IRQ_HANDLED;
 }
@@ -41,14 +62,13 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 static int ilitek_platform_isr_register(void)
 {
 	int res = 0;
-	uint32_t irq = 0;
 	
-	INIT_WORK(&irq_workqueue, ilitek_platform_work);
+	INIT_WORK(&irq_work_queue, ilitek_platform_work_queue);
 
-	irq = gpio_to_irq(adapter->int_gpio);
+	adapter->gpio_to_irq = gpio_to_irq(adapter->int_gpio);
 
     res = request_threaded_irq(
-				irq,
+				adapter->gpio_to_irq,
 				NULL,
 				ilitek_platform_irq_handler,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
@@ -57,9 +77,13 @@ static int ilitek_platform_isr_register(void)
 
 	if(res != 0)
 	{
-		DBG_ERR("Failed to register irq handler, irq = %d, res = %d", irq, res);
+		DBG_ERR("Failed to register irq handler, irq = %d, res = %d",
+				adapter->gpio_to_irq,
+				res);
 		return res;
 	}
+
+	adapter->isIrqEnable = true;
 
 	return res;
 }
@@ -151,6 +175,17 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 static int ilitek_platform_remove(struct i2c_client *client)
 {
 	DBG_INFO("Enter remove function");
+
+	if(adapter->isIrqEnable)
+	{
+		disable_irq_nosync(adapter->gpio_to_irq);
+	}
+
+	free_irq(adapter->gpio_to_irq, (void *)adapter->id);
+
+	gpio_free(adapter->int_gpio);
+	gpio_free(adapter->reset_gpio);
+	ilitek_remove();
 }
 
 static const struct i2c_device_id tp_device_id[] =

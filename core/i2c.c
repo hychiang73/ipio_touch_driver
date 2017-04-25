@@ -81,3 +81,10 @@ int core_i2c_init(struct i2c_client *client)
 }
 EXPORT_SYMBOL(core_i2c_init);
 
+void core_i2c_remove(void)
+{
+	DBG_INFO();
+
+	kfree(core_i2c);
+}
+

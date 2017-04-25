@@ -52,10 +52,15 @@ typedef struct  _ilitek_device {
 
 	int reset_gpio;
 
+	int gpio_to_irq;
+
+	bool isIrqEnable;
+
 } ilitek_device;
 
 extern ilitek_device *ilitek_adapter;
 extern int ilitek_read_tp_info(void);
 extern int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id, uint32_t *pData);
+extern void ilitek_remove(void);
 
 #endif

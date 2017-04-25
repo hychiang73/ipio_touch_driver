@@ -50,5 +50,6 @@ extern uint16_t core_config_GetProtocolVer(void);
 extern uint8_t* core_config_GetFWVer(void);
 extern uint32_t core_config_GetChipID(void);
 extern int core_config_init(uint32_t *platform_info);
+extern void core_config_remove(void);
 
 #endif

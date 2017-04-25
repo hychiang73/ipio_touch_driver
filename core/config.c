@@ -451,3 +451,13 @@ int core_config_init(uint32_t *platform_info)
 }
 EXPORT_SYMBOL(core_config_init);
 
+void core_config_remove(void)
+{
+	DBG_INFO();
+
+	kfree(core_config);
+
+	kfree(core_config->tp_info);
+}
+EXPORT_SYMBOL(core_config_remove);
+
