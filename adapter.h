@@ -11,11 +11,12 @@
 #include <linux/platform_device.h>
 #include <linux/kobject.h>
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_gpio.h>
-#define DTS_IRQ_GPIO	"touch,irq-gpio"
+#define DTS_INT_GPIO	"touch,irq-gpio"
 #define DTS_RESET_GPIO	"touch,reset-gpio"
 #endif
 
@@ -32,20 +33,12 @@
 #define __ADAPTER_H
 
 
-typedef struct _ilitek_locks {
-
-	struct mutex MUTEX;
-	spinlock_t SPIN_LOCK;
-
-} ilitek_locks;
 
 typedef struct  _ilitek_device {
 
 	struct i2c_client *client;
 
 	const struct i2c_device_id *id;
-
-	ilitek_locks *ilitek_locks;
 
 	uint32_t chip_id;
 
@@ -55,7 +48,7 @@ typedef struct  _ilitek_device {
 
 	TP_INFO *tp_info;
 
-	int irq_gpio;
+	int int_gpio;
 
 	int reset_gpio;
 

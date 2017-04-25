@@ -6,7 +6,7 @@ static int ilitek_init_core_func(void)
 {
 	uint32_t send_to_core[] = {
 		adapter->chip_id,
-		adapter->irq_gpio,
+		adapter->int_gpio,
 		adapter->reset_gpio
 	};
 
@@ -91,7 +91,7 @@ int ilitek_init(struct i2c_client *client, const struct i2c_device_id *id, uint3
 
 	adapter->chip_id = CHIP_TYPE_ILI2121;
 
-	adapter->irq_gpio = *platform_info;
+	adapter->int_gpio = *platform_info;
 
 	adapter->reset_gpio = *(platform_info+1);
 

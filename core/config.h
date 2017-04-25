@@ -38,7 +38,7 @@ typedef struct _CORE_CONFIG {
 	TP_INFO *tp_info;
 	uint8_t *firmware_ver;
 	uint16_t protocol_ver;
-	uint32_t irq_gpio;
+	uint32_t int_gpio;
 	uint32_t reset_gpio;
 } CORE_CONFIG;
 

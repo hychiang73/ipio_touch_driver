@@ -7,10 +7,10 @@
 #define DBG_LEVEL
 
 #define DBG_INFO(fmt, arg...) \
-			printk(KERN_INFO "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
+			printk(KERN_INFO "ILITEK: (%s): " fmt "\n", __func__, ##arg);
 
 #define DBG_ERR(fmt, arg...) \
-			printk(KERN_ERR "ILITEK: (%s): %d: " fmt "\n", __func__, __LINE__, ##arg);
+			printk(KERN_ERR "ILITEK: (%s): " fmt "\n", __func__, ##arg);
 /*
  * The short name of data type
  */

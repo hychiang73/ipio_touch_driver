@@ -431,7 +431,7 @@ int core_config_init(uint32_t *platform_info)
 			if(chip_type = CHIP_TYPE_ILI2121)
 			{
 				core_config->chip_id = chip_type;
-				core_config->irq_gpio = igpio;
+				core_config->int_gpio = igpio;
 				core_config->reset_gpio = rgpio;
 				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
