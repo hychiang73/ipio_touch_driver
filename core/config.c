@@ -196,20 +196,7 @@ static int ICEInit_212x(void)
     return SUCCESS;
 }
 
-void core_config_HWReset(void)
-{
-	DBG_INFO();
-
-	gpio_direction_output(core_config->reset_gpio, 1);
-	mdelay(10);
-	gpio_set_value(core_config->reset_gpio, 0);
-	mdelay(100);
-	gpio_set_value(core_config->reset_gpio, 1);
-	mdelay(25);
-}
-EXPORT_SYMBOL(core_config_HWReset);
-
-int core_config_GetKeyInfo(void)
+TP_INFO* core_config_GetKeyInfo(void)
 {
 	int res = 0, i;
 	uint8_t szWriteBuf[2] = {0};
@@ -222,43 +209,42 @@ int core_config_GetKeyInfo(void)
 		if (res < 0)
 		{
 			DBG_ERR("Failed to write a command to get key info, res = %d\n", res);
-			return -EIO;
+			return NULL;
 		}
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], 29);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
-			return -EIO;
+			return NULL;
 		}
 
-		if(core_config->tp_info->nKeyCount > 5)
+		if(core_config->tp_info->nKeyCount)
 		{
-			res = core_i2c_read(core_config->slave_i2c_addr, (szReadBuf+29), 25);
-			if(res < 0)
+			if(core_config->tp_info->nKeyCount > 5)
 			{
-				DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
-				return -EIO;
+				res = core_i2c_read(core_config->slave_i2c_addr, (szReadBuf+29), 25);
+				if(res < 0)
+				{
+					DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
+					return NULL;
+				}
 			}
-		}
 
-		core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
-		core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
+			core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
+			core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
 
-		DBG_INFO("nKeyAreaXLength=%d, nKeyAreaYLength= %d", 
-				core_config->tp_info->nKeyAreaXLength,
-				core_config->tp_info->nKeyAreaYLength);
-
-		for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
-		{
-			core_config->tp_info->virtual_key[i].nId = szReadBuf[i*5+4];
-			core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
-			core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
-			core_config->tp_info->virtual_key[i].nStatus = 0;
+			for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
+			{
+				core_config->tp_info->virtual_key[i].nId = szReadBuf[i*5+4];
+				core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
+				core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
+				core_config->tp_info->virtual_key[i].nStatus = 0;
+			}
 		}
 	}
 
-	return res;
+	return core_config->tp_info;
 }
 EXPORT_SYMBOL(core_config_GetKeyInfo);
 
@@ -412,12 +398,12 @@ uint32_t core_config_GetChipID(void)
 }
 EXPORT_SYMBOL(core_config_GetChipID);
 
-int core_config_init(uint32_t *platform_info)
+int core_config_init(uint32_t id)
 {
 	int i = 0;
-	uint32_t chip_type = *platform_info;
-	uint32_t igpio = *(platform_info+1);
-	uint32_t rgpio = *(platform_info+2);
+	uint32_t chip_type = id;
+
+	DBG_INFO();
 
 	for(; i < sizeof(SupChipList); i++)
 	{
@@ -431,8 +417,8 @@ int core_config_init(uint32_t *platform_info)
 			if(chip_type = CHIP_TYPE_ILI2121)
 			{
 				core_config->chip_id = chip_type;
-				core_config->int_gpio = igpio;
-				core_config->reset_gpio = rgpio;
+				//core_config->int_gpio = igpio;
+				//core_config->reset_gpio = rgpio;
 				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI21XX_PID_ADDR;
