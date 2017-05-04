@@ -7,10 +7,21 @@
 #include <linux/socket.h>
 #include <net/sock.h>
 
+#include "chip.h"
 #include "platform.h"
 
 #define NETLINK_USER	31
 struct socket *nl_sk;
+
+#define ILITEK_IOCTL_MAGIC	'I' 
+#define ILITEK_IOCTL_MAXNR	4
+
+#define ILITEK_IOCTL_I2C_WRITE_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 0, uint8_t*)
+#define ILITEK_IOCTL_I2C_SET_WRITE_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 1, int)
+#define ILITEK_IOCTL_I2C_READ_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 2, uint8_t*)
+#define ILITEK_IOCTL_I2C_SET_READ_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 3, int)
+
+extern CORE_CONFIG *core_config;
 
 static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -61,19 +72,72 @@ static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *
 
 static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-}
+	int res = 0;
+	uint8_t	 szBuf[512] = {0};
+	uint16_t length = 0;
 
+	if(_IOC_TYPE(cmd) != ILITEK_IOCTL_MAGIC)
+	{
+		DBG_ERR("The Magic number doesn't match");
+		return -ENOTTY;
+	}
 
-static ssize_t ilitek_proc_i2c_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
-{
+	if(_IOC_NR(cmd) > ILITEK_IOCTL_MAXNR)
+	{
+		DBG_ERR("The number of ioctl doesn't match");
+		return -ENOTTY;
+	}
+
 	DBG_INFO();
-	return size;
-}
 
-static ssize_t ilitek_proc_i2c_write(struct file *filp, const char __user *buff, size_t size, loff_t *pPos)
-{
-	DBG_INFO();
-	return size;
+	switch(cmd)
+	{
+		case ILITEK_IOCTL_I2C_WRITE_DATA:
+			DBG_INFO("ILITEK_IOCTL_I2C_WRITE_DATA");
+			res = copy_from_user(szBuf, (unsigned char*)arg, length);
+			if(res < 0)
+			{
+				DBG_ERR("Failed to copy data from userspace");
+				break;
+			}
+
+			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], length);
+			if(res < 0)
+			{
+				DBG_ERR("Failed to write data via i2c");
+				break;
+			}
+			break;
+
+		case ILITEK_IOCTL_I2C_READ_DATA:
+			DBG_INFO("ILITEK_IOCTL_I2C_READ_DATA");
+			res = core_i2c_read(core_config->slave_i2c_addr, szBuf, length);
+			if(res < 0)
+			{
+				DBG_INFO("Failed to read data via i2c");
+				break;
+			}
+
+			res = copy_to_user((unsigned char*)arg, szBuf, length);
+			if(res < 0)
+			{
+				DBG_INFO("Failed to copy data to userspace");
+				break;
+			}
+			break;
+
+		case ILITEK_IOCTL_I2C_SET_WRITE_LENGTH:
+		case ILITEK_IOCTL_I2C_SET_READ_LENGTH:
+			DBG_INFO("ILITEK_IOCTL_I2C_WRITE_LENGTH");
+			length = arg;
+			break;
+
+		default:
+			res = -ENOTTY;
+			break;
+	}
+
+	return res;
 }
 
 struct proc_dir_entry *proc_dir_ilitek;
@@ -84,8 +148,7 @@ struct proc_dir_entry *proc_gesture;
 struct proc_dir_entry *proc_glove;
 
 struct file_operations proc_i2c_fops = {
-	.read  = ilitek_proc_i2c_read,
-	.write = ilitek_proc_i2c_write,
+	.unlocked_ioctl = ilitek_proc_i2c_ioctl,
 };
 
 struct file_operations proc_firmware_fops = {
