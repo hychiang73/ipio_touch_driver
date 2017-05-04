@@ -234,6 +234,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
         DBG_ERR("i2c client is NULL");
         return -ENODEV;
 	}
+
 	TIC = (platform_info*)kmalloc(sizeof(platform_info), GFP_KERNEL);
 
 	TIC->client = client;
@@ -276,7 +277,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 static int ilitek_platform_remove(struct i2c_client *client)
 {
 	DBG_INFO("Enter remove function");
-#if 1
+
 	if(TIC->isIrqEnable)
 	{
 		disable_irq_nosync(TIC->gpio_to_irq);
@@ -289,7 +290,8 @@ static int ilitek_platform_remove(struct i2c_client *client)
 
 	core_config_remove();
 	core_i2c_remove();
-#endif
+
+	ilitek_proc_remove();
 }
 
 static const struct i2c_device_id tp_device_id[] =
@@ -328,6 +330,8 @@ static int __init ilitek_platform_init(void)
 		DBG_ERR("Failed to add i2c driver");
 		return -ENODEV;
 	}
+
+	ilitek_proc_init();
 
 	DBG_INFO("Succeed to add i2c driver");
 

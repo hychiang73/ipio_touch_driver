@@ -1,7 +1,7 @@
 obj-m += ilitek.o
 
 INCLUDE=core
-ilitek-objs :=  platform.o ilitek_userspace.o \
+ilitek-objs :=  platform.o userspace.o \
 				$(INCLUDE)/config.o \
 				$(INCLUDE)/dbbus.o \
 				$(INCLUDE)/i2c.o \
