@@ -13,15 +13,8 @@
 #include "config.h"
 #include "i2c.h"
 
-
-// This array stores the list of chips supported by the driver.
-// Add an id here if you're going to support a new chip.
-uint16_t SupChipList[] = {
-	CHIP_TYPE_ILI2121
-};
-
 CORE_CONFIG *core_config;
-EXPORT_SYMBOL(core_config);
+extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
 static uint32_t ReadWriteICEMode(uint32_t addr)
 {
@@ -401,24 +394,20 @@ EXPORT_SYMBOL(core_config_GetChipID);
 int core_config_init(uint32_t id)
 {
 	int i = 0;
-	uint32_t chip_type = id;
+	int length = sizeof(SUP_CHIP_LIST)/sizeof(uint32_t);
 
 	DBG_INFO();
 
-	for(; i < sizeof(SupChipList); i++)
+	for(; i < length; i++)
 	{
-		if(SupChipList[i] == chip_type)
+		if(SUP_CHIP_LIST[i] == id)
 		{
 			core_config = (CORE_CONFIG*)kmalloc(sizeof(*core_config), GFP_KERNEL);
 			core_config->tp_info = (TP_INFO*)kmalloc(sizeof(*core_config->tp_info), GFP_KERNEL);
-			core_config->scl = SupChipList;
-			core_config->scl_size = sizeof(SupChipList);
 
-			if(chip_type = CHIP_TYPE_ILI2121)
+			if(SUP_CHIP_LIST[i] = CHIP_TYPE_ILI2121)
 			{
-				core_config->chip_id = chip_type;
-				//core_config->int_gpio = igpio;
-				//core_config->reset_gpio = rgpio;
+				core_config->chip_id = id;
 				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI21XX_PID_ADDR;

@@ -67,6 +67,9 @@ static ssize_t ilitek_proc_firmware_read(struct file *filp, char __user *buff, s
 static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *buff, size_t size, loff_t *pPos)
 {
 	DBG_INFO();
+
+	core_firmware_upgrade(CHIP_TYPE_ILI2121); 
+
 	return size;
 }
 
@@ -198,10 +201,10 @@ typedef struct {
 
 proc_node_t proc_table[] = {
 	{"i2c",		 NULL, &proc_i2c_fops,     false},
-	{"firmware", NULL, &proc_mp_test_fops, false},
+	{"firmware", NULL, &proc_firmware_fops, false},
 	{"mp_test",  NULL, &proc_mp_test_fops, false},
-	{"gesture",  NULL, &proc_mp_test_fops, false},
-	{"glove",    NULL, &proc_mp_test_fops, false},
+	{"gesture",  NULL, &proc_gesture_fops, false},
+	{"glove",    NULL, &proc_glove_fops, false},
 };
 
 int ilitek_proc_init(void)

@@ -9,6 +9,7 @@ ilitek-objs :=  platform.o userspace.o \
 				$(INCLUDE)/fr.o \
 				$(INCLUDE)/gesture.o \
 				$(INCLUDE)/glove.o \
+				$(INCLUDE)/sup_chip.o \
 
 TOOLCHAIN = /home/ilisa/Workplace/rk3288_sdk/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin
 CC = $(TOOLCHAIN)/arm-eabi-gcc

@@ -31,9 +31,6 @@ typedef struct _CORE_CONFIG {
     uint32_t slave_i2c_addr;
     uint32_t ice_mode_addr;
     uint32_t pid_addr;
-	/* a list of chip supported by the driver */
-	uint16_t *scl;
-	int scl_size;
     int (*IceModeInit)(void);
 	TP_INFO *tp_info;
 	uint8_t *firmware_ver;

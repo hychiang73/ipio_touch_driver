@@ -11,6 +11,7 @@
 
 #define DBG_ERR(fmt, arg...) \
 			printk(KERN_ERR "ILITEK: (%s): " fmt "\n", __func__, ##arg);
+
 /*
  * The short name of data type
  */
@@ -24,13 +25,14 @@
 //#define int64_t  int64_t
 //#define uint64_t  uint64_t
 
+#define SUPP_CHIP_NUM	2
+
 /*
  *  ILI21xx
  */
 
 #define CHIP_TYPE_ILI2120   (0x2120)
 #define CHIP_TYPE_ILI2121   (0x2121)
-
 #define ILI21XX_SLAVE_ADDR		(0x41)
 #define ILI21XX_ICE_MODE_ADDR	(0x181062)
 #define ILI21XX_PID_ADDR		(0x4009C)
