@@ -15,14 +15,12 @@
 #include "i2c.h"
 #include "firmware.h"
 
-bool upgraded = false;
-
 CORE_FIRMWARE *core_firmware;
 extern CORE_CONFIG *core_config;
 extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
-uint8_t g_IliTekFwDataBuf[ILITEK_ILI21XX_FIRMWARE_SIZE*1024] = {0}; // for update firmware(ILI21xx) from SD card
-uint8_t fwdata[ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE*1024] = {0};
+uint8_t fwdata_buffer[ILITEK_ILI21XX_FIRMWARE_SIZE * 1024] = {0};
+uint8_t fwdata[ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE * 1024] = {0};
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -398,6 +396,8 @@ int core_firmware_upgrade(const char *pFilePath)
 
 	DBG_INFO("file path = %s", pFilePath);
 
+	core_firmware->isUpgraded = false;
+
     pfile = filp_open(pFilePath, O_RDONLY, 0);
     if (IS_ERR(pfile))
     {
@@ -424,7 +424,7 @@ int core_firmware_upgrade(const char *pFilePath)
 		else
 		{
 
-			memset(g_IliTekFwDataBuf, 0, ILITEK_ILI21XX_FIRMWARE_SIZE*1024);
+			memset(fwdata_buffer, 0, ILITEK_ILI21XX_FIRMWARE_SIZE*1024);
 
 			// store current userspace mem segment.
 			old_fs = get_fs();
@@ -433,17 +433,18 @@ int core_firmware_upgrade(const char *pFilePath)
 			set_fs(KERNEL_DS);
 
 			// read firmware data from userspace mem segment
-			vfs_read(pfile, g_IliTekFwDataBuf, fsize, &pos);
+			vfs_read(pfile, fwdata_buffer, fsize, &pos);
 
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
 
 			//TODO: disable finger report before upgrading.
 
-			res == convert_firmware(g_IliTekFwDataBuf, fsize);
+			res == convert_firmware(fwdata_buffer, fsize);
 			if( res < 0)
 			{
 				DBG_ERR("Failed to covert firmware data, res = %d", res);
+				return res;
 			}
 			else
 			{
@@ -451,7 +452,10 @@ int core_firmware_upgrade(const char *pFilePath)
 				if(res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
+					return res;
 				}
+
+				core_firmware->isUpgraded = true;
 			}
 
 			//TODO: enable finger report after upgraded.
