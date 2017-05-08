@@ -491,11 +491,10 @@ int core_firmware_upgrade(const char *pFilePath)
 int core_firmware_init(uint32_t id)
 {
 	int i = 0;	
-	int length = sizeof(SUP_CHIP_LIST)/sizeof(uint32_t);
 
 	DBG_INFO();
 
-	for(; i < length; i++)
+	for(; i < SUPP_CHIP_NUM; i++)
 	{
 		if(SUP_CHIP_LIST[i] == id)
 		{

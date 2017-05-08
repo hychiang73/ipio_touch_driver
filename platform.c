@@ -248,7 +248,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 
 	res = ilitek_platform_init_core();
-	if(res > 0)
+	if(res < 0)
 	{
 		DBG_ERR("Failed to init core APIs");
 		return -EINVAL;
