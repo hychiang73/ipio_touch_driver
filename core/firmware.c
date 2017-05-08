@@ -76,6 +76,138 @@ static int CheckSum(uint32_t nStartAddr, uint32_t nEndAddr)
 	return core_config_ReadIceMode(0x41018);
 }
 
+static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
+{
+    uint32_t i = 0, j = 0, k = 0;
+    uint32_t nApStartAddr = 0xFFFF, nDfStartAddr = 0xFFFF, nStartAddr = 0xFFFF, nExAddr = 0;
+    uint32_t nApEndAddr = 0x0, nDfEndAddr = 0x0, nEndAddr = 0x0;
+    uint32_t nApChecksum = 0x0, nDfChecksum = 0x0, nChecksum = 0x0, nLength = 0, nAddr = 0, nType = 0;
+
+	DBG_INFO("size = %d", nSize);
+
+	core_firmware->ap_start_addr = 0;
+	core_firmware->ap_end_addr = 0;
+	core_firmware->ap_checksum = 0;
+
+	if(nSize != 0)
+	{
+		memset(fwdata, 0xFF, ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE*1024);
+
+		for(; i < nSize ; )
+		{
+			int32_t nOffset;
+
+			nLength = HexToDec(&pBuf[i + 1], 2);
+			nAddr = HexToDec(&pBuf[i + 3], 4);
+			nType = HexToDec(&pBuf[i + 7], 2);
+
+			// calculate checksum
+			for (j = 8; j < (2 + 4 + 2 + (nLength * 2)); j += 2)
+			{
+				if (nType == 0x00)
+				{
+					// for ice mode write method
+					nChecksum = nChecksum + HexToDec(&pBuf[i + 1 + j], 2);
+
+					if (nAddr + (j - 8) / 2 < nDfStartAddr)
+					{
+						nApChecksum = nApChecksum + HexToDec(&pBuf[i + 1 + j], 2);
+					}
+					else
+					{
+						nDfChecksum = nDfChecksum + HexToDec(&pBuf[i + 1 + j], 2);
+					}		
+				}
+			}
+			if (nType == 0x04)
+			{
+				nExAddr = HexToDec(&pBuf[i + 9], 4);
+			}
+
+			nAddr = nAddr + (nExAddr << 16);
+
+			if (pBuf[i+1+j+2] == 0x0D)
+			{
+				nOffset = 2;
+			}
+			else
+			{
+				nOffset = 1;
+			}	
+
+			if (nType == 0x00)
+			{
+				if (nAddr > (ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE*1024))
+				{
+					DBG_ERR("Invalid hex format");
+
+					return -EINVAL;
+				}
+
+				if (nAddr < nStartAddr)
+				{
+					nStartAddr = nAddr;
+				}
+				if ((nAddr + nLength) > nEndAddr)
+				{
+					nEndAddr = nAddr + nLength;
+				}
+
+				// for Bl protocol 1.4+, nApStartAddr and nApEndAddr
+				if (nAddr < nApStartAddr)
+				{
+					nApStartAddr = nAddr;
+				}
+
+				if ((nAddr + nLength) > nApEndAddr && (nAddr < nDfStartAddr))
+				{
+					nApEndAddr = nAddr + nLength - 1;
+
+					if (nApEndAddr > nDfStartAddr)
+					{
+						nApEndAddr = nDfStartAddr - 1;
+					}
+				}
+
+				// for Bl protocol 1.4+, bl_end_addr
+				if ((nAddr + nLength) > nDfEndAddr && (nAddr >= nDfStartAddr))
+				{
+					nDfEndAddr = nAddr + nLength;
+				}
+
+				// fill data
+				for (j = 0, k = 0; j < (nLength * 2); j += 2, k ++)
+				{
+					fwdata[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					//*(core_firmware->fw_data_max_buff+nAddr+k) = HexToDec(&pBuf[i + 9 + j], 2);
+				}
+			}
+
+			i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;        
+		}
+
+
+		core_firmware->ap_start_addr = nApStartAddr;
+		core_firmware->ap_end_addr = nApEndAddr;
+		core_firmware->ap_checksum = nApChecksum;
+		core_firmware->df_start_addr = nDfStartAddr;
+		core_firmware->df_end_addr = nDfEndAddr;
+		core_firmware->df_checksum = nDfChecksum;
+
+
+		DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
+				nStartAddr, nEndAddr, nChecksum);
+		DBG_INFO("nApStartAddr = 0x%06X, nApEndAddr = 0x%06X, nApChecksum = 0x%06X",
+				nApStartAddr, nApEndAddr, nApChecksum);
+		DBG_INFO("nDfStartAddr = 0x%06X, nDfEndAddr = 0x%06X, nDfChecksum = 0x%06X",
+				nDfStartAddr, nDfEndAddr, nDfChecksum);
+
+		return 0;
+	}
+
+	return -1;
+}
+
 static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 {
     int32_t nUpdateRetryCount = 0, nUpgradeStatus = 0, nUpdateLength = 0;
@@ -251,138 +383,6 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 	mdelay(100);
 
 	return res;
-}
-
-static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
-{
-    uint32_t i = 0, j = 0, k = 0;
-    uint32_t nApStartAddr = 0xFFFF, nDfStartAddr = 0xFFFF, nStartAddr = 0xFFFF, nExAddr = 0;
-    uint32_t nApEndAddr = 0x0, nDfEndAddr = 0x0, nEndAddr = 0x0;
-    uint32_t nApChecksum = 0x0, nDfChecksum = 0x0, nChecksum = 0x0, nLength = 0, nAddr = 0, nType = 0;
-
-	DBG_INFO("size = %d", nSize);
-
-	core_firmware->ap_start_addr = 0;
-	core_firmware->ap_end_addr = 0;
-	core_firmware->ap_checksum = 0;
-
-	if(nSize != 0)
-	{
-		memset(fwdata, 0xFF, ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE*1024);
-
-		for(; i < nSize ; )
-		{
-			int32_t nOffset;
-
-			nLength = HexToDec(&pBuf[i + 1], 2);
-			nAddr = HexToDec(&pBuf[i + 3], 4);
-			nType = HexToDec(&pBuf[i + 7], 2);
-
-			// calculate checksum
-			for (j = 8; j < (2 + 4 + 2 + (nLength * 2)); j += 2)
-			{
-				if (nType == 0x00)
-				{
-					// for ice mode write method
-					nChecksum = nChecksum + HexToDec(&pBuf[i + 1 + j], 2);
-
-					if (nAddr + (j - 8) / 2 < nDfStartAddr)
-					{
-						nApChecksum = nApChecksum + HexToDec(&pBuf[i + 1 + j], 2);
-					}
-					else
-					{
-						nDfChecksum = nDfChecksum + HexToDec(&pBuf[i + 1 + j], 2);
-					}		
-				}
-			}
-			if (nType == 0x04)
-			{
-				nExAddr = HexToDec(&pBuf[i + 9], 4);
-			}
-
-			nAddr = nAddr + (nExAddr << 16);
-
-			if (pBuf[i+1+j+2] == 0x0D)
-			{
-				nOffset = 2;
-			}
-			else
-			{
-				nOffset = 1;
-			}	
-
-			if (nType == 0x00)
-			{
-				if (nAddr > (ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE*1024))
-				{
-					DBG_ERR("Invalid hex format");
-
-					return -EINVAL;
-				}
-
-				if (nAddr < nStartAddr)
-				{
-					nStartAddr = nAddr;
-				}
-				if ((nAddr + nLength) > nEndAddr)
-				{
-					nEndAddr = nAddr + nLength;
-				}
-
-				// for Bl protocol 1.4+, nApStartAddr and nApEndAddr
-				if (nAddr < nApStartAddr)
-				{
-					nApStartAddr = nAddr;
-				}
-
-				if ((nAddr + nLength) > nApEndAddr && (nAddr < nDfStartAddr))
-				{
-					nApEndAddr = nAddr + nLength - 1;
-
-					if (nApEndAddr > nDfStartAddr)
-					{
-						nApEndAddr = nDfStartAddr - 1;
-					}
-				}
-
-				// for Bl protocol 1.4+, bl_end_addr
-				if ((nAddr + nLength) > nDfEndAddr && (nAddr >= nDfStartAddr))
-				{
-					nDfEndAddr = nAddr + nLength;
-				}
-
-				// fill data
-				for (j = 0, k = 0; j < (nLength * 2); j += 2, k ++)
-				{
-					fwdata[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
-					//*(core_firmware->fw_data_max_buff+nAddr+k) = HexToDec(&pBuf[i + 9 + j], 2);
-				}
-			}
-
-			i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;        
-		}
-
-
-		core_firmware->ap_start_addr = nApStartAddr;
-		core_firmware->ap_end_addr = nApEndAddr;
-		core_firmware->ap_checksum = nApChecksum;
-		core_firmware->df_start_addr = nDfStartAddr;
-		core_firmware->df_end_addr = nDfEndAddr;
-		core_firmware->df_checksum = nDfChecksum;
-
-
-		DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
-				nStartAddr, nEndAddr, nChecksum);
-		DBG_INFO("nApStartAddr = 0x%06X, nApEndAddr = 0x%06X, nApChecksum = 0x%06X",
-				nApStartAddr, nApEndAddr, nApChecksum);
-		DBG_INFO("nDfStartAddr = 0x%06X, nDfEndAddr = 0x%06X, nDfChecksum = 0x%06X",
-				nDfStartAddr, nDfEndAddr, nDfChecksum);
-
-		return 0;
-	}
-
-	return -1;
 }
 
 int core_firmware_upgrade(const char *pFilePath)
