@@ -78,7 +78,7 @@ static int CheckSum(uint32_t nStartAddr, uint32_t nEndAddr)
 	return core_config_ReadIceMode(0x41018);
 }
 
-static int start_to_update_firmware(uint8_t *pszFwData, bool bIsUpdateFirmwareBySwId)
+static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 {
     int32_t nUpdateRetryCount = 0, nUpgradeStatus = 0, nUpdateLength = 0;
 	int32_t	nCheckFwFlag = 0, nChecksum = 0, i = 0, j = 0, k = 0;
@@ -187,14 +187,7 @@ static int start_to_update_firmware(uint8_t *pszFwData, bool bIsUpdateFirmwareBy
         
         for (k = 0; k < ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH; k ++)
         {
-            if (true == bIsUpdateFirmwareBySwId)
-            {    
-                szBuf[4 + k] = pszFwData[i + 32 + k];
-            }
-            else
-            {
-                szBuf[4 + k] = pszFwData[i + k];
-            }
+            szBuf[4 + k] = pszFwData[i + k];
         }
 
         if (core_i2c_write(core_config->slave_i2c_addr, szBuf, ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH + 4) < 0) {
@@ -394,15 +387,6 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 	return -1;
 }
 
-static int firmware_upgrade_ili21xx(void)
-{
-	DBG_INFO();
-
-	convert_firmware(NULL, 0);
-
-	return 0;
-}
-
 int core_firmware_upgrade(const char *pFilePath)
 {
 	int res = 0;
@@ -463,7 +447,7 @@ int core_firmware_upgrade(const char *pFilePath)
 			}
 			else
 			{
-				res = start_to_update_firmware(fwdata, false);					
+				res = core_firmware->upgrade_func(fwdata);
 				if(res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
@@ -511,7 +495,7 @@ int core_firmware_init(uint32_t id)
 
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;
-				core_firmware->upgrade_func		= firmware_upgrade_ili21xx;
+				core_firmware->upgrade_func		= firmware_upgrade_ili2121;
 			}
 		}
 	}

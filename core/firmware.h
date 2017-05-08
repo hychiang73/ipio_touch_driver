@@ -35,7 +35,7 @@ typedef struct _CORE_FIRMWARE {
 
 	bool isCRC;
 
-	int (*upgrade_func)(void);
+	int (*upgrade_func)(uint8_t *FwData);
 
 } CORE_FIRMWARE;
 
