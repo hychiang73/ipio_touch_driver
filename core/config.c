@@ -16,7 +16,68 @@
 CORE_CONFIG *core_config;
 extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
-static uint32_t ReadWriteICEMode(uint32_t addr)
+static int ICEInit_212x(void)
+{
+    // close watch dog
+    if (core_config_WriteIceMode(0x5200C, 0x0000, 2) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x52020, 0x01, 1) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x52020, 0x00, 1) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x42000, 0x0F154900, 4) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x42014, 0x02, 1) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x42000, 0x00000000, 4) < 0)
+        return -EFAULT;
+        //---------------------------------
+    if (core_config_WriteIceMode(0x041000, 0xab, 1) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x041004, 0x66aa5500, 4) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x04100d, 0x00, 1) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x04100b, 0x03, 1) < 0)
+        return -EFAULT;
+    if (core_config_WriteIceMode(0x041009, 0x0000, 2) < 0)
+        return -EFAULT;
+
+    return SUCCESS;
+}
+
+uint32_t core_config_ReadWriteOneByte(uint32_t addr)
+{
+    int res = 0;
+    uint32_t data = 0;
+    uint8_t szOutBuf[64] = {0};
+
+    szOutBuf[0] = 0x25;
+    szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
+    szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
+    szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
+
+    res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to write data via i2c, res = %d", res);
+		return -EFAULT;
+	}
+
+    res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to read data via i2c, res = %d", res);
+		return -EFAULT;
+	}
+
+    data = (szOutBuf[0]);
+
+    return data;
+}
+EXPORT_SYMBOL(core_config_ReadWriteOneByte);
+
+uint32_t core_config_ReadIceMode(uint32_t addr)
 {
     int res = 0;
     uint8_t szOutBuf[64] = {0};
@@ -46,8 +107,9 @@ static uint32_t ReadWriteICEMode(uint32_t addr)
     return data;
 
 }
+EXPORT_SYMBOL(core_config_ReadIceMode);
 
-static int WriteICEMode(uint32_t addr, uint32_t data, uint32_t size)
+int core_config_WriteIceMode(uint32_t addr, uint32_t data, uint32_t size)
 {
     int res = 0, i;
     uint8_t szOutBuf[64] = {0};
@@ -71,50 +133,21 @@ static int WriteICEMode(uint32_t addr, uint32_t data, uint32_t size)
 
     return res;
 }
+EXPORT_SYMBOL(core_config_WriteIceMode);
 
-static uint32_t ReadWriteOneByte(uint32_t addr)
-{
-    int res = 0;
-    uint32_t data = 0;
-    uint8_t szOutBuf[64] = {0};
-
-    szOutBuf[0] = 0x25;
-    szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
-    szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
-    szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
-
-    res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
-	if(res < 0)
-	{
-		DBG_ERR("Failed to write data via i2c, res = %d", res);
-		return -EFAULT;
-	}
-
-    res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
-	if(res < 0)
-	{
-		DBG_ERR("Failed to read data via i2c, res = %d", res);
-		return -EFAULT;
-	}
-
-    data = (szOutBuf[0]);
-
-    return data;
-}
-
-static uint32_t vfIceRegRead(uint32_t addr)
+uint32_t vfIceRegRead(uint32_t addr)
 {
     int i, nInTimeCount = 100;
     uint8_t szBuf[4] = {0};
 
-    WriteICEMode(0x41000, 0x3B | (addr << 8), 4);
-    WriteICEMode(0x041004, 0x66AA5500, 4);
+    core_config_WriteIceMode(0x41000, 0x3B | (addr << 8), 4);
+    core_config_WriteIceMode(0x041004, 0x66AA5500, 4);
 
     // Check Flag
     // Check Busy Flag
     for (i = 0; i < nInTimeCount; i ++)
     {
-        szBuf[0] = ReadWriteOneByte(0x41011);
+        szBuf[0] = core_config_ReadWriteOneByte(0x41011);
 
         if ((szBuf[0] & 0x01) == 0)
         {
@@ -123,14 +156,15 @@ static uint32_t vfIceRegRead(uint32_t addr)
         mdelay(5);
     }
 
-    return ReadWriteOneByte(0x41012);
+    return core_config_ReadWriteOneByte(0x41012);
 }
+EXPORT_SYMBOL(vfIceRegRead);
 
-static int ExitIceMode(void)
+int core_config_ExitIceMode(void)
 {
     int res = 0;
 
-	res = WriteICEMode(0x04004C, 0x2120, 2);
+	res = core_config_WriteIceMode(0x04004C, 0x2120, 2);
 	if (res < 0)
 	{
 		DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, res = %d\n", res);
@@ -138,7 +172,7 @@ static int ExitIceMode(void)
 	}
 	mdelay(10);
 
-	res = WriteICEMode(0x04004E, 0x01, 1);
+	res = core_config_WriteIceMode(0x04004E, 0x01, 1);
 	if (res < 0)
 	{
 		DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
@@ -149,44 +183,15 @@ static int ExitIceMode(void)
 
     return res;
 }
+EXPORT_SYMBOL(core_config_ExitIceMode);
 
-static int EnterICEMode(void)
+int core_config_EnterICEMode(void)
 {
     // Entry ICE Mode
-    if (WriteICEMode(core_config->ice_mode_addr, 0x0, 0) < 0)
+    if (core_config_WriteIceMode(core_config->ice_mode_addr, 0x0, 0) < 0)
         return -EFAULT;
 
 	return SUCCESS;
-}
-
-static int ICEInit_212x(void)
-{
-    // close watch dog
-    if (WriteICEMode(0x5200C, 0x0000, 2) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x52020, 0x01, 1) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x52020, 0x00, 1) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x42000, 0x0F154900, 4) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x42014, 0x02, 1) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x42000, 0x00000000, 4) < 0)
-        return -EFAULT;
-        //---------------------------------
-    if (WriteICEMode(0x041000, 0xab, 1) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x041004, 0x66aa5500, 4) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x04100d, 0x00, 1) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x04100b, 0x03, 1) < 0)
-        return -EFAULT;
-    if (WriteICEMode(0x041009, 0x0000, 2) < 0)
-        return -EFAULT;
-
-    return SUCCESS;
 }
 
 TP_INFO* core_config_GetKeyInfo(void)
@@ -346,7 +351,7 @@ uint32_t core_config_GetChipID(void)
     int i, res = 0;
     uint32_t RealID = 0, PIDData = 0;
 
-	res = EnterICEMode();
+	res = core_config_EnterICEMode();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to enter ICE mode, res = %d", res);
@@ -360,7 +365,7 @@ uint32_t core_config_GetChipID(void)
 		return res;
 	}
 
-	PIDData = ReadWriteICEMode(core_config->pid_addr);
+	PIDData = core_config_ReadIceMode(core_config->pid_addr);
 
 	if ((PIDData & 0xFFFFFF00) == 0)
 	{
@@ -371,7 +376,7 @@ uint32_t core_config_GetChipID(void)
 			RealID = CHIP_TYPE_ILI2121;
 		}
 
-		res = ExitIceMode();
+		res = core_config_ExitIceMode();
 		if(res < 0)
 			DBG_ERR("Failed to exit ICE mode");
 		

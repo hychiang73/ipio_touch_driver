@@ -66,11 +66,46 @@ static ssize_t ilitek_proc_firmware_read(struct file *filp, char __user *buff, s
 
 static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *buff, size_t size, loff_t *pPos)
 {
-	DBG_INFO();
+    char *pValid = NULL;
+    char *pTmpFilePath = NULL;
+    char szFilePath[100] = {0};
+	ssize_t res = -EINVAL;
 
-	core_firmware_upgrade(CHIP_TYPE_ILI2121); 
+    if (buff != NULL)
+    {
+        pValid = strstr(buff, ".hex");
 
-	return size;
+        if (pValid)
+        {
+            pTmpFilePath = strsep((char **)&buff, ".");
+
+            strcat(szFilePath, pTmpFilePath);
+            strcat(szFilePath, ".hex");
+
+            DBG_INFO("File path: %s", szFilePath);
+
+			res = core_firmware_upgrade(szFilePath);
+			if(res < 0)
+			{
+                DBG_ERR("Failed to upgrade firwmare, res = %d", res);
+			}
+            else
+            {
+                DBG_INFO("Succeed to upgrade firmware");
+				return size;
+            }
+        }
+        else
+        {
+            DBG_ERR("The file format is invalid");
+        }
+    }
+    else
+    {
+        DBG_ERR("The file path is invalid");
+    }
+
+	return res;
 }
 
 static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)

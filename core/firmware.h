@@ -5,9 +5,40 @@ typedef struct _CORE_FIRMWARE {
 
     uint32_t chip_id;
 
-    uint32_t slave_i2c_addr;
+	uint32_t new_fw_ver;
+
+	uint32_t old_fw_ver;
+
+	uint32_t ap_start_addr;
+
+	uint32_t df_start_addr;
+
+	uint32_t ap_end_addr;
+
+	uint32_t df_end_addr;
+
+	uint32_t ap_checksum;
+
+	uint32_t ap_crc;
+
+	uint32_t df_checksum;
+
+	uint32_t df_crc;
+
+	//int size;
+
+	uint8_t *fw_data_max_buff;
+
+//	uint8_t fw_data_buff[size];
+
+    bool isUpgraded;
+
+	bool isCRC;
+
+	int (*upgrade_func)(void);
 
 } CORE_FIRMWARE;
 
-extern int core_firmware_upgrade(uint32_t chip_id);
+extern int core_firmware_upgrade(const char* fpath);
+extern int core_firmware_init(uint32_t id);
 #endif
