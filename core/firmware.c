@@ -398,6 +398,15 @@ int core_firmware_upgrade(const char *pFilePath)
 
 	core_firmware->isUpgraded = false;
 
+	core_firmware->old_fw_ver = core_config_GetFWVer();
+
+
+	DBG_INFO("Old verion of firmware = %d.%d.%d.%d", 
+			*core_firmware->old_fw_ver, 
+			*(core_firmware->old_fw_ver+1),
+			*(core_firmware->old_fw_ver+2),
+			*(core_firmware->old_fw_ver+3));
+
     pfile = filp_open(pFilePath, O_RDONLY, 0);
     if (IS_ERR(pfile))
     {
@@ -461,6 +470,17 @@ int core_firmware_upgrade(const char *pFilePath)
 			//TODO: enable finger report after upgraded.
 			//TODO: update tp info to refresh a new version of firmware.
 		}
+	}
+
+	if(core_firmware->isUpgraded)
+	{
+		core_firmware->new_fw_ver = core_config_GetFWVer();
+
+		DBG_INFO("Showing the version of updated firmware = %d.%d.%d.%d", 
+				*core_firmware->new_fw_ver, 
+				*(core_firmware->new_fw_ver+1),
+				*(core_firmware->new_fw_ver+2),
+				*(core_firmware->new_fw_ver+3));
 	}
 
 	filp_close(pfile, NULL);
