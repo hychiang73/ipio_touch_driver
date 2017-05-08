@@ -254,7 +254,7 @@ static int ilitek_platform_read_tp_info(void)
 	return res;
 }
 
-static int ilitek_platform_init_core(void)
+static int ilitek_platform_core_init(void)
 {
 	DBG_INFO();
 
@@ -264,6 +264,12 @@ static int ilitek_platform_init_core(void)
 			return -EINVAL;
 
 	return SUCCESS;
+}
+static int ilitek_platform_core_remove(void)
+{
+	core_config_remove();
+	core_i2c_remove();
+	core_firmware_remove();
 }
 
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -289,7 +295,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
     spin_lock_init(&SPIN_LOCK);
 
 
-	res = ilitek_platform_init_core();
+	res = ilitek_platform_core_init();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to init core APIs");
@@ -331,10 +337,11 @@ static int ilitek_platform_remove(struct i2c_client *client)
 	gpio_free(TIC->int_gpio);
 	gpio_free(TIC->reset_gpio);
 
-	core_config_remove();
-	core_i2c_remove();
+	ilitek_platform_core_remove();
 
 	ilitek_proc_remove();
+
+	kfree(TIC);
 }
 
 static const struct i2c_device_id tp_device_id[] =
