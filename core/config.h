@@ -45,7 +45,7 @@ extern uint32_t core_config_ReadWriteOneByte(uint32_t addr);
 extern int core_config_ExitIceMode(void);
 extern uint32_t core_config_ReadIceMode(uint32_t addr);
 extern int core_config_WriteIceMode(uint32_t addr, uint32_t data, uint32_t size);
-extern int core_config_EnterICEMode(void);
+extern int core_config_EnterIceMode(void);
 extern TP_INFO* core_config_GetKeyInfo(void);
 extern TP_INFO* core_config_GetResolution(void);
 extern uint16_t core_config_GetProtocolVer(void);

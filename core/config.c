@@ -185,7 +185,7 @@ int core_config_ExitIceMode(void)
 }
 EXPORT_SYMBOL(core_config_ExitIceMode);
 
-int core_config_EnterICEMode(void)
+int core_config_EnterIceMode(void)
 {
     // Entry ICE Mode
     if (core_config_WriteIceMode(core_config->ice_mode_addr, 0x0, 0) < 0)
@@ -193,6 +193,7 @@ int core_config_EnterICEMode(void)
 
 	return SUCCESS;
 }
+EXPORT_SYMBOL(core_config_EnterIceMode);
 
 TP_INFO* core_config_GetKeyInfo(void)
 {
@@ -351,7 +352,7 @@ uint32_t core_config_GetChipID(void)
     int i, res = 0;
     uint32_t RealID = 0, PIDData = 0;
 
-	res = core_config_EnterICEMode();
+	res = core_config_EnterIceMode();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to enter ICE mode, res = %d", res);

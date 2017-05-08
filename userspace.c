@@ -84,7 +84,12 @@ static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *
 
             DBG_INFO("File path: %s", szFilePath);
 
+			ilitek_platform_disable_irq();
+
 			res = core_firmware_upgrade(szFilePath);
+
+			ilitek_platform_enable_irq();
+
 			if(res < 0)
 			{
                 DBG_ERR("Failed to upgrade firwmare, res = %d", res);

@@ -99,7 +99,7 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 
 	DBG_INFO("Enter to ICE Mode before updating firmware ... ");
 
-	res = core_config_EnterICEMode();
+	res = core_config_EnterIceMode();
 
 	core_config->IceModeInit();
 
@@ -400,7 +400,6 @@ int core_firmware_upgrade(const char *pFilePath)
 
 	core_firmware->old_fw_ver = core_config_GetFWVer();
 
-
 	DBG_INFO("Old verion of firmware = %d.%d.%d.%d", 
 			*core_firmware->old_fw_ver, 
 			*(core_firmware->old_fw_ver+1),
@@ -447,8 +446,6 @@ int core_firmware_upgrade(const char *pFilePath)
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
 
-			//TODO: disable finger report before upgrading.
-
 			res == convert_firmware(fwdata_buffer, fsize);
 			if( res < 0)
 			{
@@ -466,12 +463,10 @@ int core_firmware_upgrade(const char *pFilePath)
 
 				core_firmware->isUpgraded = true;
 			}
-
-			//TODO: enable finger report after upgraded.
-			//TODO: update tp info to refresh a new version of firmware.
 		}
 	}
 
+	// update firmware version if upgraded
 	if(core_firmware->isUpgraded)
 	{
 		core_firmware->new_fw_ver = core_config_GetFWVer();

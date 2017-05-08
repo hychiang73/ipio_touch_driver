@@ -18,6 +18,59 @@ platform_info *TIC;
 MODULE_AUTHOR("ILITEK");
 MODULE_LICENSE("GPL");
 
+void ilitek_platform_disable_irq(void)
+{
+    unsigned long nIrqFlag;
+
+	DBG_INFO();
+
+    spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
+
+	if(TIC->gpio_to_irq && TIC->isIrqEnable == true)
+	{
+		disable_irq_nosync(TIC->gpio_to_irq);
+		TIC->isIrqEnable = false;
+	}
+	else
+		DBG_ERR("Failed to disable IRQ");
+
+    spin_unlock_irqrestore(&SPIN_LOCK, nIrqFlag);
+}
+EXPORT_SYMBOL(ilitek_platform_disable_irq);
+
+void ilitek_platform_enable_irq(void)
+{
+    unsigned long nIrqFlag;
+
+	DBG_INFO();
+
+    spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
+
+	if(TIC->gpio_to_irq && TIC->isIrqEnable == false)
+	{
+		enable_irq(TIC->gpio_to_irq);
+		TIC->isIrqEnable = true;
+	}
+	else
+		DBG_ERR("Failed to enable IRQ");
+
+    spin_unlock_irqrestore(&SPIN_LOCK, nIrqFlag);
+}
+EXPORT_SYMBOL(ilitek_platform_enable_irq);
+
+void ilitek_platform_tp_poweron(void)
+{
+	DBG_INFO();
+
+	gpio_direction_output(TIC->reset_gpio, 1);
+	mdelay(10);
+	gpio_set_value(TIC->reset_gpio, 0);
+	mdelay(100);
+	gpio_set_value(TIC->reset_gpio, 1);
+	mdelay(25);
+}
+EXPORT_SYMBOL(ilitek_platform_tp_poweron);
+
 static void ilitek_platform_finger_report(void)
 {
 	DBG_INFO();
@@ -96,17 +149,6 @@ static int ilitek_platform_isr_register(void)
 	return res;
 }
 
-static void ilitek_platform_tp_poweron(void)
-{
-	DBG_INFO();
-
-	gpio_direction_output(TIC->reset_gpio, 1);
-	mdelay(10);
-	gpio_set_value(TIC->reset_gpio, 0);
-	mdelay(100);
-	gpio_set_value(TIC->reset_gpio, 1);
-	mdelay(25);
-}
 
 static int ilitek_platform_gpio(void)
 {
