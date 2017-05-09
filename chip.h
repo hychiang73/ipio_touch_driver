@@ -25,17 +25,17 @@
 //#define int64_t  int64_t
 //#define uint64_t  uint64_t
 
-#define SUPP_CHIP_NUM	2
+#define SUPP_CHIP_NUM	3
 
 /*
  *  ILI21xx
  */
-
 #define CHIP_TYPE_ILI2120   (0x2120)
 #define CHIP_TYPE_ILI2121   (0x2121)
 #define ILI21XX_SLAVE_ADDR		(0x41)
 #define ILI21XX_ICE_MODE_ADDR	(0x181062)
 #define ILI21XX_PID_ADDR		(0x4009C)
+#define ILITEK_PROTOCOL_VERSION_3_2		(0x302)
 
 // Constant value define for ILI21XX
 #define ILI21XX_DEMO_MODE_PACKET_LENGTH  (53)
@@ -57,7 +57,6 @@
 #define ILITEK_TP_ILI2120_CMD_GET_PROTOCOL_VERSION (0x22)
 #define ILITEK_TP_CMD_GET_MCU_KERNEL_VERSION (0x61)
 
-
 // The size of hex files for ILI21xx shall be smaller than 160KB.
 #define ILITEK_ILI21XX_FIRMWARE_SIZE (160)
 #define ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH (128)
@@ -67,7 +66,9 @@
 
 
 /*
- * Protocol's definition
+ * ILI7807
+ *
  */
+#define CHIP_TYPE_ILI7807	0x7807
 
- #define ILITEK_PROTOCOL_VERSION_3_2		(0x302)
+

@@ -6,7 +6,7 @@ ilitek-objs :=  platform.o userspace.o \
 				$(INCLUDE)/dbbus.o \
 				$(INCLUDE)/i2c.o \
 				$(INCLUDE)/firmware.o \
-				$(INCLUDE)/fr.o \
+				$(INCLUDE)/finger_report.o \
 				$(INCLUDE)/gesture.o \
 				$(INCLUDE)/glove.o \
 				$(INCLUDE)/sup_chip.o \

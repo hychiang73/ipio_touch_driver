@@ -18,7 +18,7 @@
 #include "core/config.h"
 #include "core/dbbus.h"
 #include "core/firmware.h"
-#include "core/fr.h"
+#include "core/finger_report.h"
 #include "core/gesture.h"
 #include "core/glove.h"
 #include "core/i2c.h"

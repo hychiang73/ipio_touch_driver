@@ -260,7 +260,8 @@ static int ilitek_platform_core_init(void)
 
 	if(core_config_init(TIC->chip_id) < 0 ||
 		core_i2c_init(TIC->client) < 0 ||
-		core_firmware_init(TIC->chip_id) < 0)
+		core_firmware_init(TIC->chip_id) < 0 ||
+		core_fr_init(TIC->chip_id, TIC->client) < 0)
 			return -EINVAL;
 
 	return SUCCESS;
