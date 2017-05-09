@@ -12,6 +12,8 @@ struct mutual_touch_point {
 
 typedef struct {
 
+	uint32_t chip_id;
+
 	struct input_dev *input_device;
 
 	struct mutual_touch_point mtp[10];
@@ -35,6 +37,7 @@ typedef struct {
 
 } CORE_FINGER_REPORT;
 
+extern void core_fr_handler(void);
 extern int core_fr_init(uint32_t chip_id, struct i2c_client *client);
 extern void core_fr_remove(void);
 

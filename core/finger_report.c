@@ -96,22 +96,56 @@ static int input_device_create(struct i2c_client *client)
 	return res;
 }
 
+static void parse_data_ili2121(void)
+{
+	DBG_INFO();
+}
+
+static void finger_report_ili2121(void)
+{
+	DBG_INFO();
+}
+
+static void parse_data_ili7807(void)
+{
+	DBG_INFO();
+}
+
+static void finger_report_ili7807(void)
+{
+	DBG_INFO();
+}
+
+
 struct hashtab {
 	uint32_t chip_id;
 	uint16_t protocol_ver;
-	void(*finger_report)(void);
-	void(*parse_date)(void);
+	void (*finger_report)(void);
+	void (*parse_data)(void);
 };
 
 struct hashtab fr_t[] = {
-	{CHIP_TYPE_ILI2121, 0x0, NULL, NULL},
-	{CHIP_TYPE_ILI7807, 0x0, NULL, NULL},
+	{CHIP_TYPE_ILI2121, 0x0, finger_report_ili2121, parse_data_ili2121},
+	{CHIP_TYPE_ILI7807, 0x0, finger_report_ili7807, parse_data_ili7807},
 };
 
 void core_fr_handler(void)
 {
+	int i, len = sizeof(fr_t)/sizeof(fr_t[0]);
 
+	DBG_INFO();
+
+	for(i = 0; i < len; i++)
+	{
+		if(fr_t[i].chip_id == core_fr->chip_id)
+		{
+			fr_t[i].finger_report();
+			fr_t[i].parse_data();
+			break;
+		}
+	}
 }
+EXPORT_SYMBOL(core_fr_handler);
 
 int core_fr_init(uint32_t id, struct i2c_client *pClient)
 {
@@ -121,7 +155,9 @@ int core_fr_init(uint32_t id, struct i2c_client *pClient)
 	{
 		if(SUP_CHIP_LIST[i] == id)
 		{
-			core_fr  = (CORE_FINGER_REPORT*)kmalloc(sizeof(*core_fr), GFP_KERNEL);
+			core_fr = (CORE_FINGER_REPORT*)kmalloc(sizeof(*core_fr), GFP_KERNEL);
+
+			core_fr->chip_id = SUP_CHIP_LIST[i];
 
 			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI2121)
 			{

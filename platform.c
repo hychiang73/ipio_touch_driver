@@ -71,11 +71,6 @@ void ilitek_platform_tp_poweron(void)
 }
 EXPORT_SYMBOL(ilitek_platform_tp_poweron);
 
-static void ilitek_platform_finger_report(void)
-{
-	DBG_INFO();
-}
-
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
     unsigned long nIrqFlag;
@@ -86,7 +81,7 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 
 	if(!TIC->isIrqEnable)
 	{
-		ilitek_platform_finger_report();
+		core_fr_handler();
 
 		enable_irq(TIC->gpio_to_irq);
 	}
