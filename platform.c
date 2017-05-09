@@ -271,6 +271,7 @@ static int ilitek_platform_core_remove(void)
 	core_config_remove();
 	core_i2c_remove();
 	core_firmware_remove();
+	core_fr_remove();
 }
 
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)

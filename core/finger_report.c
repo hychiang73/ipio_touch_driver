@@ -79,6 +79,7 @@ static int input_device_create(struct i2c_client *client)
     if (res < 0)
     {
         DBG_ERR("Failed to register touch input device, res = 0", res);
+		input_free_device(core_fr->input_device);
         return res;
     }
 
@@ -121,6 +122,8 @@ void core_fr_remove(void)
 {
 	DBG_INFO();
 
+	input_unregister_device(core_fr->input_device);
+	input_free_device(core_fr->input_device);
 	kfree(core_fr);
 }
 EXPORT_SYMBOL(core_fr_remove);
