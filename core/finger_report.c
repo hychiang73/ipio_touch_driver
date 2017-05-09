@@ -3,6 +3,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/input.h>
+#include <linux/input/mt.h>
 #include <linux/i2c.h>
 
 #include "../chip.h"
@@ -14,7 +15,16 @@ extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
 CORE_FINGER_REPORT *core_fr;
 
+#define USE_TYPE_B_PROTOCOL 
+//#define ENABLE_GESTURE_WAKEUP
+
 #define MUTUAL_MAX_TOUCH_NUM	10
+#define TOUCH_SCREEN_X_MIN	0
+#define TOUCH_SCREEN_Y_MIN	0
+#define TOUCH_SCREEN_X_MAX	1080
+#define TOUCH_SCREEN_Y_MAX	1920
+
+
 
 static int input_device_create(struct i2c_client *client)
 {
@@ -44,7 +54,7 @@ static int input_device_create(struct i2c_client *client)
     
 	//TODO: set virtual keys
 	
-#ifdef CONFIG_ENABLE_GESTURE_WAKEUP
+#ifdef ENABLE_GESTURE_WAKEUP
     input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
     input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
     input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
@@ -65,7 +75,7 @@ static int input_device_create(struct i2c_client *client)
     input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
     input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 
-#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+#ifdef USE_TYPE_B_PROTOCOL
     input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, TOUCH_SCREEN_X_MIN, TOUCH_SCREEN_X_MAX, 0, 0);
     input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, TOUCH_SCREEN_Y_MIN, TOUCH_SCREEN_Y_MAX, 0, 0);
     input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
@@ -78,12 +88,29 @@ static int input_device_create(struct i2c_client *client)
     res = input_register_device(core_fr->input_device);
     if (res < 0)
     {
-        DBG_ERR("Failed to register touch input device, res = 0", res);
+        DBG_ERR("Failed to register touch input device, res = %d", res);
 		input_free_device(core_fr->input_device);
         return res;
     }
 
 	return res;
+}
+
+struct hashtab {
+	uint32_t chip_id;
+	uint16_t protocol_ver;
+	void(*finger_report)(void);
+	void(*parse_date)(void);
+};
+
+struct hashtab fr_t[] = {
+	{CHIP_TYPE_ILI2121, 0x0, NULL, NULL},
+	{CHIP_TYPE_ILI7807, 0x0, NULL, NULL},
+};
+
+void core_fr_handler(void)
+{
+
 }
 
 int core_fr_init(uint32_t id, struct i2c_client *pClient)
@@ -110,8 +137,7 @@ int core_fr_init(uint32_t id, struct i2c_client *pClient)
 	{
 		DBG_ERR("Failed to init core_fr APIs");
 		res = -ENOMEM;
-	}
-	else
+	} else
 		res = input_device_create(pClient);
 
 	return res;
