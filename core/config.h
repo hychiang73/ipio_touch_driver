@@ -31,6 +31,7 @@ typedef struct _CORE_CONFIG {
     uint32_t slave_i2c_addr;
     uint32_t ice_mode_addr;
     uint32_t pid_addr;
+	uint32_t ic_reset_addr;
     int (*IceModeInit)(void);
 	TP_INFO *tp_info;
 	uint8_t *firmware_ver;
@@ -41,6 +42,7 @@ typedef struct _CORE_CONFIG {
 
 extern CORE_CONFIG *core_config;
 
+extern uint32_t vfIceRegRead(uint32_t addr);
 extern uint32_t core_config_ReadWriteOneByte(uint32_t addr);
 extern int core_config_ExitIceMode(void);
 extern uint32_t core_config_ReadIceMode(uint32_t addr);

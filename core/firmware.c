@@ -208,6 +208,13 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 	return -1;
 }
 
+static int firmware_upgrade_ili7807(uint8_t *pszFwData)
+{
+	DBG_INFO();
+
+	return 0;
+}
+
 static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 {
     int32_t nUpdateRetryCount = 0, nUpgradeStatus = 0, nUpdateLength = 0;
@@ -514,6 +521,27 @@ int core_firmware_init(uint32_t id)
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;
 				core_firmware->upgrade_func		= firmware_upgrade_ili2121;
+			}
+
+			if(SUP_CHIP_LIST[i] = CHIP_TYPE_ILI7807)
+			{
+				core_firmware->chip_id			= id;
+
+				core_firmware->new_fw_ver		= 0x0;
+				core_firmware->old_fw_ver		= 0x0;
+
+				core_firmware->ap_start_addr	= 0x0;
+				core_firmware->ap_end_addr		= 0x0;
+				core_firmware->df_start_addr	= 0x0;
+				core_firmware->df_end_addr		= 0x0;
+				core_firmware->ap_checksum		= 0x0;
+				core_firmware->ap_crc			= 0x0;
+				core_firmware->df_checksum		= 0x0;
+				core_firmware->df_crc			= 0x0;
+
+				core_firmware->isUpgraded		= false;
+				core_firmware->isCRC			= false;
+				core_firmware->upgrade_func		= firmware_upgrade_ili7807;
 			}
 		}
 	}

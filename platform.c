@@ -285,7 +285,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	TIC->client = client;
 	TIC->i2c_id = id;
-	TIC->chip_id = CHIP_TYPE_ILI2121;
+	TIC->chip_id = CHIP_TYPE_ILI7807;
 	TIC->isIrqEnable = false;
 
     mutex_init(&MUTEX);

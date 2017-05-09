@@ -46,6 +46,38 @@ static int ICEInit_212x(void)
     return SUCCESS;
 }
 
+static uint32_t check_chip_id(uint32_t pid_data)
+{
+	uint32_t id = 0;
+	uint32_t flag = 0;
+
+	if((pid_data & 0xFFFFFF00) == 0)
+	{
+		id = (vfIceRegRead(0xF001) << (8 * 1)) + (vfIceRegRead(0xF000));
+	}
+
+	if((pid_data & 0x00F00000) == 0)
+	{
+		id = pid_data >> 16;
+		flag = (pid_data & 0x0000FF00);
+
+		// ILI7807F
+		if((flag & 0xFFF0) == 0)
+		{
+			core_config->ic_reset_addr = 0x4004C;
+
+		}
+
+		// ILI7807H
+		if((flag & 0x00F0) == 0)
+		{
+			core_config->ic_reset_addr = 0x40050;
+		}
+	}
+
+	return id;
+}
+
 uint32_t core_config_ReadWriteOneByte(uint32_t addr)
 {
     int res = 0;
@@ -159,6 +191,15 @@ uint32_t vfIceRegRead(uint32_t addr)
     return core_config_ReadWriteOneByte(0x41012);
 }
 EXPORT_SYMBOL(vfIceRegRead);
+
+int core_config_ic_reset(uint32_t id)
+{
+	if(id == CHIP_TYPE_ILI7807)
+	{
+		return core_config_WriteIceMode(core_config->ic_reset_addr, 0x00017807, 4);
+	} 
+}
+EXPORT_SYMBOL(core_config_ic_reset);
 
 int core_config_ExitIceMode(void)
 {
@@ -350,7 +391,7 @@ EXPORT_SYMBOL(core_config_GetFWVer);
 uint32_t core_config_GetChipID(void)
 {
     int i, res = 0;
-    uint32_t RealID = 0, PIDData = 0;
+    uint32_t RealID = 0, PIDData = 0, flag;
 
 	res = core_config_EnterIceMode();
 	if(res < 0)
@@ -359,34 +400,35 @@ uint32_t core_config_GetChipID(void)
 		return res;
 	}
 
-	res = core_config->IceModeInit();
-	if(res < 0)
+	if(core_config->IceModeInit)
 	{
-		DBG_ERR("Failed to initialize ICE Mode, res = %d", res);
-		return res;
+		res = core_config->IceModeInit();
+		if(res < 0)
+		{
+			DBG_ERR("Failed to initialize ICE Mode, res = %d", res);
+			return res;
+		}
 	}
 
 	PIDData = core_config_ReadIceMode(core_config->pid_addr);
 
-	if ((PIDData & 0xFFFFFF00) == 0)
+	if (PIDData)
 	{
-		RealID = (vfIceRegRead(0xF001) << (8 * 1)) + (vfIceRegRead(0xF000));
-		
-		if (0xFFFF == RealID)
-		{
-			RealID = CHIP_TYPE_ILI2121;
-		}
+		RealID = check_chip_id(PIDData);
 
-		res = core_config_ExitIceMode();
-		if(res < 0)
-			DBG_ERR("Failed to exit ICE mode");
-		
-			
-		if(core_config->chip_id == RealID)
+		if(RealID == core_config->chip_id)
+		{
+			core_config_ic_reset(RealID);
+
+			res = core_config_ExitIceMode();
+			if(res < 0)
+				DBG_ERR("Failed to exit ICE mode");
+
 			return RealID;
+		}
 		else
 		{
-			DBG_ERR("CHIP ID error : 0x%x , ", RealID, core_config->chip_id);
+			DBG_ERR("CHIP ID error : 0x%x , ", RealID);
 			return -ENODEV;
 		}
 	}
@@ -416,7 +458,18 @@ int core_config_init(uint32_t id)
 				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI21XX_PID_ADDR;
+				core_config->ic_reset_addr = 0x0;
 				core_config->IceModeInit = ICEInit_212x;
+			}
+
+			if(SUP_CHIP_LIST[i] = CHIP_TYPE_ILI7807)
+			{
+				core_config->chip_id = id;
+				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
+				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
+				core_config->pid_addr = ILI7807_PID_ADDR;
+				core_config->ic_reset_addr = 0x0;
+				core_config->IceModeInit = NULL;
 			}
 		}
 	}
