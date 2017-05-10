@@ -34,9 +34,9 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 
 	uint32_t chip_id;
 
-	uint8_t *firmware_ver;
+	uint8_t* firmware_ver;
 
-	uint16_t protocol_ver;
+	uint8_t protocol_ver;
 
 	TP_INFO *tp_info;
 

@@ -212,11 +212,11 @@ static int ilitek_platform_read_tp_info(void)
 		return -EFAULT;
 	}
 
-	DBG_INFO("Firmware Version = %d.%d.%d.%d", 
+	DBG_INFO("Firmware Version = %d.%d.%d", 
 			*TIC->firmware_ver, 
 			*(TIC->firmware_ver+1),
-			*(TIC->firmware_ver+2),
-			*(TIC->firmware_ver+3));
+			*(TIC->firmware_ver+2));
+
 
 	TIC->protocol_ver = core_config_GetProtocolVer();
 

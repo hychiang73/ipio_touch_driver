@@ -28,14 +28,25 @@ typedef struct {
 
 typedef struct _CORE_CONFIG {
     uint32_t chip_id;
+
+	uint8_t protocol_ver;
+
+	uint8_t* firmware_ver;
+
+	uint16_t use_protocol;
+
     uint32_t slave_i2c_addr;
+
     uint32_t ice_mode_addr;
+
     uint32_t pid_addr;
+
 	uint32_t ic_reset_addr;
+
     int (*IceModeInit)(void);
+
 	TP_INFO *tp_info;
-	uint8_t *firmware_ver;
-	uint16_t protocol_ver;
+
 	//uint32_t int_gpio;
 	//uint32_t reset_gpio;
 } CORE_CONFIG;
@@ -50,7 +61,7 @@ extern int core_config_WriteIceMode(uint32_t addr, uint32_t data, uint32_t size)
 extern int core_config_EnterIceMode(void);
 extern TP_INFO* core_config_GetKeyInfo(void);
 extern TP_INFO* core_config_GetResolution(void);
-extern uint16_t core_config_GetProtocolVer(void);
+extern uint8_t core_config_GetProtocolVer(void);
 extern uint8_t* core_config_GetFWVer(void);
 extern uint32_t core_config_GetChipID(void);
 extern int core_config_init(uint32_t id);

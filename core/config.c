@@ -16,6 +16,34 @@
 CORE_CONFIG *core_config;
 extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
+int fw_cmd_len = 0;
+int protocol_cmd_len = 0;
+uint8_t pcmd[4];
+
+static void set_protocol_cmd(uint32_t protocol_ver)
+{
+	if(protocol_ver == ILITEK_PROTOCOL_V3_2)
+	{
+		fw_cmd_len = 4;
+		protocol_cmd_len = 4;
+		pcmd[0] = PCMD_3_2_GET_TP_INFORMATION;
+		pcmd[1] = PCMD_3_2_GET_FIRMWARE_VERSION;
+		pcmd[2] = PCMD_3_2_GET_PROTOCOL_VERSION;
+		pcmd[3] = PCMD_3_2_GET_KEY_INFORMATION;
+
+	}
+
+	if(protocol_ver == ILITEK_PROTOCOL_V5_0)
+	{
+		fw_cmd_len = 4;
+		protocol_cmd_len = 3;
+		pcmd[0] = PCMD_5_0_GET_TP_INFORMATION;
+		pcmd[1] = PCMD_5_0_GET_FIRMWARE_VERSION;
+		pcmd[2] = PCMD_5_0_GET_PROTOCOL_VERSION;
+		pcmd[3] = PCMD_5_0_GET_KEY_INFORMATION;
+	}
+}
+
 static int ICEInit_212x(void)
 {
     // close watch dog
@@ -58,18 +86,19 @@ static uint32_t check_chip_id(uint32_t pid_data)
 
 	if((pid_data & 0x00F00000) == 0)
 	{
+
 		id = pid_data >> 16;
-		flag = (pid_data & 0x0000FF00);
+		flag = pid_data & 0x0000FFFF;
 
 		// ILI7807F
-		if((flag & 0xFFF0) == 0)
+		if(flag == 0x0001)
 		{
 			core_config->ic_reset_addr = 0x4004C;
 
 		}
 
 		// ILI7807H
-		if((flag & 0x00F0) == 0)
+		if(flag == 0x1101)
 		{
 			core_config->ic_reset_addr = 0x40050;
 		}
@@ -242,9 +271,10 @@ TP_INFO* core_config_GetKeyInfo(void)
 	uint8_t szWriteBuf[2] = {0};
 	uint8_t szReadBuf[64] = {0};
 
-	if(core_config->protocol_ver == ILITEK_PROTOCOL_VERSION_3_2)
+	if(core_config->protocol_ver == ILITEK_PROTOCOL_V3_2)
 	{
-		szWriteBuf[0] = ILITEK_TP_CMD_GET_KEY_INFORMATION;
+		szWriteBuf[0] = PCMD_3_2_GET_KEY_INFORMATION;
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
 		if (res < 0)
 		{
@@ -294,7 +324,7 @@ TP_INFO* core_config_GetResolution(void)
 	uint8_t szWriteBuf[2] = {0};
 	uint8_t szReadBuf[10] = {0};
     
-	szWriteBuf[0] = ILITEK_TP_CMD_GET_RESOLUTION;
+	szWriteBuf[0] = PCMD_3_2_GET_TP_INFORMATION;
 
     res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
 	if(res < 0)
@@ -328,31 +358,38 @@ TP_INFO* core_config_GetResolution(void)
 }
 EXPORT_SYMBOL(core_config_GetResolution);
 
-uint16_t core_config_GetProtocolVer(void)
+uint8_t core_config_GetProtocolVer(void)
 {
-	int res = 0, i = 0, protocol_length = 2;
-	uint8_t szWriteBuf[2] = {0};
-	uint8_t szReadBuf[2] = {0};
+	int res = 0, i = 0;
+	uint8_t szReadBuf[protocol_cmd_len];
 
-    szWriteBuf[0] = ILITEK_TP_ILI2121_CMD_GET_PROTOCOL_VERSION;
+	memset(szReadBuf, 0, sizeof(uint8_t) * protocol_cmd_len);
 
-    res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
+    res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[2], 1);
 	if(res < 0)
 	{
-		DBG_ERR("Get firmware version error %d", res);
+		DBG_ERR("Failed to get protocol version error %d", res);
 		return -EFAULT;
 	}
         
 	mdelay(10);
 
-    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], protocol_length);
+    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], protocol_cmd_len);
 	if(res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
 		return -EFAULT;
 	}
         
-	core_config->protocol_ver = (szReadBuf[0] << 8) + szReadBuf[1];
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	{
+		core_config->protocol_ver = szReadBuf[1] + szReadBuf[2];	
+	}
+
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+	{
+		core_config->protocol_ver = (szReadBuf[0] << 8) + szReadBuf[1];
+	}
 
 	return core_config->protocol_ver;
 }
@@ -360,13 +397,13 @@ EXPORT_SYMBOL(core_config_GetProtocolVer);
 
 uint8_t* core_config_GetFWVer(void)
 {
-	int res = 0, fw_length = 4;
-	uint8_t szWriteBuf[2] = {0};
-	uint8_t szReadBuf[4] = {0};
+	int res = 0, i = 0;
+	uint8_t szReadBuf[fw_cmd_len];
+	uint8_t temp[3];
 
-    szWriteBuf[0] = ILITEK_TP_ILI2121_CMD_GET_FIRMWARE_VERSION;
+	memset(szReadBuf, 0, sizeof(uint8_t) * fw_cmd_len);
 
-    res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
+    res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[1], 1);
 	if(res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
@@ -375,14 +412,25 @@ uint8_t* core_config_GetFWVer(void)
 
     mdelay(10);
 
-    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_length);
+    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_cmd_len);
 	if(res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
 		return NULL;
 	}
 
-	core_config->firmware_ver = szReadBuf;
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	{
+		temp[0] = szReadBuf[1];	
+		temp[1] = szReadBuf[2];	
+		temp[2] = szReadBuf[3];	
+		core_config->firmware_ver = temp;
+	}
+
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+	{
+		core_config->firmware_ver = szReadBuf;
+	}
 
 	return core_config->firmware_ver;
 }
@@ -412,6 +460,8 @@ uint32_t core_config_GetChipID(void)
 
 	PIDData = core_config_ReadIceMode(core_config->pid_addr);
 
+	DBG_INFO("PID = %x", PIDData);
+
 	if (PIDData)
 	{
 		RealID = check_chip_id(PIDData);
@@ -419,6 +469,8 @@ uint32_t core_config_GetChipID(void)
 		if(RealID == core_config->chip_id)
 		{
 			core_config_ic_reset(RealID);
+
+			mdelay(60);
 
 			res = core_config_ExitIceMode();
 			if(res < 0)
@@ -455,6 +507,7 @@ int core_config_init(uint32_t id)
 			if(SUP_CHIP_LIST[i] = CHIP_TYPE_ILI2121)
 			{
 				core_config->chip_id = id;
+				core_config->use_protocol = ILITEK_PROTOCOL_V3_2;
 				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI21XX_PID_ADDR;
@@ -465,11 +518,14 @@ int core_config_init(uint32_t id)
 			if(SUP_CHIP_LIST[i] = CHIP_TYPE_ILI7807)
 			{
 				core_config->chip_id = id;
+				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI7807_PID_ADDR;
 				core_config->ic_reset_addr = 0x0;
 				core_config->IceModeInit = NULL;
+
+				set_protocol_cmd(core_config->use_protocol);
 			}
 		}
 	}
