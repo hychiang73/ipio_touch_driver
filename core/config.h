@@ -14,16 +14,26 @@ typedef struct {
 	uint16_t nMaxY;
 	uint16_t nMinX;
 	uint16_t nMinY;
+
 	uint8_t nMaxTouchNum;
 	uint8_t nMaxKeyButtonNum;
+
 	uint8_t nXChannelNum;
 	uint8_t nYChannelNum;
 	uint8_t nHandleKeyFlag;
 	uint8_t nKeyCount;
+
 	uint16_t nKeyAreaXLength;
 	uint16_t nKeyAreaYLength;
-	//struct key_info_t key_info[10];
+
 	VIRTUAL_KEYS virtual_key[10];
+
+	//info for protocol v5
+	uint8_t self_tx_channel_num;
+	uint8_t self_rx_channel_num;
+	uint8_t side_touch_type;
+	uint8_t max_point;
+
 } TP_INFO;
 
 typedef struct _CORE_CONFIG {

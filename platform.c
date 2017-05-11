@@ -229,6 +229,17 @@ static int ilitek_platform_read_tp_info(void)
 	DBG_INFO("Protocol Version = %x", TIC->protocol_ver);
 
 	TIC->tp_info = core_config_GetResolution();
+
+	DBG_INFO("minX = %d, minY = %d, maxX = %d, maxY = %d",
+			TIC->tp_info->nMinX, TIC->tp_info->nMinY,
+			TIC->tp_info->nMaxX, TIC->tp_info->nMaxY);
+	DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d", 
+			TIC->tp_info->nXChannelNum, TIC->tp_info->nYChannelNum,
+			TIC->tp_info->self_tx_channel_num, TIC->tp_info->self_rx_channel_num);
+	DBG_INFO("side_touch_type = %d, max_point = %d, touchkey_num = %d",
+			TIC->tp_info->side_touch_type, TIC->tp_info->max_point,
+			TIC->tp_info->nKeyCount);
+
 	TIC->tp_info = core_config_GetKeyInfo();
 
 	if(TIC->tp_info == NULL)
@@ -236,15 +247,6 @@ static int ilitek_platform_read_tp_info(void)
 		DBG_ERR("Getting TP Resolution/key info failed");
 		return -EFAULT;
 	}
-
-    DBG_INFO("nMaxX=%d, nMaxY=%d, nXChannelNum=%d, nYChannelNum=%d, nMaxTouchNum=%d, nMaxKeyButtonNum=%d, nKeyCount=%d",
-			TIC->tp_info->nMaxX,
-			TIC->tp_info->nMaxY,
-			TIC->tp_info->nXChannelNum,
-			TIC->tp_info->nYChannelNum,
-			TIC->tp_info->nMaxTouchNum,
-			TIC->tp_info->nMaxKeyButtonNum,
-			TIC->tp_info->nKeyCount);
 
 	return res;
 }

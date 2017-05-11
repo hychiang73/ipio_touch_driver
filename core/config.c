@@ -18,6 +18,7 @@ extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
 int fw_cmd_len = 0;
 int protocol_cmd_len = 0;
+int tp_info_len = 0;
 uint8_t pcmd[4];
 
 static void set_protocol_cmd(uint32_t protocol_ver)
@@ -26,6 +27,7 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 	{
 		fw_cmd_len = 4;
 		protocol_cmd_len = 4;
+		tp_info_len = 10;
 		pcmd[0] = PCMD_3_2_GET_TP_INFORMATION;
 		pcmd[1] = PCMD_3_2_GET_FIRMWARE_VERSION;
 		pcmd[2] = PCMD_3_2_GET_PROTOCOL_VERSION;
@@ -37,6 +39,7 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 	{
 		fw_cmd_len = 4;
 		protocol_cmd_len = 3;
+		tp_info_len = 13;
 		pcmd[0] = PCMD_5_0_GET_TP_INFORMATION;
 		pcmd[1] = PCMD_5_0_GET_FIRMWARE_VERSION;
 		pcmd[2] = PCMD_5_0_GET_PROTOCOL_VERSION;
@@ -320,13 +323,12 @@ EXPORT_SYMBOL(core_config_GetKeyInfo);
 
 TP_INFO* core_config_GetResolution(void)
 {
-	int res = 0, i = 0, resolution_length = 10;
-	uint8_t szWriteBuf[2] = {0};
-	uint8_t szReadBuf[10] = {0};
+	int res = 0, i = 0;
+	uint8_t szReadBuf[tp_info_len];
     
-	szWriteBuf[0] = PCMD_3_2_GET_TP_INFORMATION;
+	memset(szReadBuf, 0, sizeof(uint8_t) * tp_info_len);
 
-    res = core_i2c_write(core_config->slave_i2c_addr, &szWriteBuf[0], 1);
+    res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[0], 1);
 	if(res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
@@ -335,24 +337,49 @@ TP_INFO* core_config_GetResolution(void)
         
 	mdelay(10);
 
-    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], resolution_length);
+    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], tp_info_len);
 	if(res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
 		return NULL;
 	}
 
-	core_config->tp_info->nMaxX = szReadBuf[0];
-	core_config->tp_info->nMaxX += (szReadBuf[1]*256);
-	core_config->tp_info->nMaxY = szReadBuf[2];
-	core_config->tp_info->nMaxY += (szReadBuf[3]*256);
-	core_config->tp_info->nMinX = 0;
-	core_config->tp_info->nMinY = 0;
-	core_config->tp_info->nXChannelNum = szReadBuf[4];
-	core_config->tp_info->nYChannelNum = szReadBuf[5];
-	core_config->tp_info->nMaxTouchNum = szReadBuf[6];
-	core_config->tp_info->nMaxKeyButtonNum = szReadBuf[7];
-	core_config->tp_info->nKeyCount = szReadBuf[8];
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+	{
+		core_config->tp_info->nMaxX = szReadBuf[0];
+		core_config->tp_info->nMaxX += (szReadBuf[1]*256);
+		core_config->tp_info->nMaxY = szReadBuf[2];
+		core_config->tp_info->nMaxY += (szReadBuf[3]*256);
+		core_config->tp_info->nMinX = 0;
+		core_config->tp_info->nMinY = 0;
+		core_config->tp_info->nXChannelNum = szReadBuf[4];
+		core_config->tp_info->nYChannelNum = szReadBuf[5];
+		core_config->tp_info->nMaxTouchNum = szReadBuf[6];
+		core_config->tp_info->nMaxKeyButtonNum = szReadBuf[7];
+		core_config->tp_info->nKeyCount = szReadBuf[8];
+	}
+
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	{
+		// in protocol v5, ignore the first btye because of a header.
+		core_config->tp_info->nMinX = szReadBuf[1];
+		core_config->tp_info->nMinY = szReadBuf[2];
+
+		core_config->tp_info->nMaxX = (szReadBuf[4] << 8) + szReadBuf[3];
+		core_config->tp_info->nMaxY = (szReadBuf[5] << 8) + szReadBuf[6];
+
+		core_config->tp_info->nXChannelNum = szReadBuf[7];
+		core_config->tp_info->nYChannelNum = szReadBuf[8];
+
+		core_config->tp_info->self_tx_channel_num = szReadBuf[9];
+		core_config->tp_info->self_rx_channel_num = szReadBuf[10];
+
+		core_config->tp_info->side_touch_type = szReadBuf[11];
+
+		core_config->tp_info->max_point = szReadBuf[12];
+		core_config->tp_info->nKeyCount = szReadBuf[13];
+	}
+
 
 	return core_config->tp_info;
 }
@@ -421,6 +448,7 @@ uint8_t* core_config_GetFWVer(void)
 
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
+		// in protocol v5, ignore the first btye because of a header.
 		temp[0] = szReadBuf[1];	
 		temp[1] = szReadBuf[2];	
 		temp[2] = szReadBuf[3];	
