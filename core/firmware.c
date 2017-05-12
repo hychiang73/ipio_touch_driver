@@ -57,14 +57,14 @@ static int CheckSum(uint32_t nStartAddr, uint32_t nEndAddr)
 	u16 i = 0, nInTimeCount = 100;
 	u8 szBuf[64] = {0};
 
-	core_config_WriteIceMode(0x4100B, 0x23, 1);
-	core_config_WriteIceMode(0x41009, nEndAddr, 2);
-	core_config_WriteIceMode(0x41000, 0x3B | (nStartAddr << 8), 4);
-	core_config_WriteIceMode(0x041004, 0x66AA5500, 4);
+	core_config_ice_mode_write(0x4100B, 0x23, 1);
+	core_config_ice_mode_write(0x41009, nEndAddr, 2);
+	core_config_ice_mode_write(0x41000, 0x3B | (nStartAddr << 8), 4);
+	core_config_ice_mode_write(0x041004, 0x66AA5500, 4);
 
 	for (i = 0; i < nInTimeCount; i++)
 	{
-		szBuf[0] = core_config_ReadWriteOneByte(0x41011);
+		szBuf[0] = core_config_read_write_onebyte(0x41011);
 
 		if ((szBuf[0] & 0x01) == 0)
 		{
@@ -73,7 +73,7 @@ static int CheckSum(uint32_t nStartAddr, uint32_t nEndAddr)
 		mdelay(100);
 	} 		
 
-	return core_config_ReadIceMode(0x41018);
+	return core_config_ice_mode_read(0x41018);
 }
 
 static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
@@ -238,7 +238,7 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 
 	DBG_INFO("Enter to ICE Mode before updating firmware ... ");
 
-	res = core_config_EnterIceMode();
+	res = core_config_ice_mode();
 
 	core_config->IceModeInit();
 
@@ -246,13 +246,13 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 
     for (i = 0; i <= 0xd000; i += 0x1000)
     {
-		res = core_config_WriteIceMode(0x041000, 0x06, 1); 
+		res = core_config_ice_mode_write(0x041000, 0x06, 1); 
 		if(res < 0)
 			return res;
 
         mdelay(3);
 
-		res = core_config_WriteIceMode(0x041004, 0x66aa5500, 4); 
+		res = core_config_ice_mode_write(0x041004, 0x66aa5500, 4); 
 		if(res < 0)
 			return res;
 
@@ -260,13 +260,13 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
         
         nTemp = (i << 8) + 0x20;
 
-		res = core_config_WriteIceMode(0x041000, nTemp, 4); 
+		res = core_config_ice_mode_write(0x041000, nTemp, 4); 
 		if(res < 0)
 			return res;
 
         mdelay(3);
         
-		res = core_config_WriteIceMode(0x041004, 0x66aa5500, 4); 
+		res = core_config_ice_mode_write(0x041004, 0x66aa5500, 4); 
 		if(res < 0)
 			return res;
 
@@ -274,17 +274,17 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
         
         for (j = 0; j < 50; j ++)
         {
-			res = core_config_WriteIceMode(0x041000, 0x05, 1); 
+			res = core_config_ice_mode_write(0x041000, 0x05, 1); 
 			if(res < 0)
 				return res;
 
-			res = core_config_WriteIceMode(0x041004, 0x66aa5500, 4); 
+			res = core_config_ice_mode_write(0x041004, 0x66aa5500, 4); 
 			if(res < 0)
 				return res;
 
             mdelay(1);
             
-            szBuf[0] = core_config_ReadIceMode(0x041013);
+            szBuf[0] = core_config_ice_mode_read(0x041013);
             if (szBuf[0] == 0)
                 break;
             else
@@ -299,21 +299,21 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 
     for (i = nApStartAddr; i < nApEndAddr; i += ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH)
     {
-		res = core_config_WriteIceMode(0x041000, 0x06, 1); 
+		res = core_config_ice_mode_write(0x041000, 0x06, 1); 
 		if(res < 0)
 			return res;
 
-		res = core_config_WriteIceMode(0x041004, 0x66aa5500, 4); 
+		res = core_config_ice_mode_write(0x041004, 0x66aa5500, 4); 
 		if(res < 0)
 			return res;
 
         nTemp = (i << 8) + 0x02;
 
-		res = core_config_WriteIceMode(0x041000, nTemp, 4); 
+		res = core_config_ice_mode_write(0x041000, nTemp, 4); 
 		if(res < 0)
 			return res;
 
-        res = core_config_WriteIceMode(0x041004, 0x66aa5500 + ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH - 1, 4);
+        res = core_config_ice_mode_write(0x041004, 0x66aa5500 + ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH - 1, 4);
 		if(res < 0)
 			return res;
 
@@ -349,13 +349,13 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 	{
 		//TODO: may add a retry func as protection.
 		
-		core_config_ExitIceMode();
+		core_config_ice_mode_exit();
 		DBG_INFO("Both checksum didn't match");
 		res = -1;
 		return res;
 	}
 
-	core_config_ExitIceMode();
+	core_config_ice_mode_exit();
 
     szCmd[0] = ILITEK_TP_CMD_READ_DATA;
     res = core_i2c_write(core_config->slave_i2c_addr, &szCmd[0], 1);
@@ -405,13 +405,13 @@ int core_firmware_upgrade(const char *pFilePath)
 
 	core_firmware->isUpgraded = false;
 
-	core_firmware->old_fw_ver = core_config_GetFWVer();
+//	core_firmware->old_fw_ver = core_config_GetFWVer();
 
-	DBG_INFO("Old verion of firmware = %d.%d.%d.%d", 
-			*core_firmware->old_fw_ver, 
-			*(core_firmware->old_fw_ver+1),
-			*(core_firmware->old_fw_ver+2),
-			*(core_firmware->old_fw_ver+3));
+	DBG_INFO("Firmware Version = %d.%d.%d.%d", 
+			core_config->firmware_ver[0], 
+			core_config->firmware_ver[1], 
+			core_config->firmware_ver[2],
+			core_config->firmware_ver[3]);
 
     pfile = filp_open(pFilePath, O_RDONLY, 0);
     if (IS_ERR(pfile))
@@ -476,13 +476,7 @@ int core_firmware_upgrade(const char *pFilePath)
 	// update firmware version if upgraded
 	if(core_firmware->isUpgraded)
 	{
-		core_firmware->new_fw_ver = core_config_GetFWVer();
-
-		DBG_INFO("Showing the version of updated firmware = %d.%d.%d.%d", 
-				*core_firmware->new_fw_ver, 
-				*(core_firmware->new_fw_ver+1),
-				*(core_firmware->new_fw_ver+2),
-				*(core_firmware->new_fw_ver+3));
+		core_config_get_fw_ver();
 	}
 
 	filp_close(pfile, NULL);
@@ -502,7 +496,7 @@ int core_firmware_init(uint32_t id)
 		{
 			core_firmware = (CORE_FIRMWARE*)kmalloc(sizeof(*core_firmware), GFP_KERNEL);
 
-			if(SUP_CHIP_LIST[i] = CHIP_TYPE_ILI2121)
+			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI2121)
 			{
 				core_firmware->chip_id			= id;
 
@@ -523,7 +517,7 @@ int core_firmware_init(uint32_t id)
 				core_firmware->upgrade_func		= firmware_upgrade_ili2121;
 			}
 
-			if(SUP_CHIP_LIST[i] = CHIP_TYPE_ILI7807)
+			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI7807)
 			{
 				core_firmware->chip_id			= id;
 

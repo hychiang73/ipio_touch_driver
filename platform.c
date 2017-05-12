@@ -9,10 +9,10 @@
 
 #define I2C_DEVICE_ID	"ILITEK_TP_ID"
 
+extern CORE_CONFIG *core_config;
 struct work_struct irq_work_queue;
 struct mutex MUTEX;
 spinlock_t SPIN_LOCK;
-
 platform_info *TIC;
 
 MODULE_AUTHOR("ILITEK");
@@ -196,57 +196,80 @@ static int ilitek_platform_gpio(void)
 	return res;
 }
 
+static void ilitek_platform_show_ic_info(void)
+{
+	DBG_INFO("CHIP ID = 0x%x", core_config->chip_id);
+
+	if(core_config->chip_id == CHIP_TYPE_ILI2121)
+	{
+		DBG_INFO("Firmware Version = %d.%d.%d.%d", 
+				core_config->firmware_ver[0], 
+				core_config->firmware_ver[1], 
+				core_config->firmware_ver[2],
+				core_config->firmware_ver[3]);
+
+		DBG_INFO("Procotol Version = %d.%d", 
+				core_config->protocol_ver[0], 
+				core_config->protocol_ver[1]); 
+
+		DBG_INFO("==== Touch Panel Information ====");
+		DBG_INFO("nMaxX=%d, nMaxY=%d",
+				core_config->tp_info->nMaxX,
+				core_config->tp_info->nMaxY);
+		DBG_INFO("nXChannelNum=%d, nYChannelNum=%d",
+				core_config->tp_info->nXChannelNum,
+				core_config->tp_info->nYChannelNum);
+		DBG_INFO("nMaxTouchNum=%d, nMaxKeyButtonNum=%d, nKeyCount=%d",
+				core_config->tp_info->nMaxTouchNum,
+				core_config->tp_info->nMaxKeyButtonNum,
+				core_config->tp_info->nKeyCount);
+
+		DBG_INFO("==== KEY Information ====");
+
+	}
+	else if(core_config->chip_id == CHIP_TYPE_ILI7807)
+	{
+		// in protocol v5, ignore the first btye because of a header.
+		DBG_INFO("Firmware Version = %d.%d.%d", 
+				core_config->firmware_ver[1], 
+				core_config->firmware_ver[2], 
+				core_config->firmware_ver[3]);
+
+		DBG_INFO("Procotol Version = %d.%d", 
+				core_config->protocol_ver[0], 
+				core_config->protocol_ver[1]); 
+
+		DBG_INFO("==== Touch Panel Information ====");
+		DBG_INFO("minX = %d, minY = %d, maxX = %d, maxY = %d",
+				core_config->tp_info->nMinX, core_config->tp_info->nMinY,
+				core_config->tp_info->nMaxX, core_config->tp_info->nMaxY);
+		DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d", 
+				core_config->tp_info->nXChannelNum, core_config->tp_info->nYChannelNum,
+				core_config->tp_info->self_tx_channel_num, core_config->tp_info->self_rx_channel_num);
+		DBG_INFO("side_touch_type = %d, max_point = %d, touchkey_num = %d",
+				core_config->tp_info->side_touch_type, core_config->tp_info->max_point,
+				core_config->tp_info->nKeyCount);
+
+		DBG_INFO("==== KEY Information ====");
+	}
+
+}
+
 static int ilitek_platform_read_tp_info(void)
 {
 	int res = 0;
 
-	TIC->chip_id = core_config_GetChipID();
+	core_config_get_chip_id();
 
-	DBG_INFO("CHIP ID = 0x%x", TIC->chip_id);
+	core_config_get_fw_ver();
 
-	TIC->firmware_ver = core_config_GetFWVer();
+	core_config_get_protocol_ver();
 
-	if(!TIC->firmware_ver)
-	{
-		DBG_ERR("Getting FW Ver error");
-		return -EFAULT;
-	}
+	core_config_get_tp_info();
 
-	DBG_INFO("Firmware Version = %d.%d.%d", 
-			*TIC->firmware_ver, 
-			*(TIC->firmware_ver+1),
-			*(TIC->firmware_ver+2));
+	core_config_get_key_info();
 
-
-	TIC->protocol_ver = core_config_GetProtocolVer();
-
-	if(TIC->protocol_ver < 0)
-	{
-		DBG_ERR("Getting Protocol Ver error");
-		return -EFAULT;
-	}
-
-	DBG_INFO("Protocol Version = %x", TIC->protocol_ver);
-
-	TIC->tp_info = core_config_GetResolution();
-
-	DBG_INFO("minX = %d, minY = %d, maxX = %d, maxY = %d",
-			TIC->tp_info->nMinX, TIC->tp_info->nMinY,
-			TIC->tp_info->nMaxX, TIC->tp_info->nMaxY);
-	DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d", 
-			TIC->tp_info->nXChannelNum, TIC->tp_info->nYChannelNum,
-			TIC->tp_info->self_tx_channel_num, TIC->tp_info->self_rx_channel_num);
-	DBG_INFO("side_touch_type = %d, max_point = %d, touchkey_num = %d",
-			TIC->tp_info->side_touch_type, TIC->tp_info->max_point,
-			TIC->tp_info->nKeyCount);
-
-	TIC->tp_info = core_config_GetKeyInfo();
-
-	if(TIC->tp_info == NULL)
-	{
-		DBG_ERR("Getting TP Resolution/key info failed");
-		return -EFAULT;
-	}
+	ilitek_platform_show_ic_info();
 
 	return res;
 }
@@ -263,6 +286,7 @@ static int ilitek_platform_core_init(void)
 
 	return SUCCESS;
 }
+
 static int ilitek_platform_core_remove(void)
 {
 	core_config_remove();
@@ -270,6 +294,7 @@ static int ilitek_platform_core_remove(void)
 	core_firmware_remove();
 	core_fr_remove();
 }
+
 
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
@@ -283,11 +308,11 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
         return -ENODEV;
 	}
 
-	TIC = (platform_info*)kmalloc(sizeof(platform_info), GFP_KERNEL);
+	TIC = (platform_info*)kmalloc(sizeof(*TIC), GFP_KERNEL);
 
 	TIC->client = client;
 	TIC->i2c_id = id;
-	TIC->chip_id = CHIP_TYPE_ILI7807;
+	TIC->chip_id = CHIP_TYPE_ILI2121;
 	TIC->isIrqEnable = false;
 
     mutex_init(&MUTEX);
@@ -377,6 +402,7 @@ static int __init ilitek_platform_init(void)
 	if(res < 0)
 	{
 		DBG_ERR("Failed to add i2c driver");
+		i2c_del_driver(&tp_i2c_driver);
 		return -ENODEV;
 	}
 

@@ -37,11 +37,12 @@ typedef struct {
 } TP_INFO;
 
 typedef struct _CORE_CONFIG {
+
     uint32_t chip_id;
 
-	uint8_t protocol_ver;
+	uint8_t protocol_ver[4];
 
-	uint8_t* firmware_ver;
+	uint8_t firmware_ver[4];
 
 	uint16_t use_protocol;
 
@@ -57,23 +58,21 @@ typedef struct _CORE_CONFIG {
 
 	TP_INFO *tp_info;
 
-	//uint32_t int_gpio;
-	//uint32_t reset_gpio;
 } CORE_CONFIG;
 
-extern CORE_CONFIG *core_config;
+//extern CORE_CONFIG *core_config;
 
 extern uint32_t vfIceRegRead(uint32_t addr);
-extern uint32_t core_config_ReadWriteOneByte(uint32_t addr);
-extern int core_config_ExitIceMode(void);
-extern uint32_t core_config_ReadIceMode(uint32_t addr);
-extern int core_config_WriteIceMode(uint32_t addr, uint32_t data, uint32_t size);
-extern int core_config_EnterIceMode(void);
-extern TP_INFO* core_config_GetKeyInfo(void);
-extern TP_INFO* core_config_GetResolution(void);
-extern uint8_t core_config_GetProtocolVer(void);
-extern uint8_t* core_config_GetFWVer(void);
-extern uint32_t core_config_GetChipID(void);
+extern uint32_t core_config_read_write_onebyte(uint32_t addr);
+extern uint32_t core_config_ice_mode_read(uint32_t addr);
+extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);
+extern int core_config_ice_mode(void);
+extern int core_config_ice_mode_exit(void);
+extern int core_config_get_key_info(void);
+extern int core_config_get_tp_info(void);
+extern int core_config_get_protocol_ver(void);
+extern int core_config_get_fw_ver(void);
+extern int core_config_get_chip_id(void);
 extern int core_config_init(uint32_t id);
 extern void core_config_remove(void);
 
