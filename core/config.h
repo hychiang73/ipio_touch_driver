@@ -28,11 +28,10 @@ typedef struct {
 
 	VIRTUAL_KEYS virtual_key[10];
 
-	//info for protocol v5
+	//added for protocol v5
 	uint8_t self_tx_channel_num;
 	uint8_t self_rx_channel_num;
 	uint8_t side_touch_type;
-	uint8_t max_point;
 
 } TP_INFO;
 

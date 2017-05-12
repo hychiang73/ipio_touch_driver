@@ -11,7 +11,7 @@ extern CORE_CONFIG *core_config;
 
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-    int res = -EINVAL, i;
+    int res = 0, i;
 
     struct i2c_msg msgs[] =
     {
@@ -25,14 +25,11 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 
 	msgs[0].scl_rate = 400000;
 
-    /*
-     * If everything went ok (i.e. 1 msg transmitted), return #bytes
-     * transmitted, else error code.
-     */
-	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) > 0)
-		res = nSize;
-	else
+	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
+	{
+		res = -EIO;
 		DBG_ERR("I2C Write Error");
+	}
 	
 	return res;
 }
@@ -40,7 +37,7 @@ EXPORT_SYMBOL(core_i2c_write);
 
 int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-    int rc = -EINVAL, i;
+    int res = 0, i;
 
     struct i2c_msg msgs[] =
     {
@@ -54,12 +51,13 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 
     msgs[0].scl_rate = 400000;
 
-	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) > 0)
-		rc = nSize;
-	else
-		DBG_ERR("I2C Write Error");
+	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
+	{
+		res = -EIO;
+		DBG_ERR("I2C Read Error");
+	}
 
-    return rc;
+    return res;
 }
 EXPORT_SYMBOL(core_i2c_read);
 

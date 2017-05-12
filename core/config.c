@@ -38,13 +38,13 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 		pcmd[1] = PCMD_3_2_GET_FIRMWARE_VERSION;
 		pcmd[2] = PCMD_3_2_GET_PROTOCOL_VERSION;
 		pcmd[3] = PCMD_3_2_GET_KEY_INFORMATION;
-	}
 
-	if(protocol_ver == ILITEK_PROTOCOL_V5_0)
+	}
+	else if(protocol_ver == ILITEK_PROTOCOL_V5_0)
 	{
 		fw_cmd_len = 4;
 		protocol_cmd_len = 3;
-		tp_info_len = 13;
+		tp_info_len = 12;
 		key_info_len = 30;
 
 		pcmd[0] = PCMD_5_0_GET_TP_INFORMATION;
@@ -234,6 +234,7 @@ int core_config_ic_reset(uint32_t id)
 {
 	if(id == CHIP_TYPE_ILI7807)
 	{
+		//DBG_INFO("ic reset addr = 0x%x", core_config->ic_reset_addr);
 		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);
 	} 
 
@@ -297,32 +298,51 @@ int core_config_get_key_info(void)
 		return res;
 	}
 
-	for(; i < key_info_len + 1; i++)
-	{
-		DBG_INFO("buf[%d] = %x", i , szReadBuf[i]);
-	}
+	//for(; i < key_info_len + 1; i++)
+		//DBG_INFO("buf[%d] = %x", i , szReadBuf[i]);
 
 	if(core_config->tp_info->nKeyCount)
 	{
-		if(core_config->tp_info->nKeyCount > 5)
+		
+		if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 		{
-			res = core_i2c_read(core_config->slave_i2c_addr, (szReadBuf+29), 25);
-			if(res < 0)
+
+			if(core_config->tp_info->nKeyCount > 5)
 			{
-				DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
-				return res;
+				res = core_i2c_read(core_config->slave_i2c_addr, (szReadBuf+29), 25);
+				if(res < 0)
+				{
+					DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
+					return res;
+				}
+			}
+
+			core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
+			core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
+
+			for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
+			{
+				core_config->tp_info->virtual_key[i].nId = szReadBuf[i*5+4];
+				core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
+				core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
+				core_config->tp_info->virtual_key[i].nStatus = 0;
 			}
 		}
-
-		core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
-		core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
-
-		for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
+		else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 		{
-			core_config->tp_info->virtual_key[i].nId = szReadBuf[i*5+4];
-			core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
-			core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
-			core_config->tp_info->virtual_key[i].nStatus = 0;
+			//TODO: Firmware not ready yet
+			#if 0
+			core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
+			core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
+
+			for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
+			{
+				core_config->tp_info->virtual_key[i].nId = szReadBuf[i*5+4];
+				core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
+				core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
+				core_config->tp_info->virtual_key[i].nStatus = 0;
+			}
+			#endif
 		}
 	}
 
@@ -353,6 +373,9 @@ int core_config_get_tp_info(void)
 		return res;
 	}
 
+	//for(; i < tp_info_len+1; i++)
+	//	DBG_INFO("buf[%d] = %x", i, szReadBuf[i]);
+
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
 		core_config->tp_info->nMaxX = szReadBuf[0];
@@ -366,9 +389,19 @@ int core_config_get_tp_info(void)
 		core_config->tp_info->nMaxTouchNum = szReadBuf[6];
 		core_config->tp_info->nMaxKeyButtonNum = szReadBuf[7];
 		core_config->tp_info->nKeyCount = szReadBuf[8];
-	}
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+		DBG_INFO("nMaxX=%d, nMaxY=%d",
+				core_config->tp_info->nMaxX,
+				core_config->tp_info->nMaxY);
+		DBG_INFO("nXChannelNum=%d, nYChannelNum=%d",
+				core_config->tp_info->nXChannelNum,
+				core_config->tp_info->nYChannelNum);
+		DBG_INFO("nMaxTouchNum=%d, nMaxKeyButtonNum=%d, nKeyCount=%d",
+				core_config->tp_info->nMaxTouchNum,
+				core_config->tp_info->nMaxKeyButtonNum,
+				core_config->tp_info->nKeyCount);
+	}
+	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
 		// in protocol v5, ignore the first btye because of a header.
 		core_config->tp_info->nMinX = szReadBuf[1];
@@ -380,8 +413,20 @@ int core_config_get_tp_info(void)
 		core_config->tp_info->self_tx_channel_num = szReadBuf[9];
 		core_config->tp_info->self_rx_channel_num = szReadBuf[10];
 		core_config->tp_info->side_touch_type = szReadBuf[11];
-		core_config->tp_info->max_point = szReadBuf[12];
+		core_config->tp_info->nMaxTouchNum = szReadBuf[12];
 		core_config->tp_info->nKeyCount = szReadBuf[13];
+
+		core_config->tp_info->nMaxKeyButtonNum = 5;
+
+		DBG_INFO("minX = %d, minY = %d, maxX = %d, maxY = %d",
+				core_config->tp_info->nMinX, core_config->tp_info->nMinY,
+				core_config->tp_info->nMaxX, core_config->tp_info->nMaxY);
+		DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d", 
+				core_config->tp_info->nXChannelNum, core_config->tp_info->nYChannelNum,
+				core_config->tp_info->self_tx_channel_num, core_config->tp_info->self_rx_channel_num);
+		DBG_INFO("side_touch_type = %d, max_touch_num= %d, touch_key_num = %d, max_key_num = %d",
+				core_config->tp_info->side_touch_type, core_config->tp_info->nMaxTouchNum,
+				core_config->tp_info->nKeyCount, core_config->tp_info->nMaxKeyButtonNum);
 	}
 
 	return res;
@@ -414,7 +459,22 @@ int core_config_get_protocol_ver(void)
         
 	for(; i < protocol_cmd_len; i++)
 	{
+		//DBG_INFO("szReadbuf[%d] = %d", i, szReadBuf[i]);
 		core_config->protocol_ver[i] = szReadBuf[i];
+	}
+
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+	{
+		DBG_INFO("Procotol Version = %d.%d", 
+				core_config->protocol_ver[0], 
+				core_config->protocol_ver[1]); 
+	}
+	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	{
+		// in protocol v5, ignore the first btye because of a header.
+		DBG_INFO("Procotol Version = %d.%d", 
+				core_config->protocol_ver[1], 
+				core_config->protocol_ver[2]); 
 	}
 
 	return res;
@@ -446,7 +506,25 @@ int core_config_get_fw_ver(void)
 
 	for(; i < fw_cmd_len; i++)
 	{
-		core_config->firmware_ver[i] = szReadBuf[i];
+		//DBG_INFO("szReadbuf[%d] = %d", i, szReadBuf[i]);
+		core_config->firmware_ver[i] = szReadBuf[i]; 
+	}
+
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+	{
+		DBG_INFO("Firmware Version = %d.%d.%d.%d", 
+				core_config->firmware_ver[0], 
+				core_config->firmware_ver[1], 
+				core_config->firmware_ver[2],
+				core_config->firmware_ver[3]);
+	}
+	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	{
+		// in protocol v5, ignore the first btye because of a header.
+		DBG_INFO("Firmware Version = %d.%d.%d", 
+				core_config->firmware_ver[1], 
+				core_config->firmware_ver[2], 
+				core_config->firmware_ver[3]);
 	}
 
 	return res;
@@ -459,6 +537,7 @@ int core_config_get_chip_id(void)
     uint32_t RealID = 0, PIDData = 0, flag;
 
 	res = core_config_ice_mode();
+
 	if(res < 0)
 	{
 		DBG_ERR("Failed to enter ICE mode, res = %d", res);
@@ -480,6 +559,7 @@ int core_config_get_chip_id(void)
 	if (PIDData)
 	{
 		RealID = check_chip_id(PIDData);
+		DBG_INFO("Read ID = 0x%x", RealID);
 
 		if(RealID == core_config->chip_id)
 		{
@@ -533,8 +613,7 @@ int core_config_init(uint32_t id)
 				core_config->ic_reset_addr = 0x0;
 				core_config->IceModeInit = ICEInit_212x;
 			}
-
-			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI7807)
+			else if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI7807)
 			{
 				core_config->chip_id = id;
 				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
