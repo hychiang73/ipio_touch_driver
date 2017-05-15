@@ -21,6 +21,8 @@ struct socket *nl_sk;
 #define ILITEK_IOCTL_I2C_READ_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 2, uint8_t*)
 #define ILITEK_IOCTL_I2C_SET_READ_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 3, int)
 
+#define UPGRADE_BY_IRAM 
+
 extern CORE_CONFIG *core_config;
 
 static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
@@ -34,6 +36,7 @@ static ssize_t ilitek_proc_glove_write(struct file *filp, const char __user *buf
 	DBG_INFO();
 	return size;
 }
+
 static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	DBG_INFO();
@@ -86,7 +89,11 @@ static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *
 
 			ilitek_platform_disable_irq();
 
+#ifdef UPGRADE_BY_IRAM
 			res = core_firmware_upgrade(szFilePath);
+#else
+			res = core_firmwarwe_iram_upgrade(szFilePath);
+#endif
 
 			ilitek_platform_enable_irq();
 

@@ -211,78 +211,6 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 	return -1;
 }
 
-// only for ILI7807
-static int iram_upgrade(void)
-{
-	int i, j, res = 0;
-	int iram_end_addr = 0x0, update_page_len = 256;
-	uint8_t buf[512] = {0};
-
-	iram_end_addr = sizeof(iram_fw);
-
-	DBG_INFO("IRAM fw size = %d", iram_end_addr);
-
-	ilitek_platform_disable_irq();
-
-	// soft reset
-	core_config_ic_reset(core_firmware->chip_id);
-
-	mdelay(60);
-
-	// go into ice mode
-	res = core_config_ice_mode();
-	if(res < 0)
-	{
-		DBG_ERR("Failed to enter ICE mode, res = %d", res);
-		return res;
-	}
-	
-	// disable watch dog
-	core_config_ice_mode_write(0x5100C, 0x07, 1);
-	core_config_ice_mode_write(0x5100C, 0x78, 1);
-
-	// write hex to the addr of iram
-	for(i = 0; i < iram_end_addr; i += update_page_len)
-	{
-		if((i + update_page_len) > iram_end_addr)
-		{
-			update_page_len = iram_end_addr % 256;
-		}
-
-		buf[0] = 0x25;
-		buf[3] = (char)((i & 0x00FF0000) >> 16);
-		buf[2] = (char)((i & 0x0000FF00) >> 8);
-		buf[1] = (char)((i & 0x000000FF));
-
-		for(j = 0; j < update_page_len; j++)
-		{
-			buf[4 + j] = iram_fw[i + j];
-		}
-
-		mdelay(3);
-	}
-
-	// exit ice mode
-	buf[0] = 0x1b;
-	buf[1] = 0x62;
-	buf[2] = 0x10;
-	buf[3] = 0x18;
-	core_i2c_write(core_config->slave_i2c_addr, buf, 4);
-
-	mdelay(500);
-
-	core_config_ice_mode_exit();
-	if(res < 0)
-	{
-		DBG_ERR("Failed to exit ICE mode, res = %d", res);
-		return res;
-	}
-
-	ilitek_platform_enable_irq();
-
-	return res;
-}
-
 static int firmware_upgrade_ili7807(uint8_t *pszFwData)
 {
 	DBG_INFO();
@@ -463,6 +391,111 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 
     DBG_INFO("Upgrade FW Success");
 	mdelay(100);
+
+	return res;
+}
+
+// only for ILI7807
+int core_firmware_iram_upgrade(const char *pf)
+{
+	int i, j, res = 0;
+	int iram_end_addr = 0x0, update_page_len = 256;
+	uint8_t buf[512] = {0};
+    struct file *pfile = NULL;
+    struct inode *inode;
+    s32 fsize = 0;
+    mm_segment_t old_fs;
+    loff_t pos = 0;
+
+    pfile = filp_open(pf, O_RDONLY, 0);
+    if (IS_ERR(pfile))
+    {
+        DBG_ERR("Error occurred while opening file %s.", pf);
+		res = -ENOENT;
+    }
+	else
+	{
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(3, 18, 0)
+		inode = pfile->f_dentry->d_inode;
+#else
+		inode = pfile->f_path.dentry->d_inode;
+#endif
+
+		fsize = inode->i_size;
+
+		DBG_INFO("fsize = %d", fsize);
+		if (fsize <= 0)
+		{
+			DBG_ERR("The size of file is zero");
+			res = -1;
+		}
+		else
+		{
+			// store current userspace mem segment.
+			old_fs = get_fs();
+
+			// set userspace mem segment equal to kernel's one.
+			set_fs(KERNEL_DS);
+
+			// read firmware data from userspace mem segment
+			vfs_read(pfile, buf, fsize, &pos);
+
+			// restore userspace mem segment after read.
+			set_fs(old_fs);
+		}
+	}
+
+	iram_end_addr = fsize;
+	
+	
+	//iram_end_addr = sizeof(iram_fw);
+
+	DBG_INFO("IRAM fw size = %d", iram_end_addr);
+
+	// soft reset
+	core_config_ic_reset(core_firmware->chip_id);
+
+	mdelay(60);
+
+	// go into ice mode
+	res = core_config_ice_mode();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to enter ICE mode, res = %d", res);
+		return res;
+	}
+	
+	// disable watch dog
+	core_config_ice_mode_write(0x5100C, 0x07, 1);
+	core_config_ice_mode_write(0x5100C, 0x78, 1);
+
+	// write hex to the addr of iram
+	for(i = 0; i < iram_end_addr; i += update_page_len)
+	{
+		if((i + update_page_len) > iram_end_addr)
+		{
+			update_page_len = iram_end_addr % 256;
+		}
+
+		buf[0] = 0x25;
+		buf[3] = (char)((i & 0x00FF0000) >> 16);
+		buf[2] = (char)((i & 0x0000FF00) >> 8);
+		buf[1] = (char)((i & 0x000000FF));
+
+		for(j = 0; j < update_page_len; j++)
+		{
+			buf[4 + j] = iram_fw[i + j];
+		}
+
+		mdelay(3);
+	}
+
+	// exit ice mode
+	core_config_ice_mode_exit();
+
+	mdelay(500);
+
+	//TODO: check iram status
 
 	return res;
 }

@@ -246,22 +246,34 @@ int core_config_ice_mode_exit(void)
 {
     int res = 0;
 
-	res = core_config_ice_mode_write(0x04004C, 0x2120, 2);
-	if (res < 0)
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
-		DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, res = %d\n", res);
-		return res;
-	}
-	mdelay(10);
+		res = core_config_ice_mode_write(0x04004C, 0x2120, 2);
+		if (res < 0)
+		{
+			DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, res = %d\n", res);
+			return res;
+		}
+		mdelay(10);
 
-	res = core_config_ice_mode_write(0x04004E, 0x01, 1);
-	if (res < 0)
+		res = core_config_ice_mode_write(0x04004E, 0x01, 1);
+		if (res < 0)
+		{
+			DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
+			return res;
+		}
+
+		mdelay(50);
+	}
+	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
-		DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
-		return res;
+		res = core_config_ice_mode_write(0x181062, 0x0, 0);
+		if (res < 0)
+		{
+			DBG_ERR("OutWrite(0x0x181062, 0x0, 0) error, res = %d", res);
+			return res;
+		}
 	}
-
-    mdelay(50);
 
     return res;
 }
