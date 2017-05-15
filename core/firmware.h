@@ -5,9 +5,9 @@ typedef struct _CORE_FIRMWARE {
 
     uint32_t chip_id;
 
-	uint8_t* new_fw_ver;
+	uint8_t new_fw_ver[4];
 
-	uint8_t* old_fw_ver;
+	uint8_t old_fw_ver[4];
 
 	uint32_t ap_start_addr;
 

@@ -22,7 +22,7 @@ int protocol_cmd_len = 0;
 int tp_info_len = 0;
 int key_info_len = 0;
 
-// store protocom commands defined on chip.h
+// store protocol commands defined on chip.h
 uint8_t pcmd[4];
 
 static void set_protocol_cmd(uint32_t protocol_ver)

@@ -394,7 +394,7 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 
 int core_firmware_upgrade(const char *pFilePath)
 {
-	int res = 0;
+	int res = 0, i = 0;
     struct file *pfile = NULL;
     struct inode *inode;
     s32 fsize = 0;
@@ -405,13 +405,7 @@ int core_firmware_upgrade(const char *pFilePath)
 
 	core_firmware->isUpgraded = false;
 
-//	core_firmware->old_fw_ver = core_config_GetFWVer();
-
-	DBG_INFO("Firmware Version = %d.%d.%d.%d", 
-			core_config->firmware_ver[0], 
-			core_config->firmware_ver[1], 
-			core_config->firmware_ver[2],
-			core_config->firmware_ver[3]);
+	//TODO: to compare old/new version if upgraded.
 
     pfile = filp_open(pFilePath, O_RDONLY, 0);
     if (IS_ERR(pfile))
@@ -477,6 +471,10 @@ int core_firmware_upgrade(const char *pFilePath)
 	if(core_firmware->isUpgraded)
 	{
 		core_config_get_fw_ver();
+		for(; i < 4; i++)
+		{
+			core_firmware->new_fw_ver[i] = core_config->firmware_ver[i];
+		}
 	}
 
 	filp_close(pfile, NULL);
@@ -486,7 +484,7 @@ int core_firmware_upgrade(const char *pFilePath)
 
 int core_firmware_init(uint32_t id)
 {
-	int i = 0;	
+	int i = 0, j = 0; 
 
 	DBG_INFO();
 
@@ -496,12 +494,15 @@ int core_firmware_init(uint32_t id)
 		{
 			core_firmware = (CORE_FIRMWARE*)kmalloc(sizeof(*core_firmware), GFP_KERNEL);
 
+			for(j = 0; j < 4; j++)
+			{
+				core_firmware->old_fw_ver[i] = core_config->firmware_ver[i];
+				core_firmware->new_fw_ver[i] = 0x0;
+			}
+
 			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI2121)
 			{
 				core_firmware->chip_id			= id;
-
-				core_firmware->new_fw_ver		= 0x0;
-				core_firmware->old_fw_ver		= 0x0;
 
 				core_firmware->ap_start_addr	= 0x0;
 				core_firmware->ap_end_addr		= 0x0;
@@ -520,9 +521,6 @@ int core_firmware_init(uint32_t id)
 			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI7807)
 			{
 				core_firmware->chip_id			= id;
-
-				core_firmware->new_fw_ver		= 0x0;
-				core_firmware->old_fw_ver		= 0x0;
 
 				core_firmware->ap_start_addr	= 0x0;
 				core_firmware->ap_end_addr		= 0x0;
