@@ -11,6 +11,7 @@
 
 
 #include "../chip.h"
+#include "../platform.h"
 #include "config.h"
 #include "i2c.h"
 #include "firmware.h"
@@ -21,6 +22,8 @@ extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
 uint8_t fwdata_buffer[ILITEK_ILI21XX_FIRMWARE_SIZE * 1024] = {0};
 uint8_t fwdata[ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE * 1024] = {0};
+
+uint8_t iram_fw[] = {0};
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -206,6 +209,78 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 	}
 
 	return -1;
+}
+
+// only for ILI7807
+static int iram_upgrade(void)
+{
+	int i, j, res = 0;
+	int iram_end_addr = 0x0, update_page_len = 256;
+	uint8_t buf[512] = {0};
+
+	iram_end_addr = sizeof(iram_fw);
+
+	DBG_INFO("IRAM fw size = %d", iram_end_addr);
+
+	ilitek_platform_disable_irq();
+
+	// soft reset
+	core_config_ic_reset(core_firmware->chip_id);
+
+	mdelay(60);
+
+	// go into ice mode
+	res = core_config_ice_mode();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to enter ICE mode, res = %d", res);
+		return res;
+	}
+	
+	// disable watch dog
+	core_config_ice_mode_write(0x5100C, 0x07, 1);
+	core_config_ice_mode_write(0x5100C, 0x78, 1);
+
+	// write hex to the addr of iram
+	for(i = 0; i < iram_end_addr; i += update_page_len)
+	{
+		if((i + update_page_len) > iram_end_addr)
+		{
+			update_page_len = iram_end_addr % 256;
+		}
+
+		buf[0] = 0x25;
+		buf[3] = (char)((i & 0x00FF0000) >> 16);
+		buf[2] = (char)((i & 0x0000FF00) >> 8);
+		buf[1] = (char)((i & 0x000000FF));
+
+		for(j = 0; j < update_page_len; j++)
+		{
+			buf[4 + j] = iram_fw[i + j];
+		}
+
+		mdelay(3);
+	}
+
+	// exit ice mode
+	buf[0] = 0x1b;
+	buf[1] = 0x62;
+	buf[2] = 0x10;
+	buf[3] = 0x18;
+	core_i2c_write(core_config->slave_i2c_addr, buf, 4);
+
+	mdelay(500);
+
+	core_config_ice_mode_exit();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to exit ICE mode, res = %d", res);
+		return res;
+	}
+
+	ilitek_platform_enable_irq();
+
+	return res;
 }
 
 static int firmware_upgrade_ili7807(uint8_t *pszFwData)

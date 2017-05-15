@@ -64,6 +64,7 @@ typedef struct _CORE_CONFIG {
 extern uint32_t vfIceRegRead(uint32_t addr);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);
 extern uint32_t core_config_ice_mode_read(uint32_t addr);
+extern int core_config_ic_reset(uint32_t id);
 extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);
 extern int core_config_ice_mode(void);
 extern int core_config_ice_mode_exit(void);
