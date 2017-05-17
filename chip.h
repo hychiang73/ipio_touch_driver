@@ -2,8 +2,6 @@
  * This header file include all definiations with different types of ILITEK Touch IC.
  */
 
-#define SUCCESS		0
-
 #define DBG_LEVEL
 
 #define DBG_INFO(fmt, arg...) \

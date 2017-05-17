@@ -689,7 +689,7 @@ int core_config_init(uint32_t id)
 	
 	set_protocol_cmd(core_config->use_protocol);
 
-	return SUCCESS;
+	return 0;
 }
 EXPORT_SYMBOL(core_config_init);
 

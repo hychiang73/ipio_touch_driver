@@ -138,7 +138,7 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 		return -ENOTTY;
 	}
 
-	DBG_INFO("cmd = %d", _IOC_NR);
+	DBG_INFO("cmd = %d", _IOC_NR(cmd));
 
 	switch(cmd)
 	{

@@ -7,11 +7,13 @@
 
 #include "platform.h"
 
+// Modify it if want to change the supprot of an IC by the driver
 #define ON_BOARD_IC		CHIP_TYPE_ILI7807
 
 #define I2C_DEVICE_ID	"ILITEK_TP_ID"
 
 extern CORE_CONFIG *core_config;
+
 struct work_struct irq_work_queue;
 struct mutex MUTEX;
 spinlock_t SPIN_LOCK;
@@ -60,6 +62,12 @@ void ilitek_platform_enable_irq(void)
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
+/*
+ * IC Power on/off
+ *
+ * The power sequenece should follow a rule defined by a board.
+ *
+ */
 void ilitek_platform_ic_power_on(void)
 {
 	DBG_INFO();
@@ -67,9 +75,9 @@ void ilitek_platform_ic_power_on(void)
 	gpio_direction_output(TIC->reset_gpio, 1);
 	mdelay(10);
 	gpio_set_value(TIC->reset_gpio, 0);
-	mdelay(100);
+	mdelay(10);
 	gpio_set_value(TIC->reset_gpio, 1);
-//	mdelay(25);
+	mdelay(5);
 }
 EXPORT_SYMBOL(ilitek_platform_ic_power_on);
 
@@ -115,6 +123,13 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
     return IRQ_HANDLED;
 }
 
+/*
+ * ISR Register
+ *
+ * The func not only registers an ISR, but initialises work queue
+ * function for the exeuction of finger report.
+ *
+ */
 static int ilitek_platform_isr_register(void)
 {
 	int res = 0;
@@ -146,7 +161,13 @@ static int ilitek_platform_isr_register(void)
 	return res;
 }
 
-
+/*
+ * Set up INT/RESET pin according to a developement board.
+ *
+ * You have to figure out how to config the gpios, either
+ * by a dts or a board configuration.
+ *
+ */
 static int ilitek_platform_gpio(void)
 {
 	int res = 0;
@@ -198,6 +219,10 @@ static int ilitek_platform_gpio(void)
 	return res;
 }
 
+/*
+ * Get Touch IC information.
+ *
+ */
 static int ilitek_platform_read_ic_info(void)
 {
 	int res = 0;
@@ -240,6 +265,11 @@ static int ilitek_platform_read_ic_info(void)
 	return res;
 }
 
+/*
+ * The func is to init all necessary structurs in those core APIs.
+ * It must be called if want to use featurs of toucn ic.
+ *
+ */
 static int ilitek_platform_core_init(void)
 {
 	DBG_INFO();
@@ -250,9 +280,13 @@ static int ilitek_platform_core_init(void)
 		core_fr_init(TIC->chip_id, TIC->client) < 0)
 			return -EINVAL;
 
-	return SUCCESS;
+	return 0;
 }
 
+/*
+ * Remove Core APIs memeory being allocated.
+ *
+ */
 static int ilitek_platform_core_remove(void)
 {
 	core_config_remove();
@@ -262,6 +296,14 @@ static int ilitek_platform_core_remove(void)
 }
 
 
+/*
+ * The probe func would be called after an i2c device was detected by kernel.
+ *
+ * The func still returns zero even if it couldn't get a touch ic info.
+ * The reason for why we allow it passing the process is because users/developers
+ * might want to have access to ICE mode to upgrade a firwmare forcelly.
+ *
+ */
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
@@ -271,7 +313,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
     if (client == NULL)
     {
         DBG_ERR("i2c client is NULL");
-     //   return -ENODEV;
+        return -ENODEV;
 	}
 
 	TIC = (platform_info*)kmalloc(sizeof(*TIC), GFP_KERNEL);
@@ -284,19 +326,24 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
     mutex_init(&MUTEX);
     spin_lock_init(&SPIN_LOCK);
 
+	res = ilitek_platform_gpio();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to request gpios ");
+		return -EINVAL;
+	}
+
+	res = ilitek_platform_isr_register();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to register ISR");
+	}
 
 	res = ilitek_platform_core_init();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to init core APIs");
-	//	return -EINVAL;
-	}
-
-	res = ilitek_platform_gpio();
-	if(res < 0)
-	{
-		DBG_ERR("Failed to request gpios ");
-	//	return -EINVAL;
+		return res;
 	}
 
 	ilitek_platform_ic_power_on();
@@ -305,19 +352,14 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if(res < 0)
 	{
 		DBG_ERR("Failed to read IC info");
-	//	return -EINVAL;
 	}
 
-//	ilitek_platform_isr_register();
-
-//	return res;
 	return 0;
-	
 }
 
 static int ilitek_platform_remove(struct i2c_client *client)
 {
-	DBG_INFO("Enter remove function");
+	DBG_INFO();
 
 	if(TIC->isIrqEnable)
 	{
@@ -331,8 +373,6 @@ static int ilitek_platform_remove(struct i2c_client *client)
 
 	ilitek_platform_core_remove();
 
-	ilitek_proc_remove();
-
 	kfree(TIC);
 }
 
@@ -344,6 +384,11 @@ static const struct i2c_device_id tp_device_id[] =
 
 MODULE_DEVICE_TABLE(i2c, tp_device_id);
 
+/*
+ * The name in the table must match the definiation
+ * in a dts file.
+ *
+ */
 static struct of_device_id tp_match_table[] = {
 	{ .compatible = "tchip,ilitek"},
     {},
@@ -378,8 +423,6 @@ static int __init ilitek_platform_init(void)
 
 	DBG_INFO("Succeed to add i2c driver");
 
-	//core_config_get_chip_id();
-
 	return res;
 }
 
@@ -388,6 +431,7 @@ static void __exit ilitek_platform_exit(void)
 	DBG_INFO("i2c driver has been removed");
 
 	i2c_del_driver(&tp_i2c_driver);
+	ilitek_proc_remove();
 }
 
 module_init(ilitek_platform_init);

@@ -75,7 +75,7 @@ int core_i2c_init(struct i2c_client *client)
 
 	core_i2c->client = client;
 
-	return SUCCESS;
+	return 0;
 }
 EXPORT_SYMBOL(core_i2c_init);
 
