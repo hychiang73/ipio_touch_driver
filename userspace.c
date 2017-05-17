@@ -13,7 +13,7 @@
 #define NETLINK_USER	31
 struct socket *nl_sk;
 
-#define ILITEK_IOCTL_MAGIC	'I' 
+#define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	4
 
 #define ILITEK_IOCTL_I2C_WRITE_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 0, uint8_t*)
@@ -24,6 +24,7 @@ struct socket *nl_sk;
 #define UPGRADE_BY_IRAM 
 
 extern CORE_CONFIG *core_config;
+uint16_t length = 0;
 
 static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -89,10 +90,10 @@ static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *
 
 			ilitek_platform_disable_irq();
 
-#ifdef UPGRADE_BY_IRAM
+#ifndef UPGRADE_BY_IRAM
 			res = core_firmware_upgrade(szFilePath);
 #else
-			res = core_firmwarwe_iram_upgrade(szFilePath);
+			res = core_firmware_iram_upgrade(szFilePath);
 #endif
 
 			ilitek_platform_enable_irq();
@@ -124,7 +125,6 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 {
 	int res = 0;
 	uint8_t	 szBuf[512] = {0};
-	uint16_t length = 0;
 
 	if(_IOC_TYPE(cmd) != ILITEK_IOCTL_MAGIC)
 	{
@@ -138,19 +138,18 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 		return -ENOTTY;
 	}
 
-	DBG_INFO();
+	DBG_INFO("cmd = %d", _IOC_NR);
 
 	switch(cmd)
 	{
 		case ILITEK_IOCTL_I2C_WRITE_DATA:
-			DBG_INFO("ILITEK_IOCTL_I2C_WRITE_DATA");
 			res = copy_from_user(szBuf, (unsigned char*)arg, length);
 			if(res < 0)
 			{
 				DBG_ERR("Failed to copy data from userspace");
 				break;
 			}
-
+			//DBG_INFO("slave: %x , len : %d", core_config->slave_i2c_addr, length);
 			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], length);
 			if(res < 0)
 			{
@@ -160,7 +159,6 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 			break;
 
 		case ILITEK_IOCTL_I2C_READ_DATA:
-			DBG_INFO("ILITEK_IOCTL_I2C_READ_DATA");
 			res = core_i2c_read(core_config->slave_i2c_addr, szBuf, length);
 			if(res < 0)
 			{
@@ -178,7 +176,6 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 
 		case ILITEK_IOCTL_I2C_SET_WRITE_LENGTH:
 		case ILITEK_IOCTL_I2C_SET_READ_LENGTH:
-			DBG_INFO("ILITEK_IOCTL_I2C_WRITE_LENGTH");
 			length = arg;
 			break;
 

@@ -9,7 +9,6 @@
 #include <linux/version.h>
 #include <asm/uaccess.h>
 
-
 #include "../chip.h"
 #include "../platform.h"
 #include "config.h"
@@ -23,7 +22,9 @@ extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 uint8_t fwdata_buffer[ILITEK_ILI21XX_FIRMWARE_SIZE * 1024] = {0};
 uint8_t fwdata[ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE * 1024] = {0};
 
-uint8_t iram_fw[] = {0};
+uint8_t *iram_fw;
+uint8_t *iram_data;
+uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0;
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -82,18 +83,23 @@ static int CheckSum(uint32_t nStartAddr, uint32_t nEndAddr)
 static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 {
     uint32_t i = 0, j = 0, k = 0;
-    uint32_t nApStartAddr = 0xFFFF, nDfStartAddr = 0xFFFF, nStartAddr = 0xFFFF, nExAddr = 0;
-    uint32_t nApEndAddr = 0x0, nDfEndAddr = 0x0, nEndAddr = 0x0;
-    uint32_t nApChecksum = 0x0, nDfChecksum = 0x0, nChecksum = 0x0, nLength = 0, nAddr = 0, nType = 0;
+	uint32_t nApStartAddr = 0xFFFF, nDfStartAddr = 0xFFFF, nExAddr = 0;
+    uint32_t nApEndAddr = 0x0, nDfEndAddr = 0x0;
+    uint32_t nApChecksum = 0x0, nDfChecksum = 0x0, nLength = 0, nAddr = 0, nType = 0;
 
 	DBG_INFO("size = %d", nSize);
 
 	core_firmware->ap_start_addr = 0;
 	core_firmware->ap_end_addr = 0;
 	core_firmware->ap_checksum = 0;
+	nStartAddr = 0xFFF;
+	nEndAddr = 0x0;
+	nChecksum = 0x0;
 
 	if(nSize != 0)
 	{
+		iram_data = kmalloc(sizeof(uint8_t) * 60 * 1024, GFP_KERNEL);	
+		memset(iram_data, 0xFF, 60 * 1024);
 		memset(fwdata, 0xFF, ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE*1024);
 
 		for(; i < nSize ; )
@@ -182,13 +188,13 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 				for (j = 0, k = 0; j < (nLength * 2); j += 2, k ++)
 				{
 					fwdata[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
-					//*(core_firmware->fw_data_max_buff+nAddr+k) = HexToDec(&pBuf[i + 9 + j], 2);
+					iram_data[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					//DBG_INFO("data[%d + %d] = %x", nAddr, k , fwdata[nAddr + k]);
 				}
 			}
 
 			i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;        
 		}
-
 
 		core_firmware->ap_start_addr = nApStartAddr;
 		core_firmware->ap_end_addr = nApEndAddr;
@@ -196,7 +202,6 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 		core_firmware->df_start_addr = nDfStartAddr;
 		core_firmware->df_end_addr = nDfEndAddr;
 		core_firmware->df_checksum = nDfChecksum;
-
 
 		DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
 				nStartAddr, nEndAddr, nChecksum);
@@ -241,9 +246,9 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 
 	DBG_INFO("Enter to ICE Mode before updating firmware ... ");
 
-	res = core_config_ice_mode();
+	res = core_config_ice_mode_enable();
 
-	core_config->IceModeInit();
+	core_config_reset_watch_dog();
 
     mdelay(5);
 
@@ -352,13 +357,13 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 	{
 		//TODO: may add a retry func as protection.
 		
-		core_config_ice_mode_exit();
+		core_config_ice_mode_reset();
 		DBG_INFO("Both checksum didn't match");
 		res = -1;
 		return res;
 	}
 
-	core_config_ice_mode_exit();
+	core_config_ice_mode_reset();
 
     szCmd[0] = ILITEK_TP_CMD_READ_DATA;
     res = core_i2c_write(core_config->slave_i2c_addr, &szCmd[0], 1);
@@ -398,12 +403,14 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 // only for ILI7807
 int core_firmware_iram_upgrade(const char *pf)
 {
-	int i, j, res = 0;
+	int i, j, k, res = 0;
 	int iram_end_addr = 0x0, update_page_len = 256;
-	uint8_t buf[512] = {0};
+	uint8_t buf[512];
+	uint8_t cmd[4];
     struct file *pfile = NULL;
     struct inode *inode;
-    s32 fsize = 0;
+    uint32_t fsize = 0;
+	int32_t nUpgradeStatus = 0;
     mm_segment_t old_fs;
     loff_t pos = 0;
 
@@ -420,10 +427,10 @@ int core_firmware_iram_upgrade(const char *pf)
 #else
 		inode = pfile->f_path.dentry->d_inode;
 #endif
-
 		fsize = inode->i_size;
 
 		DBG_INFO("fsize = %d", fsize);
+
 		if (fsize <= 0)
 		{
 			DBG_ERR("The size of file is zero");
@@ -431,6 +438,9 @@ int core_firmware_iram_upgrade(const char *pf)
 		}
 		else
 		{
+
+			iram_fw = kmalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
+
 			// store current userspace mem segment.
 			old_fs = get_fs();
 
@@ -438,43 +448,62 @@ int core_firmware_iram_upgrade(const char *pf)
 			set_fs(KERNEL_DS);
 
 			// read firmware data from userspace mem segment
-			vfs_read(pfile, buf, fsize, &pos);
+			vfs_read(pfile, iram_fw, fsize, &pos);
+			//vfs_read(pfile, fwdata_buffer, fsize, &pos);
 
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
+
+			res == convert_firmware(iram_fw, fsize);
+			if( res < 0)
+			{
+				DBG_ERR("Failed to covert firmware data, res = %d", res);
+				return res;
+			}
+
 		}
 	}
 
-	iram_end_addr = fsize;
-	
-	
+	//nEndAddr = 0xCFFF;
+
+	//iram_end_addr = fsize;
+
 	//iram_end_addr = sizeof(iram_fw);
 
-	DBG_INFO("IRAM fw size = %d", iram_end_addr);
-
+	//DBG_INFO("IRAM fw size = %d", iram_end_addr);
 	// soft reset
-	core_config_ic_reset(core_firmware->chip_id);
+	//core_config_ic_reset(core_firmware->chip_id);
 
-	mdelay(60);
+	ilitek_platform_ic_power_on();
 
-	// go into ice mode
-	res = core_config_ice_mode();
+	//core_config_ice_mode_reset();
+
+	udelay(1000);
+
+	res = core_config_ice_mode_enable();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to enter ICE mode, res = %d", res);
 		return res;
 	}
-	
+
+	//mdelay(1);
+	core_config_ice_mode_write(0x4100C, 0x01, 1);
+
+	mdelay(20);
+
 	// disable watch dog
-	core_config_ice_mode_write(0x5100C, 0x07, 1);
-	core_config_ice_mode_write(0x5100C, 0x78, 1);
+	core_config_reset_watch_dog();
+
+	DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
+				nStartAddr, nEndAddr, nChecksum);
 
 	// write hex to the addr of iram
-	for(i = 0; i < iram_end_addr; i += update_page_len)
+	for(i = nStartAddr; i < nEndAddr; i += 256)
 	{
-		if((i + update_page_len) > iram_end_addr)
+		if((i + 256) > nEndAddr)
 		{
-			update_page_len = iram_end_addr % 256;
+			update_page_len = nEndAddr % 256;
 		}
 
 		buf[0] = 0x25;
@@ -484,19 +513,80 @@ int core_firmware_iram_upgrade(const char *pf)
 
 		for(j = 0; j < update_page_len; j++)
 		{
-			buf[4 + j] = iram_fw[i + j];
+			buf[4 + j] = iram_data[i + j];
+		//	DBG_INFO("write --- buf[4 + %d] = %x", j, buf[4+j])
 		}
+
+		if(core_i2c_write(core_config->slave_i2c_addr, buf, update_page_len + 4))
+		{
+            DBG_INFO("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
+					(int)i, (int)nStartAddr, (int)nEndAddr);
+			res = -EIO;
+            return res;
+		}
+
+        nUpgradeStatus = (i * 100) / nEndAddr;
+        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, nUpgradeStatus, '%');
 
 		mdelay(3);
 	}
 
-	// exit ice mode
-	core_config_ice_mode_exit();
+#if 0 //read iram data
+	memset(buf, 0xFF, 512);
+	update_page_len = 256;
 
-	mdelay(500);
+	for(i = nStartAddr; i < nEndAddr; i += 256)
+	{
+		if((i + 256) > nEndAddr)
+		{
+			update_page_len = nEndAddr % 256;
+		}
+
+		buf[0] = 0x25;
+		buf[3] = (char)((i & 0x00FF0000) >> 16);
+		buf[2] = (char)((i & 0x0000FF00) >> 8);
+		buf[1] = (char)((i & 0x000000FF));
+
+		core_i2c_write(core_config->slave_i2c_addr, buf, 4);
+
+		if(core_i2c_read(core_config->slave_i2c_addr, buf, update_page_len ))
+		{
+			DBG_INFO("Failed to read data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
+					(int)i, (int)nStartAddr, (int)nEndAddr);
+			res = -EIO;
+			return res;
+		}
+
+		for(j = 0; j < 3; j++)
+		{
+			if(i+j*16 > nEndAddr)
+				break;
+
+			printk("0x%06X: ", i+j*16);
+
+			for(k = 0; k < 16; k++)
+			{
+				printk(" %02X", buf[k+j*16]);
+			}
+			printk("\n");
+		}
+	}
+#endif
+
+	// ice mode code reset
+	DBG_INFO("ice mode code reset");
+	core_config_ice_mode_write(0x40040, 0xAE, 1);
+
+	mdelay(10);
+
+	// leave ice mode without reset chip.
+	core_config_ice_mode_disable();
 
 	//TODO: check iram status
 
+	filp_close(pfile, NULL);
+	kfree(iram_fw);
+	kfree(iram_data);
 	return res;
 }
 

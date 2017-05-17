@@ -60,7 +60,7 @@ void ilitek_platform_enable_irq(void)
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
-void ilitek_platform_tp_poweron(void)
+void ilitek_platform_ic_power_on(void)
 {
 	DBG_INFO();
 
@@ -69,9 +69,9 @@ void ilitek_platform_tp_poweron(void)
 	gpio_set_value(TIC->reset_gpio, 0);
 	mdelay(100);
 	gpio_set_value(TIC->reset_gpio, 1);
-	mdelay(25);
+//	mdelay(25);
 }
-EXPORT_SYMBOL(ilitek_platform_tp_poweron);
+EXPORT_SYMBOL(ilitek_platform_ic_power_on);
 
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
@@ -271,7 +271,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
     if (client == NULL)
     {
         DBG_ERR("i2c client is NULL");
-        return -ENODEV;
+     //   return -ENODEV;
 	}
 
 	TIC = (platform_info*)kmalloc(sizeof(*TIC), GFP_KERNEL);
@@ -289,28 +289,30 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if(res < 0)
 	{
 		DBG_ERR("Failed to init core APIs");
-		return -EINVAL;
+	//	return -EINVAL;
 	}
 
 	res = ilitek_platform_gpio();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to request gpios ");
-		return -EINVAL;
+	//	return -EINVAL;
 	}
 
-	ilitek_platform_tp_poweron();
+	ilitek_platform_ic_power_on();
 
 	res = ilitek_platform_read_ic_info();
 	if(res < 0)
 	{
-		DBG_ERR("Failed to read TP info");
-		return -EINVAL;
+		DBG_ERR("Failed to read IC info");
+	//	return -EINVAL;
 	}
 
-	ilitek_platform_isr_register();
+//	ilitek_platform_isr_register();
 
-	return res;
+//	return res;
+	return 0;
+	
 }
 
 static int ilitek_platform_remove(struct i2c_client *client)
@@ -375,6 +377,8 @@ static int __init ilitek_platform_init(void)
 	ilitek_proc_init();
 
 	DBG_INFO("Succeed to add i2c driver");
+
+	//core_config_get_chip_id();
 
 	return res;
 }

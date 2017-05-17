@@ -54,36 +54,6 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 	}
 }
 
-static int ICEInit_212x(void)
-{
-    // close watch dog
-    if (core_config_ice_mode_write(0x5200C, 0x0000, 2) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x52020, 0x01, 1) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x52020, 0x00, 1) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x42000, 0x0F154900, 4) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x42014, 0x02, 1) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x42000, 0x00000000, 4) < 0)
-        return -EFAULT;
-        //---------------------------------
-    if (core_config_ice_mode_write(0x041000, 0xab, 1) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x041004, 0x66aa5500, 4) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x04100d, 0x00, 1) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x04100b, 0x03, 1) < 0)
-        return -EFAULT;
-    if (core_config_ice_mode_write(0x041009, 0x0000, 2) < 0)
-        return -EFAULT;
-
-    return SUCCESS;
-}
-
 static uint32_t check_chip_id(uint32_t pid_data)
 {
 	uint32_t id = 0;
@@ -184,6 +154,8 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
     int res = 0, i;
     uint8_t szOutBuf[64] = {0};
 
+	DBG_INFO();
+
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
     szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
@@ -232,6 +204,10 @@ EXPORT_SYMBOL(vfIceRegRead);
 
 int core_config_ic_reset(uint32_t id)
 {
+	DBG_INFO();
+
+	core_config_ice_mode_enable();
+
 	if(id == CHIP_TYPE_ILI7807)
 	{
 		//DBG_INFO("ic reset addr = 0x%x", core_config->ic_reset_addr);
@@ -242,9 +218,11 @@ int core_config_ic_reset(uint32_t id)
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
-int core_config_ice_mode_exit(void)
+int core_config_ice_mode_reset(void)
 {
     int res = 0;
+
+	DBG_INFO();
 
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
@@ -254,6 +232,7 @@ int core_config_ice_mode_exit(void)
 			DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, res = %d\n", res);
 			return res;
 		}
+
 		mdelay(10);
 
 		res = core_config_ice_mode_write(0x04004E, 0x01, 1);
@@ -262,32 +241,105 @@ int core_config_ice_mode_exit(void)
 			DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
 			return res;
 		}
-
-		mdelay(50);
 	}
 	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
-		res = core_config_ice_mode_write(0x181062, 0x0, 0);
+		// write chip's key
+		res = core_config_ice_mode_write(core_config->ic_reset_addr, 0x7807, 2);
 		if (res < 0)
 		{
-			DBG_ERR("OutWrite(0x0x181062, 0x0, 0) error, res = %d", res);
+			DBG_ERR("OutWrite(0x04004C, 0x7807, 2) error, res = %d\n", res);
 			return res;
 		}
+
+		mdelay(10);
+
+		// chip reset doing in ice mode
+		res = core_config_ice_mode_write(0x04004E, 0x01, 1);
+		if (res < 0)
+		{
+			DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
+			return res;
+		}
+
+		mdelay(10);
 	}
 
     return res;
 }
-EXPORT_SYMBOL(core_config_ice_mode_exit);
+EXPORT_SYMBOL(core_config_ice_mode_reset);
 
-int core_config_ice_mode(void)
+int core_config_ice_mode_disable(void)
 {
-    // Entry ICE Mode
-    if (core_config_ice_mode_write(core_config->ice_mode_addr, 0x0, 0) < 0)
+	uint8_t cmd[4];
+	DBG_INFO();
+
+	cmd[0] = 0x1b;
+	cmd[1] = 0x62;
+	cmd[2] = 0x10;
+	cmd[3] = 0x18;
+
+	if(core_i2c_write(core_config->slave_i2c_addr, cmd, 4) < 0)
+	{
+		DBG_ERR("Failed to disable ice mode");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(core_config_ice_mode_disable);
+
+int core_config_ice_mode_enable(void)
+{
+	DBG_INFO();
+
+    if (core_config_ice_mode_write(0x181062, 0x0, 1) < 0)
         return -EFAULT;
 
-	return SUCCESS;
+	return 0;
 }
-EXPORT_SYMBOL(core_config_ice_mode);
+EXPORT_SYMBOL(core_config_ice_mode_enable);
+
+int core_config_reset_watch_dog(void)
+{
+	DBG_INFO();
+
+	if(core_config->chip_id == CHIP_TYPE_ILI2121)
+	{
+		// close watch dog
+		if (core_config_ice_mode_write(0x5200C, 0x0000, 2) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x52020, 0x01, 1) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x52020, 0x00, 1) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x42000, 0x0F154900, 4) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x42014, 0x02, 1) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x42000, 0x00000000, 4) < 0)
+			return -EFAULT;
+		//---------------------------------
+		if (core_config_ice_mode_write(0x041000, 0xab, 1) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x041004, 0x66aa5500, 4) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x04100d, 0x00, 1) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x04100b, 0x03, 1) < 0)
+			return -EFAULT;
+		if (core_config_ice_mode_write(0x041009, 0x0000, 2) < 0)
+			return -EFAULT;
+	}
+	else if(core_config->chip_id == CHIP_TYPE_ILI7807)
+	{
+		core_config_ice_mode_write(0x5100C, 0x7, 1);
+		core_config_ice_mode_write(0x5100C, 0x78, 1);
+	}
+
+    return 0;
+}
+EXPORT_SYMBOL(core_config_reset_watch_dog);
 
 int core_config_get_key_info(void)
 {
@@ -503,7 +555,7 @@ int core_config_get_fw_ver(void)
     res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[1], 1);
 	if(res < 0)
 	{
-		DBG_ERR("Get firmware version error %d", res);
+		DBG_ERR("Failed to write cmd to get fw version %d", res);
 		return res;
 	}
 
@@ -512,7 +564,7 @@ int core_config_get_fw_ver(void)
     res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_cmd_len);
 	if(res < 0)
 	{
-		DBG_ERR("Get firmware version error %d", res);
+		DBG_ERR("Failed to read fw version %d", res);
 		return res;
 	}
 
@@ -548,7 +600,7 @@ int core_config_get_chip_id(void)
     int i, res = 0;
     uint32_t RealID = 0, PIDData = 0, flag;
 
-	res = core_config_ice_mode();
+	res = core_config_ice_mode_enable();
 
 	if(res < 0)
 	{
@@ -556,15 +608,7 @@ int core_config_get_chip_id(void)
 		return res;
 	}
 
-	if(core_config->IceModeInit)
-	{
-		res = core_config->IceModeInit();
-		if(res < 0)
-		{
-			DBG_ERR("Failed to initialize ICE Mode, res = %d", res);
-			return res;
-		}
-	}
+	core_config_reset_watch_dog();
 
 	PIDData = core_config_ice_mode_read(core_config->pid_addr);
 
@@ -579,7 +623,8 @@ int core_config_get_chip_id(void)
 
 			mdelay(60);
 
-			res = core_config_ice_mode_exit();
+			res = core_config_ice_mode_reset();
+			res = core_config_ice_mode_disable();
 			if(res < 0)
 			{
 				DBG_ERR("Failed to exit ICE mode");
@@ -623,7 +668,6 @@ int core_config_init(uint32_t id)
 				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI21XX_PID_ADDR;
 				core_config->ic_reset_addr = 0x0;
-				core_config->IceModeInit = ICEInit_212x;
 			}
 			else if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI7807)
 			{
@@ -633,7 +677,6 @@ int core_config_init(uint32_t id)
 				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI7807_PID_ADDR;
 				core_config->ic_reset_addr = 0x0;
-				core_config->IceModeInit = NULL;
 			}
 		}
 	}

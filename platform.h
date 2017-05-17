@@ -46,7 +46,7 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
-extern void ilitek_platform_tp_poweron(void);
+extern void ilitek_platform_ic_power_on(void);
 extern int ilitek_proc_init(void);
 extern void ilitek_proc_remove(void);
 #endif

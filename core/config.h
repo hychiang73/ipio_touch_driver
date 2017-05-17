@@ -53,8 +53,6 @@ typedef struct _CORE_CONFIG {
 
 	uint32_t ic_reset_addr;
 
-    int (*IceModeInit)(void);
-
 	TP_INFO *tp_info;
 
 } CORE_CONFIG;
@@ -63,16 +61,22 @@ typedef struct _CORE_CONFIG {
 
 extern uint32_t vfIceRegRead(uint32_t addr);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);
-extern uint32_t core_config_ice_mode_read(uint32_t addr);
+
+extern int core_config_reset_watch_dog(void);
 extern int core_config_ic_reset(uint32_t id);
+
+extern uint32_t core_config_ice_mode_read(uint32_t addr);
 extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);
-extern int core_config_ice_mode(void);
-extern int core_config_ice_mode_exit(void);
+extern int core_config_ice_mode_reset(void);
+extern int core_config_ice_mode_disable(void);
+extern int core_config_ice_mode_enable(void);
+
 extern int core_config_get_key_info(void);
 extern int core_config_get_tp_info(void);
 extern int core_config_get_protocol_ver(void);
 extern int core_config_get_fw_ver(void);
 extern int core_config_get_chip_id(void);
+
 extern int core_config_init(uint32_t id);
 extern void core_config_remove(void);
 
