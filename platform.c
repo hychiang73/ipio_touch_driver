@@ -7,7 +7,7 @@
 
 #include "platform.h"
 
-// Modify it if want to change the supprot of an IC by the driver
+// Modify it if want to change the support of an IC by the driver
 #define ON_BOARD_IC		CHIP_TYPE_ILI7807
 //#define ON_BOARD_IC		CHIP_TYPE_ILI2121
 
