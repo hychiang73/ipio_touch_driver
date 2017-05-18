@@ -24,7 +24,7 @@ struct socket *nl_sk;
 #define UPGRADE_BY_IRAM 
 
 extern CORE_CONFIG *core_config;
-uint16_t length = 0;
+uint16_t i2c_rw_length = 0;
 
 static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -143,14 +143,14 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 	switch(cmd)
 	{
 		case ILITEK_IOCTL_I2C_WRITE_DATA:
-			res = copy_from_user(szBuf, (unsigned char*)arg, length);
+			res = copy_from_user(szBuf, (unsigned char*)arg, i2c_rw_length);
 			if(res < 0)
 			{
 				DBG_ERR("Failed to copy data from userspace");
 				break;
 			}
-			//DBG_INFO("slave: %x , len : %d", core_config->slave_i2c_addr, length);
-			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], length);
+			//DBG_INFO("slave: %x , len : %d", core_config->slave_i2c_addr, i2c_rw_length);
+			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
 			if(res < 0)
 			{
 				DBG_ERR("Failed to write data via i2c");
@@ -159,14 +159,14 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 			break;
 
 		case ILITEK_IOCTL_I2C_READ_DATA:
-			res = core_i2c_read(core_config->slave_i2c_addr, szBuf, length);
+			res = core_i2c_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
 			if(res < 0)
 			{
 				DBG_INFO("Failed to read data via i2c");
 				break;
 			}
 
-			res = copy_to_user((unsigned char*)arg, szBuf, length);
+			res = copy_to_user((unsigned char*)arg, szBuf, i2c_rw_length);
 			if(res < 0)
 			{
 				DBG_INFO("Failed to copy data to userspace");
@@ -176,7 +176,7 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 
 		case ILITEK_IOCTL_I2C_SET_WRITE_LENGTH:
 		case ILITEK_IOCTL_I2C_SET_READ_LENGTH:
-			length = arg;
+			i2c_rw_length = arg;
 			break;
 
 		default:

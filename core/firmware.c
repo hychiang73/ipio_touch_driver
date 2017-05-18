@@ -15,6 +15,8 @@
 #include "i2c.h"
 #include "firmware.h"
 
+#define UPGRADE_WITH_IRAM
+
 CORE_FIRMWARE *core_firmware;
 extern CORE_CONFIG *core_config;
 extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
@@ -22,9 +24,10 @@ extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 uint8_t fwdata_buffer[ILITEK_ILI21XX_FIRMWARE_SIZE * 1024] = {0};
 uint8_t fwdata[ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE * 1024] = {0};
 
+#ifdef UPGRADE_WITH_IRAM
 uint8_t *iram_fw;
 uint8_t *iram_data;
-uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0;
+#endif
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -80,21 +83,97 @@ static int CheckSum(uint32_t nStartAddr, uint32_t nEndAddr)
 	return core_config_ice_mode_read(0x41018);
 }
 
+static int iram_upgrade(void)
+{
+	int i, j, k, res = 0;
+	int update_page_len = 256;
+	uint8_t buf[512];
+	int32_t nUpgradeStatus = 0;
+
+	ilitek_platform_ic_power_on();
+
+	//core_config_ice_mode_reset();
+
+	udelay(1000);
+
+	res = core_config_ice_mode_enable();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to enter ICE mode, res = %d", res);
+		return res;
+	}
+
+	//mdelay(1);
+	core_config_ice_mode_write(0x4100C, 0x01, 1);
+
+	mdelay(20);
+
+	// disable watch dog
+	core_config_reset_watch_dog();
+
+	DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
+				core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
+
+	// write hex to the addr of iram
+	for(i = core_firmware->start_addr; i < core_firmware->end_addr; i += 256)
+	{
+		if((i + 256) > core_firmware->end_addr)
+		{
+			update_page_len = core_firmware->end_addr % 256;
+		}
+
+		buf[0] = 0x25;
+		buf[3] = (char)((i & 0x00FF0000) >> 16);
+		buf[2] = (char)((i & 0x0000FF00) >> 8);
+		buf[1] = (char)((i & 0x000000FF));
+
+		for(j = 0; j < update_page_len; j++)
+		{
+			buf[4 + j] = iram_data[i + j];
+		//	DBG_INFO("write --- buf[4 + %d] = %x", j, buf[4+j])
+		}
+
+		if(core_i2c_write(core_config->slave_i2c_addr, buf, update_page_len + 4))
+		{
+            DBG_INFO("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
+					(int)i, (int)core_firmware->start_addr, (int)core_firmware->end_addr);
+			res = -EIO;
+            return res;
+		}
+
+        nUpgradeStatus = (i * 100) / core_firmware->end_addr;
+        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, nUpgradeStatus, '%');
+
+		mdelay(3);
+	}
+
+	// ice mode code reset
+	DBG_INFO("ice mode code reset");
+	core_config_ice_mode_write(0x40040, 0xAE, 1);
+
+	mdelay(10);
+
+	// leave ice mode without reset chip.
+	core_config_ice_mode_disable();
+
+	//TODO: check iram status
+
+	return res;
+}
+
 static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 {
     uint32_t i = 0, j = 0, k = 0;
 	uint32_t nApStartAddr = 0xFFFF, nDfStartAddr = 0xFFFF, nExAddr = 0;
     uint32_t nApEndAddr = 0x0, nDfEndAddr = 0x0;
     uint32_t nApChecksum = 0x0, nDfChecksum = 0x0, nLength = 0, nAddr = 0, nType = 0;
+	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0;
 
 	DBG_INFO("size = %d", nSize);
 
 	core_firmware->ap_start_addr = 0;
 	core_firmware->ap_end_addr = 0;
 	core_firmware->ap_checksum = 0;
-	nStartAddr = 0xFFF;
-	nEndAddr = 0x0;
-	nChecksum = 0x0;
 
 	if(nSize != 0)
 	{
@@ -196,19 +275,24 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 			i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;        
 		}
 
-		core_firmware->ap_start_addr = nApStartAddr;
-		core_firmware->ap_end_addr = nApEndAddr;
-		core_firmware->ap_checksum = nApChecksum;
-		core_firmware->df_start_addr = nDfStartAddr;
-		core_firmware->df_end_addr = nDfEndAddr;
-		core_firmware->df_checksum = nDfChecksum;
+		core_firmware->ap_start_addr	= nApStartAddr;
+		core_firmware->ap_end_addr		= nApEndAddr;
+		core_firmware->ap_checksum		= nApChecksum;
 
-		DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
-				nStartAddr, nEndAddr, nChecksum);
+		core_firmware->df_start_addr	= nDfStartAddr;
+		core_firmware->df_end_addr		= nDfEndAddr;
+		core_firmware->df_checksum		= nDfChecksum;
+
+		core_firmware->start_addr		= nStartAddr;
+		core_firmware->end_addr			= nEndAddr;
+		core_firmware->checksum			= nChecksum;
+
 		DBG_INFO("nApStartAddr = 0x%06X, nApEndAddr = 0x%06X, nApChecksum = 0x%06X",
 				nApStartAddr, nApEndAddr, nApChecksum);
 		DBG_INFO("nDfStartAddr = 0x%06X, nDfEndAddr = 0x%06X, nDfChecksum = 0x%06X",
 				nDfStartAddr, nDfEndAddr, nDfChecksum);
+		DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
+				nStartAddr, nEndAddr, nChecksum);
 
 		return 0;
 	}
@@ -219,6 +303,12 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 static int firmware_upgrade_ili7807(uint8_t *pszFwData)
 {
 	DBG_INFO();
+
+#ifdef UPGRADE_WITH_IRAM
+	iram_upgrade();
+#else
+
+#endif
 
 	return 0;
 }
@@ -400,7 +490,7 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData)
 	return res;
 }
 
-// only for ILI7807
+#if 0
 int core_firmware_iram_upgrade(const char *pf)
 {
 	int i, j, k, res = 0;
@@ -464,7 +554,7 @@ int core_firmware_iram_upgrade(const char *pf)
 		}
 	}
 
-	//nEndAddr = 0xCFFF;
+	//core_firmware->end_addr = 0xCFFF;
 
 	//iram_end_addr = fsize;
 
@@ -495,15 +585,15 @@ int core_firmware_iram_upgrade(const char *pf)
 	// disable watch dog
 	core_config_reset_watch_dog();
 
-	DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
-				nStartAddr, nEndAddr, nChecksum);
+	DBG_INFO("core_firmware->start_addr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
+				core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
 
 	// write hex to the addr of iram
-	for(i = nStartAddr; i < nEndAddr; i += 256)
+	for(i = core_firmware->start_addr; i < core_firmware->end_addr; i += 256)
 	{
-		if((i + 256) > nEndAddr)
+		if((i + 256) > core_firmware->end_addr)
 		{
-			update_page_len = nEndAddr % 256;
+			update_page_len = core_firmware->end_addr % 256;
 		}
 
 		buf[0] = 0x25;
@@ -520,12 +610,12 @@ int core_firmware_iram_upgrade(const char *pf)
 		if(core_i2c_write(core_config->slave_i2c_addr, buf, update_page_len + 4))
 		{
             DBG_INFO("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
-					(int)i, (int)nStartAddr, (int)nEndAddr);
+					(int)i, (int)core_firmware->start_addr, (int)core_firmware->end_addr);
 			res = -EIO;
             return res;
 		}
 
-        nUpgradeStatus = (i * 100) / nEndAddr;
+        nUpgradeStatus = (i * 100) / core_firmware->end_addr;
         printk("%cupgrade firmware(ap code), %02d%c", 0x0D, nUpgradeStatus, '%');
 
 		mdelay(3);
@@ -535,11 +625,11 @@ int core_firmware_iram_upgrade(const char *pf)
 	memset(buf, 0xFF, 512);
 	update_page_len = 256;
 
-	for(i = nStartAddr; i < nEndAddr; i += 256)
+	for(i = core_firmware->start_addr; i < core_firmware->end_addr; i += 256)
 	{
-		if((i + 256) > nEndAddr)
+		if((i + 256) > core_firmware->end_addr)
 		{
-			update_page_len = nEndAddr % 256;
+			update_page_len = core_firmware->end_addr % 256;
 		}
 
 		buf[0] = 0x25;
@@ -552,14 +642,14 @@ int core_firmware_iram_upgrade(const char *pf)
 		if(core_i2c_read(core_config->slave_i2c_addr, buf, update_page_len ))
 		{
 			DBG_INFO("Failed to read data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
-					(int)i, (int)nStartAddr, (int)nEndAddr);
+					(int)i, (int)core_firmware->start_addr, (int)core_firmware->end_addr);
 			res = -EIO;
 			return res;
 		}
 
 		for(j = 0; j < 3; j++)
 		{
-			if(i+j*16 > nEndAddr)
+			if(i+j*16 > core_firmware->end_addr)
 				break;
 
 			printk("0x%06X: ", i+j*16);
@@ -633,6 +723,8 @@ int core_firmware_upgrade(const char *pFilePath)
 
 			memset(fwdata_buffer, 0, ILITEK_ILI21XX_FIRMWARE_SIZE*1024);
 
+			iram_fw = kmalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
+
 			// store current userspace mem segment.
 			old_fs = get_fs();
 
@@ -640,12 +732,20 @@ int core_firmware_upgrade(const char *pFilePath)
 			set_fs(KERNEL_DS);
 
 			// read firmware data from userspace mem segment
+#ifndef UPGRADE_WITH_IRAM
 			vfs_read(pfile, fwdata_buffer, fsize, &pos);
+#else
+			vfs_read(pfile, iram_fw, fsize, &pos);
+#endif
 
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
-
+#ifndef UPGRADE_WITH_IRAM
 			res == convert_firmware(fwdata_buffer, fsize);
+#else
+			res == convert_firmware(iram_fw, fsize);
+#endif
+
 			if( res < 0)
 			{
 				DBG_ERR("Failed to covert firmware data, res = %d", res);
@@ -653,7 +753,7 @@ int core_firmware_upgrade(const char *pFilePath)
 			}
 			else
 			{
-				res = core_firmware->upgrade_func(fwdata);
+				res = core_firmware->upgrade_func(fwdata, iram_data);
 				if(res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
@@ -676,9 +776,11 @@ int core_firmware_upgrade(const char *pFilePath)
 	}
 
 	filp_close(pfile, NULL);
+	kfree(iram_fw);
+	kfree(iram_data);
 	return res;
 }
-
+#endif
 
 int core_firmware_init(uint32_t id)
 {
@@ -710,6 +812,8 @@ int core_firmware_init(uint32_t id)
 				core_firmware->ap_crc			= 0x0;
 				core_firmware->df_checksum		= 0x0;
 				core_firmware->df_crc			= 0x0;
+				core_firmware->start_addr		= 0x0;
+				core_firmware->end_addr			= 0x0;
 
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;
@@ -728,6 +832,8 @@ int core_firmware_init(uint32_t id)
 				core_firmware->ap_crc			= 0x0;
 				core_firmware->df_checksum		= 0x0;
 				core_firmware->df_crc			= 0x0;
+				core_firmware->start_addr		= 0x0;
+				core_firmware->end_addr			= 0x0;
 
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;

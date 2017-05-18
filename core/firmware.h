@@ -25,6 +25,12 @@ typedef struct _CORE_FIRMWARE {
 
 	uint32_t df_crc;
 
+	uint32_t start_addr;
+
+	uint32_t end_addr;
+
+	uint32_t checksum;
+
 	//int size;
 
 	uint8_t *fw_data_max_buff;
@@ -35,7 +41,7 @@ typedef struct _CORE_FIRMWARE {
 
 	bool isCRC;
 
-	int (*upgrade_func)(uint8_t *FwData);
+	int (*upgrade_func)(uint8_t *FwData, uint8_t *iram_data);
 
 } CORE_FIRMWARE;
 
