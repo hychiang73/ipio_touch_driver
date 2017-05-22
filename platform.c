@@ -196,14 +196,14 @@ static int ilitek_platform_gpio(void)
 	}
 
 	res = gpio_request(gpios[0], "ILITEK_TP_IRQ");
-	if(res > 0)
+	if(res < 0)
 	{
 		DBG_ERR("Request IRQ GPIO failed, res = %d", res);
 		return res;
 	}
 
 	res = gpio_request(gpios[1], "ILITEK_TP_RESET");
-	if(res > 0)
+	if(res < 0)
 	{
 		DBG_ERR("Request RESET GPIO failed, res = %d", res);
 		return res;
