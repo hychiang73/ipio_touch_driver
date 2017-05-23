@@ -12,19 +12,33 @@
 #include "finger_report.h"
 
 extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
+extern struct mutex MUTEX;
+extern CORE_CONFIG *core_config;
 
+struct mutual_touch_point {
+	uint16_t id;
+	uint16_t x;
+	uint16_t y;
+	uint16_t pressure;
+};
+struct mutual_touch_info {
+	uint8_t key_count;
+	uint8_t key_code;
+	struct mutual_touch_point mtp[10];
+};
+
+struct mutual_touch_info mti;
+
+// used to store packet of finger touch and its status
+uint8_t *fr_data;
+uint8_t *CurrentTouch;
+uint8_t *PreviousTouch; 
+
+// assign the greast number of finger touches supported by an IC
+int MAX_TOUCH_NUM = 0;
+
+// store all necessary variables for the use of finger touch
 CORE_FINGER_REPORT *core_fr;
-
-#define USE_TYPE_B_PROTOCOL 
-//#define ENABLE_GESTURE_WAKEUP
-
-#define MUTUAL_MAX_TOUCH_NUM	10
-#define TOUCH_SCREEN_X_MIN	0
-#define TOUCH_SCREEN_Y_MIN	0
-#define TOUCH_SCREEN_X_MAX	1080
-#define TOUCH_SCREEN_Y_MAX	1920
-
-
 
 static int input_device_create(struct i2c_client *client)
 {
@@ -70,7 +84,7 @@ static int input_device_create(struct i2c_client *client)
     input_set_capability(core_fr->input_device, EV_KEY, KEY_S);
 #endif
 
-    input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, (MUTUAL_MAX_TOUCH_NUM-1), 0, 0);
+    input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, (MAX_TOUCH_NUM-1), 0, 0);
 
     input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
     input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
@@ -78,10 +92,13 @@ static int input_device_create(struct i2c_client *client)
 #ifdef USE_TYPE_B_PROTOCOL
     input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, TOUCH_SCREEN_X_MIN, TOUCH_SCREEN_X_MAX, 0, 0);
     input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, TOUCH_SCREEN_Y_MIN, TOUCH_SCREEN_Y_MAX, 0, 0);
+	
+#ifdef FORCE_TOUCH
     input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
+#endif
 
     set_bit(BTN_TOOL_FINGER, core_fr->input_device->keybit);
-    input_mt_init_slots(core_fr->input_device, MUTUAL_MAX_TOUCH_NUM, 0);
+    input_mt_init_slots(core_fr->input_device, MAX_TOUCH_NUM, 0);
 #endif
 
     /* register the input device to input sub-system */
@@ -96,37 +113,356 @@ static int input_device_create(struct i2c_client *client)
 	return res;
 }
 
-static void parse_data_ili2121(void)
+static void free_touch_packet(void)
+{
+	kfree(fr_data);
+	kfree(CurrentTouch);
+	kfree(PreviousTouch);
+}
+
+static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
+{
+	int i;
+	int32_t nCheckSum = 0;
+
+	DBG_INFO();
+
+	for (i = 0; i < nLength; i++)
+	{
+		nCheckSum += pMsg[i];
+	}
+
+	return (uint8_t)((-nCheckSum) & 0xFF);
+}
+
+static void finger_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
+{
+    DBG_INFO("point touch pressed"); 
+
+    DBG_INFO("id = %d, x = %d, y = %d", id, x, y);
+
+#ifdef USE_TYPE_B_PROTOCOL
+    input_mt_slot(core_fr->input_device, id);
+    input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, true);
+    input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
+    input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+#ifdef FORCE_TOUCH
+    input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
+#endif
+#else
+    input_report_key(core_fr->input_device, BTN_TOUCH, 1);
+
+    // ABS_MT_TRACKING_ID is used for ILI7807/ILI21xx only
+	input_report_abs(core_fr->input_device, ABS_MT_TRACKING_ID, id); 
+
+    input_report_abs(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 1);
+    input_report_abs(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 1);
+    input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
+    input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+#ifdef FORCE_TOUCH
+    input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
+#endif
+
+    input_mt_sync(core_fr->input_device);
+#endif
+}
+
+static void finger_touch_release(int32_t x, int32_t y, int32_t id)
+{
+    DBG_INFO("point touch released"); 
+
+    DBG_INFO("id = %d, x = %d, y = %d", id, x, y);
+
+#ifdef USE_TYPE_B_PROTOCOL
+    input_mt_slot(core_fr->input_device, id);
+    input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);
+#else 
+    input_report_key(core_fr->input_device, BTN_TOUCH, 0);
+    input_mt_sync(core_fr->input_device);
+#endif
+}
+
+
+//TODO
+static int parse_touch_package_v3_2(uint8_t *fr_packet, int mode)
 {
 	DBG_INFO();
 }
 
-static void finger_report_ili2121(void)
+static int parse_touch_package_v5_0(uint8_t *fr_data, int mode, struct mutual_touch_info *pInfo, uint16_t rpl)
+{
+	int i, res = 0;
+	uint8_t check_sum = 0;
+	uint32_t nX = 0, nY = 0;
+
+#if 0
+    for(i = 0; i < 9; i++)
+	{
+		DBG_INFO("fr_data[%d] = %x", i, fr_data[i]);
+	}
+#endif
+
+	//TODO: calculate report rate
+
+	check_sum = CalculateCheckSum(&fr_data[0], (rpl-1));	
+    DBG_INFO("fr_data = %x  ;  check_sum : %x ", fr_data[rpl-1], check_sum);
+
+    if (fr_data[rpl-1] != check_sum)
+    {
+        DBG_ERR("WRONG CHECKSUM");
+        return -1;
+    }
+
+	//TODO: parse pakcet for gesture if enabled
+
+	// 0 : debug, 1 : demo
+	if(mode)
+	{
+		if(fr_data[0] == 0x5A)
+		{
+			DBG_INFO("Mode & Header are correct in demo mode");
+			for (i = 0; i < MAX_TOUCH_NUM; i++)
+			{
+				if ((fr_data[(4 * i) + 1] == 0xFF) && (fr_data[(4 * i) + 2] && 0xFF) && (fr_data[(4 * i) + 3] == 0xFF))
+				{
+				#ifdef USE_TYPE_B_PROTOCOL
+					CurrentTouch[i] = 0;
+				#endif
+					continue;
+				}
+
+				nX = (((fr_data[(4 * i) + 1] & 0xF0) << 4) | (fr_data[(4 * i) + 2]));
+				nY = (((fr_data[(4 * i) + 1] & 0x0F) << 8) | (fr_data[(4 * i) + 3]));
+
+				pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+				pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+				pInfo->mtp[pInfo->key_count].pressure = fr_data[4 * (i + 1)];
+				pInfo->mtp[pInfo->key_count].id = i;
+
+				DBG_INFO("[x,y]=[%d,%d]", nX, nY);
+				DBG_INFO("point[%d] : (%d,%d) = %d\n",
+						 pInfo->mtp[pInfo->key_count].id,
+						 pInfo->mtp[pInfo->key_count].x,
+						 pInfo->mtp[pInfo->key_count].y,
+						 pInfo->mtp[pInfo->key_count].pressure);
+
+				pInfo->key_count++;
+
+			#ifdef USE_TYPE_B_PROTOCOL
+				CurrentTouch[i] = 1;
+			#endif
+			}
+			//TODO: sending fr packets up to app layer if log enabled
+		}
+	}
+	else
+	{
+		if(fr_data[0] == 0xA7)
+		{
+			DBG_INFO("Mode & Header are correct in debug mode");
+			
+			//TODO
+		}
+	}
+
+	return res;
+}
+
+static int finger_report_ili2121(void)
 {
 	DBG_INFO();
 }
 
-static void parse_data_ili7807(void)
+/*
+ * The function is used to handle data of finger touch called by an interrupt
+ *
+ * The differnece in the process of the data is acorrding to the protocol
+ */
+static int finger_report_ili7807(void)
 {
+	int i, res = 0;
+	uint16_t report_packet_length = 0;
+	static int last_count = 0;
+	
 	DBG_INFO();
+
+	if(core_fr->isDisableFR)
+	{
+		DBG_ERR("Finger Report is disable");
+		return -1;
+	}
+
+	// initialise struct of mutual toucn info
+	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
+
+	CurrentTouch = (uint8_t*)kmalloc(sizeof(uint8_t) * MAX_TOUCH_NUM, GFP_KERNEL);
+	PreviousTouch = (uint8_t*)kmalloc(sizeof(uint8_t) * MAX_TOUCH_NUM, GFP_KERNEL);
+
+	if(core_fr->actual_fw_mode ==  core_fr->fw_demo_mode)
+	{
+		// allocate length and size of finger touch packet
+		report_packet_length = ILI7807_DEMO_MODE_PACKET_LENGTH;
+		fr_data = (uint8_t*)kmalloc(sizeof(uint8_t) * ILI7807_DEMO_MODE_PACKET_LENGTH, GFP_KERNEL);
+
+		//TODO: set packet length for gesture wake up
+
+		// read finger touch packet when an interrupt occurs
+		res = core_i2c_read(core_config->slave_i2c_addr, fr_data, report_packet_length);
+		if(res < 0)
+		{
+			DBG_ERR("Failed to read finger report packet");
+			return res;
+		}
+
+#if 0
+		for (; i < report_packet_length; i++)
+		{
+			DBG_INFO("fr_data[%d] = %x", i, fr_data[i]);
+		}
+#endif
+
+		// parsing package of finger touch by protocol
+		if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+		{
+			//TODO: interpret parsed packat for protocol 3.2
+			//res = parse_touch_package_v3_2(fr_data, 1);
+			//if(res < 0)
+			//{
+			//	DBG_ERR("Failed to parse packet of finger touch");
+			//	return -1;
+			//}
+		}
+		else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+		{
+			res = parse_touch_package_v5_0(fr_data, 1, &mti, report_packet_length);
+			if(res < 0)
+			{
+				DBG_ERR("Failed to parse packet of finger touch");
+				return -1;
+			}
+
+    		//DBG_INFO("tInfo.nCount = %d, nLastCount = %d\n", mti.key_count, last_count);
+
+			// interpret parsed packat and send input events to uplayer
+			if(mti.key_count > 0)
+			{
+#ifdef USE_TYPE_B_PROTOCOL
+				for (i = 0; i < mti.key_count; i++)
+				{
+					finger_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
+
+					input_report_key(core_fr->input_device, BTN_TOUCH, 1);
+					input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 1);
+				}
+
+				for (i = 0; i < MAX_TOUCH_NUM; i++)
+				{
+					//DBG_INFO("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+
+					if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
+					{
+						finger_touch_release(0, 0, i);
+					}
+
+					PreviousTouch[i] = CurrentTouch[i];
+				}
+#else
+				for (i = 0; i < mti.key_count; i++)
+				{
+					finger_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
+				}
+#endif
+				input_sync(core_fr->input_device);
+
+				last_count = mti.key_count;
+			}
+			else // key_count < 0
+			{
+				if (last_count > 0)
+				{
+#ifdef USE_TYPE_B_PROTOCOL
+					for (i = 0; i < MAX_TOUCH_NUM; i++)
+					{
+						//DBG_INFO("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+
+						if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
+						{
+							finger_touch_release(0, 0, i);
+						}
+						PreviousTouch[i] = CurrentTouch[i];
+					}
+
+					input_report_key(core_fr->input_device, BTN_TOUCH, 0);
+					input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
+#else
+					finger_touch_release(0, 0, 0);
+#endif
+					input_sync(core_fr->input_device);
+
+					last_count = 0;
+				}
+			}
+		}
+		else
+		{
+			DBG_ERR("Can't detect which of protocols are used in the packet");
+			return -1;
+		}
+	}
+	else if(core_fr->actual_fw_mode == core_fr->fw_debug_mode)
+	{
+		report_packet_length = ILI7807_DEBUG_MODE_PACKET_LENGTH;
+		fr_data = (uint8_t*)kmalloc(sizeof(uint8_t) * ILI7807_DEBUG_MODE_PACKET_LENGTH, GFP_KERNEL);
+
+		DBG_INFO("DBG MODE: report packet length = %d", report_packet_length);
+
+		// read data of finger touch
+		res = core_i2c_read(core_config->slave_i2c_addr, fr_data, report_packet_length);
+		if(res < 0)
+		{
+			DBG_ERR("Failed to read finger report packet");
+			return res;
+		}
+
+		// parsing package of finger touch by protocol
+		if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+		{
+			//TODO:
+			//parse_touch_package_v3_2(fr_data, 0);
+		}
+		else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+		{
+			parse_touch_package_v5_0(fr_data, 0, &mti, report_packet_length);
+			if(res < 0)
+			{
+				DBG_ERR("Failed to parse packet of finger touch");
+				return -1;
+			}
+		}
+		else
+		{
+			DBG_ERR("Can't detect which of protocols are used in the packet");
+			return -1;
+		}
+	}
+	else
+	{
+		DBG_ERR("Unknow firmware mode : %x", core_fr->actual_fw_mode);
+		return -1;
+	}
+
+	free_touch_packet();
+	return res;
 }
 
-static void finger_report_ili7807(void)
-{
-	DBG_INFO();
-}
-
-
-struct hashtab {
+typedef struct {
 	uint32_t chip_id;
-	uint16_t protocol_ver;
-	void (*finger_report)(void);
-	void (*parse_data)(void);
-};
+	int (*finger_report)(void);
+} fr_hashtable;
 
-struct hashtab fr_t[] = {
-	{CHIP_TYPE_ILI2121, 0x0, finger_report_ili2121, parse_data_ili2121},
-	{CHIP_TYPE_ILI7807, 0x0, finger_report_ili7807, parse_data_ili7807},
+fr_hashtable fr_t[] = {
+	{CHIP_TYPE_ILI2121, finger_report_ili2121},
+	{CHIP_TYPE_ILI7807, finger_report_ili7807},
 };
 
 void core_fr_handler(void)
@@ -139,8 +475,9 @@ void core_fr_handler(void)
 	{
 		if(fr_t[i].chip_id == core_fr->chip_id)
 		{
+			mutex_lock(&MUTEX);
 			fr_t[i].finger_report();
-			fr_t[i].parse_data();
+			mutex_unlock(&MUTEX);
 			break;
 		}
 	}
@@ -157,14 +494,45 @@ int core_fr_init(uint32_t id, struct i2c_client *pClient)
 		{
 			core_fr = (CORE_FINGER_REPORT*)kmalloc(sizeof(*core_fr), GFP_KERNEL);
 
-			core_fr->chip_id = SUP_CHIP_LIST[i];
+			core_fr->chip_id = id;
 
-			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI2121)
+			if(core_fr->chip_id == CHIP_TYPE_ILI2121)
 			{
+				core_fr->isDisableFR = false;	
+
+				core_fr->fw_unknow_mode = ILI21XX_FIRMWARE_UNKNOWN_MODE;
+				core_fr->fw_demo_mode =	  ILI21XX_FIRMWARE_DEMO_MODE;
+				core_fr->fw_debug_mode =  ILI21XX_FIRMWARE_DEBUG_MODE;
+				core_fr->actual_fw_mode = ILI21XX_FIRMWARE_DEMO_MODE;
+
+				core_fr->log_packet_length = 0x0;
+				core_fr->log_packet_header = 0x0;
+				core_fr->type = 0x0;
+				core_fr->Mx = 0x0;
+				core_fr->My = 0x0;
+				core_fr->Sd = 0x0;
+				core_fr->Ss = 0x0;
+
+				MAX_TOUCH_NUM = ILI21XX_MAX_TOUCH_NUM;
 			}
-
-			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI7807)
+			else if(core_fr->chip_id == CHIP_TYPE_ILI7807)
 			{
+				core_fr->isDisableFR = false;	
+
+				core_fr->fw_unknow_mode = ILI7807_FIRMWARE_UNKNOWN_MODE;
+				core_fr->fw_demo_mode =	  ILI7807_FIRMWARE_DEMO_MODE;
+				core_fr->fw_debug_mode =  ILI7807_FIRMWARE_DEBUG_MODE;
+				core_fr->actual_fw_mode = ILI7807_FIRMWARE_DEMO_MODE;
+
+				core_fr->log_packet_length = 0x0;
+				core_fr->log_packet_header = 0x0;
+				core_fr->type = 0x0;
+				core_fr->Mx = 0x0;
+				core_fr->My = 0x0;
+				core_fr->Sd = 0x0;
+				core_fr->Ss = 0x0;
+
+				MAX_TOUCH_NUM = ILI7807_MAX_TOUCH_NUM;
 			}
 		}
 	}
@@ -173,8 +541,15 @@ int core_fr_init(uint32_t id, struct i2c_client *pClient)
 	{
 		DBG_ERR("Failed to init core_fr APIs");
 		res = -ENOMEM;
-	} else
+	} 
+	else
+	{
 		res = input_device_create(pClient);
+		if(res < 0)
+		{
+			DBG_ERR("Failed to create input device");
+		}
+	}
 
 	return res;
 }

@@ -10,43 +10,28 @@
 #define DBG_ERR(fmt, arg...) \
 			printk(KERN_ERR "ILITEK: (%s): " fmt "\n", __func__, ##arg);
 
-/*
- * The short name of data type
- */
-
-#define uint8_t		unsigned char
-#define uint16_t	unsigned short
-#define uint32_t	unsigned int
-#define int8_t		signed char
-#define int16_t		signed short
-#define int32_t		signed int
-//#define int64_t  int64_t
-//#define uint64_t  uint64_t
-
 #define SUPP_CHIP_NUM	3
 
 /*
  *  ILI2121
  */
-#define CHIP_TYPE_ILI2121							0x2121
-#define ILI21XX_SLAVE_ADDR							0x41
-#define ILI21XX_ICE_MODE_ADDR						0x181062
-#define ILI21XX_PID_ADDR							0x4009C
+#define CHIP_TYPE_ILI2121		0x2121
+#define ILI21XX_SLAVE_ADDR		0x41
+#define ILI21XX_ICE_MODE_ADDR	0x181062
+#define ILI21XX_PID_ADDR		0x4009C
 
-// Constant value define for ILI21XX
-#define ILI21XX_DEMO_MODE_PACKET_LENGTH				53
+// firmware mode
+#define ILI21XX_FIRMWARE_UNKNOWN_MODE		0xFF
+#define ILI21XX_FIRMWARE_DEMO_MODE			0x00
+#define ILI21XX_FIRMWARE_DEBUG_MODE			0x01
 
-#define ILI21XX_FIRMWARE_MODE_UNKNOWN_MODE			0xFF
-#define ILI21XX_FIRMWARE_MODE_DEMO_MODE				0x00
-#define ILI21XX_FIRMWARE_MODE_DEBUG_MODE			0x01
+// length of finger touch packet
+#define ILI21XX_DEMO_MODE_PACKET_LENGTH		53
+#define ILI21XX_MAX_TOUCH_NUM           	5
 
-// i2c command for ilitek touch ic
-#define ILITEK_TP_CMD_READ_DATA						0x10
-#define ILITEK_TP_CMD_READ_SUB_DATA					0x11
-
-#define ILITEK_TP_CMD_READ_DATA_CONTROL				0xF6
-
-#define ILITEK_TP_CMD_GET_MCU_KERNEL_VERSION		0x61
+// i2c command
+#define ILITEK_TP_CMD_READ_DATA			0x10
+#define ILITEK_TP_CMD_READ_SUB_DATA		0x11
 
 // The size of hex files for ILI21xx shall be smaller than 160KB.
 #define ILITEK_ILI21XX_FIRMWARE_SIZE				160
@@ -65,6 +50,15 @@
 #define ILI7807_ICE_MODE_ADDR	0x181062
 #define ILI7807_PID_ADDR		0x4009C
 
+// firmware mode
+#define ILI7807_FIRMWARE_UNKNOWN_MODE		0xFF
+#define ILI7807_FIRMWARE_DEMO_MODE			0x00
+#define ILI7807_FIRMWARE_DEBUG_MODE			0x01
+
+// length of finger touch packet
+#define ILI7807_DEMO_MODE_PACKET_LENGTH  	43
+#define ILI7807_DEBUG_MODE_PACKET_LENGTH   	1280
+#define ILI7807_MAX_TOUCH_NUM           	5
 
 /*
  * 
