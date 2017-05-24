@@ -7,10 +7,6 @@
 
 #include "platform.h"
 
-// Modify it if want to change the support of an IC by the driver
-#define ON_BOARD_IC		CHIP_TYPE_ILI7807
-//#define ON_BOARD_IC		CHIP_TYPE_ILI2121
-
 #define I2C_DEVICE_ID	"ILITEK_TP_ID"
 
 extern CORE_CONFIG *core_config;
@@ -23,6 +19,11 @@ platform_info *TIC;
 MODULE_AUTHOR("ILITEK");
 MODULE_LICENSE("GPL");
 
+/*
+ * The function is exported by other c files 
+ * allowing them to disable IRQ.
+ *
+ */
 void ilitek_platform_disable_irq(void)
 {
     unsigned long nIrqFlag;
@@ -43,6 +44,11 @@ void ilitek_platform_disable_irq(void)
 }
 EXPORT_SYMBOL(ilitek_platform_disable_irq);
 
+/*
+ * The function is exported by other c files 
+ * allowing them to enable IRQ.
+ *
+ */
 void ilitek_platform_enable_irq(void)
 {
     unsigned long nIrqFlag;
@@ -82,6 +88,13 @@ void ilitek_platform_ic_power_on(void)
 }
 EXPORT_SYMBOL(ilitek_platform_ic_power_on);
 
+/*
+ * This queue is activated by an interrupt.
+ *
+ * Typically it only allows one interrupt coming to call before
+ * the event of figner touch is completed.
+ *
+ */
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
     unsigned long nIrqFlag;
@@ -102,6 +115,10 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 	TIC->isIrqEnable = true;
 }
 
+/*
+ * It is registered by ISR to activate a function with work queue
+ *
+ */
 static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
     unsigned long nIrqFlag;
@@ -194,7 +211,7 @@ static int ilitek_platform_gpio(void)
 		DBG_ERR("Invalid reset gpio: %d", gpios[1]);
 		return -EBADR;
 	}
-
+#if 0
 	res = gpio_request(gpios[0], "ILITEK_TP_IRQ");
 	if(res < 0)
 	{
@@ -210,7 +227,7 @@ static int ilitek_platform_gpio(void)
 	}
 
 	gpio_direction_input(gpios[0]);
-
+#endif
 	DBG_INFO("int gpio = %d", gpios[0]);
 	DBG_INFO("reset gpio = %d", gpios[1]);
 
@@ -275,10 +292,10 @@ static int ilitek_platform_core_init(void)
 {
 	DBG_INFO();
 
-	if(core_config_init(TIC->chip_id) < 0 ||
+	if(core_config_init() < 0 ||
 		core_i2c_init(TIC->client) < 0 ||
-		core_firmware_init(TIC->chip_id) < 0 ||
-		core_fr_init(TIC->chip_id, TIC->client) < 0)
+		core_firmware_init() < 0 ||
+		core_fr_init(TIC->client) < 0)
 			return -EINVAL;
 
 	return 0;

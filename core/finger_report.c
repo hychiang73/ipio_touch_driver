@@ -15,12 +15,19 @@ extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 extern struct mutex MUTEX;
 extern CORE_CONFIG *core_config;
 
+/*
+ * It represents an id and its position in each fingers
+ */
 struct mutual_touch_point {
 	uint16_t id;
 	uint16_t x;
 	uint16_t y;
 	uint16_t pressure;
 };
+
+/*
+ * It represents keys and their code with each fingers
+ */
 struct mutual_touch_info {
 	uint8_t key_count;
 	uint8_t key_code;
@@ -484,17 +491,17 @@ void core_fr_handler(void)
 }
 EXPORT_SYMBOL(core_fr_handler);
 
-int core_fr_init(uint32_t id, struct i2c_client *pClient)
+int core_fr_init(struct i2c_client *pClient)
 {
 	int i = 0, res = 0;
 
 	for(; i < SUPP_CHIP_NUM; i++)
 	{
-		if(SUP_CHIP_LIST[i] == id)
+		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			core_fr = (CORE_FINGER_REPORT*)kmalloc(sizeof(*core_fr), GFP_KERNEL);
 
-			core_fr->chip_id = id;
+			core_fr->chip_id = SUP_CHIP_LIST[i];
 
 			if(core_fr->chip_id == CHIP_TYPE_ILI2121)
 			{

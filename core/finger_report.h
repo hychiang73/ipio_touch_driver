@@ -1,9 +1,12 @@
 #ifndef __FINGER_REPORT_H
 #define __FINGER_REPORT_H
 
-// disable it if want ot use TYPE A in MTP 
+// Either B TYPE or A Type in MTP
 #define USE_TYPE_B_PROTOCOL 
+
 //#define ENABLE_GESTURE_WAKEUP
+
+// Whether to detect the value of pressure in finger touch
 //#define FORCE_TOUCH
 
 #define TOUCH_SCREEN_X_MIN	0
@@ -38,7 +41,7 @@ typedef struct {
 } CORE_FINGER_REPORT;
 
 extern void core_fr_handler(void);
-extern int core_fr_init(uint32_t chip_id, struct i2c_client *client);
+extern int core_fr_init(struct i2c_client *);
 extern void core_fr_remove(void);
 
 #endif

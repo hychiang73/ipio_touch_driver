@@ -6,8 +6,9 @@
 #include "config.h"
 #include "i2c.h"
 
-CORE_I2C *core_i2c;
 extern CORE_CONFIG *core_config;
+
+CORE_I2C *core_i2c;
 
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {

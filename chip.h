@@ -2,6 +2,23 @@
  * This header file include all definiations with different types of ILITEK Touch IC.
  */
 
+/*
+ * Other settings
+ *
+ */
+
+ 
+// The macro allows users to change the supprot of driver in differnet chips.
+// If developers'd like to add a new chip used in the driver, they must also add 
+// the type of chip in core/sup_chip.c and change the value of SUPP_CHIP_NUM
+#define ON_BOARD_IC		CHIP_TYPE_ILI7807
+//#define ON_BOARD_IC		CHIP_TYPE_ILI2121
+#define SUPP_CHIP_NUM	2
+
+// shows the version of driver
+#define DRIVER_VERSION	"1.0.0.0"
+
+// sets the level of debug message
 #define DBG_LEVEL
 
 #define DBG_INFO(fmt, arg...) \
@@ -10,7 +27,6 @@
 #define DBG_ERR(fmt, arg...) \
 			printk(KERN_ERR "ILITEK: (%s): " fmt "\n", __func__, ##arg);
 
-#define SUPP_CHIP_NUM	3
 
 /*
  *  ILI2121

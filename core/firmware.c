@@ -15,14 +15,15 @@
 #include "i2c.h"
 #include "firmware.h"
 
-#define UPGRADE_WITH_IRAM
-
-CORE_FIRMWARE *core_firmware;
 extern CORE_CONFIG *core_config;
 extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
 uint8_t fwdata_buffer[ILITEK_ILI21XX_FIRMWARE_SIZE * 1024] = {0};
 uint8_t fwdata[ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE * 1024] = {0};
+
+CORE_FIRMWARE *core_firmware;
+
+#define UPGRADE_WITH_IRAM
 
 #ifdef UPGRADE_WITH_IRAM
 uint8_t *iram_fw;
@@ -782,7 +783,7 @@ int core_firmware_upgrade(const char *pFilePath)
 	return res;
 }
 
-int core_firmware_init(uint32_t id)
+int core_firmware_init(void)
 {
 	int i = 0, j = 0; 
 
@@ -790,9 +791,11 @@ int core_firmware_init(uint32_t id)
 
 	for(; i < SUPP_CHIP_NUM; i++)
 	{
-		if(SUP_CHIP_LIST[i] == id)
+		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			core_firmware = (CORE_FIRMWARE*)kmalloc(sizeof(*core_firmware), GFP_KERNEL);
+
+			core_firmware->chip_id = SUP_CHIP_LIST[i];
 
 			for(j = 0; j < 4; j++)
 			{
@@ -800,10 +803,8 @@ int core_firmware_init(uint32_t id)
 				core_firmware->new_fw_ver[i] = 0x0;
 			}
 
-			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI2121)
+			if(core_firmware->chip_id == CHIP_TYPE_ILI2121)
 			{
-				core_firmware->chip_id			= id;
-
 				core_firmware->ap_start_addr	= 0x0;
 				core_firmware->ap_end_addr		= 0x0;
 				core_firmware->df_start_addr	= 0x0;
@@ -817,13 +818,12 @@ int core_firmware_init(uint32_t id)
 
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;
+
 				core_firmware->upgrade_func		= firmware_upgrade_ili2121;
 			}
 
-			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI7807)
+			if(core_firmware->chip_id == CHIP_TYPE_ILI7807)
 			{
-				core_firmware->chip_id			= id;
-
 				core_firmware->ap_start_addr	= 0x0;
 				core_firmware->ap_end_addr		= 0x0;
 				core_firmware->df_start_addr	= 0x0;
@@ -837,6 +837,7 @@ int core_firmware_init(uint32_t id)
 
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;
+
 				core_firmware->upgrade_func		= firmware_upgrade_ili7807;
 			}
 		}

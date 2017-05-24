@@ -46,7 +46,7 @@ typedef struct _CORE_FIRMWARE {
 } CORE_FIRMWARE;
 
 //extern int core_firmware_iram_upgrade(const char* fpath);
-extern int core_firmware_upgrade(const char* fpath);
-extern int core_firmware_init(uint32_t id);
+extern int core_firmware_upgrade(const char*);
+extern int core_firmware_init(void);
 extern void core_firmware_remove(void);
 #endif

@@ -647,7 +647,7 @@ int core_config_get_chip_id(void)
 }
 EXPORT_SYMBOL(core_config_get_chip_id);
 
-int core_config_init(uint32_t id)
+int core_config_init(void)
 {
 	int i = 0;
 
@@ -655,23 +655,23 @@ int core_config_init(uint32_t id)
 
 	for(; i < SUPP_CHIP_NUM; i++)
 	{
-		if(SUP_CHIP_LIST[i] == id)
+		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			core_config = (CORE_CONFIG*)kmalloc(sizeof(*core_config) * sizeof(uint8_t) * 6, GFP_KERNEL);
 			core_config->tp_info = (TP_INFO*)kmalloc(sizeof(*core_config->tp_info), GFP_KERNEL);
 
-			if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI2121)
+			core_config->chip_id = SUP_CHIP_LIST[i];
+
+			if(core_config->chip_id == CHIP_TYPE_ILI2121)
 			{
-				core_config->chip_id = id;
 				core_config->use_protocol = ILITEK_PROTOCOL_V3_2;
 				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI21XX_PID_ADDR;
 				core_config->ic_reset_addr = 0x0;
 			}
-			else if(SUP_CHIP_LIST[i] == CHIP_TYPE_ILI7807)
+			else if(core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
-				core_config->chip_id = id;
 				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
