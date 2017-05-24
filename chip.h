@@ -1,18 +1,11 @@
 /*
- * This header file include all definiations with different types of ILITEK Touch IC.
+ * Relative Driver with Touch IC
  */
-
-/*
- * Other settings
- *
- */
-
- 
 // The macro allows users to change the supprot of driver in differnet chips.
 // If developers'd like to add a new chip used in the driver, they must also add 
 // the type of chip in core/sup_chip.c and change the value of SUPP_CHIP_NUM
-#define ON_BOARD_IC		CHIP_TYPE_ILI7807
 //#define ON_BOARD_IC		CHIP_TYPE_ILI2121
+#define ON_BOARD_IC		CHIP_TYPE_ILI7807
 #define SUPP_CHIP_NUM	2
 
 // shows the version of driver
@@ -27,6 +20,30 @@
 #define DBG_ERR(fmt, arg...) \
 			printk(KERN_ERR "ILITEK: (%s): " fmt "\n", __func__, ##arg);
 
+/*
+ * Relative Firmware Upgrade
+ */
+
+#define MAX_HEX_FILE_SIZE			160*1024
+#define MAX_FLASH_FIRMWARE_SIZE		256*1024
+#define MAX_IRAM_FIRMWARE_SIZE		60*1024
+
+#define UPDATE_FIRMWARE_PAGE_LENGTH		256
+
+/*
+ * Protocol commands 
+ */
+#define ILITEK_PROTOCOL_V3_2			0x302
+#define PCMD_3_2_GET_TP_INFORMATION		0x20
+#define PCMD_3_2_GET_KEY_INFORMATION	0x22
+#define PCMD_3_2_GET_FIRMWARE_VERSION	0x40
+#define PCMD_3_2_GET_PROTOCOL_VERSION	0x42
+
+#define ILITEK_PROTOCOL_V5_0			0x50
+#define PCMD_5_0_GET_TP_INFORMATION		0x20
+#define PCMD_5_0_GET_KEY_INFORMATION	0x27
+#define PCMD_5_0_GET_FIRMWARE_VERSION	0x21
+#define PCMD_5_0_GET_PROTOCOL_VERSION	0x22
 
 /*
  *  ILI2121
@@ -49,17 +66,8 @@
 #define ILITEK_TP_CMD_READ_DATA			0x10
 #define ILITEK_TP_CMD_READ_SUB_DATA		0x11
 
-// The size of hex files for ILI21xx shall be smaller than 160KB.
-#define ILITEK_ILI21XX_FIRMWARE_SIZE				160
-#define ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH			128
-
-// The szie of ili file shall be large enough for stored any kind firmware size of ILI21XX(256KB).
-#define ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE		256
-
-
 /*
  * ILI7807
- *
  */
 #define CHIP_TYPE_ILI7807		0x7807
 #define ILI7807_SLAVE_ADDR		0x41
@@ -75,20 +83,3 @@
 #define ILI7807_DEMO_MODE_PACKET_LENGTH  	43
 #define ILI7807_DEBUG_MODE_PACKET_LENGTH   	1280
 #define ILI7807_MAX_TOUCH_NUM           	5
-
-/*
- * 
- * Protocol commands 
- */
-#define ILITEK_PROTOCOL_V3_2			0x302
-#define PCMD_3_2_GET_TP_INFORMATION		0x20
-#define PCMD_3_2_GET_KEY_INFORMATION	0x22
-#define PCMD_3_2_GET_FIRMWARE_VERSION	0x40
-#define PCMD_3_2_GET_PROTOCOL_VERSION	0x42
-
-#define ILITEK_PROTOCOL_V5_0			0x50
-#define PCMD_5_0_GET_TP_INFORMATION		0x20
-#define PCMD_5_0_GET_KEY_INFORMATION	0x27
-#define PCMD_5_0_GET_FIRMWARE_VERSION	0x21
-#define PCMD_5_0_GET_PROTOCOL_VERSION	0x22
-

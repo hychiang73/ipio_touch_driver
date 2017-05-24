@@ -18,17 +18,17 @@
 extern CORE_CONFIG *core_config;
 extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
-uint8_t fwdata_buffer[ILITEK_ILI21XX_FIRMWARE_SIZE * 1024] = {0};
-uint8_t fwdata[ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE * 1024] = {0};
-
 CORE_FIRMWARE *core_firmware;
 
-#define UPGRADE_WITH_IRAM
+uint8_t flash_fw[MAX_FLASH_FIRMWARE_SIZE];
 
-#ifdef UPGRADE_WITH_IRAM
-uint8_t *iram_fw;
-uint8_t *iram_data;
+// IRAM test 
+#define IRAM_TEST
+
+#ifdef IRAM_TEST
+uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE];
 #endif
+
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -84,10 +84,11 @@ static int CheckSum(uint32_t nStartAddr, uint32_t nEndAddr)
 	return core_config_ice_mode_read(0x41018);
 }
 
+#ifdef IRAM_TEST
 static int iram_upgrade(void)
 {
 	int i, j, k, res = 0;
-	int update_page_len = 256;
+	int update_page_len = UPDATE_FIRMWARE_PAGE_LENGTH;
 	uint8_t buf[512];
 	int32_t nUpgradeStatus = 0;
 
@@ -116,11 +117,11 @@ static int iram_upgrade(void)
 				core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
 
 	// write hex to the addr of iram
-	for(i = core_firmware->start_addr; i < core_firmware->end_addr; i += 256)
+	for(i = core_firmware->start_addr; i < core_firmware->end_addr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
 	{
 		if((i + 256) > core_firmware->end_addr)
 		{
-			update_page_len = core_firmware->end_addr % 256;
+			update_page_len = core_firmware->end_addr % UPDATE_FIRMWARE_PAGE_LENGTH;
 		}
 
 		buf[0] = 0x25;
@@ -130,7 +131,7 @@ static int iram_upgrade(void)
 
 		for(j = 0; j < update_page_len; j++)
 		{
-			buf[4 + j] = iram_data[i + j];
+			buf[4 + j] = iram_fw[i + j];
 		//	DBG_INFO("write --- buf[4 + %d] = %x", j, buf[4+j])
 		}
 
@@ -161,6 +162,7 @@ static int iram_upgrade(void)
 
 	return res;
 }
+#endif //IRAM_TEST
 
 static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 {
@@ -178,10 +180,6 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 
 	if(nSize != 0)
 	{
-		iram_data = kmalloc(sizeof(uint8_t) * 60 * 1024, GFP_KERNEL);	
-		memset(iram_data, 0xFF, 60 * 1024);
-		memset(fwdata, 0xFF, ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE*1024);
-
 		for(; i < nSize ; )
 		{
 			int32_t nOffset;
@@ -226,7 +224,7 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 
 			if (nType == 0x00)
 			{
-				if (nAddr > (ILITEK_MAX_UPDATE_FIRMWARE_BUFFER_SIZE*1024))
+				if (nAddr > MAX_HEX_FILE_SIZE)
 				{
 					DBG_ERR("Invalid hex format");
 
@@ -267,9 +265,10 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 				// fill data
 				for (j = 0, k = 0; j < (nLength * 2); j += 2, k ++)
 				{
-					fwdata[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
-					iram_data[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
-					//DBG_INFO("data[%d + %d] = %x", nAddr, k , fwdata[nAddr + k]);
+#ifdef IRAM_TEST 
+					iram_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+#endif
+					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 				}
 			}
 
@@ -301,20 +300,21 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 	return -1;
 }
 
-static int firmware_upgrade_ili7807(uint8_t *pszFwData, uint8_t *iram_data)
+static int firmware_upgrade_ili7807(void)
 {
 	DBG_INFO();
 
-#ifdef UPGRADE_WITH_IRAM
+#ifdef IRAM_TEST
 	iram_upgrade();
 #else
 
 #endif
 
+
 	return 0;
 }
 
-static int firmware_upgrade_ili2121(uint8_t *pszFwData, uint8_t *iram_data)
+static int firmware_upgrade_ili2121(void)
 {
     int32_t nUpdateRetryCount = 0, nUpgradeStatus = 0, nUpdateLength = 0;
 	int32_t	nCheckFwFlag = 0, nChecksum = 0, i = 0, j = 0, k = 0;
@@ -394,9 +394,9 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData, uint8_t *iram_data)
     mdelay(100);		
 
 	DBG_INFO("Start to upgrade firmware from 0x%x to 0x%x in each size of %d",
-			nApStartAddr, nApEndAddr, ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH);
+			nApStartAddr, nApEndAddr, UPDATE_FIRMWARE_PAGE_LENGTH);
 
-    for (i = nApStartAddr; i < nApEndAddr; i += ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH)
+    for (i = nApStartAddr; i < nApEndAddr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
     {
 		res = core_config_ice_mode_write(0x041000, 0x06, 1); 
 		if(res < 0)
@@ -412,7 +412,7 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData, uint8_t *iram_data)
 		if(res < 0)
 			return res;
 
-        res = core_config_ice_mode_write(0x041004, 0x66aa5500 + ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH - 1, 4);
+        res = core_config_ice_mode_write(0x041004, 0x66aa5500 + UPDATE_FIRMWARE_PAGE_LENGTH - 1, 4);
 		if(res < 0)
 			return res;
 
@@ -421,12 +421,12 @@ static int firmware_upgrade_ili2121(uint8_t *pszFwData, uint8_t *iram_data)
         szBuf[2] = (char)((0x041020 & 0x0000FF00) >> 8);
         szBuf[1] = (char)((0x041020 & 0x000000FF));
         
-        for (k = 0; k < ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH; k ++)
+        for (k = 0; k < UPDATE_FIRMWARE_PAGE_LENGTH; k ++)
         {
-            szBuf[4 + k] = pszFwData[i + k];
+            szBuf[4 + k] = flash_fw[i + k];
         }
 
-        if (core_i2c_write(core_config->slave_i2c_addr, szBuf, ILITEK_UPDATE_FIRMWARE_PAGE_LENGTH + 4) < 0) {
+        if (core_i2c_write(core_config->slave_i2c_addr, szBuf, UPDATE_FIRMWARE_PAGE_LENGTH + 4) < 0) {
             DBG_INFO("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
 					(int)i, (int)nApStartAddr, (int)nApEndAddr);
 			res = -EIO;
@@ -682,12 +682,19 @@ int core_firmware_iram_upgrade(const char *pf)
 }
 #endif
 
+/*
+ * It would basically be called by ioctl when users want to upgrade firmware.
+ *
+ * @pFilePath: pass a path where locates user's firmware file.
+ *
+ */
 int core_firmware_upgrade(const char *pFilePath)
 {
-	int res = 0, i = 0;
+	int res = 0, i = 0, fsize;
+	uint8_t *hex_buffer;
+
     struct file *pfile = NULL;
     struct inode *inode;
-    s32 fsize = 0;
     mm_segment_t old_fs;
     loff_t pos = 0;
 
@@ -723,9 +730,8 @@ int core_firmware_upgrade(const char *pFilePath)
 		else
 		{
 
-			memset(fwdata_buffer, 0, ILITEK_ILI21XX_FIRMWARE_SIZE*1024);
-
-			iram_fw = kmalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
+			hex_buffer = kmalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
+			memset(hex_buffer, 0x0, sizeof(uint8_t) * fsize);
 
 			// store current userspace mem segment.
 			old_fs = get_fs();
@@ -734,19 +740,12 @@ int core_firmware_upgrade(const char *pFilePath)
 			set_fs(KERNEL_DS);
 
 			// read firmware data from userspace mem segment
-#ifndef UPGRADE_WITH_IRAM
-			vfs_read(pfile, fwdata_buffer, fsize, &pos);
-#else
-			vfs_read(pfile, iram_fw, fsize, &pos);
-#endif
+			vfs_read(pfile, hex_buffer, fsize, &pos);
 
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
-#ifndef UPGRADE_WITH_IRAM
-			res == convert_firmware(fwdata_buffer, fsize);
-#else
-			res == convert_firmware(iram_fw, fsize);
-#endif
+
+			res == convert_firmware(hex_buffer, fsize);
 
 			if( res < 0)
 			{
@@ -755,7 +754,7 @@ int core_firmware_upgrade(const char *pFilePath)
 			}
 			else
 			{
-				res = core_firmware->upgrade_func(fwdata, iram_data);
+				res = core_firmware->upgrade_func();
 				if(res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
@@ -778,8 +777,6 @@ int core_firmware_upgrade(const char *pFilePath)
 	}
 
 	filp_close(pfile, NULL);
-	kfree(iram_fw);
-	kfree(iram_data);
 	return res;
 }
 

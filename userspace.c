@@ -10,8 +10,13 @@
 #include "chip.h"
 #include "platform.h"
 
-#define NETLINK_USER	31
+extern CORE_CONFIG *core_config;
+
 struct socket *nl_sk;
+
+uint16_t i2c_rw_length = 0;
+
+#define NETLINK_USER	31
 
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	4
@@ -20,11 +25,6 @@ struct socket *nl_sk;
 #define ILITEK_IOCTL_I2C_SET_WRITE_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 1, int)
 #define ILITEK_IOCTL_I2C_READ_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 2, uint8_t*)
 #define ILITEK_IOCTL_I2C_SET_READ_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 3, int)
-
-#define UPGRADE_BY_IRAM 
-
-extern CORE_CONFIG *core_config;
-uint16_t i2c_rw_length = 0;
 
 static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -133,8 +133,6 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 		DBG_ERR("The number of ioctl doesn't match");
 		return -ENOTTY;
 	}
-
-	DBG_INFO("cmd = %d", _IOC_NR(cmd));
 
 	switch(cmd)
 	{
