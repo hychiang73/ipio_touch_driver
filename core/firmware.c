@@ -726,7 +726,7 @@ int core_firmware_upgrade(const char *pFilePath)
 		if (fsize <= 0)
 		{
 			DBG_ERR("The size of file is zero");
-			res = -1;
+			goto Err;
 		}
 		else
 		{
@@ -751,7 +751,7 @@ int core_firmware_upgrade(const char *pFilePath)
 			if( res < 0)
 			{
 				DBG_ERR("Failed to covert firmware data, res = %d", res);
-				return res;
+				goto Err;
 			}
 			else
 			{
@@ -759,7 +759,7 @@ int core_firmware_upgrade(const char *pFilePath)
 				if(res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
-					return res;
+					goto Err;
 				}
 
 				core_firmware->isUpgraded = true;
@@ -777,13 +777,15 @@ int core_firmware_upgrade(const char *pFilePath)
 		}
 	}
 
+Err:
 	filp_close(pfile, NULL);
+	kfree(hex_buffer);
 	return res;
 }
 
 int core_firmware_init(void)
 {
-	int i = 0, j = 0; 
+	int i = 0, j = 0, res = 0; 
 
 	DBG_INFO();
 
@@ -841,13 +843,18 @@ int core_firmware_init(void)
 		}
 	}
 
-	if(core_firmware == NULL) 
+	if(IS_ERR(core_firmware)) 
 	{
 		DBG_ERR("Can't find an id from the support list, init core_firmware failed");
-		return -EINVAL;
+		res = -ENOMEM;
+		goto Err;
 	}
 
-	return 0;
+	return res;
+
+Err:
+	core_firmware_remove();
+	return res;
 }
 
 void core_firmware_remove(void)

@@ -549,6 +549,7 @@ int core_fr_init(struct i2c_client *pClient)
 	{
 		DBG_ERR("Failed to init core_fr APIs");
 		res = -ENOMEM;
+		goto Err;
 	} 
 	else
 	{
@@ -556,9 +557,14 @@ int core_fr_init(struct i2c_client *pClient)
 		if(res < 0)
 		{
 			DBG_ERR("Failed to create input device");
+			goto Err;
 		}
 	}
 
+	return res;
+
+Err:
+	core_fr_remove();
 	return res;
 }
 EXPORT_SYMBOL(core_fr_init);

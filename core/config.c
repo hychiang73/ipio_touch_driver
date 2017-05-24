@@ -3,6 +3,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/i2c.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
@@ -649,7 +650,7 @@ EXPORT_SYMBOL(core_config_get_chip_id);
 
 int core_config_init(void)
 {
-	int i = 0;
+	int i = 0, res = 0;
 
 	for(; i < nums_chip; i++)
 	{
@@ -679,15 +680,19 @@ int core_config_init(void)
 		}
 	}
 
-	if(core_config == NULL) 
+	if(IS_ERR(core_config)) 
 	{
 		DBG_ERR("Can't find an id from the support list, init core-config failed ");
-		return -EINVAL;
+		res = -ENOMEM;
+		goto Err;
 	}
 	
 	set_protocol_cmd(core_config->use_protocol);
+	return res;
 
-	return 0;
+Err:
+	core_config_remove();
+	return res;
 }
 EXPORT_SYMBOL(core_config_init);
 
