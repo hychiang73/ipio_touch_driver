@@ -3,10 +3,9 @@
  */
 // The macro allows users to change the supprot of driver in differnet chips.
 // If developers'd like to add a new chip used in the driver, they must also add 
-// the type of chip in core/sup_chip.c and change the value of SUPP_CHIP_NUM
+// the type of chip they want to support in core/sup_chip.c.
 //#define ON_BOARD_IC		CHIP_TYPE_ILI2121
 #define ON_BOARD_IC		CHIP_TYPE_ILI7807
-#define SUPP_CHIP_NUM	2
 
 // shows the version of driver
 #define DRIVER_VERSION	"1.0.0.0"
@@ -49,22 +48,22 @@
  *  ILI2121
  */
 #define CHIP_TYPE_ILI2121		0x2121
-#define ILI21XX_SLAVE_ADDR		0x41
-#define ILI21XX_ICE_MODE_ADDR	0x181062
-#define ILI21XX_PID_ADDR		0x4009C
+#define ILI2121_SLAVE_ADDR		0x41
+#define ILI2121_ICE_MODE_ADDR	0x181062
+#define ILI2121_PID_ADDR		0x4009C
 
 // firmware mode
-#define ILI21XX_FIRMWARE_UNKNOWN_MODE		0xFF
-#define ILI21XX_FIRMWARE_DEMO_MODE			0x00
-#define ILI21XX_FIRMWARE_DEBUG_MODE			0x01
+#define ILI2121_FIRMWARE_UNKNOWN_MODE		0xFF
+#define ILI2121_FIRMWARE_DEMO_MODE			0x00
+#define ILI2121_FIRMWARE_DEBUG_MODE			0x01
 
 // length of finger touch packet
-#define ILI21XX_DEMO_MODE_PACKET_LENGTH		53
-#define ILI21XX_MAX_TOUCH_NUM           	5
+#define ILI2121_DEMO_MODE_PACKET_LENGTH		53
+#define ILI2121_MAX_TOUCH_NUM           	5
 
 // i2c command
-#define ILITEK_TP_CMD_READ_DATA			0x10
-#define ILITEK_TP_CMD_READ_SUB_DATA		0x11
+#define ILI2121_TP_CMD_READ_DATA			0x10
+#define ILI2121_TP_CMD_READ_SUB_DATA		0x11
 
 /*
  * ILI7807

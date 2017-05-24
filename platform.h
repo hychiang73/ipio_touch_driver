@@ -16,12 +16,9 @@
 
 #include "chip.h"
 #include "core/config.h"
-#include "core/dbbus.h"
+#include "core/i2c.h"
 #include "core/firmware.h"
 #include "core/finger_report.h"
-#include "core/gesture.h"
-#include "core/glove.h"
-#include "core/i2c.h"
 
 #ifndef __PLATFORM_H
 #define __PLATFORM_H

@@ -4,12 +4,11 @@
 #define DTS_INT_GPIO	"touch,irq-gpio"
 #define DTS_RESET_GPIO	"touch,reset-gpio"
 #endif
-
 #include "platform.h"
 
-#define I2C_DEVICE_ID	"ILITEK_TP_ID"
-
 extern CORE_CONFIG *core_config;
+
+#define I2C_DEVICE_ID	"ILITEK_TP_ID"
 
 struct work_struct irq_work_queue;
 struct mutex MUTEX;
@@ -211,7 +210,7 @@ static int ilitek_platform_gpio(void)
 		DBG_ERR("Invalid reset gpio: %d", gpios[1]);
 		return -EBADR;
 	}
-#if 0
+
 	res = gpio_request(gpios[0], "ILITEK_TP_IRQ");
 	if(res < 0)
 	{
@@ -227,7 +226,7 @@ static int ilitek_platform_gpio(void)
 	}
 
 	gpio_direction_input(gpios[0]);
-#endif
+
 	DBG_INFO("int gpio = %d", gpios[0]);
 	DBG_INFO("reset gpio = %d", gpios[1]);
 
@@ -317,7 +316,7 @@ static int ilitek_platform_core_remove(void)
 /*
  * The probe func would be called after an i2c device was detected by kernel.
  *
- * The func still returns zero even if it couldn't get a touch ic info.
+ * It will still return zero even if it couldn't get a touch ic info.
  * The reason for why we allow it passing the process is because users/developers
  * might want to have access to ICE mode to upgrade a firwmare forcelly.
  *
@@ -348,7 +347,6 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if(res < 0)
 	{
 		DBG_ERR("Failed to request gpios ");
-		return -EINVAL;
 	}
 
 	res = ilitek_platform_isr_register();
@@ -361,7 +359,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if(res < 0)
 	{
 		DBG_ERR("Failed to init core APIs");
-		return res;
+		return -ENOMEM;
 	}
 
 	ilitek_platform_ic_power_on();

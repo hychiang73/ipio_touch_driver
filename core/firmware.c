@@ -16,7 +16,8 @@
 #include "firmware.h"
 
 extern CORE_CONFIG *core_config;
-extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
+extern uint32_t SUP_CHIP_LIST[];
+extern int nums_chip;
 
 CORE_FIRMWARE *core_firmware;
 
@@ -456,7 +457,7 @@ static int firmware_upgrade_ili2121(void)
 
 	core_config_ice_mode_reset();
 
-    szCmd[0] = ILITEK_TP_CMD_READ_DATA;
+    szCmd[0] = ILI2121_TP_CMD_READ_DATA;
     res = core_i2c_write(core_config->slave_i2c_addr, &szCmd[0], 1);
     if (res < 0)
     {
@@ -786,7 +787,7 @@ int core_firmware_init(void)
 
 	DBG_INFO();
 
-	for(; i < SUPP_CHIP_NUM; i++)
+	for(; i < nums_chip; i++)
 	{
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{

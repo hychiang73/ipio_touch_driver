@@ -13,8 +13,10 @@
 #include "config.h"
 #include "i2c.h"
 
+extern uint32_t SUP_CHIP_LIST[];
+extern int nums_chip;
+
 CORE_CONFIG *core_config;
-extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
 
 // the length returned from touch ic after command.
 int fw_cmd_len = 0;
@@ -442,12 +444,10 @@ int core_config_get_tp_info(void)
 
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
-		core_config->tp_info->nMaxX = szReadBuf[0];
-		core_config->tp_info->nMaxX += (szReadBuf[1]*256);
-		core_config->tp_info->nMaxY = szReadBuf[2];
-		core_config->tp_info->nMaxY += (szReadBuf[3]*256);
 		core_config->tp_info->nMinX = 0;
 		core_config->tp_info->nMinY = 0;
+		core_config->tp_info->nMaxX = (szReadBuf[1] << 8) + szReadBuf[0];
+		core_config->tp_info->nMaxY = (szReadBuf[3] << 8) + szReadBuf[2];
 		core_config->tp_info->nXChannelNum = szReadBuf[4];
 		core_config->tp_info->nYChannelNum = szReadBuf[5];
 		core_config->tp_info->nMaxTouchNum = szReadBuf[6];
@@ -651,9 +651,7 @@ int core_config_init(void)
 {
 	int i = 0;
 
-	DBG_INFO();
-
-	for(; i < SUPP_CHIP_NUM; i++)
+	for(; i < nums_chip; i++)
 	{
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
@@ -664,19 +662,19 @@ int core_config_init(void)
 
 			if(core_config->chip_id == CHIP_TYPE_ILI2121)
 			{
-				core_config->use_protocol = ILITEK_PROTOCOL_V3_2;
-				core_config->slave_i2c_addr = ILI21XX_SLAVE_ADDR;
-				core_config->ice_mode_addr = ILI21XX_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI21XX_PID_ADDR;
-				core_config->ic_reset_addr = 0x0;
+				core_config->use_protocol	= ILITEK_PROTOCOL_V3_2;
+				core_config->slave_i2c_addr = ILI2121_SLAVE_ADDR;
+				core_config->ice_mode_addr	= ILI2121_ICE_MODE_ADDR;
+				core_config->pid_addr		= ILI2121_PID_ADDR;
+				core_config->ic_reset_addr	= 0x0;
 			}
 			else if(core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
-				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
+				core_config->use_protocol	= ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
-				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI7807_PID_ADDR;
-				core_config->ic_reset_addr = 0x0;
+				core_config->ice_mode_addr	= ILI7807_ICE_MODE_ADDR;
+				core_config->pid_addr		= ILI7807_PID_ADDR;
+				core_config->ic_reset_addr	= 0x0;
 			}
 		}
 	}

@@ -11,7 +11,8 @@
 #include "i2c.h"
 #include "finger_report.h"
 
-extern uint32_t SUP_CHIP_LIST[SUPP_CHIP_NUM];
+extern uint32_t SUP_CHIP_LIST[];
+extern int nums_chip;
 extern struct mutex MUTEX;
 extern CORE_CONFIG *core_config;
 
@@ -495,7 +496,7 @@ int core_fr_init(struct i2c_client *pClient)
 {
 	int i = 0, res = 0;
 
-	for(; i < SUPP_CHIP_NUM; i++)
+	for(; i < nums_chip; i++)
 	{
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
@@ -507,10 +508,10 @@ int core_fr_init(struct i2c_client *pClient)
 			{
 				core_fr->isDisableFR = false;	
 
-				core_fr->fw_unknow_mode = ILI21XX_FIRMWARE_UNKNOWN_MODE;
-				core_fr->fw_demo_mode =	  ILI21XX_FIRMWARE_DEMO_MODE;
-				core_fr->fw_debug_mode =  ILI21XX_FIRMWARE_DEBUG_MODE;
-				core_fr->actual_fw_mode = ILI21XX_FIRMWARE_DEMO_MODE;
+				core_fr->fw_unknow_mode = ILI2121_FIRMWARE_UNKNOWN_MODE;
+				core_fr->fw_demo_mode =	  ILI2121_FIRMWARE_DEMO_MODE;
+				core_fr->fw_debug_mode =  ILI2121_FIRMWARE_DEBUG_MODE;
+				core_fr->actual_fw_mode = ILI2121_FIRMWARE_DEMO_MODE;
 
 				core_fr->log_packet_length = 0x0;
 				core_fr->log_packet_header = 0x0;
@@ -520,7 +521,7 @@ int core_fr_init(struct i2c_client *pClient)
 				core_fr->Sd = 0x0;
 				core_fr->Ss = 0x0;
 
-				MAX_TOUCH_NUM = ILI21XX_MAX_TOUCH_NUM;
+				MAX_TOUCH_NUM = ILI2121_MAX_TOUCH_NUM;
 			}
 			else if(core_fr->chip_id == CHIP_TYPE_ILI7807)
 			{
