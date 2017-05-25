@@ -13,10 +13,6 @@
 extern CORE_CONFIG *core_config;
 extern CORE_FINGER_REPORT *core_fr;
 extern platform_info *TIC;
-extern int fw_cmd_len;
-extern int protocol_cmd_len;
-extern int tp_info_len;
-extern int core_cmd_len;
 
 struct socket *nl_sk;
 

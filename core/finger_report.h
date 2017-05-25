@@ -9,6 +9,7 @@
 // Whether to detect the value of pressure in finger touch
 //#define FORCE_TOUCH
 
+// set up width and heigth of a screen
 #define TOUCH_SCREEN_X_MIN	0
 #define TOUCH_SCREEN_Y_MIN	0
 #define TOUCH_SCREEN_X_MAX	1080

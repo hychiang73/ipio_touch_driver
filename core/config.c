@@ -30,6 +30,11 @@ int core_cmd_len = 0;
 // it's able to store 10 commands as default.
 uint8_t pcmd[10] = {0};
 
+/*
+ * assign i2c commands according to the version of protocol.
+ *
+ * @protocol_ver: the version is currently using on firmware.
+ */
 static void set_protocol_cmd(uint32_t protocol_ver)
 {
 
@@ -62,6 +67,12 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 	}
 }
 
+/*
+ * It checks chip id shifting sepcific bits based on chip's requirement.
+ *
+ * @pid_data: 4 bytes, reading from firmware.
+ *
+ */
 static uint32_t check_chip_id(uint32_t pid_data)
 {
 	uint32_t id = 0;
@@ -94,6 +105,10 @@ static uint32_t check_chip_id(uint32_t pid_data)
 	return id;
 }
 
+/*
+ * Read & Write one byte in ICE Mode.
+ *
+ */
 uint32_t core_config_read_write_onebyte(uint32_t addr)
 {
     int res = 0;
@@ -125,6 +140,10 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 }
 EXPORT_SYMBOL(core_config_read_write_onebyte);
 
+/*
+ * Reading data from firmware in ICE Mode.
+ *
+ */
 uint32_t core_config_ice_mode_read(uint32_t addr)
 {
     int res = 0;
@@ -157,6 +176,10 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
 
+/*
+ * Write commands into firmware in ICE Mode.
+ *
+ */
 int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 {
     int res = 0, i;
@@ -210,6 +233,11 @@ uint32_t vfIceRegRead(uint32_t addr)
 }
 EXPORT_SYMBOL(vfIceRegRead);
 
+
+/*
+ * Doing soft reset on IC. The feature may only support to ILI7807.
+ *
+ */
 int core_config_ic_reset(uint32_t id)
 {
 	DBG_INFO();
@@ -226,6 +254,11 @@ int core_config_ic_reset(uint32_t id)
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
+
+/*
+ * Doing Reset in ICE Mode.
+ *
+ */
 int core_config_ice_mode_reset(void)
 {
     int res = 0;
@@ -277,6 +310,10 @@ int core_config_ice_mode_reset(void)
 }
 EXPORT_SYMBOL(core_config_ice_mode_reset);
 
+/*
+ * Leaving out ICE Mode.
+ *
+ */
 int core_config_ice_mode_disable(void)
 {
 	uint8_t cmd[4];
@@ -297,6 +334,10 @@ int core_config_ice_mode_disable(void)
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
+/*
+ * Entering into ICE Mode.
+ *
+ */
 int core_config_ice_mode_enable(void)
 {
 	DBG_INFO();
@@ -308,6 +349,10 @@ int core_config_ice_mode_enable(void)
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 
+/*
+ * Reseting Watch Dog
+ *
+ */
 int core_config_reset_watch_dog(void)
 {
 	DBG_INFO();
@@ -349,6 +394,10 @@ int core_config_reset_watch_dog(void)
 }
 EXPORT_SYMBOL(core_config_reset_watch_dog);
 
+/*
+ * Getting key information from firmware.
+ *
+ */
 int core_config_get_key_info(void)
 {
 	int res = 0, i;
@@ -422,6 +471,10 @@ int core_config_get_key_info(void)
 }
 EXPORT_SYMBOL(core_config_get_key_info);
 
+/*
+ * Getting TP information from firmware.
+ *
+ */
 int core_config_get_tp_info(void)
 {
 	int res = 0, i = 0;
@@ -503,6 +556,11 @@ int core_config_get_tp_info(void)
 }
 EXPORT_SYMBOL(core_config_get_tp_info);
 
+
+/*
+ * Getting the version of protocol used on firmware.
+ *
+ */
 int core_config_get_protocol_ver(void)
 {
 	int res = 0, i = 0;
@@ -551,6 +609,12 @@ int core_config_get_protocol_ver(void)
 }
 EXPORT_SYMBOL(core_config_get_protocol_ver);
 
+/*
+ * Getting the version of core used on firmware.
+ *
+ * It may be only supported by protocol v5.0
+ *
+ */
 int core_config_get_core_ver(void)
 {
 	int res = 0, i = 0;
@@ -593,6 +657,10 @@ int core_config_get_core_ver(void)
 }
 EXPORT_SYMBOL(core_config_get_core_ver);
 
+/*
+ * Getting the version of firmware used on the current one.
+ *
+ */
 int core_config_get_fw_ver(void)
 {
 	int res = 0, i = 0;
@@ -643,6 +711,10 @@ int core_config_get_fw_ver(void)
 }
 EXPORT_SYMBOL(core_config_get_fw_ver);
 
+/*
+ * Getting the type of chip used on the board.
+ *
+ */
 int core_config_get_chip_id(void)
 {
     int i, res = 0;

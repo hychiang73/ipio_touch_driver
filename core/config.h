@@ -59,7 +59,11 @@ typedef struct _CORE_CONFIG {
 
 } CORE_CONFIG;
 
-//extern CORE_CONFIG *core_config;
+extern int fw_cmd_len;
+extern int protocol_cmd_len;
+extern int tp_info_len;
+extern int key_info_len;
+extern int core_cmd_len;
 
 extern uint32_t vfIceRegRead(uint32_t addr);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);

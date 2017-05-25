@@ -31,12 +31,6 @@ typedef struct _CORE_FIRMWARE {
 
 	uint32_t checksum;
 
-	//int size;
-
-	uint8_t *fw_data_max_buff;
-
-//	uint8_t fw_data_buff[size];
-
     bool isUpgraded;
 
 	bool isCRC;
@@ -49,4 +43,5 @@ typedef struct _CORE_FIRMWARE {
 extern int core_firmware_upgrade(const char*);
 extern int core_firmware_init(void);
 extern void core_firmware_remove(void);
+
 #endif

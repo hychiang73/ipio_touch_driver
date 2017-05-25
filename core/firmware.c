@@ -30,7 +30,6 @@ uint8_t flash_fw[MAX_FLASH_FIRMWARE_SIZE];
 uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE];
 #endif
 
-
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
     uint32_t nRetVal = 0, nTemp = 0, i;

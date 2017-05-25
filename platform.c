@@ -219,6 +219,8 @@ static int ilitek_platform_gpio(void)
 	gpios[1] = of_get_named_gpio_flags(dev_node, DTS_RESET_GPIO, 0, &flag);
 #endif
 
+	//TODO: implemente gpio config if a platform isn't set up by dts.
+	
 	if(!gpio_is_valid(gpios[0]))
 	{
 		DBG_ERR("Invalid irq gpio: %d", gpios[0]);

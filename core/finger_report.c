@@ -48,6 +48,11 @@ int MAX_TOUCH_NUM = 0;
 // store all necessary variables for the use of finger touch
 CORE_FINGER_REPORT *core_fr;
 
+
+/*
+ * Create input device and config its settings
+ *
+ */
 static int input_device_create(struct i2c_client *client)
 {
 	int res = 0;
@@ -121,6 +126,10 @@ static int input_device_create(struct i2c_client *client)
 	return res;
 }
 
+/*
+ * Free those allocated memories by kmalloc
+ *
+ */
 static void free_touch_packet(void)
 {
 	kfree(fr_data);
@@ -128,6 +137,12 @@ static void free_touch_packet(void)
 	kfree(PreviousTouch);
 }
 
+/*
+ * Calculate the check sum of each packet reported by firmware 
+ *
+ * @pMsg: packet come from firmware
+ * @nLength : the length of its packet
+ */
 static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
 {
 	int i;
@@ -143,6 +158,16 @@ static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
 	return (uint8_t)((-nCheckSum) & 0xFF);
 }
 
+/*
+ * It'd be called when a finger's touching down a screen. It'll notify the event
+ * to the uplayer from input device.
+ *
+ * @x: the axis of X
+ * @y: the axis of Y
+ * @pressure: the value of pressue on a screen
+ * @id: an id represents a finger pressing on a screen
+ *
+ */
 static void finger_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
     DBG_INFO("point touch pressed"); 
@@ -175,6 +200,15 @@ static void finger_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t 
 #endif
 }
 
+/*
+ * It'd be called when a finger's touched up from a screen. It'll notify
+ * the event to the uplayer from input device.
+ *
+ * @x: the axis of X
+ * @y: the axis of Y
+ * @id: an id represents a finger leaving from a screen.
+ *
+ */
 static void finger_touch_release(int32_t x, int32_t y, int32_t id)
 {
     DBG_INFO("point touch released"); 
@@ -192,11 +226,24 @@ static void finger_touch_release(int32_t x, int32_t y, int32_t id)
 
 
 //TODO
+/*
+ * It mainly parses the packet assembled by protocol v3.2
+ *
+ */
 static int parse_touch_package_v3_2(uint8_t *fr_packet, int mode)
 {
 	DBG_INFO();
 }
 
+/*
+ * It mainly parses the packet assembled by protocol v5.0
+ *
+ * @fr_data: the packet of finger report come from firmware.
+ * @mode: a mode on the current firmware. (demo or debug)
+ * @pInfo: a struct of mutual touch information.
+ * @rpl: the lenght of packet of finger report.
+ *
+ */
 static int parse_touch_package_v5_0(uint8_t *fr_data, int mode, struct mutual_touch_info *pInfo, uint16_t rpl)
 {
 	int i, res = 0;
@@ -269,7 +316,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, int mode, struct mutual_to
 		{
 			DBG_INFO("Mode & Header are correct in debug mode");
 			
-			//TODO
+			//TODO: implement parsing packet in debug mode
 		}
 	}
 
@@ -282,9 +329,9 @@ static int finger_report_ili2121(void)
 }
 
 /*
- * The function is used to handle data of finger touch called by an interrupt
+ * The function is called by an interrupt and used to handle packet of finger 
+ * touch from firmware. A differnece in the process of the data is acorrding to the protocol
  *
- * The differnece in the process of the data is acorrding to the protocol
  */
 static int finger_report_ili7807(void)
 {
@@ -457,6 +504,11 @@ static int finger_report_ili7807(void)
 	return res;
 }
 
+/*
+ * The hash table is used to handle calling functions that deal with packets of finger report.
+ * The function might be different based on differnet types of chip.
+ *
+ */
 typedef struct {
 	uint32_t chip_id;
 	int (*finger_report)(void);
@@ -467,6 +519,10 @@ fr_hashtable fr_t[] = {
 	{CHIP_TYPE_ILI7807, finger_report_ili7807},
 };
 
+/*
+ * The function is an entry when the work queue registered by IRS activates.
+ *
+ */
 void core_fr_handler(void)
 {
 	int i, len = sizeof(fr_t)/sizeof(fr_t[0]);
