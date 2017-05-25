@@ -23,7 +23,7 @@ struct socket *nl_sk;
 #define NETLINK_USER	31
 
 #define ILITEK_IOCTL_MAGIC	100 
-#define ILITEK_IOCTL_MAXNR	13
+#define ILITEK_IOCTL_MAXNR	14
 
 #define ILITEK_IOCTL_I2C_WRITE_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 0, uint8_t*)
 #define ILITEK_IOCTL_I2C_SET_WRITE_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 1, int)
@@ -38,10 +38,11 @@ struct socket *nl_sk;
 #define ILITEK_IOCTL_TP_DEBUG_LEVEL			_IOWR(ILITEK_IOCTL_MAGIC, 8, int)
 #define ILITEK_IOCTL_TP_FUNC_MODE			_IOWR(ILITEK_IOCTL_MAGIC, 9, int)
 
-#define ILITEK_IOCTL_TP_FW_VER				_IOWR(ILITEK_IOCTL_MAGIC, 10, int)
-#define ILITEK_IOCTL_TP_PL_VER				_IOWR(ILITEK_IOCTL_MAGIC, 11, int)
-#define ILITEK_IOCTL_TP_CORE_VER			_IOWR(ILITEK_IOCTL_MAGIC, 12, int)
-#define ILITEK_IOCTL_TP_DRV_VER				_IOWR(ILITEK_IOCTL_MAGIC, 13, int)
+#define ILITEK_IOCTL_TP_FW_VER				_IOWR(ILITEK_IOCTL_MAGIC, 10, uint8_t*)
+#define ILITEK_IOCTL_TP_PL_VER				_IOWR(ILITEK_IOCTL_MAGIC, 11, uint8_t*)
+#define ILITEK_IOCTL_TP_CORE_VER			_IOWR(ILITEK_IOCTL_MAGIC, 12, uint8_t*)
+#define ILITEK_IOCTL_TP_DRV_VER				_IOWR(ILITEK_IOCTL_MAGIC, 13, uint8_t*)
+#define ILITEK_IOCTL_TP_CHIP_ID				_IOWR(ILITEK_IOCTL_MAGIC, 14, uint32_t*)
 
 static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -262,6 +263,15 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if(res < 0)
 			{
 				DBG_INFO("Failed to copy driver ver to user space");
+				return res;
+			}
+			break;
+
+		case ILITEK_IOCTL_TP_CHIP_ID:
+			res = copy_to_user((uint32_t*)arg, &core_config->chip_id, 4);
+			if(res < 0)
+			{
+				DBG_ERR("Failed to copy core ver to user space");
 				return res;
 			}
 			break;
