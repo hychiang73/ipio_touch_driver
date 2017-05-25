@@ -43,6 +43,8 @@ typedef struct _CORE_CONFIG {
 
 	uint8_t firmware_ver[4];
 
+	uint8_t core_ver[5];
+
 	uint16_t use_protocol;
 
     uint32_t slave_i2c_addr;
@@ -71,6 +73,7 @@ extern int core_config_ice_mode_reset(void);
 extern int core_config_ice_mode_disable(void);
 extern int core_config_ice_mode_enable(void);
 
+extern int core_config_get_core_ver(void);
 extern int core_config_get_key_info(void);
 extern int core_config_get_tp_info(void);
 extern int core_config_get_protocol_ver(void);

@@ -294,12 +294,6 @@ static int finger_report_ili7807(void)
 	
 	DBG_INFO();
 
-	if(core_fr->isDisableFR)
-	{
-		DBG_ERR("Finger Report is disable");
-		return -1;
-	}
-
 	// initialise struct of mutual toucn info
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
 
@@ -477,17 +471,24 @@ void core_fr_handler(void)
 {
 	int i, len = sizeof(fr_t)/sizeof(fr_t[0]);
 
-	DBG_INFO();
+	DBG_INFO("Is finger report disable ? %d", core_fr->isDisableFR);
 
-	for(i = 0; i < len; i++)
+	if(!core_fr->isDisableFR)
 	{
-		if(fr_t[i].chip_id == core_fr->chip_id)
+		for(i = 0; i < len; i++)
 		{
-			mutex_lock(&MUTEX);
-			fr_t[i].finger_report();
-			mutex_unlock(&MUTEX);
-			break;
+			if(fr_t[i].chip_id == core_fr->chip_id)
+			{
+				mutex_lock(&MUTEX);
+				fr_t[i].finger_report();
+				mutex_unlock(&MUTEX);
+				break;
+			}
 		}
+	}
+	else
+	{
+		DBG_INFO("The function of handling figner report has been disabled");
 	}
 }
 EXPORT_SYMBOL(core_fr_handler);

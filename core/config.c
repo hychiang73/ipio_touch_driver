@@ -24,12 +24,15 @@ int fw_cmd_len = 0;
 int protocol_cmd_len = 0;
 int tp_info_len = 0;
 int key_info_len = 0;
+int core_cmd_len = 0;
 
-// store protocol commands defined on chip.h
-uint8_t pcmd[4];
+// protocol commands defined on chip.h
+// it's able to store 10 commands as default.
+uint8_t pcmd[10] = {0};
 
 static void set_protocol_cmd(uint32_t protocol_ver)
 {
+
 	if(protocol_ver == ILITEK_PROTOCOL_V3_2)
 	{
 		fw_cmd_len = 4;
@@ -49,11 +52,13 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 		protocol_cmd_len = 3;
 		tp_info_len = 12;
 		key_info_len = 30;
+		core_cmd_len = 5;
 
 		pcmd[0] = PCMD_5_0_GET_TP_INFORMATION;
 		pcmd[1] = PCMD_5_0_GET_FIRMWARE_VERSION;
 		pcmd[2] = PCMD_5_0_GET_PROTOCOL_VERSION;
 		pcmd[3] = PCMD_5_0_GET_KEY_INFORMATION;
+		pcmd[4] = PCMD_5_0_GET_CORE_VERSION;
 	}
 }
 
@@ -545,6 +550,48 @@ int core_config_get_protocol_ver(void)
 	return res;
 }
 EXPORT_SYMBOL(core_config_get_protocol_ver);
+
+int core_config_get_core_ver(void)
+{
+	int res = 0, i = 0;
+	uint8_t szReadBuf[core_cmd_len];
+
+	memset(szReadBuf, 0, sizeof(uint8_t) * core_cmd_len);
+
+    res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[4], 1);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to write cmd to get fw version %d", res);
+		return res;
+	}
+
+    mdelay(10);
+
+    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], core_cmd_len);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to read fw version %d", res);
+		return res;
+	}
+
+	for(; i < core_cmd_len; i++)
+	{
+		core_config->core_ver[i] = szReadBuf[i]; 
+	}
+
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	{
+		// in protocol v5, ignore the first btye because of a header.
+		DBG_INFO("Core Version = %d.%d.%d.%d", 
+				core_config->core_ver[1], 
+				core_config->core_ver[2], 
+				core_config->core_ver[3],
+				core_config->core_ver[4]);
+	}
+
+	return res;
+}
+EXPORT_SYMBOL(core_config_get_core_ver);
 
 int core_config_get_fw_ver(void)
 {

@@ -11,20 +11,37 @@
 #include "platform.h"
 
 extern CORE_CONFIG *core_config;
+extern CORE_FINGER_REPORT *core_fr;
+extern platform_info *TIC;
+extern int fw_cmd_len;
+extern int protocol_cmd_len;
+extern int tp_info_len;
+extern int core_cmd_len;
 
 struct socket *nl_sk;
-
-uint16_t i2c_rw_length = 0;
 
 #define NETLINK_USER	31
 
 #define ILITEK_IOCTL_MAGIC	100 
-#define ILITEK_IOCTL_MAXNR	4
+#define ILITEK_IOCTL_MAXNR	13
 
 #define ILITEK_IOCTL_I2C_WRITE_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 0, uint8_t*)
 #define ILITEK_IOCTL_I2C_SET_WRITE_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 1, int)
 #define ILITEK_IOCTL_I2C_READ_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 2, uint8_t*)
 #define ILITEK_IOCTL_I2C_SET_READ_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 3, int)
+
+#define ILITEK_IOCTL_TP_HW_RESET			_IOWR(ILITEK_IOCTL_MAGIC, 4, int)
+#define ILITEK_IOCTL_TP_POWER_SWITCH		_IOWR(ILITEK_IOCTL_MAGIC, 5, int)
+#define ILITEK_IOCTL_TP_REPORT_SWITCH		_IOWR(ILITEK_IOCTL_MAGIC, 6, int)
+#define ILITEK_IOCTL_TP_IRQ_SWITCH			_IOWR(ILITEK_IOCTL_MAGIC, 7, int)
+
+#define ILITEK_IOCTL_TP_DEBUG_LEVEL			_IOWR(ILITEK_IOCTL_MAGIC, 8, int)
+#define ILITEK_IOCTL_TP_FUNC_MODE			_IOWR(ILITEK_IOCTL_MAGIC, 9, int)
+
+#define ILITEK_IOCTL_TP_FW_VER				_IOWR(ILITEK_IOCTL_MAGIC, 10, int)
+#define ILITEK_IOCTL_TP_PL_VER				_IOWR(ILITEK_IOCTL_MAGIC, 11, int)
+#define ILITEK_IOCTL_TP_CORE_VER			_IOWR(ILITEK_IOCTL_MAGIC, 12, int)
+#define ILITEK_IOCTL_TP_DRV_VER				_IOWR(ILITEK_IOCTL_MAGIC, 13, int)
 
 static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -117,10 +134,11 @@ static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *
 	return res;
 }
 
-static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	int res = 0;
+	int i, res = 0, length = 0;
 	uint8_t	 szBuf[512] = {0};
+	static uint16_t i2c_rw_length = 0;
 
 	if(_IOC_TYPE(cmd) != ILITEK_IOCTL_MAGIC)
 	{
@@ -137,18 +155,18 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 	switch(cmd)
 	{
 		case ILITEK_IOCTL_I2C_WRITE_DATA:
-			res = copy_from_user(szBuf, (unsigned char*)arg, i2c_rw_length);
+			res = copy_from_user(szBuf, (uint8_t*)arg, i2c_rw_length);
 			if(res < 0)
 			{
-				DBG_ERR("Failed to copy data from userspace");
-				break;
+				DBG_ERR("Failed to copy data from user space");
+				return res;
 			}
-			//DBG_INFO("slave: %x , len : %d", core_config->slave_i2c_addr, i2c_rw_length);
+
 			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
 			if(res < 0)
 			{
 				DBG_ERR("Failed to write data via i2c");
-				break;
+				return res;
 			}
 			break;
 
@@ -157,20 +175,95 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 			if(res < 0)
 			{
 				DBG_INFO("Failed to read data via i2c");
-				break;
+				return res;
 			}
 
-			res = copy_to_user((unsigned char*)arg, szBuf, i2c_rw_length);
+			res = copy_to_user((uint8_t*)arg, szBuf, i2c_rw_length);
 			if(res < 0)
 			{
-				DBG_INFO("Failed to copy data to userspace");
-				break;
+				DBG_INFO("Failed to copy data to user space");
+				return res;
 			}
 			break;
 
 		case ILITEK_IOCTL_I2C_SET_WRITE_LENGTH:
 		case ILITEK_IOCTL_I2C_SET_READ_LENGTH:
 			i2c_rw_length = arg;
+			break;
+		case ILITEK_IOCTL_TP_HW_RESET:
+			ilitek_platform_ic_power_on();
+			break;
+
+		case ILITEK_IOCTL_TP_POWER_SWITCH:
+			DBG_INFO("Not implemented yet");
+			break;
+
+		case ILITEK_IOCTL_TP_REPORT_SWITCH:
+			if(arg)
+			{
+				core_fr->isDisableFR = true;	
+			}
+			else
+			{
+				core_fr->isDisableFR = false;	
+			}
+			break;
+
+		case ILITEK_IOCTL_TP_IRQ_SWITCH:
+			if(arg)
+			{
+				ilitek_platform_enable_irq();
+			}
+			else
+			{
+				ilitek_platform_disable_irq();
+			}
+			break;
+
+		case ILITEK_IOCTL_TP_DEBUG_LEVEL:
+			DBG_INFO("Not implemented yet");
+			break;
+
+		case ILITEK_IOCTL_TP_FUNC_MODE:
+			DBG_INFO("Not implemented yet");
+			break;
+
+		case ILITEK_IOCTL_TP_FW_VER:
+			res = copy_to_user((uint8_t*)arg, core_config->firmware_ver, fw_cmd_len);
+			if(res < 0)
+			{
+				DBG_INFO("Failed to copy firmware ver to user space");
+				return res;
+			}
+			break;
+
+		case ILITEK_IOCTL_TP_PL_VER:
+			res = copy_to_user((uint8_t*)arg, core_config->protocol_ver, protocol_cmd_len);
+			if(res < 0)
+			{
+				DBG_INFO("Failed to copy protocol ver to user space");
+				return res;
+			}
+			break;
+
+		case ILITEK_IOCTL_TP_CORE_VER:
+			res = copy_to_user((uint8_t*)arg, core_config->core_ver, core_cmd_len);
+			if(res < 0)
+			{
+				DBG_INFO("Failed to copy core ver to user space");
+				return res;
+			}
+			break;
+
+		case ILITEK_IOCTL_TP_DRV_VER:
+			length = sprintf(szBuf, "%s", DRIVER_VERSION);
+
+			res = copy_to_user((uint8_t*)arg, szBuf, length);
+			if(res < 0)
+			{
+				DBG_INFO("Failed to copy driver ver to user space");
+				return res;
+			}
 			break;
 
 		default:
@@ -182,14 +275,14 @@ static long ilitek_proc_i2c_ioctl(struct file *filp, unsigned int cmd, unsigned 
 }
 
 struct proc_dir_entry *proc_dir_ilitek;
-struct proc_dir_entry *proc_i2c;
+struct proc_dir_entry *proc_ioctl;
 struct proc_dir_entry *proc_firmware;
 struct proc_dir_entry *proc_mp_test;
 struct proc_dir_entry *proc_gesture;
 struct proc_dir_entry *proc_glove;
 
-struct file_operations proc_i2c_fops = {
-	.unlocked_ioctl = ilitek_proc_i2c_ioctl,
+struct file_operations proc_ioctl_fops = {
+	.unlocked_ioctl = ilitek_proc_ioctl,
 };
 
 struct file_operations proc_firmware_fops = {
@@ -238,7 +331,7 @@ typedef struct {
 } proc_node_t;
 
 proc_node_t proc_table[] = {
-	{"i2c",		 NULL, &proc_i2c_fops,     false},
+	{"ioctl",	 NULL, &proc_ioctl_fops,     false},
 	{"firmware", NULL, &proc_firmware_fops, false},
 	{"mp_test",  NULL, &proc_mp_test_fops, false},
 	{"gesture",  NULL, &proc_gesture_fops, false},

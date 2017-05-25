@@ -31,13 +31,23 @@ void ilitek_platform_disable_irq(void)
 
     spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
 
-	if(TIC->gpio_to_irq && TIC->isIrqEnable == true)
+	if(TIC->isIrqEnable == true)
 	{
-		disable_irq_nosync(TIC->gpio_to_irq);
-		TIC->isIrqEnable = false;
+		if(TIC->gpio_to_irq)
+		{
+			disable_irq_nosync(TIC->gpio_to_irq);
+			TIC->isIrqEnable = false;
+			DBG_INFO("IRQ was disabled");
+		}
+		else
+		{
+			DBG_ERR("The number of gpio to irq is incorrect");
+		}
 	}
 	else
-		DBG_ERR("Failed to disable IRQ");
+	{
+		DBG_INFO("IRQ was already disabled");
+	}
 
     spin_unlock_irqrestore(&SPIN_LOCK, nIrqFlag);
 }
@@ -56,13 +66,23 @@ void ilitek_platform_enable_irq(void)
 
     spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
 
-	if(TIC->gpio_to_irq && TIC->isIrqEnable == false)
+	if(TIC->isIrqEnable == false)
 	{
-		enable_irq(TIC->gpio_to_irq);
-		TIC->isIrqEnable = true;
+		if(TIC->gpio_to_irq)
+		{
+			enable_irq(TIC->gpio_to_irq);
+			TIC->isIrqEnable = true;
+			DBG_INFO("IRQ was enabled");
+		}
+		else
+		{
+			DBG_ERR("The number of gpio to irq is incorrect");
+		}
 	}
 	else
-		DBG_ERR("Failed to enable IRQ");
+	{
+		DBG_INFO("IRQ was already enabled");
+	}
 
     spin_unlock_irqrestore(&SPIN_LOCK, nIrqFlag);
 }
@@ -252,6 +272,13 @@ static int ilitek_platform_read_ic_info(void)
 	}
 
 	res = core_config_get_fw_ver();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to get firmware version, res = %d", res);
+		return res;
+	}
+
+	res = core_config_get_core_ver();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to get firmware version, res = %d", res);
