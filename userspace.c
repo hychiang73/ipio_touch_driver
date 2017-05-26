@@ -156,14 +156,14 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if(res < 0)
 			{
 				DBG_ERR("Failed to copy data from user space");
-				return res;
 			}
-
-			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
-			if(res < 0)
+			else
 			{
-				DBG_ERR("Failed to write data via i2c");
-				return res;
+				res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
+				if(res < 0)
+				{
+					DBG_ERR("Failed to write data via i2c");
+				}
 			}
 			break;
 
@@ -172,14 +172,14 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if(res < 0)
 			{
 				DBG_INFO("Failed to read data via i2c");
-				return res;
 			}
-
-			res = copy_to_user((uint8_t*)arg, szBuf, i2c_rw_length);
-			if(res < 0)
+			else
 			{
-				DBG_INFO("Failed to copy data to user space");
-				return res;
+				res = copy_to_user((uint8_t*)arg, szBuf, i2c_rw_length);
+				if(res < 0)
+				{
+					DBG_INFO("Failed to copy data to user space");
+				}
 			}
 			break;
 
@@ -187,6 +187,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		case ILITEK_IOCTL_I2C_SET_READ_LENGTH:
 			i2c_rw_length = arg;
 			break;
+
 		case ILITEK_IOCTL_TP_HW_RESET:
 			ilitek_platform_ic_power_on();
 			break;
@@ -196,24 +197,43 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			break;
 
 		case ILITEK_IOCTL_TP_REPORT_SWITCH:
-			if(arg)
+			res = copy_from_user(szBuf, (uint8_t*)arg, 1);
+			if(res < 0)
 			{
-				core_fr->isDisableFR = true;	
+				DBG_ERR("Failed to copy data from user space");
 			}
 			else
 			{
-				core_fr->isDisableFR = false;	
+				if(szBuf[0])
+				{
+					DBG_INFO("Function of finger report was enabled");
+					core_fr->isDisableFR = false;
+				}
+				else
+				{
+					DBG_INFO("Function of finger report was disabled");
+					core_fr->isDisableFR = true;
+				}
 			}
+
 			break;
 
 		case ILITEK_IOCTL_TP_IRQ_SWITCH:
-			if(arg)
+			res = copy_from_user(szBuf, (uint8_t*)arg, 1);
+			if(res < 0)
 			{
-				ilitek_platform_enable_irq();
+				DBG_ERR("Failed to copy data from user space");
 			}
 			else
 			{
-				ilitek_platform_disable_irq();
+				if(szBuf[0])
+				{
+					ilitek_platform_enable_irq();
+				}
+				else
+				{
+					ilitek_platform_disable_irq();
+				}
 			}
 			break;
 
@@ -229,8 +249,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			res = copy_to_user((uint8_t*)arg, core_config->firmware_ver, fw_cmd_len);
 			if(res < 0)
 			{
-				DBG_INFO("Failed to copy firmware ver to user space");
-				return res;
+				DBG_ERR("Failed to copy firmware ver to user space");
 			}
 			break;
 
@@ -238,8 +257,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			res = copy_to_user((uint8_t*)arg, core_config->protocol_ver, protocol_cmd_len);
 			if(res < 0)
 			{
-				DBG_INFO("Failed to copy protocol ver to user space");
-				return res;
+				DBG_ERR("Failed to copy protocol ver to user space");
 			}
 			break;
 
@@ -247,8 +265,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			res = copy_to_user((uint8_t*)arg, core_config->core_ver, core_cmd_len);
 			if(res < 0)
 			{
-				DBG_INFO("Failed to copy core ver to user space");
-				return res;
+				DBG_ERR("Failed to copy core ver to user space");
 			}
 			break;
 
@@ -259,7 +276,6 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if(res < 0)
 			{
 				DBG_INFO("Failed to copy driver ver to user space");
-				return res;
 			}
 			break;
 
@@ -268,7 +284,6 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if(res < 0)
 			{
 				DBG_ERR("Failed to copy core ver to user space");
-				return res;
 			}
 			break;
 
