@@ -215,7 +215,6 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 					core_fr->isDisableFR = true;
 				}
 			}
-
 			break;
 
 		case ILITEK_IOCTL_TP_IRQ_SWITCH:
@@ -246,44 +245,82 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			break;
 
 		case ILITEK_IOCTL_TP_FW_VER:
-			res = copy_to_user((uint8_t*)arg, core_config->firmware_ver, fw_cmd_len);
+			res = core_config_get_fw_ver();
 			if(res < 0)
 			{
-				DBG_ERR("Failed to copy firmware ver to user space");
+				DBG_ERR("Failed to get firmware version");
+			}
+			else
+			{
+				res = copy_to_user((uint8_t*)arg, core_config->firmware_ver, fw_cmd_len);
+				if(res < 0)
+				{
+					DBG_ERR("Failed to copy firmware version to user space");
+				}
 			}
 			break;
 
 		case ILITEK_IOCTL_TP_PL_VER:
-			res = copy_to_user((uint8_t*)arg, core_config->protocol_ver, protocol_cmd_len);
+			res = core_config_get_protocol_ver();
 			if(res < 0)
 			{
-				DBG_ERR("Failed to copy protocol ver to user space");
+				DBG_ERR("Failed to get protocol version");
+			}
+			else
+			{
+				res = copy_to_user((uint8_t*)arg, core_config->protocol_ver, protocol_cmd_len);
+				if(res < 0)
+				{
+					DBG_ERR("Failed to copy protocol version to user space");
+				}
 			}
 			break;
 
 		case ILITEK_IOCTL_TP_CORE_VER:
-			res = copy_to_user((uint8_t*)arg, core_config->core_ver, core_cmd_len);
+			res = core_config_get_core_ver();
 			if(res < 0)
 			{
-				DBG_ERR("Failed to copy core ver to user space");
+				DBG_ERR("Failed to get core version");
+			}
+			else
+			{
+				res = copy_to_user((uint8_t*)arg, core_config->core_ver, core_cmd_len);
+				if(res < 0)
+				{
+					DBG_ERR("Failed to copy core version to user space");
+				}
 			}
 			break;
 
 		case ILITEK_IOCTL_TP_DRV_VER:
 			length = sprintf(szBuf, "%s", DRIVER_VERSION);
-
-			res = copy_to_user((uint8_t*)arg, szBuf, length);
-			if(res < 0)
+			if(!length)
 			{
-				DBG_INFO("Failed to copy driver ver to user space");
+				DBG_ERR("Failed to convert driver version from definiation");
+			}
+			else
+			{
+				res = copy_to_user((uint8_t*)arg, szBuf, length);
+				if(res < 0)
+				{
+					DBG_INFO("Failed to copy driver ver to user space");
+				}
 			}
 			break;
 
 		case ILITEK_IOCTL_TP_CHIP_ID:
-			res = copy_to_user((uint32_t*)arg, &core_config->chip_id, 4);
+			res = core_config_get_chip_id();
 			if(res < 0)
 			{
-				DBG_ERR("Failed to copy core ver to user space");
+				DBG_ERR("Failed to get chip id");
+			}
+			else
+			{
+				res = copy_to_user((uint32_t*)arg, &core_config->chip_id, 4);
+				if(res < 0)
+				{
+					DBG_ERR("Failed to copy chip id to user space");
+				}
 			}
 			break;
 
