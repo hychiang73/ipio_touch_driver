@@ -89,23 +89,23 @@ void ilitek_platform_enable_irq(void)
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
 /*
- * IC Power on/off
+ * IC Reset.
  *
- * The power sequenece should follow a rule defined by a board.
+ * The power sequenece should follow a rule defined by a board or an IC.
  *
  */
-void ilitek_platform_ic_power_on(void)
+void ilitek_platform_ic_reset(void)
 {
 	DBG_INFO();
 
 	gpio_direction_output(TIC->reset_gpio, 1);
-	mdelay(10);
+	mdelay(TIC->delay_time_high);
 	gpio_set_value(TIC->reset_gpio, 0);
-	mdelay(10);
+	mdelay(TIC->delay_time_low);
 	gpio_set_value(TIC->reset_gpio, 1);
-	mdelay(5);
+	mdelay(TIC->delay_time_high);
 }
-EXPORT_SYMBOL(ilitek_platform_ic_power_on);
+EXPORT_SYMBOL(ilitek_platform_ic_reset);
 
 /*
  * This queue is activated by an interrupt.
@@ -312,8 +312,21 @@ static int ilitek_platform_read_ic_info(void)
 }
 
 /*
- * The func is to init all necessary structurs in those core APIs.
- * It must be called if want to use featurs of toucn ic.
+ * Remove Core APIs memeory being allocated.
+ *
+ */
+static int ilitek_platform_core_remove(void)
+{
+	core_config_remove();
+	core_i2c_remove();
+	core_firmware_remove();
+	core_fr_remove();
+	ilitek_proc_remove();
+}
+
+/*
+ * The function is to initialise all necessary structurs in those core APIs,
+ * they must be called before the i2c dev probes up successfully.
  *
  */
 static int ilitek_platform_core_init(void)
@@ -324,23 +337,15 @@ static int ilitek_platform_core_init(void)
 		core_i2c_init(TIC->client) < 0 ||
 		core_firmware_init() < 0 ||
 		core_fr_init(TIC->client) < 0)
-			return -EINVAL;
+	{
+		ilitek_platform_core_remove();
+		return -EINVAL;
+	}
+
+	ilitek_proc_init();
 
 	return 0;
 }
-
-/*
- * Remove Core APIs memeory being allocated.
- *
- */
-static int ilitek_platform_core_remove(void)
-{
-	core_config_remove();
-	core_i2c_remove();
-	core_firmware_remove();
-	core_fr_remove();
-}
-
 
 /*
  * The probe func would be called after an i2c device was detected by kernel.
@@ -362,12 +367,26 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
         return -ENODEV;
 	}
 
+	// initialise the struct of touch ic memebers.
 	TIC = (platform_info*)kmalloc(sizeof(*TIC), GFP_KERNEL);
 
 	TIC->client = client;
 	TIC->i2c_id = id;
-	TIC->chip_id = ON_BOARD_IC;
+	TIC->chip_id = ON_BOARD_IC; // it must match the chip what you're using on board.
 	TIC->isIrqEnable = false;
+	
+	// Different ICs may require different delay time for the reset.
+	// They may also depend on what your platform need to.
+	if(TIC->chip_id == CHIP_TYPE_ILI2121)
+	{
+		TIC->delay_time_high = 10;
+		TIC->delay_time_low = 10;
+	}
+	else if(TIC->chip_id == CHIP_TYPE_ILI7807)
+	{
+		TIC->delay_time_high = 10;
+		TIC->delay_time_low = 5;
+	}
 
     mutex_init(&MUTEX);
     spin_lock_init(&SPIN_LOCK);
@@ -388,10 +407,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if(res < 0)
 	{
 		DBG_ERR("Failed to init core APIs");
-		return -ENOMEM;
+		goto out;
 	}
 
-	ilitek_platform_ic_power_on();
+	ilitek_platform_ic_reset();
 
 	res = ilitek_platform_read_ic_info();
 	if(res < 0)
@@ -400,6 +419,11 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	}
 
 	return 0;
+
+out:
+	ilitek_platform_core_remove();
+	return res;
+
 }
 
 static int ilitek_platform_remove(struct i2c_client *client)
@@ -464,8 +488,6 @@ static int __init ilitek_platform_init(void)
 		return -ENODEV;
 	}
 
-	ilitek_proc_init();
-
 	DBG_INFO("Succeed to add i2c driver");
 
 	return res;
@@ -476,7 +498,6 @@ static void __exit ilitek_platform_exit(void)
 	DBG_INFO("i2c driver has been removed");
 
 	i2c_del_driver(&tp_i2c_driver);
-	ilitek_proc_remove();
 }
 
 module_init(ilitek_platform_init);

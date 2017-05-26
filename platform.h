@@ -36,6 +36,10 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 	int reset_gpio;
 
 	int gpio_to_irq;
+	
+	int delay_time_high;
+
+	int delay_time_low;
 
 	bool isIrqEnable;
 
@@ -43,7 +47,7 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
-extern void ilitek_platform_ic_power_on(void);
+extern void ilitek_platform_ic_reset(void);
 extern int ilitek_proc_init(void);
 extern void ilitek_proc_remove(void);
 #endif

@@ -189,7 +189,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			break;
 
 		case ILITEK_IOCTL_TP_HW_RESET:
-			ilitek_platform_ic_power_on();
+			ilitek_platform_ic_reset();
 			break;
 
 		case ILITEK_IOCTL_TP_POWER_SWITCH:
@@ -390,7 +390,7 @@ typedef struct {
 
 proc_node_t proc_table[] = {
 	{"ioctl",	 NULL, &proc_ioctl_fops,     false},
-	{"firmware", NULL, &proc_firmware_fops, false},
+	{"firmware", NULL, &proc_firmware_fops,	false},
 	{"mp_test",  NULL, &proc_mp_test_fops, false},
 	{"gesture",  NULL, &proc_gesture_fops, false},
 	{"glove",    NULL, &proc_glove_fops, false},

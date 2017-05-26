@@ -92,7 +92,7 @@ static int iram_upgrade(void)
 	uint8_t buf[512];
 	int32_t nUpgradeStatus = 0;
 
-	ilitek_platform_ic_power_on();
+	ilitek_platform_ic_reset();
 
 	//core_config_ice_mode_reset();
 
