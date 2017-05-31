@@ -48,7 +48,7 @@ CORE_FIRMWARE *core_firmware;
 uint8_t flash_fw[MAX_FLASH_FIRMWARE_SIZE];
 
 // IRAM test 
-#define IRAM_TEST
+//#define IRAM_TEST
 
 #ifdef IRAM_TEST
 uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE];
@@ -324,21 +324,268 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 	return -1;
 }
 
-static int firmware_upgrade_ili7807(void)
+static int ili7807_check_data(void)
 {
-	DBG_INFO();
+	int i, res = 0;
+	uint32_t write_len = 0;
+	uint32_t iram_check = 0;
+	
+	write_len = core_firmware->ap_end_addr + 1;
 
-#ifdef IRAM_TEST
-	iram_upgrade();
-#else
+	core_config_ice_mode_write(0x041000, 0x0, 1);
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+	core_config_ice_mode_write(0x041008, 0x3b, 1);
+	core_config_ice_mode_write(0x041008, core_firmware->ap_start_addr, 3);
+	core_config_ice_mode_write(0x041003, 0x01, 1);
+	core_config_ice_mode_write(0x041008, 0xFF, 1);
+	core_config_ice_mode_write(0x04100C, write_len, 2);
+	core_config_ice_mode_write(0x041014, 0x10000, 3);
+	core_config_ice_mode_write(0x041010, 0xFF, 1);
 
-#endif
+	mdelay(1);
 
+	for(i = 0; i < 500; i++)
+	{
+		if(core_config_read_write_onebyte(0x041014) == 0x01)
+		{
+			break;
+		}
+
+		mdelay(1);
+
+		if(i == 500)
+		{
+			DBG_ERR("Time out");
+			return -1;
+		}
+	}
+
+	core_config_ice_mode_write(0x041000, 0x1, 1);
+	core_config_ice_mode_write(0x041003, 0x0, 1);
+
+	iram_check = core_config_ice_mode_read(0x041018);
+
+	if(core_firmware->ap_checksum == iram_check)
+	{
+		DBG_INFO("The data written into flash is correct");
+		return 0;
+	}
+	else
+	{
+		DBG_ERR("Checksum Error: %x , %x", core_firmware->ap_checksum, iram_check);
+		return -1;
+	}
+}
+
+static int ili7807_polling_flash_busy(void)
+{
+	int i, res = 0;
+
+	core_config_ice_mode_write(0x041000, 0x0, 1);
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+	core_config_ice_mode_write(0x041008, 0x5, 1);
+
+	for(i = 0; i < 500; i++)
+	{
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+
+		mdelay(10);
+
+		if(core_config_read_write_onebyte(0x041010) == 0x0)
+		{
+			break;
+		}
+
+		if(i == 500)
+			return -1;
+	}
+		
+	res = core_config_ice_mode_write(0x041000, 0x1, 1);
 
 	return 0;
 }
 
-static int firmware_upgrade_ili2121(void)
+static int ili7807_write_enable(void)
+{
+	int res = 0;
+
+	if(core_config_ice_mode_write(0x041000, 0x0, 1) < 0)
+		goto out;
+	if(core_config_ice_mode_write(0x041004, 0x66aa55, 3) < 0)
+		goto out;
+	if(core_config_ice_mode_write(0x041008, 0x6, 1) < 0)
+		goto out;
+	if(core_config_ice_mode_write(0x041000, 0x1, 1) < 0)
+		goto out;
+
+	return 0;
+
+out:
+	return -1;
+}
+
+static int ili7807_firmware_upgrade(void)
+{
+	int i, j, k, res = 0;
+	uint32_t erase_start_addr = 0;
+    uint8_t buf[512] = {0};
+	uint32_t temp_buf = 0;
+	uint32_t iram_check = 0;
+
+#ifdef IRAM_TEST
+	res = iram_upgrade();
+	return res;
+#else
+
+	//TODO: identify which of types is going to upgrade
+	
+	DBG_INFO("Enter to ICE Mode before updating firmware ... ");
+
+	res = core_config_ice_mode_enable();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to enable ICE mode");
+		goto out;
+	}
+
+	core_config_ice_mode_write(0x4100C, 0x01, 0);
+
+	mdelay(20);
+
+	core_config_reset_watch_dog();
+
+	DBG_INFO("Erase Flash ...");
+	for(erase_start_addr = 0; erase_start_addr < 0xE0; )
+	{
+		res = ili7807_write_enable();
+		if(res < 0)
+		{
+			DBG_ERR("Failed to config write enable");
+			goto out;
+		}
+
+		//sector erase
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x20, 1);
+		core_config_ice_mode_write(0x041008, 0x0, 1);//Addr_H
+		core_config_ice_mode_write(0x041008, erase_start_addr, 1);//Addr_M
+		core_config_ice_mode_write(0x041008, 0x0, 1);//Addr_L	
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+
+		mdelay(1);
+
+		res = ili7807_polling_flash_busy();
+		if(res < 0)
+		{
+			DBG_ERR("TIME OUT");
+			goto out;
+		}
+
+		// read flash data
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x3, 1);
+		core_config_ice_mode_write(0x041008, 0x0, 1);
+		core_config_ice_mode_write(0x041008, erase_start_addr, 1);
+		core_config_ice_mode_write(0x041008, 0x0, 1);
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+
+		temp_buf = core_config_read_write_onebyte(0x041010);
+		if(temp_buf != 0xFF)
+		{
+			DBG_ERR("Failed to read data at 0x%x ", erase_start_addr);
+		}
+
+		erase_start_addr = erase_start_addr + 0x10;
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+	}
+
+	mdelay(1);
+
+	//write data into flash
+	DBG_INFO("write data info flash ...");
+    for (i = core_firmware->ap_start_addr; i < core_firmware->ap_end_addr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
+	{
+		res = ili7807_write_enable();
+		if(res < 0)
+		{
+			DBG_ERR("Failed to config write enable");
+			goto out;
+		}
+
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x02, 1);
+		core_config_ice_mode_write(0x041008, (i & 0xFF0000) >> 16, 1);//Addr_H
+		core_config_ice_mode_write(0x041008, (i & 0x00FF00) >> 8, 1);//Addr_M
+		core_config_ice_mode_write(0x041008, (i & 0x0000FF), 1);//Addr_L	
+
+		buf[0] = 0x25;
+		buf[3] = 0x04;
+		buf[2] = 0x10;
+		buf[1] = 0x08;
+
+		for(j = 0; j < UPDATE_FIRMWARE_PAGE_LENGTH; j++)
+		{
+			if(i + j <= core_firmware->ap_end_addr)
+				buf[4 + j] = flash_fw[i + j];
+			else
+				buf[4 + j] = 0xFF;
+		}
+
+		if (core_i2c_write(core_config->slave_i2c_addr, buf, UPDATE_FIRMWARE_PAGE_LENGTH + 4) < 0)
+		{
+			DBG_INFO("Failed to write data at address = 0x%X, start_addr = 0x%X, end_addr = 0x%X"
+					,(int)i, (int)core_firmware->ap_start_addr, (int)core_firmware->ap_end_addr);
+			res = -EIO;
+			goto out;
+		}
+
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+
+		res = ili7807_polling_flash_busy();
+		if(res < 0)
+		{
+			DBG_ERR("TIME OUT");
+			goto out;
+		}
+
+        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, (i * 100)/core_firmware->ap_end_addr, '%');
+	}
+
+	core_config_ice_mode_reset();
+
+	mdelay(50);
+
+	DBG_INFO("Re-entry ICE mode");
+	res = core_config_ice_mode_enable();
+	mdelay(20);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to enable ICE mode");
+		goto out;
+	}
+
+	core_config_reset_watch_dog();
+
+	res = ili7807_check_data();
+	if(res < 0)
+	{
+		DBG_ERR("The data written into flash isn't correct");
+	}
+
+out:
+	core_config_ice_mode_disable();
+	core_config_ice_mode_reset();
+
+	return res;
+
+#endif
+}
+
+static int ili2121_firmware_upgrade(void)
 {
     int32_t nUpdateRetryCount = 0, nUpgradeStatus = 0, nUpdateLength = 0;
 	int32_t	nCheckFwFlag = 0, nChecksum = 0, i = 0, j = 0, k = 0;
@@ -842,7 +1089,7 @@ int core_firmware_init(void)
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;
 
-				core_firmware->upgrade_func		= firmware_upgrade_ili2121;
+				core_firmware->upgrade_func		= ili7807_firmware_upgrade;
 			}
 
 			if(core_firmware->chip_id == CHIP_TYPE_ILI7807)
@@ -861,7 +1108,7 @@ int core_firmware_init(void)
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;
 
-				core_firmware->upgrade_func		= firmware_upgrade_ili7807;
+				core_firmware->upgrade_func		= ili7807_firmware_upgrade;
 			}
 		}
 	}

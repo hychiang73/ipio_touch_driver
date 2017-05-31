@@ -151,6 +151,8 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 		return -EFAULT;
 	}
 
+	mdelay(10);
+
     res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
 	if(res < 0)
 	{
@@ -186,6 +188,8 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 		return -EFAULT;
 	}
 
+	mdelay(10);
+
     res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
 	if(res < 0)
 	{
@@ -209,7 +213,7 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
     int res = 0, i;
     uint8_t szOutBuf[64] = {0};
 
-	DBG_INFO();
+	//DBG_INFO();
 
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
@@ -310,7 +314,7 @@ int core_config_ice_mode_reset(void)
 	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
 		// write chip's key
-		res = core_config_ice_mode_write(core_config->ic_reset_addr, 0x7807, 2);
+		res = core_config_ice_mode_write(0x04004C, 0x7807, 2);
 		if (res < 0)
 		{
 			DBG_ERR("OutWrite(0x04004C, 0x7807, 2) error, res = %d\n", res);
@@ -326,8 +330,6 @@ int core_config_ice_mode_reset(void)
 			DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
 			return res;
 		}
-
-		mdelay(10);
 	}
 
     return res;
