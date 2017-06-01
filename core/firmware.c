@@ -327,41 +327,48 @@ static int ili7807_check_data(void)
 	int i, res = 0;
 	uint32_t write_len = 0;
 	uint32_t iram_check = 0;
-	
-	write_len = core_firmware->ap_end_addr + 1;
 
-	core_config_ice_mode_write(0x041000, 0x0, 1);
-	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
-	core_config_ice_mode_write(0x041008, 0x3b, 1);
-	core_config_ice_mode_write(0x041008, core_firmware->ap_start_addr, 3);
-	core_config_ice_mode_write(0x041003, 0x01, 1);
-	core_config_ice_mode_write(0x041008, 0xFF, 1);
-	core_config_ice_mode_write(0x04100C, write_len, 2);
-	core_config_ice_mode_write(0x041014, 0x10000, 3);
-	core_config_ice_mode_write(0x041010, 0xFF, 1);
-
-	mdelay(1);
-
-	for(i = 0; i < 500; i++)
+	if(core_config->chip_type == ILI7807_TYPE_F)
 	{
-		if(core_config_read_write_onebyte(0x041014) == 0x01)
-		{
-			break;
-		}
+		write_len = core_firmware->ap_end_addr + 1;
+
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x3b, 1);
+		core_config_ice_mode_write(0x041008, core_firmware->ap_start_addr, 3);
+		core_config_ice_mode_write(0x041003, 0x01, 1);
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+		core_config_ice_mode_write(0x04100C, write_len, 2);
+		core_config_ice_mode_write(0x041014, 0x10000, 3);
+		core_config_ice_mode_write(0x041010, 0xFF, 1);
 
 		mdelay(1);
 
-		if(i == 500)
+		for(i = 0; i < 500; i++)
 		{
-			DBG_ERR("Time out");
-			return -1;
+			if(core_config_read_write_onebyte(0x041014) == 0x01)
+			{
+				break;
+			}
+
+			mdelay(1);
+
+			if(i == 500)
+			{
+				DBG_ERR("Time out");
+				return -1;
+			}
 		}
+
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+		core_config_ice_mode_write(0x041003, 0x0, 1);
+
+		iram_check = core_config_ice_mode_read(0x041018);
 	}
-
-	core_config_ice_mode_write(0x041000, 0x1, 1);
-	core_config_ice_mode_write(0x041003, 0x0, 1);
-
-	iram_check = core_config_ice_mode_read(0x041018);
+	else if(core_config->chip_type == ILI7807_TYPE_H)
+	{
+		//TODO: implement the way to get checksum
+	}
 
 	if(core_firmware->ap_checksum == iram_check)
 	{
@@ -435,8 +442,6 @@ static int ili7807_firmware_upgrade(void)
 	res = iram_upgrade();
 	return res;
 #else
-
-	//TODO: identify which of types is going to upgrade
 	
 	DBG_INFO("Enter to ICE Mode before updating firmware ... ");
 
@@ -447,7 +452,10 @@ static int ili7807_firmware_upgrade(void)
 		goto out;
 	}
 
-	core_config_ice_mode_write(0x4100C, 0x01, 0);
+	if(core_config->chip_type == ILI7807_TYPE_F)
+	{
+		core_config_ice_mode_write(0x4100C, 0x01, 0);
+	}
 
 	mdelay(20);
 

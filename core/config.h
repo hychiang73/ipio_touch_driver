@@ -62,6 +62,7 @@ typedef struct {
 typedef struct _CORE_CONFIG {
 
     uint32_t chip_id;
+	uint32_t chip_type;
 
 	uint8_t protocol_ver[4];
 

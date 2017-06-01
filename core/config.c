@@ -100,30 +100,29 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 static uint32_t check_chip_id(uint32_t pid_data)
 {
 	uint32_t id = 0;
-	uint32_t flag = 0;
 
 	if(core_config->chip_id == CHIP_TYPE_ILI2121)
 	{
 		id = (vfIceRegRead(0xF001) << (8 * 1)) + (vfIceRegRead(0xF000));
 	}
-
-	if(core_config->chip_id == CHIP_TYPE_ILI7807)
+	else if(core_config->chip_id == CHIP_TYPE_ILI7807)
 	{
 		id = pid_data >> 16;
-		flag = pid_data & 0x0000FFFF;
+		core_config->chip_type = pid_data & 0x0000FFFF;
 
-		// ILI7807F
-		if(flag == 0x0001)
+		if(core_config->chip_type == ILI7807_TYPE_F)
 		{
-			core_config->ic_reset_addr = 0x4004C;
+			core_config->ic_reset_addr = 0x04004C;
 
-		}
-
-		// ILI7807H
-		if(flag == 0x1101)
+		} 
+		else if(core_config->chip_type == ILI7807_TYPE_H)
 		{
-			core_config->ic_reset_addr = 0x40050;
+			core_config->ic_reset_addr = 0x040050;
 		}
+	}
+	else
+	{
+		DBG_ERR("The Chip doesn't be supported by the driver");
 	}
 
 	return id;
@@ -314,7 +313,7 @@ int core_config_ice_mode_reset(void)
 	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
 		// write chip's key
-		res = core_config_ice_mode_write(0x04004C, 0x7807, 2);
+		res = core_config_ice_mode_write(core_config->ic_reset_addr, 0x7807, 2);
 		if (res < 0)
 		{
 			DBG_ERR("OutWrite(0x04004C, 0x7807, 2) error, res = %d\n", res);
@@ -805,6 +804,7 @@ int core_config_init(void)
 			core_config->tp_info = (TP_INFO*)kmalloc(sizeof(*core_config->tp_info), GFP_KERNEL);
 
 			core_config->chip_id = SUP_CHIP_LIST[i];
+			core_config->chip_type = 0;
 
 			if(core_config->chip_id == CHIP_TYPE_ILI2121)
 			{
@@ -813,6 +813,11 @@ int core_config_init(void)
 				core_config->ice_mode_addr	= ILI2121_ICE_MODE_ADDR;
 				core_config->pid_addr		= ILI2121_PID_ADDR;
 				core_config->ic_reset_addr	= 0x0;
+
+				core_config->firmware_ver[4] = 0;
+				core_config->protocol_ver[4] = 0;
+				core_config->core_ver[4] = 0;
+
 			}
 			else if(core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
@@ -821,20 +826,25 @@ int core_config_init(void)
 				core_config->ice_mode_addr	= ILI7807_ICE_MODE_ADDR;
 				core_config->pid_addr		= ILI7807_PID_ADDR;
 				core_config->ic_reset_addr	= 0x0;
+
+				core_config->firmware_ver[4] = 0;
+				core_config->protocol_ver[4] = 0;
+				core_config->core_ver[4] = 0;
 			}
 		}
 	}
 
 	if(IS_ERR(core_config)) 
 	{
-		DBG_ERR("Can't find an id from the support list, init core-config failed ");
+		DBG_ERR("Can't find any chip IDs from the support list, init core-config failed ");
 		res = -ENOMEM;
-		goto Err;
+	}
+	else
+	{
+		set_protocol_cmd(core_config->use_protocol);
+		return res;
 	}
 	
-	set_protocol_cmd(core_config->use_protocol);
-	return res;
-
 Err:
 	core_config_remove();
 	return res;
