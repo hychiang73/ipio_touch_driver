@@ -114,13 +114,12 @@ static int iram_upgrade(void)
 	int i, j, k, res = 0;
 	int update_page_len = UPDATE_FIRMWARE_PAGE_LENGTH;
 	uint8_t buf[512];
-	int32_t nUpgradeStatus = 0;
+
+	DBG_INFO("Upgrade firmware written data into IRAM directly");
 
 	ilitek_platform_ic_reset();
 
-	//core_config_ice_mode_reset();
-
-	udelay(1000);
+	mdelay(1);
 
 	res = core_config_ice_mode_enable();
 	if(res < 0)
@@ -129,12 +128,10 @@ static int iram_upgrade(void)
 		return res;
 	}
 
-	//mdelay(1);
-	core_config_ice_mode_write(0x4100C, 0x01, 1);
+	core_config_ice_mode_write(0x4100C, 0x01, 0);
 
 	mdelay(20);
 
-	// disable watch dog
 	core_config_reset_watch_dog();
 
 	DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
@@ -167,8 +164,7 @@ static int iram_upgrade(void)
             return res;
 		}
 
-        nUpgradeStatus = (i * 100) / core_firmware->end_addr;
-        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, nUpgradeStatus, '%');
+        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, (i * 100) / core_firmware->end_addr, '%');
 
 		mdelay(3);
 	}
@@ -176,11 +172,13 @@ static int iram_upgrade(void)
 	// ice mode code reset
 	DBG_INFO("ice mode code reset");
 	core_config_ice_mode_write(0x40040, 0xAE, 1);
+//	mdelay(1);
+	core_config_ice_mode_write(0x40040, 0x00, 1);
 
 	mdelay(10);
 
-	// leave ice mode without reset chip.
 	core_config_ice_mode_disable();
+	//core_config_ice_mode_reset();
 
 	//TODO: check iram status
 
@@ -1089,7 +1087,7 @@ int core_firmware_init(void)
 				core_firmware->isUpgraded		= false;
 				core_firmware->isCRC			= false;
 
-				core_firmware->upgrade_func		= ili7807_firmware_upgrade;
+				core_firmware->upgrade_func		= ili2121_firmware_upgrade;
 			}
 
 			if(core_firmware->chip_id == CHIP_TYPE_ILI7807)

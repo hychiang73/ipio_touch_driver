@@ -37,6 +37,7 @@
 
 extern CORE_CONFIG *core_config;
 extern CORE_FINGER_REPORT *core_fr;
+extern CORE_FIRMWARE *core_firmware;
 extern platform_info *TIC;
 
 struct socket *nl_sk;
@@ -64,6 +65,8 @@ struct socket *nl_sk;
 #define ILITEK_IOCTL_TP_CORE_VER			_IOWR(ILITEK_IOCTL_MAGIC, 12, uint8_t*)
 #define ILITEK_IOCTL_TP_DRV_VER				_IOWR(ILITEK_IOCTL_MAGIC, 13, uint8_t*)
 #define ILITEK_IOCTL_TP_CHIP_ID				_IOWR(ILITEK_IOCTL_MAGIC, 14, uint32_t*)
+
+#define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
 
 static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -103,55 +106,47 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char __user *b
 
 static ssize_t ilitek_proc_firmware_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	DBG_INFO();
-	return size;
+	uint32_t len;
+
+	DBG_INFO("update status = %d ", core_firmware->isUpgraded);
+
+	// If file position is non-zero,  we assume the string has been read 
+	// and indicates that there is no more data to be read.
+	if(*pPos != 0)
+	{
+		return 0;
+	}
+
+	len = sprintf(buff, "%d", core_firmware->isUpgraded);
+
+//	copy_to_user((uint8_t*)dest, core_firmware->isUpgraded, len);
+	
+	*pPos = len;
+
+	return len;
 }
 
 static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *buff, size_t size, loff_t *pPos)
 {
-    char *pValid = NULL;
-    char *pTmpFilePath = NULL;
-    char szFilePath[100] = {0};
 	ssize_t res = -EINVAL;
 
-    if (buff != NULL)
-    {
-        pValid = strstr(buff, ".hex");
+	DBG_INFO("Prepare to upgarde firmware");
 
-        if (pValid)
-        {
-            pTmpFilePath = strsep((char **)&buff, ".");
+	ilitek_platform_disable_irq();
 
-            strcat(szFilePath, pTmpFilePath);
-            strcat(szFilePath, ".hex");
+	res = core_firmware_upgrade(UPDATE_FW_PATH);
 
-            DBG_INFO("File path: %s", szFilePath);
+	ilitek_platform_enable_irq();
 
-			ilitek_platform_disable_irq();
-
-			res = core_firmware_upgrade(szFilePath);
-
-			ilitek_platform_enable_irq();
-
-			if(res < 0)
-			{
-                DBG_ERR("Failed to upgrade firwmare, res = %d", res);
-			}
-            else
-            {
-                DBG_INFO("Succeed to upgrade firmware");
-				return size;
-            }
-        }
-        else
-        {
-            DBG_ERR("The file format is invalid");
-        }
-    }
-    else
-    {
-        DBG_ERR("The file path is invalid");
-    }
+	if(res < 0)
+	{
+		DBG_ERR("Failed to upgrade firwmare, res = %d", res);
+	}
+	else
+	{
+		DBG_INFO("Succeed to upgrade firmware");
+		return size;
+	}
 
 	return res;
 }
