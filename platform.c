@@ -34,7 +34,7 @@ extern CORE_CONFIG *core_config;
 
 #define I2C_DEVICE_ID	"ILITEK_TP_ID"
 
-struct work_struct irq_work_queue;
+struct work_struct report_work_queue;
 struct mutex MUTEX;
 spinlock_t SPIN_LOCK;
 platform_info *TIC;
@@ -174,7 +174,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 	{
 		disable_irq_nosync(TIC->gpio_to_irq);
 
-		schedule_work(&irq_work_queue);
+		schedule_work(&report_work_queue);
 	}
 
     spin_unlock_irqrestore(&SPIN_LOCK, nIrqFlag);
@@ -195,7 +195,7 @@ static int ilitek_platform_isr_register(void)
 {
 	int res = 0;
 	
-	INIT_WORK(&irq_work_queue, ilitek_platform_work_queue);
+	INIT_WORK(&report_work_queue, ilitek_platform_work_queue);
 
 	TIC->gpio_to_irq = gpio_to_irq(TIC->int_gpio);
 
@@ -393,7 +393,6 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	// initialise the struct of touch ic memebers.
 	TIC = (platform_info*)kmalloc(sizeof(*TIC), GFP_KERNEL);
-
 	TIC->client = client;
 	TIC->i2c_id = id;
 	TIC->chip_id = ON_BOARD_IC; // it must match the chip what you're using on board.
@@ -410,6 +409,16 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	{
 		TIC->delay_time_high = 10;
 		TIC->delay_time_low = 5;
+	}
+	else if(TIC->chip_id == CHIP_TYPE_ILI9881)
+	{
+		TIC->delay_time_high = 10;
+		TIC->delay_time_low = 5;
+	}
+	else
+	{
+		TIC->delay_time_high = 10;
+		TIC->delay_time_low = 10;
 	}
 
     mutex_init(&MUTEX);

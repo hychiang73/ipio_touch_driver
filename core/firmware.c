@@ -1079,41 +1079,30 @@ int core_firmware_init(void)
 				core_firmware->new_fw_ver[i] = 0x0;
 			}
 
+			core_firmware->ap_start_addr	= 0x0;
+			core_firmware->ap_end_addr		= 0x0;
+			core_firmware->df_start_addr	= 0x0;
+			core_firmware->df_end_addr		= 0x0;
+			core_firmware->ap_checksum		= 0x0;
+			core_firmware->ap_crc			= 0x0;
+			core_firmware->df_checksum		= 0x0;
+			core_firmware->df_crc			= 0x0;
+			core_firmware->start_addr		= 0x0;
+			core_firmware->end_addr			= 0x0;
+
+			core_firmware->isUpgraded		= false;
+			core_firmware->isCRC			= false;
+
 			if(core_firmware->chip_id == CHIP_TYPE_ILI2121)
 			{
-				core_firmware->ap_start_addr	= 0x0;
-				core_firmware->ap_end_addr		= 0x0;
-				core_firmware->df_start_addr	= 0x0;
-				core_firmware->df_end_addr		= 0x0;
-				core_firmware->ap_checksum		= 0x0;
-				core_firmware->ap_crc			= 0x0;
-				core_firmware->df_checksum		= 0x0;
-				core_firmware->df_crc			= 0x0;
-				core_firmware->start_addr		= 0x0;
-				core_firmware->end_addr			= 0x0;
-
-				core_firmware->isUpgraded		= false;
-				core_firmware->isCRC			= false;
-
 				core_firmware->upgrade_func		= ili2121_firmware_upgrade;
 			}
-
-			if(core_firmware->chip_id == CHIP_TYPE_ILI7807)
+			else if(core_firmware->chip_id == CHIP_TYPE_ILI7807)
 			{
-				core_firmware->ap_start_addr	= 0x0;
-				core_firmware->ap_end_addr		= 0x0;
-				core_firmware->df_start_addr	= 0x0;
-				core_firmware->df_end_addr		= 0x0;
-				core_firmware->ap_checksum		= 0x0;
-				core_firmware->ap_crc			= 0x0;
-				core_firmware->df_checksum		= 0x0;
-				core_firmware->df_crc			= 0x0;
-				core_firmware->start_addr		= 0x0;
-				core_firmware->end_addr			= 0x0;
-
-				core_firmware->isUpgraded		= false;
-				core_firmware->isCRC			= false;
-
+				core_firmware->upgrade_func		= ili7807_firmware_upgrade;
+			}
+			else if(core_firmware->chip_id == CHIP_TYPE_ILI9881)
+			{
 				core_firmware->upgrade_func		= ili7807_firmware_upgrade;
 			}
 		}

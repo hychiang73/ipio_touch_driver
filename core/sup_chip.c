@@ -36,6 +36,7 @@
 uint32_t SUP_CHIP_LIST[] = {
 	CHIP_TYPE_ILI2121,
 	CHIP_TYPE_ILI7807,
+	CHIP_TYPE_ILI9881,
 };
 
 int nums_chip = sizeof(SUP_CHIP_LIST) / sizeof(SUP_CHIP_LIST[0]);

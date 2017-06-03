@@ -120,6 +120,10 @@ static uint32_t check_chip_id(uint32_t pid_data)
 			core_config->ic_reset_addr = 0x040050;
 		}
 	}
+	else if(core_config->chip_id == CHIP_TYPE_ILI9881)
+	{
+		id = pid_data >> 16;
+	}
 	else
 	{
 		DBG_ERR("The Chip doesn't be supported by the driver");
@@ -806,17 +810,18 @@ int core_config_init(void)
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0;
 
+			core_config->ic_reset_addr	= 0x0;
+
+			core_config->firmware_ver[4] = 0;
+			core_config->protocol_ver[4] = 0;
+			core_config->core_ver[4] = 0;
+
 			if(core_config->chip_id == CHIP_TYPE_ILI2121)
 			{
 				core_config->use_protocol	= ILITEK_PROTOCOL_V3_2;
 				core_config->slave_i2c_addr = ILI2121_SLAVE_ADDR;
 				core_config->ice_mode_addr	= ILI2121_ICE_MODE_ADDR;
 				core_config->pid_addr		= ILI2121_PID_ADDR;
-				core_config->ic_reset_addr	= 0x0;
-
-				core_config->firmware_ver[4] = 0;
-				core_config->protocol_ver[4] = 0;
-				core_config->core_ver[4] = 0;
 
 			}
 			else if(core_config->chip_id == CHIP_TYPE_ILI7807)
@@ -825,11 +830,13 @@ int core_config_init(void)
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
 				core_config->ice_mode_addr	= ILI7807_ICE_MODE_ADDR;
 				core_config->pid_addr		= ILI7807_PID_ADDR;
-				core_config->ic_reset_addr	= 0x0;
-
-				core_config->firmware_ver[4] = 0;
-				core_config->protocol_ver[4] = 0;
-				core_config->core_ver[4] = 0;
+			}
+			else if(core_config->chip_id == CHIP_TYPE_ILI9881)
+			{
+				core_config->use_protocol	= ILITEK_PROTOCOL_V5_0;
+				core_config->slave_i2c_addr = ILI9881_SLAVE_ADDR;
+				core_config->ice_mode_addr	= ILI9881_ICE_MODE_ADDR;
+				core_config->pid_addr		= ILI9881_PID_ADDR;
 			}
 		}
 	}

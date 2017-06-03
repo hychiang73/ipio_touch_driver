@@ -30,7 +30,8 @@
 // If developers'd like to add a new chip used in the driver, they must also add 
 // the type of chip they want to support in core/sup_chip.c.
 //#define ON_BOARD_IC		CHIP_TYPE_ILI2121
-#define ON_BOARD_IC		CHIP_TYPE_ILI7807
+//#define ON_BOARD_IC		CHIP_TYPE_ILI7807
+#define ON_BOARD_IC		CHIP_TYPE_ILI9881
 
 // shows the version of driver
 #define DRIVER_VERSION	"1.0.0.0"
@@ -86,7 +87,6 @@
 
 // length of finger touch packet
 #define ILI2121_DEMO_MODE_PACKET_LENGTH		53
-#define ILI2121_MAX_TOUCH_NUM           	5
 
 // i2c command
 #define ILI2121_TP_CMD_READ_DATA			0x10
@@ -111,4 +111,26 @@
 // length of finger touch packet
 #define ILI7807_DEMO_MODE_PACKET_LENGTH  	43
 #define ILI7807_DEBUG_MODE_PACKET_LENGTH   	1280
-#define ILI7807_MAX_TOUCH_NUM           	5
+
+/*
+ * ILI9881
+ */
+#define CHIP_TYPE_ILI9881		0x9881
+
+#define ILI9881_SLAVE_ADDR		0x41
+#define ILI9881_ICE_MODE_ADDR	0x181062
+#define ILI9881_PID_ADDR		0x4009C
+
+// firmware mode
+#define ILI9881_FIRMWARE_UNKNOWN_MODE		0xFF
+#define ILI9881_FIRMWARE_DEMO_MODE			0x00
+#define ILI9881_FIRMWARE_DEBUG_MODE			0x01
+
+// length of finger touch packet
+#define ILI9881_DEMO_MODE_PACKET_LENGTH  	43
+#define ILI9881_DEBUG_MODE_PACKET_LENGTH   	1280
+
+/*
+ * Other settings
+ */
+#define MAX_TOUCH_NUM	10
