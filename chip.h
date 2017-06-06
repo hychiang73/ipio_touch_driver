@@ -29,9 +29,9 @@
 // The macro allows users to change the supprot of driver in differnet chips.
 // If developers'd like to add a new chip used in the driver, they must also add 
 // the type of chip they want to support in core/sup_chip.c.
-//#define ON_BOARD_IC		CHIP_TYPE_ILI2121
-//#define ON_BOARD_IC		CHIP_TYPE_ILI7807
-#define ON_BOARD_IC		CHIP_TYPE_ILI9881
+//#define ON_BOARD_IC		0x2121
+#define ON_BOARD_IC		0x7807
+//#define ON_BOARD_IC		0x9881
 
 // shows the version of driver
 #define DRIVER_VERSION	"1.0.0.0"

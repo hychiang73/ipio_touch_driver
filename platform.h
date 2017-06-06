@@ -22,7 +22,6 @@
  *
  */
 
-
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -45,6 +44,10 @@
 #include "core/firmware.h"
 #include "core/finger_report.h"
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
+
 #ifndef __PLATFORM_H
 #define __PLATFORM_H
 
@@ -59,8 +62,6 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 	int int_gpio;
 
 	int reset_gpio;
-
-	int gpio_to_irq;
 	
 	int delay_time_high;
 
@@ -68,11 +69,15 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 
 	bool isIrqEnable;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+#endif
+
 } platform_info;
 
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
-extern void ilitek_platform_ic_reset(void);
+extern void ilitek_platform_tp_power_on(bool isEnable);
 extern int ilitek_proc_init(void);
 extern void ilitek_proc_remove(void);
 #endif

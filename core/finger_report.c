@@ -179,7 +179,7 @@ static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
  * @id: an id represents a finger pressing on a screen
  *
  */
-static void finger_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
+void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
     DBG_INFO("point touch pressed"); 
 
@@ -210,6 +210,7 @@ static void finger_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t 
     input_mt_sync(core_fr->input_device);
 #endif
 }
+EXPORT_SYMBOL(core_fr_touch_press);
 
 /*
  * It'd be called when a finger's touched up from a screen. It'll notify
@@ -220,7 +221,7 @@ static void finger_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t 
  * @id: an id represents a finger leaving from a screen.
  *
  */
-static void finger_touch_release(int32_t x, int32_t y, int32_t id)
+void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
     DBG_INFO("point touch released"); 
 
@@ -234,6 +235,7 @@ static void finger_touch_release(int32_t x, int32_t y, int32_t id)
     input_mt_sync(core_fr->input_device);
 #endif
 }
+EXPORT_SYMBOL(core_fr_touch_release);
 
 
 //TODO
@@ -401,7 +403,7 @@ static int finger_report_ili7807(void)
 				for (i = 0; i < mti.key_count; i++)
 				{
 					input_report_key(core_fr->input_device, BTN_TOUCH, 1);
-					finger_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
+					core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
 
 					input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 1);
 				}
@@ -412,7 +414,7 @@ static int finger_report_ili7807(void)
 
 					if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
 					{
-						finger_touch_release(0, 0, i);
+						core_fr_touch_release(0, 0, i);
 					}
 
 					PreviousTouch[i] = CurrentTouch[i];
@@ -420,7 +422,7 @@ static int finger_report_ili7807(void)
 #else
 				for (i = 0; i < mti.key_count; i++)
 				{
-					finger_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
+					core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
 				}
 #endif
 				input_sync(core_fr->input_device);
@@ -438,7 +440,7 @@ static int finger_report_ili7807(void)
 
 						if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
 						{
-							finger_touch_release(0, 0, i);
+							core_fr_touch_release(0, 0, i);
 						}
 						PreviousTouch[i] = CurrentTouch[i];
 					}
@@ -446,7 +448,7 @@ static int finger_report_ili7807(void)
 					input_report_key(core_fr->input_device, BTN_TOUCH, 0);
 					input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
 #else
-					finger_touch_release(0, 0, 0);
+					core_fr_touch_release(0, 0, 0);
 #endif
 					input_sync(core_fr->input_device);
 
@@ -530,7 +532,7 @@ void core_fr_handler(void)
 {
 	int i, len = sizeof(fr_t)/sizeof(fr_t[0]);
 
-	if(!core_fr->isDisableFR)
+	if(core_fr->isEnableFR)
 	{
 		for(i = 0; i < len; i++)
 		{
@@ -545,7 +547,7 @@ void core_fr_handler(void)
 	}
 	else
 	{
-		DBG_INFO("The function of handling figner report has been disabled");
+		DBG_INFO("The figner report was disabled");
 	}
 }
 EXPORT_SYMBOL(core_fr_handler);
@@ -561,7 +563,7 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr = (CORE_FINGER_REPORT*)kmalloc(sizeof(*core_fr), GFP_KERNEL);
 
 			core_fr->chip_id = SUP_CHIP_LIST[i];
-			core_fr->isDisableFR = false;	
+			core_fr->isEnableFR = true;
 
 			core_fr->log_packet_length = 0x0;
 			core_fr->log_packet_header = 0x0;

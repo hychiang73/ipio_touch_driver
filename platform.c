@@ -22,15 +22,14 @@
  *
  */
 
+#include "platform.h"
+
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #define DTS_INT_GPIO	"touch,irq-gpio"
 #define DTS_RESET_GPIO	"touch,reset-gpio"
 #endif
-#include "platform.h"
-
-extern CORE_CONFIG *core_config;
 
 #define I2C_DEVICE_ID	"ILITEK_TP_ID"
 
@@ -39,8 +38,10 @@ struct mutex MUTEX;
 spinlock_t SPIN_LOCK;
 platform_info *TIC;
 
-MODULE_AUTHOR("ILITEK");
-MODULE_LICENSE("GPL");
+int isr_gpio = 0;
+
+extern CORE_CONFIG			*core_config;
+extern CORE_FINGER_REPORT	*core_fr;
 
 /*
  * The function is exported by other c files 
@@ -57,9 +58,9 @@ void ilitek_platform_disable_irq(void)
 
 	if(TIC->isIrqEnable == true)
 	{
-		if(TIC->gpio_to_irq)
+		if(isr_gpio)
 		{
-			disable_irq_nosync(TIC->gpio_to_irq);
+			disable_irq_nosync(isr_gpio);
 			TIC->isIrqEnable = false;
 			DBG_INFO("IRQ was disabled");
 		}
@@ -92,9 +93,9 @@ void ilitek_platform_enable_irq(void)
 
 	if(TIC->isIrqEnable == false)
 	{
-		if(TIC->gpio_to_irq)
+		if(isr_gpio)
 		{
-			enable_irq(TIC->gpio_to_irq);
+			enable_irq(isr_gpio);
 			TIC->isIrqEnable = true;
 			DBG_INFO("IRQ was enabled");
 		}
@@ -112,24 +113,49 @@ void ilitek_platform_enable_irq(void)
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
-/*
- * IC Reset.
- *
- * The power sequenece should follow a rule defined by a board or an IC.
- *
- */
-void ilitek_platform_ic_reset(void)
+void ilitek_platform_tp_power_on(bool isEnable)
+{
+	if(isEnable)
+	{
+		gpio_direction_output(TIC->reset_gpio, 1);
+		mdelay(TIC->delay_time_high);
+		gpio_set_value(TIC->reset_gpio, 0);
+		mdelay(TIC->delay_time_low);
+		gpio_set_value(TIC->reset_gpio, 1);
+		mdelay(TIC->delay_time_high);
+	}
+	else
+	{
+		gpio_set_value(TIC->reset_gpio, 0);
+	}
+}
+EXPORT_SYMBOL(ilitek_platform_tp_power_on);
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void ilitek_platform_late_resume(struct early_suspend *h)
 {
 	DBG_INFO();
 
-	gpio_direction_output(TIC->reset_gpio, 1);
-	mdelay(TIC->delay_time_high);
-	gpio_set_value(TIC->reset_gpio, 0);
-	mdelay(TIC->delay_time_low);
-	gpio_set_value(TIC->reset_gpio, 1);
-	mdelay(TIC->delay_time_high);
+	core_fr->isEnableFR = true;
+
+	ilitek_platform_tp_power_on(true);
 }
-EXPORT_SYMBOL(ilitek_platform_ic_reset);
+
+static void ilitek_platform_early_suspend(struct early_suspend *h)
+{
+	DBG_INFO();
+
+	//TODO: there is doing nothing if an upgrade firmware's processing.
+
+	core_fr_touch_release(0,0,0);
+
+	input_sync(core_fr->input_device);
+
+	core_fr->isEnableFR = false;
+
+	ilitek_platform_tp_power_on(false);
+}
+#endif
 
 /*
  * This queue is activated by an interrupt.
@@ -150,7 +176,7 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 	{
 		core_fr_handler();
 
-		enable_irq(TIC->gpio_to_irq);
+		enable_irq(isr_gpio);
 	}
 
 	spin_unlock_irqrestore(&SPIN_LOCK, nIrqFlag);
@@ -172,7 +198,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 
 	if(TIC->isIrqEnable)
 	{
-		disable_irq_nosync(TIC->gpio_to_irq);
+		disable_irq_nosync(isr_gpio);
 
 		schedule_work(&report_work_queue);
 	}
@@ -197,12 +223,12 @@ static int ilitek_platform_isr_register(void)
 	
 	INIT_WORK(&report_work_queue, ilitek_platform_work_queue);
 
-	TIC->gpio_to_irq = gpio_to_irq(TIC->int_gpio);
+	isr_gpio = gpio_to_irq(TIC->int_gpio);
 
-	DBG_INFO("GPIO_TO_IRQ = %d", TIC->gpio_to_irq);
+	DBG_INFO("isr_gpio = %d", isr_gpio);
 
     res = request_threaded_irq(
-				TIC->gpio_to_irq,
+				isr_gpio,
 				NULL,
 				ilitek_platform_irq_handler,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
@@ -212,7 +238,7 @@ static int ilitek_platform_isr_register(void)
 	if(res != 0)
 	{
 		DBG_ERR("Failed to register irq handler, irq = %d, res = %d",
-				TIC->gpio_to_irq,
+				isr_gpio,
 				res);
 		return res;
 	}
@@ -286,7 +312,7 @@ static int ilitek_platform_gpio(void)
  * Get Touch IC information.
  *
  */
-static int ilitek_platform_read_ic_info(void)
+static int ilitek_platform_read_tp_info(void)
 {
 	int res = 0;
 
@@ -371,6 +397,32 @@ static int ilitek_platform_core_init(void)
 	return 0;
 }
 
+static int ilitek_platform_remove(struct i2c_client *client)
+{
+	DBG_INFO();
+
+	if(TIC->isIrqEnable)
+	{
+		disable_irq_nosync(isr_gpio);
+	}
+
+	if(isr_gpio != 0 && TIC->int_gpio != 0 && TIC->reset_gpio != 0)
+	{
+		free_irq(isr_gpio, (void *)TIC->i2c_id);
+
+		gpio_free(TIC->int_gpio);
+		gpio_free(TIC->reset_gpio);
+	}
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&TIC->early_suspend);
+#endif
+
+	ilitek_platform_core_remove();
+
+	kfree(TIC);
+}
+
 /*
  * The probe func would be called after an i2c device was detected by kernel.
  *
@@ -382,8 +434,6 @@ static int ilitek_platform_core_init(void)
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
-
-	DBG_INFO();
 
     if (client == NULL)
     {
@@ -398,6 +448,16 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	TIC->chip_id = ON_BOARD_IC; // it must match the chip what you're using on board.
 	TIC->isIrqEnable = false;
 	
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	TIC->early_suspend->suspend = ilitek_platform_early_suspend;
+	TIC->early_suspend->esume  = ilitek_platform_late_resume;
+	TIC->early_suspend->level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	register_early_suspend(TIC->early_suspend);
+#endif
+
+	DBG_INFO("Driver version : %s", DRIVER_VERSION);
+	DBG_INFO("Touch IC supported by the driver is %x", ON_BOARD_IC);
+
 	// Different ICs may require different delay time for the reset.
 	// They may also depend on what your platform need to.
 	if(TIC->chip_id == CHIP_TYPE_ILI2121)
@@ -443,9 +503,9 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		goto out;
 	}
 
-	ilitek_platform_ic_reset();
+	ilitek_platform_tp_power_on(true);
 
-	res = ilitek_platform_read_ic_info();
+	res = ilitek_platform_read_tp_info();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to read IC info");
@@ -454,28 +514,9 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	return 0;
 
 out:
-	ilitek_platform_core_remove();
+	ilitek_platform_remove(TIC->client);
 	return res;
 
-}
-
-static int ilitek_platform_remove(struct i2c_client *client)
-{
-	DBG_INFO();
-
-	if(TIC->isIrqEnable)
-	{
-		disable_irq_nosync(TIC->gpio_to_irq);
-	}
-
-	free_irq(TIC->gpio_to_irq, (void *)TIC->i2c_id);
-
-	gpio_free(TIC->int_gpio);
-	gpio_free(TIC->reset_gpio);
-
-	ilitek_platform_core_remove();
-
-	kfree(TIC);
 }
 
 static const struct i2c_device_id tp_device_id[] =
@@ -535,3 +576,5 @@ static void __exit ilitek_platform_exit(void)
 
 module_init(ilitek_platform_init);
 module_exit(ilitek_platform_exit);
+MODULE_AUTHOR("ILITEK");
+MODULE_LICENSE("GPL");

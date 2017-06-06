@@ -438,6 +438,8 @@ static int ili7807_firmware_upgrade(void)
 	uint32_t temp_buf = 0;
 	uint32_t iram_check = 0;
 
+	core_firmware->update_status = 0;
+
 #ifdef IRAM_TEST
 	res = iram_upgrade();
 	return res;
@@ -558,7 +560,8 @@ static int ili7807_firmware_upgrade(void)
 			goto out;
 		}
 
-        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, (i * 100)/core_firmware->ap_end_addr, '%');
+        core_firmware->update_status = (i * 101) / core_firmware->ap_end_addr;
+        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
 	}
 
 	core_config_ice_mode_reset();
@@ -1031,6 +1034,7 @@ int core_firmware_upgrade(const char *pFilePath)
 			}
 			else
 			{
+				// calling that function defined at init depends on chips.
 				res = core_firmware->upgrade_func();
 				if(res < 0)
 				{
@@ -1091,6 +1095,7 @@ int core_firmware_init(void)
 			core_firmware->end_addr			= 0x0;
 
 			core_firmware->isUpgraded		= false;
+			core_firmware->update_status	= 0;
 			core_firmware->isCRC			= false;
 
 			if(core_firmware->chip_id == CHIP_TYPE_ILI2121)

@@ -104,11 +104,35 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char __user *b
 	return size;
 }
 
-static ssize_t ilitek_proc_firmware_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
+	int res = 0;
 	uint32_t len;
 
-	DBG_INFO("update status = %d ", core_firmware->isUpgraded);
+	// If file position is non-zero,  we assume the string has been read 
+	// and indicates that there is no more data to be read.
+	if(*pPos != 0)
+	{
+		return 0;
+	}
+
+	len = sprintf(buff, "%02d", core_firmware->update_status);
+
+	res = copy_to_user((uint32_t*)buff, &core_firmware->update_status, len);
+	if(res < 0)
+	{
+		DBG_INFO("Failed to copy data to user space");
+	}
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_firmware_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint32_t len;
 
 	// If file position is non-zero,  we assume the string has been read 
 	// and indicates that there is no more data to be read.
@@ -119,8 +143,12 @@ static ssize_t ilitek_proc_firmware_read(struct file *filp, char __user *buff, s
 
 	len = sprintf(buff, "%d", core_firmware->isUpgraded);
 
-//	copy_to_user((uint8_t*)dest, core_firmware->isUpgraded, len);
-	
+	res = copy_to_user((uint8_t*)buff, &core_firmware->isUpgraded, len);
+	if(res < 0)
+	{
+		DBG_INFO("Failed to copy data to user space");
+	}
+
 	*pPos = len;
 
 	return len;
@@ -209,7 +237,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			break;
 
 		case ILITEK_IOCTL_TP_HW_RESET:
-			ilitek_platform_ic_reset();
+			ilitek_platform_tp_power_on(true);
 			break;
 
 		case ILITEK_IOCTL_TP_POWER_SWITCH:
@@ -226,13 +254,13 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			{
 				if(szBuf[0])
 				{
+					core_fr->isEnableFR = true;
 					DBG_INFO("Function of finger report was enabled");
-					core_fr->isDisableFR = false;
 				}
 				else
 				{
+					core_fr->isEnableFR = false;
 					DBG_INFO("Function of finger report was disabled");
-					core_fr->isDisableFR = true;
 				}
 			}
 			break;
@@ -355,6 +383,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 struct proc_dir_entry *proc_dir_ilitek;
 struct proc_dir_entry *proc_ioctl;
 struct proc_dir_entry *proc_firmware;
+struct proc_dir_entry *proc_fw_status;
 struct proc_dir_entry *proc_mp_test;
 struct proc_dir_entry *proc_gesture;
 struct proc_dir_entry *proc_glove;
@@ -366,6 +395,10 @@ struct file_operations proc_ioctl_fops = {
 struct file_operations proc_firmware_fops = {
 	.read  = ilitek_proc_firmware_read,
 	.write = ilitek_proc_firmware_write,
+};
+
+struct file_operations proc_fw_status_fops = {
+	.read  = ilitek_proc_fw_status_read,
 };
 
 struct file_operations proc_mp_test_fops = {
@@ -409,11 +442,12 @@ typedef struct {
 } proc_node_t;
 
 proc_node_t proc_table[] = {
-	{"ioctl",	 NULL, &proc_ioctl_fops,     false},
+	{"ioctl",	 NULL, &proc_ioctl_fops,	false},
 	{"firmware", NULL, &proc_firmware_fops,	false},
-	{"mp_test",  NULL, &proc_mp_test_fops, false},
-	{"gesture",  NULL, &proc_gesture_fops, false},
-	{"glove",    NULL, &proc_glove_fops, false},
+	{"fw_status",NULL, &proc_fw_status_fops,false},
+	{"mp_test",  NULL, &proc_mp_test_fops,	false},
+	{"gesture",  NULL, &proc_gesture_fops,	false},
+	{"glove",    NULL, &proc_glove_fops,	false},
 };
 
 int ilitek_proc_init(void)

@@ -55,6 +55,8 @@ typedef struct _CORE_FIRMWARE {
 
 	uint32_t checksum;
 
+	uint32_t update_status;
+
     bool isUpgraded;
 
 	bool isCRC;

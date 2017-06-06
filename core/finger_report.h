@@ -46,7 +46,7 @@ typedef struct {
 
 	struct input_dev *input_device;
 
-	int isDisableFR;
+	int isEnableFR;
 
 	uint32_t chip_id;
 
@@ -65,6 +65,8 @@ typedef struct {
 
 } CORE_FINGER_REPORT;
 
+extern void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id);
+extern void core_fr_touch_release(int32_t x, int32_t y, int32_t id);
 extern void core_fr_handler(void);
 extern int core_fr_init(struct i2c_client *);
 extern void core_fr_remove(void);
