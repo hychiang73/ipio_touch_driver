@@ -168,6 +168,8 @@ static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *
 
 	if(res < 0)
 	{
+		// return the status to user space even if any error occurs.
+		core_firmware->update_status = res;
 		DBG_ERR("Failed to upgrade firwmare, res = %d", res);
 	}
 	else

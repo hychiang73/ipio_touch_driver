@@ -126,7 +126,7 @@ static uint32_t check_chip_id(uint32_t pid_data)
 	}
 	else
 	{
-		DBG_ERR("The Chip doesn't be supported by the driver");
+		DBG_ERR("The Chip isn't supported by the driver");
 	}
 
 	return id;
@@ -134,7 +134,6 @@ static uint32_t check_chip_id(uint32_t pid_data)
 
 /*
  * Read & Write one byte in ICE Mode.
- *
  */
 uint32_t core_config_read_write_onebyte(uint32_t addr)
 {
@@ -149,29 +148,26 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 
     res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
 	if(res < 0)
-	{
-		DBG_ERR("Failed to write data via i2c, res = %d", res);
-		return -EFAULT;
-	}
+		goto out;
 
 	mdelay(10);
 
     res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
 	if(res < 0)
-	{
-		DBG_ERR("Failed to read data via i2c, res = %d", res);
-		return -EFAULT;
-	}
+		goto out;
 
     data = (szOutBuf[0]);
 
     return data;
+
+out:
+	DBG_ERR("Failed to read/write data in ICE mode, res = %d", res);
+	return res;
 }
 EXPORT_SYMBOL(core_config_read_write_onebyte);
 
 /*
  * Reading data from firmware in ICE Mode.
- *
  */
 uint32_t core_config_ice_mode_read(uint32_t addr)
 {
@@ -186,23 +182,21 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 
     res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
 	if(res < 0)
-	{
-		DBG_ERR("Failed to write data via i2c, res = %d", res);
-		return -EFAULT;
-	}
+		goto out;
 
 	mdelay(10);
 
     res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
 	if(res < 0)
-	{
-		DBG_ERR("Failed to read data via i2c, res = %d", res);
-		return -EFAULT;
-	}
+		goto out;
 
     data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
 
     return data;
+
+out:
+	DBG_ERR("Failed to read data in ICE mode, res = %d", res);
+	return res;
 
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
@@ -215,8 +209,6 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 {
     int res = 0, i;
     uint8_t szOutBuf[64] = {0};
-
-	//DBG_INFO();
 
     szOutBuf[0] = 0x25;
     szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
@@ -231,8 +223,7 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
     res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
 	if(res < 0)
 	{
-		DBG_ERR("Failed to write data via i2c, res = %d", res);
-		return -EFAULT;
+		DBG_ERR("Failed to write data in ICE mode, res = %d", res);
 	}
 
     return res;
@@ -273,11 +264,10 @@ int core_config_ic_reset(uint32_t id)
 {
 	DBG_INFO();
 
-	core_config_ice_mode_enable();
-
 	if(id == CHIP_TYPE_ILI7807)
 	{
-		//DBG_INFO("ic reset addr = 0x%x", core_config->ic_reset_addr);
+		core_config_ice_mode_enable();
+
 		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);
 	} 
 
@@ -294,15 +284,13 @@ int core_config_ice_mode_reset(void)
 {
     int res = 0;
 
-	DBG_INFO();
-
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
 		res = core_config_ice_mode_write(0x04004C, 0x2120, 2);
 		if (res < 0)
 		{
 			DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, res = %d\n", res);
-			return res;
+			goto out;
 		}
 
 		mdelay(10);
@@ -311,7 +299,7 @@ int core_config_ice_mode_reset(void)
 		if (res < 0)
 		{
 			DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
-			return res;
+			goto out;
 		}
 	}
 	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
@@ -320,8 +308,8 @@ int core_config_ice_mode_reset(void)
 		res = core_config_ice_mode_write(core_config->ic_reset_addr, 0x7807, 2);
 		if (res < 0)
 		{
-			DBG_ERR("OutWrite(0x04004C, 0x7807, 2) error, res = %d\n", res);
-			return res;
+			DBG_ERR("OutWrite(0x%x, 0x7807, 2) error, res = %d\n", core_config->ic_reset_addr, res);
+			goto out;
 		}
 
 		mdelay(10);
@@ -331,21 +319,21 @@ int core_config_ice_mode_reset(void)
 		if (res < 0)
 		{
 			DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
-			return res;
+			goto out;
 		}
 	}
 
     return res;
+
+out:
+	return res;
 }
 EXPORT_SYMBOL(core_config_ice_mode_reset);
 
-/*
- * Leaving out ICE Mode.
- *
- */
 int core_config_ice_mode_disable(void)
 {
 	uint8_t cmd[4];
+
 	DBG_INFO();
 
 	cmd[0] = 0x1b;
@@ -353,28 +341,15 @@ int core_config_ice_mode_disable(void)
 	cmd[2] = 0x10;
 	cmd[3] = 0x18;
 
-	if(core_i2c_write(core_config->slave_i2c_addr, cmd, 4) < 0)
-	{
-		DBG_ERR("Failed to disable ice mode");
-		return -EFAULT;
-	}
-
-	return 0;
+	return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
-/*
- * Entering into ICE Mode.
- *
- */
 int core_config_ice_mode_enable(void)
 {
 	DBG_INFO();
 
-    if (core_config_ice_mode_write(0x181062, 0x0, 1) < 0)
-        return -EFAULT;
-
-	return 0;
+	return core_config_ice_mode_write(0x181062, 0x0, 1);
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 
@@ -438,14 +413,14 @@ int core_config_get_key_info(void)
 	if (res < 0)
 	{
 		DBG_ERR("Failed to write a command to get key info, res = %d\n", res);
-		return res;
+		goto out;
 	}
 
 	res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], key_info_len);
 	if (res < 0)
 	{
 		DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
-		return res;
+		goto out;
 	}
 
 	//for(; i < key_info_len + 1; i++)
@@ -463,7 +438,7 @@ int core_config_get_key_info(void)
 				if(res < 0)
 				{
 					DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
-					return res;
+					goto out;
 				}
 			}
 
@@ -497,6 +472,10 @@ int core_config_get_key_info(void)
 	}
 
 	return res;
+
+out:
+	DBG_ERR("Failed to get key information from firmware");
+	return res;
 }
 EXPORT_SYMBOL(core_config_get_key_info);
 
@@ -515,7 +494,7 @@ int core_config_get_tp_info(void)
 	if(res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
-		return res;
+		goto out;
 	}
         
 	mdelay(10);
@@ -524,7 +503,7 @@ int core_config_get_tp_info(void)
 	if(res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
-		return res;
+		goto out;
 	}
 
 	//for(; i < tp_info_len+1; i++)
@@ -582,6 +561,10 @@ int core_config_get_tp_info(void)
 	}
 
 	return res;
+
+out:
+	DBG_ERR("Failed to get firmware version");
+	return res;
 }
 EXPORT_SYMBOL(core_config_get_tp_info);
 
@@ -602,7 +585,7 @@ int core_config_get_protocol_ver(void)
 	if(res < 0)
 	{
 		DBG_ERR("Failed to get protocol version error %d", res);
-		return res;
+		goto out;
 	}
         
 	mdelay(10);
@@ -611,7 +594,7 @@ int core_config_get_protocol_ver(void)
 	if(res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
-		return res;
+		goto out;
 	}
         
 	for(; i < protocol_cmd_len; i++)
@@ -635,6 +618,10 @@ int core_config_get_protocol_ver(void)
 	}
 
 	return res;
+
+out:
+	DBG_ERR("Failed to get protocol version");
+	return res;
 }
 EXPORT_SYMBOL(core_config_get_protocol_ver);
 
@@ -655,7 +642,7 @@ int core_config_get_core_ver(void)
 	if(res < 0)
 	{
 		DBG_ERR("Failed to write cmd to get fw version %d", res);
-		return res;
+		goto out;
 	}
 
     mdelay(10);
@@ -664,7 +651,7 @@ int core_config_get_core_ver(void)
 	if(res < 0)
 	{
 		DBG_ERR("Failed to read fw version %d", res);
-		return res;
+		goto out;
 	}
 
 	for(; i < core_cmd_len; i++)
@@ -683,6 +670,11 @@ int core_config_get_core_ver(void)
 	}
 
 	return res;
+
+out:
+	DBG_ERR("Failed to get core version");
+	return res;
+
 }
 EXPORT_SYMBOL(core_config_get_core_ver);
 
@@ -701,7 +693,7 @@ int core_config_get_fw_ver(void)
 	if(res < 0)
 	{
 		DBG_ERR("Failed to write cmd to get fw version %d", res);
-		return res;
+		goto out;
 	}
 
     mdelay(10);
@@ -710,7 +702,7 @@ int core_config_get_fw_ver(void)
 	if(res < 0)
 	{
 		DBG_ERR("Failed to read fw version %d", res);
-		return res;
+		goto out;
 	}
 
 	for(; i < fw_cmd_len; i++)
@@ -737,6 +729,10 @@ int core_config_get_fw_ver(void)
 	}
 
 	return res;
+
+out:
+	DBG_ERR("Failed to get core version");
+	return res;
 }
 EXPORT_SYMBOL(core_config_get_fw_ver);
 
@@ -750,11 +746,10 @@ int core_config_get_chip_id(void)
     uint32_t RealID = 0, PIDData = 0, flag;
 
 	res = core_config_ice_mode_enable();
-
 	if(res < 0)
 	{
 		DBG_ERR("Failed to enter ICE mode, res = %d", res);
-		return res;
+		goto out;
 	}
 
 	core_config_reset_watch_dog();
@@ -764,6 +759,7 @@ int core_config_get_chip_id(void)
 	if (PIDData)
 	{
 		RealID = check_chip_id(PIDData);
+
 		DBG_INFO("Read ID = 0x%x", RealID);
 
 		if(RealID == core_config->chip_id)
@@ -773,26 +769,41 @@ int core_config_get_chip_id(void)
 			mdelay(60);
 
 			res = core_config_ice_mode_reset();
+			if(res < 0)
+			{
+				DBG_ERR("Failed to reset ICE mode");
+				res = -EINVAL;
+				goto out;
+			}
+
 			res = core_config_ice_mode_disable();
 			if(res < 0)
 			{
 				DBG_ERR("Failed to exit ICE mode");
-				return res;
+				res = -EINVAL;
+				goto out;
 			}
 		}
 		else
 		{
-			DBG_ERR("CHIP ID error : 0x%x , ", RealID);
-			return -ENODEV;
+			DBG_ERR("CHIP ID error : 0x%x ", RealID);
+			res = -ENODEV;
+			goto out;
 		}
 	}
 	else
 	{
 		DBG_ERR("PID DATA error : 0x%x", PIDData);
-		return -ENODEV;
+		res = -EINVAL;
+		goto out;
 	}
 
 	return res;
+
+out:
+	DBG_ERR("Failed to get chip id");
+	return res;
+
 }
 EXPORT_SYMBOL(core_config_get_chip_id);
 
@@ -845,14 +856,16 @@ int core_config_init(void)
 	{
 		DBG_ERR("Can't find any chip IDs from the support list, init core-config failed ");
 		res = -ENOMEM;
+		goto out;
 	}
 	else
 	{
 		set_protocol_cmd(core_config->use_protocol);
-		return res;
 	}
+
+	return res;
 	
-Err:
+out:
 	core_config_remove();
 	return res;
 }

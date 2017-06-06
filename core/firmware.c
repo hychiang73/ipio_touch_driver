@@ -356,7 +356,7 @@ static int ili7807_check_data(void)
 			if(i == 500)
 			{
 				DBG_ERR("Time out");
-				return -1;
+				goto out;
 			}
 		}
 
@@ -370,16 +370,17 @@ static int ili7807_check_data(void)
 		//TODO: implement the way to get checksum
 	}
 
-	if(core_firmware->ap_checksum == iram_check)
-	{
-		DBG_INFO("The data written into flash is correct");
-		return 0;
-	}
-	else
+	if(core_firmware->ap_checksum != iram_check)
 	{
 		DBG_ERR("Checksum Error: %x , %x", core_firmware->ap_checksum, iram_check);
-		return -1;
+		goto out;
 	}
+
+	return res;
+
+out:
+	DBG_ERR("Failed to get correct data");
+	return -1;
 }
 
 static int ili7807_polling_flash_busy(void)
@@ -403,7 +404,7 @@ static int ili7807_polling_flash_busy(void)
 		}
 
 		if(i == 500)
-			return -1;
+			return -EIO;
 	}
 		
 	res = core_config_ice_mode_write(0x041000, 0x1, 1);
@@ -427,7 +428,7 @@ static int ili7807_write_enable(void)
 	return 0;
 
 out:
-	return -1;
+	return -EIO;
 }
 
 static int ili7807_firmware_upgrade(void)
@@ -454,9 +455,15 @@ static int ili7807_firmware_upgrade(void)
 		goto out;
 	}
 
+	// set CS low
 	if(core_config->chip_type == ILI7807_TYPE_F)
 	{
-		core_config_ice_mode_write(0x4100C, 0x01, 0);
+		res =core_config_ice_mode_write(0x4100C, 0x01, 0);
+		if(res < 0)
+		{
+			DBG_ERR("Failed to set CS as Low");
+			goto out;
+		}
 	}
 
 	mdelay(20);
@@ -564,11 +571,11 @@ static int ili7807_firmware_upgrade(void)
         printk("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
 	}
 
+	// it's fine if got an error in reset ice mode at second time.
 	core_config_ice_mode_reset();
 
 	mdelay(50);
 
-	DBG_INFO("Re-entry ICE mode");
 	res = core_config_ice_mode_enable();
 	mdelay(20);
 	if(res < 0)
@@ -588,7 +595,6 @@ static int ili7807_firmware_upgrade(void)
 out:
 	core_config_ice_mode_disable();
 	core_config_ice_mode_reset();
-
 	return res;
 
 #endif
