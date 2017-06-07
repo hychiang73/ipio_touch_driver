@@ -68,43 +68,10 @@ struct socket *nl_sk;
 
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
 
-static ssize_t ilitek_proc_glove_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
-{
-	DBG_INFO();
-	return size;
-}
-
-static ssize_t ilitek_proc_glove_write(struct file *filp, const char __user *buff, size_t size, loff_t *pPos)
-{
-	DBG_INFO();
-	return size;
-}
-
-static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
-{
-	DBG_INFO();
-	return size;
-}
-
-static ssize_t ilitek_proc_gesture_write(struct file *filp, const char __user *buff, size_t size, loff_t *pPos)
-{
-	DBG_INFO();
-	return size;
-}
-
-static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
-{
-	DBG_INFO();
-	return size;
-}
-
-static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char __user *buff, size_t size, loff_t *pPos)
-{
-	DBG_INFO();
-	return size;
-}
-
-static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+/*
+ * This node provides user space showing how long the process of upgrade firmware remained.
+ */
+static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len;
@@ -129,7 +96,11 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 	return len;
 }
 
-static ssize_t ilitek_proc_firmware_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+/*
+ * This node provides users showing if the upgrade process is successful.
+ *
+ */
+static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len;
@@ -154,11 +125,22 @@ static ssize_t ilitek_proc_firmware_read(struct file *filp, char __user *buff, s
 	return len;
 }
 
-static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *buff, size_t size, loff_t *pPos)
+/*
+ * To avoid the restriction of selinux, we assigned a fixed path where locates firmware file,
+ * reading (cat) this node to notify driver running the upgrade process from user space.
+ *
+ */
+static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	ssize_t res = -EINVAL;
+	int res = 0;
+	uint32_t len;
 
-	DBG_INFO("Prepare to upgarde firmware");
+	DBG_INFO("Preparing to upgarde firmware");
+
+	if(*pPos != 0)
+	{
+		return 0;
+	}
 
 	ilitek_platform_disable_irq();
 
@@ -175,10 +157,11 @@ static ssize_t ilitek_proc_firmware_write(struct file *filp, const char __user *
 	else
 	{
 		DBG_INFO("Succeed to upgrade firmware");
-		return size;
 	}
 
-	return res;
+	*pPos = len;
+
+	return len;
 }
 
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -384,38 +367,24 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 
 struct proc_dir_entry *proc_dir_ilitek;
 struct proc_dir_entry *proc_ioctl;
-struct proc_dir_entry *proc_firmware;
 struct proc_dir_entry *proc_fw_status;
-struct proc_dir_entry *proc_mp_test;
-struct proc_dir_entry *proc_gesture;
-struct proc_dir_entry *proc_glove;
+struct proc_dir_entry *proc_fw_process;
+struct proc_dir_entry *proc_fw_upgrade;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
-};
-
-struct file_operations proc_firmware_fops = {
-	.read  = ilitek_proc_firmware_read,
-	.write = ilitek_proc_firmware_write,
 };
 
 struct file_operations proc_fw_status_fops = {
 	.read  = ilitek_proc_fw_status_read,
 };
 
-struct file_operations proc_mp_test_fops = {
-	.read  = ilitek_proc_mp_test_read,
-	.write = ilitek_proc_mp_test_write,
+struct file_operations proc_fw_process_fops = {
+	.read  = ilitek_proc_fw_process_read,
 };
 
-struct file_operations proc_gesture_fops = {
-	.read  = ilitek_proc_gesture_read,
-	.write = ilitek_proc_gesture_write,
-};
-
-struct file_operations proc_glove_fops = {
-	.read  = ilitek_proc_glove_read,
-	.write = ilitek_proc_glove_write,
+struct file_operations proc_fw_upgrade_fops = {
+	.read = ilitek_proc_fw_upgrade_read,
 };
 
 /*
@@ -444,12 +413,10 @@ typedef struct {
 } proc_node_t;
 
 proc_node_t proc_table[] = {
-	{"ioctl",	 NULL, &proc_ioctl_fops,	false},
-	{"firmware", NULL, &proc_firmware_fops,	false},
-	{"fw_status",NULL, &proc_fw_status_fops,false},
-	{"mp_test",  NULL, &proc_mp_test_fops,	false},
-	{"gesture",  NULL, &proc_gesture_fops,	false},
-	{"glove",    NULL, &proc_glove_fops,	false},
+	{"ioctl",	 NULL,	&proc_ioctl_fops,	false},
+	{"fw_status",NULL,	&proc_fw_status_fops,false},
+	{"fw_process",NULL, &proc_fw_process_fops,false},
+	{"fw_upgrade",NULL, &proc_fw_upgrade_fops,false},
 };
 
 int ilitek_proc_init(void)
