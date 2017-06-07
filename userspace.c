@@ -169,6 +169,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	int i, res = 0, length = 0;
 	uint8_t	 szBuf[512] = {0};
 	static uint16_t i2c_rw_length = 0;
+	uint32_t id_to_user = 0x0;
 
 	if(_IOC_TYPE(cmd) != ILITEK_IOCTL_MAGIC)
 	{
@@ -349,7 +350,9 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			}
 			else
 			{
-				res = copy_to_user((uint32_t*)arg, &core_config->chip_id, 4);
+				id_to_user = core_config->chip_id << 16 | core_config->chip_type;
+
+				res = copy_to_user((uint32_t*)arg, &id_to_user, sizeof(uint32_t));
 				if(res < 0)
 				{
 					DBG_ERR("Failed to copy chip id to user space");

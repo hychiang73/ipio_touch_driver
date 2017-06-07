@@ -760,7 +760,7 @@ int core_config_get_chip_id(void)
 	{
 		RealID = check_chip_id(PIDData);
 
-		DBG_INFO("Read ID = 0x%x", RealID);
+		DBG_INFO("CHIP ID = 0x%x, CHIP TYPE = %04x", RealID, core_config->chip_type);
 
 		if(RealID == core_config->chip_id)
 		{
