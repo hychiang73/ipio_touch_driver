@@ -40,10 +40,6 @@ extern CORE_FINGER_REPORT *core_fr;
 extern CORE_FIRMWARE *core_firmware;
 extern platform_info *TIC;
 
-struct socket *nl_sk;
-
-#define NETLINK_USER	31
-
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	14
 
@@ -65,6 +61,10 @@ struct socket *nl_sk;
 #define ILITEK_IOCTL_TP_CORE_VER			_IOWR(ILITEK_IOCTL_MAGIC, 12, uint8_t*)
 #define ILITEK_IOCTL_TP_DRV_VER				_IOWR(ILITEK_IOCTL_MAGIC, 13, uint8_t*)
 #define ILITEK_IOCTL_TP_CHIP_ID				_IOWR(ILITEK_IOCTL_MAGIC, 14, uint32_t*)
+
+#define ILITEK_IOCTL_TP_NETLINK_CTRL		_IOWR(ILITEK_IOCTL_MAGIC, 15, int)
+#define ILITEK_IOCTL_TP_NETLINK_STATUS		_IOWR(ILITEK_IOCTL_MAGIC, 16, int)
+
 
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
 
@@ -360,6 +360,36 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			}
 			break;
 
+		case ILITEK_IOCTL_TP_NETLINK_CTRL:
+			res = copy_from_user(szBuf, (uint8_t*)arg, 1);
+			if(res < 0)
+			{
+				DBG_ERR("Failed to copy data from user space");
+			}
+			else
+			{
+				if(szBuf[0])
+				{
+					core_fr->isEnableNetlink = true;
+					DBG_INFO("Netlink has been enabled");
+				}
+				else
+				{
+					core_fr->isEnableNetlink = false;
+					DBG_INFO("Netlink has been disabled");
+				}
+			}
+			break;
+
+		case ILITEK_IOCTL_TP_NETLINK_STATUS:
+			DBG_INFO("Check if Netlink is enabled : %d", core_fr->isEnableNetlink);
+			res = copy_to_user((int*)arg, &core_fr->isEnableNetlink, sizeof(int));
+			if(res < 0)
+			{
+				DBG_ERR("Failed to copy chip id to user space");
+			}
+			break;
+
 		default:
 			res = -ENOTTY;
 			break;
@@ -422,6 +452,95 @@ proc_node_t proc_table[] = {
 	{"fw_upgrade",NULL, &proc_fw_upgrade_fops,false},
 };
 
+struct sock *nl_sk;
+struct nlmsghdr *nlh;
+struct sk_buff *skb_out;
+
+int pid;
+
+void netlink_reply_msg(void *raw, int size)
+{
+	int res;
+	int msg_size = size;
+	uint8_t *data = (uint8_t *)raw;
+
+	DBG_INFO("msg_size = %d", msg_size);
+	DBG_INFO("pid = %d", pid);
+	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
+
+	if(core_fr->isEnableNetlink == true)
+	{
+		skb_out = nlmsg_new(msg_size, 0);
+		if (!skb_out) {
+			DBG_INFO("Failed to allocate new skb");
+			return;
+		}
+
+		nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, msg_size, 0);
+		NETLINK_CB(skb_out).dst_group = 0; /* not in mcast group */
+
+		//strncpy(NLMSG_DATA(nlh), data, msg_size);
+		memcpy(nlmsg_data(nlh), data, msg_size);
+
+		res = nlmsg_unicast(nl_sk, skb_out, pid);
+		if (res < 0)
+			DBG_INFO("Error while sending back to user space");
+	}
+}
+
+void netlink_recv_msg(struct sk_buff *skb)
+{
+	pid = 0;
+
+	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
+
+	if(core_fr->isEnableNetlink)
+	{
+		nlh = (struct nlmsghdr *)skb->data;
+
+		DBG_INFO("Received a request from client: %s, %d", (char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
+
+		// pid of sending process
+		pid = nlh->nlmsg_pid; 
+
+		DBG_INFO("the pid of sending process = %d", pid);
+
+		if(pid != 0)
+		{
+			DBG_INFO("The channel of Netlink has been established successfully !");
+			core_fr->isEnableNetlink = true;
+		}
+		else
+		{
+			DBG_INFO("Failed to establish the channel between kernel and user space");
+			core_fr->isEnableNetlink = false;
+		}
+	}
+}
+
+#define NETLINK_USER	31
+
+struct netlink_kernel_cfg cfg = {
+		.input = netlink_recv_msg,
+};
+
+int netlink_init(void)
+{
+	int res = 0;
+
+	DBG_INFO();
+
+	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
+
+	if(!nl_sk)
+	{
+		DBG_ERR("Failed to create nelink socket");
+		res = -EFAULT;
+	}
+
+	return res;
+}
+
 int ilitek_proc_init(void)
 {
 	int i = 0, res = 0;
@@ -446,6 +565,8 @@ int ilitek_proc_init(void)
 		}
 	}
 
+	netlink_init();
+
 	return res;
 }
 
@@ -464,69 +585,5 @@ void ilitek_proc_remove(void)
 	}
 
 	remove_proc_entry("ilitek", NULL);
-}
-
-void netlink_recv_msg(struct sk_buff *skb)
-{
-#if 0
-	struct nlmsghdr *nlh;
-	int pid;
-	struct sk_buff *skb_out;
-	int msg_size;
-	char *msg = "Hello from kernel";
-	int res;
-
-	DBG_INFO();
-
-	msg_size = strlen(msg);
-
-	nlh = (struct nlmsghdr *)skb->data;
-	printk(KERN_INFO "Netlink received msg payload:%s\n", (char *)nlmsg_data(nlh));
-	pid = nlh->nlmsg_pid; /*pid of sending process */
-
-	skb_out = nlmsg_new(msg_size, 0);
-	if (!skb_out) {
-		printk(KERN_ERR "Failed to allocate new skb\n");
-		return;
-	}
-
-	nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, msg_size, 0);
-	NETLINK_CB(skb_out).dst_group = 0; /* not in mcast group */
-	strncpy(nlmsg_data(nlh), msg, msg_size);
-
-	res = nlmsg_unicast(nl_sk, skb_out, pid);
-	if (res < 0)
-		printk(KERN_INFO "Error while sending bak to user\n");
-#endif
-}
-
-int netlink_init(void)
-{
-	int res = 0;
-
-	DBG_INFO();
-#if 0
-	struct netlink_kernel_cfg cfg = {
-		.input = netlink_recv_msg,
-	};
-
-	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
-
-	if(!nl_sk)
-	{
-		DBG_ERR("Failed to create nelink socket");
-		return -EFAULT;
-	}
-#endif 
-
-	return res;
-}
-
-void netlink_close(void)
-{
-	DBG_INFO();
-
-	//netlink_kernel_release(nl_sk);
-
-	ilitek_proc_remove();
+	netlink_kernel_release(nl_sk);
 }

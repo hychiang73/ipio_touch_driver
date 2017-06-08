@@ -41,6 +41,7 @@ extern int nums_chip;
 extern struct mutex MUTEX;
 extern CORE_CONFIG *core_config;
 
+extern void netlink_reply_msg(uint8_t *, int);
 /*
  * It represents an id and its position in each fingers
  */
@@ -504,6 +505,11 @@ static int finger_report_ili7807(void)
 		return -1;
 	}
 
+	if(core_fr->isEnableNetlink)
+	{
+		netlink_reply_msg(fr_data, report_packet_length);
+	}
+
 	kfree(fr_data);
 	return res;
 }
@@ -564,6 +570,7 @@ int core_fr_init(struct i2c_client *pClient)
 
 			core_fr->chip_id = SUP_CHIP_LIST[i];
 			core_fr->isEnableFR = true;
+			core_fr->isEnableNetlink = false;
 
 			core_fr->log_packet_length = 0x0;
 			core_fr->log_packet_header = 0x0;

@@ -48,6 +48,8 @@ typedef struct {
 
 	int isEnableFR;
 
+	int isEnableNetlink;
+
 	uint32_t chip_id;
 
 	/* mutual firmware info */
