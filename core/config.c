@@ -88,6 +88,8 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 		pcmd[2] = PCMD_5_0_GET_PROTOCOL_VERSION;
 		pcmd[3] = PCMD_5_0_GET_KEY_INFORMATION;
 		pcmd[4] = PCMD_5_0_GET_CORE_VERSION;
+		pcmd[5] = PCMD_5_0_MODE_CONTROL;
+		pcmd[6] = PCMD_5_0_I2C_UART;
 	}
 }
 
@@ -636,38 +638,38 @@ int core_config_get_core_ver(void)
 	int res = 0, i = 0;
 	uint8_t szReadBuf[core_cmd_len];
 
-	memset(szReadBuf, 0, sizeof(uint8_t) * core_cmd_len);
-
-    res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[4], 1);
-	if(res < 0)
-	{
-		DBG_ERR("Failed to write cmd to get fw version %d", res);
-		goto out;
-	}
-
-    mdelay(10);
-
-    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], core_cmd_len);
-	if(res < 0)
-	{
-		DBG_ERR("Failed to read fw version %d", res);
-		goto out;
-	}
-
-	for(; i < core_cmd_len; i++)
-	{
-		core_config->core_ver[i] = szReadBuf[i]; 
-	}
-
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
-		// in protocol v5, ignore the first btye because of a header.
-		DBG_INFO("Core Version = %d.%d.%d.%d", 
-				core_config->core_ver[1], 
-				core_config->core_ver[2], 
-				core_config->core_ver[3],
-				core_config->core_ver[4]);
+		memset(szReadBuf, 0, sizeof(uint8_t) * core_cmd_len);
+
+		res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[4], 1);
+		if(res < 0)
+		{
+			DBG_ERR("Failed to write cmd to get fw version %d", res);
+			goto out;
+		}
+
+		mdelay(10);
+
+		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], core_cmd_len);
+		if(res < 0)
+		{
+			DBG_ERR("Failed to read fw version %d", res);
+			goto out;
+		}
+
+		for(; i < core_cmd_len; i++)
+		{
+			core_config->core_ver[i] = szReadBuf[i]; 
+		}
 	}
+
+	// in protocol v5, ignore the first btye because of a header.
+	DBG_INFO("Core Version = %d.%d.%d.%d", 
+			core_config->core_ver[1], 
+			core_config->core_ver[2], 
+			core_config->core_ver[3],
+			core_config->core_ver[4]);
 
 	return res;
 
@@ -810,22 +812,21 @@ EXPORT_SYMBOL(core_config_get_chip_id);
 int core_config_init(void)
 {
 	int i = 0, res = 0;
+	int alloca_size = 0;
 
 	for(; i < nums_chip; i++)
 	{
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
-			core_config = (CORE_CONFIG*)kmalloc(sizeof(*core_config) * sizeof(uint8_t) * 6, GFP_KERNEL);
-			core_config->tp_info = (TP_INFO*)kmalloc(sizeof(*core_config->tp_info), GFP_KERNEL);
+			alloca_size = sizeof(*core_config) * sizeof(uint8_t) * 6;
+			core_config = (CORE_CONFIG*)kmalloc(alloca_size, GFP_KERNEL);
+			memset(core_config, 0x0, alloca_size);
+
+			alloca_size = sizeof(*core_config->tp_info);
+			core_config->tp_info = (TP_INFO*)kmalloc(alloca_size, GFP_KERNEL);
+			memset(core_config->tp_info, 0x0, alloca_size);
 
 			core_config->chip_id = SUP_CHIP_LIST[i];
-			core_config->chip_type = 0;
-
-			core_config->ic_reset_addr	= 0x0;
-
-			core_config->firmware_ver[4] = 0;
-			core_config->protocol_ver[4] = 0;
-			core_config->core_ver[4] = 0;
 
 			if(core_config->chip_id == CHIP_TYPE_ILI2121)
 			{

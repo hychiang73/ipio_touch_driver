@@ -58,18 +58,40 @@
 /*
  * Protocol commands 
  */
+/* V3.2 */
 #define ILITEK_PROTOCOL_V3_2			0x302
 #define PCMD_3_2_GET_TP_INFORMATION		0x20
 #define PCMD_3_2_GET_KEY_INFORMATION	0x22
 #define PCMD_3_2_GET_FIRMWARE_VERSION	0x40
 #define PCMD_3_2_GET_PROTOCOL_VERSION	0x42
 
+/* V5.0 */
 #define ILITEK_PROTOCOL_V5_0			0x50
 #define PCMD_5_0_GET_TP_INFORMATION		0x20
 #define PCMD_5_0_GET_KEY_INFORMATION	0x27
 #define PCMD_5_0_GET_FIRMWARE_VERSION	0x21
 #define PCMD_5_0_GET_PROTOCOL_VERSION	0x22
 #define PCMD_5_0_GET_CORE_VERSION		0x23
+#define PCMD_5_0_MODE_CONTROL			0xF0
+#define PCMD_5_0_I2C_UART				0x40
+
+// firmware mode
+#define P5_0_FIRMWARE_UNKNOWN_MODE		0xFF
+#define P5_0_FIRMWARE_DEMO_MODE			0x00
+#define P5_0_FIRMWARE_DEBUG_MODE		0x01
+#define P5_0_FIRMWARE_TEST_MODE			0x02
+#define P5_0_FIRMWARE_I2CUART_MODE		0x03 //defined by ourself 
+
+// Packet ID at the first byte of each finger touch packet
+#define P5_0_DEMO_PACKET_ID		0x5A
+#define P5_0_DEBUG_PACKET_ID	0xA7
+#define P5_0_TEST_PACKET_ID		0xF2
+#define P5_0_GESTURE_PACKET_ID	0xAA
+#define P5_0_I2CUART_PACKET_ID	0x7A
+
+// length of finger touch packet
+#define P5_0_DEMO_MODE_PACKET_LENGTH  	43
+#define P5_0_DEBUG_MODE_PACKET_LENGTH  	1280
 
 /*
  *  ILI2121
@@ -103,15 +125,6 @@
 #define ILI7807_ICE_MODE_ADDR	0x181062
 #define ILI7807_PID_ADDR		0x4009C
 
-// firmware mode
-#define ILI7807_FIRMWARE_UNKNOWN_MODE		0xFF
-#define ILI7807_FIRMWARE_DEMO_MODE			0x00
-#define ILI7807_FIRMWARE_DEBUG_MODE			0x01
-
-// length of finger touch packet
-#define ILI7807_DEMO_MODE_PACKET_LENGTH  	43
-#define ILI7807_DEBUG_MODE_PACKET_LENGTH   	1280
-
 /*
  * ILI9881
  */
@@ -120,15 +133,6 @@
 #define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
 #define ILI9881_PID_ADDR		0x4009C
-
-// firmware mode
-#define ILI9881_FIRMWARE_UNKNOWN_MODE		0xFF
-#define ILI9881_FIRMWARE_DEMO_MODE			0x00
-#define ILI9881_FIRMWARE_DEBUG_MODE			0x01
-
-// length of finger touch packet
-#define ILI9881_DEMO_MODE_PACKET_LENGTH  	43
-#define ILI9881_DEBUG_MODE_PACKET_LENGTH   	1280
 
 /*
  * Other settings

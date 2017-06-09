@@ -63,8 +63,7 @@ struct mutual_touch_info {
 
 struct mutual_touch_info mti;
 
-// used to store packet of finger touch and its status
-uint8_t *fr_data;
+// record the status of touch being pressed or released currently and previosuly.
 uint8_t CurrentTouch[MAX_TOUCH_NUM];
 uint8_t PreviousTouch[MAX_TOUCH_NUM]; 
 
@@ -258,18 +257,14 @@ static int parse_touch_package_v3_2(uint8_t *fr_packet, int mode)
  * @rpl: the lenght of packet of finger report.
  *
  */
-static int parse_touch_package_v5_0(uint8_t *fr_data, int mode, struct mutual_touch_info *pInfo, uint16_t rpl)
+static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *pInfo, int rpl)
 {
 	int i, res = 0;
 	uint8_t check_sum = 0;
 	uint32_t nX = 0, nY = 0;
 
-#if 0
-    for(i = 0; i < 9; i++)
-	{
-		DBG_INFO("fr_data[%d] = %x", i, fr_data[i]);
-	}
-#endif
+    //for(i = 0; i < 9; i++)
+//		DBG_INFO("fr_data[%d] = %x", i, fr_data[i]);
 
 	//TODO: calculate report rate
 
@@ -282,62 +277,57 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, int mode, struct mutual_to
         return -1;
     }
 
-	//TODO: parse pakcet for gesture if enabled
+	//TODO: parse packets for gesture/glove features if they're enabled
 
-	// 0 : debug, 1 : demo
-	if(mode)
+	// start to parsing the packet of finger report
+	if(fr_data[0] == P5_0_DEMO_PACKET_ID)
 	{
-		if(fr_data[0] == 0x5A)
+		DBG_INFO(" **** DEMO MODE ****");
+
+		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
-			DBG_INFO("Mode & Header are correct in demo mode");
-			for (i = 0; i < MAX_TOUCH_NUM; i++)
+			if ((fr_data[(4 * i) + 1] == 0xFF) && (fr_data[(4 * i) + 2] && 0xFF) && (fr_data[(4 * i) + 3] == 0xFF))
 			{
-				if ((fr_data[(4 * i) + 1] == 0xFF) && (fr_data[(4 * i) + 2] && 0xFF) && (fr_data[(4 * i) + 3] == 0xFF))
-				{
-				#ifdef USE_TYPE_B_PROTOCOL
-					CurrentTouch[i] = 0;
-				#endif
-					continue;
-				}
-
-				nX = (((fr_data[(4 * i) + 1] & 0xF0) << 4) | (fr_data[(4 * i) + 2]));
-				nY = (((fr_data[(4 * i) + 1] & 0x0F) << 8) | (fr_data[(4 * i) + 3]));
-
-				pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-				pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-				pInfo->mtp[pInfo->key_count].pressure = fr_data[4 * (i + 1)];
-				pInfo->mtp[pInfo->key_count].id = i;
-
-				DBG_INFO("[x,y]=[%d,%d]", nX, nY);
-				DBG_INFO("point[%d] : (%d,%d) = %d\n",
-						 pInfo->mtp[pInfo->key_count].id,
-						 pInfo->mtp[pInfo->key_count].x,
-						 pInfo->mtp[pInfo->key_count].y,
-						 pInfo->mtp[pInfo->key_count].pressure);
-
-				pInfo->key_count++;
-
-			#ifdef USE_TYPE_B_PROTOCOL
-				CurrentTouch[i] = 1;
-			#endif
+#ifdef USE_TYPE_B_PROTOCOL
+				CurrentTouch[i] = 0;
+#endif
+				continue;
 			}
-			//TODO: sending fr packets up to app layer if log enabled
+
+			nX = (((fr_data[(4 * i) + 1] & 0xF0) << 4) | (fr_data[(4 * i) + 2]));
+			nY = (((fr_data[(4 * i) + 1] & 0x0F) << 8) | (fr_data[(4 * i) + 3]));
+
+			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+			pInfo->mtp[pInfo->key_count].pressure = fr_data[4 * (i + 1)];
+			pInfo->mtp[pInfo->key_count].id = i;
+
+			DBG_INFO("[x,y]=[%d,%d]", nX, nY);
+			DBG_INFO("point[%d] : (%d,%d) = %d\n",
+					pInfo->mtp[pInfo->key_count].id,
+					pInfo->mtp[pInfo->key_count].x,
+					pInfo->mtp[pInfo->key_count].y,
+					pInfo->mtp[pInfo->key_count].pressure);
+
+			pInfo->key_count++;
+
+#ifdef USE_TYPE_B_PROTOCOL
+			CurrentTouch[i] = 1;
+#endif
 		}
+		//TODO: sending fr packets up to app layer if log enabled
 	}
-	else
+	else if(fr_data[0] == P5_0_DEBUG_PACKET_ID)
 	{
-		if(fr_data[0] == 0xA7)
-		{
-			DBG_INFO("Mode & Header are correct in debug mode");
-			
-			//TODO: implement parsing packet in debug mode
-		}
+		DBG_INFO("**** DEBUG MODE ****");
+
+		//TODO: implement parsing packet in debug mode
 	}
 
 	return res;
 }
 
-static int finger_report_ili2121(void)
+static int finger_report_ver_3_2(uint8_t *fr_data, int length)
 {
 	DBG_INFO();
 }
@@ -347,187 +337,180 @@ static int finger_report_ili2121(void)
  * touch from firmware. A differnece in the process of the data is acorrding to the protocol
  *
  */
-static int finger_report_ili7807(void)
+static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 {
 	int i, res = 0;
-	uint16_t report_packet_length = 0;
 	static int last_count = 0;
 	
-	//DBG_INFO();
-
 	// initialise struct of mutual toucn info
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
 
-	if(core_fr->actual_fw_mode ==  core_fr->fw_demo_mode)
+	//TODO: set packet length for gesture wake up
+
+	// read finger touch packet when an interrupt occurs
+	res = core_i2c_read(core_config->slave_i2c_addr, fr_data, length);
+	if(res < 0)
 	{
-		// allocate length and size of finger touch packet
-		report_packet_length = ILI7807_DEMO_MODE_PACKET_LENGTH;
-		fr_data = (uint8_t*)kmalloc(sizeof(uint8_t) * ILI7807_DEMO_MODE_PACKET_LENGTH, GFP_KERNEL);
-		memset(fr_data, 0xFF, sizeof(uint8_t) * ILI7807_DEMO_MODE_PACKET_LENGTH);
-
-		//TODO: set packet length for gesture wake up
-
-		// read finger touch packet when an interrupt occurs
-		res = core_i2c_read(core_config->slave_i2c_addr, fr_data, report_packet_length);
-		if(res < 0)
-		{
-			DBG_ERR("Failed to read finger report packet");
-			return res;
-		}
-
-		// parsing package of finger touch by protocol
-		if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
-		{
-			//TODO: interpret parsed packat for protocol 3.2
-			//res = parse_touch_package_v3_2(fr_data, 1);
-			//if(res < 0)
-			//{
-			//	DBG_ERR("Failed to parse packet of finger touch");
-			//	return -1;
-			//}
-		}
-		else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
-		{
-			res = parse_touch_package_v5_0(fr_data, 1, &mti, report_packet_length);
-			if(res < 0)
-			{
-				DBG_ERR("Failed to parse packet of finger touch");
-				return -1;
-			}
-
-    		//DBG_INFO("tInfo.nCount = %d, nLastCount = %d\n", mti.key_count, last_count);
-
-			// interpret parsed packat and send input events to uplayer
-			if(mti.key_count > 0)
-			{
-#ifdef USE_TYPE_B_PROTOCOL
-				for (i = 0; i < mti.key_count; i++)
-				{
-					input_report_key(core_fr->input_device, BTN_TOUCH, 1);
-					core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
-
-					input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 1);
-				}
-
-				for (i = 0; i < MAX_TOUCH_NUM; i++)
-				{
-					//DBG_INFO("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
-
-					if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
-					{
-						core_fr_touch_release(0, 0, i);
-					}
-
-					PreviousTouch[i] = CurrentTouch[i];
-				}
-#else
-				for (i = 0; i < mti.key_count; i++)
-				{
-					core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
-				}
-#endif
-				input_sync(core_fr->input_device);
-
-				last_count = mti.key_count;
-			}
-			else // key_count < 0
-			{
-				if (last_count > 0)
-				{
-#ifdef USE_TYPE_B_PROTOCOL
-					for (i = 0; i < MAX_TOUCH_NUM; i++)
-					{
-						//DBG_INFO("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
-
-						if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
-						{
-							core_fr_touch_release(0, 0, i);
-						}
-						PreviousTouch[i] = CurrentTouch[i];
-					}
-
-					input_report_key(core_fr->input_device, BTN_TOUCH, 0);
-					input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
-#else
-					core_fr_touch_release(0, 0, 0);
-#endif
-					input_sync(core_fr->input_device);
-
-					last_count = 0;
-				}
-			}
-		}
-		else
-		{
-			DBG_ERR("Can't detect which of protocols are used in the packet");
-			return -1;
-		}
+		DBG_ERR("Failed to read finger report packet");
+		return res;
 	}
-	else if(core_fr->actual_fw_mode == core_fr->fw_debug_mode)
+	res = parse_touch_package_v5_0(fr_data, &mti, length);
+	if(res < 0)
 	{
-		report_packet_length = ILI7807_DEBUG_MODE_PACKET_LENGTH;
-		fr_data = (uint8_t*)kmalloc(sizeof(uint8_t) * ILI7807_DEBUG_MODE_PACKET_LENGTH, GFP_KERNEL);
-
-		//DBG_INFO("DBG MODE: report packet length = %d", report_packet_length);
-
-		// read data of finger touch
-		res = core_i2c_read(core_config->slave_i2c_addr, fr_data, report_packet_length);
-		if(res < 0)
-		{
-			DBG_ERR("Failed to read finger report packet");
-			return res;
-		}
-
-		// parsing package of finger touch by protocol
-		if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
-		{
-			//TODO:
-			//parse_touch_package_v3_2(fr_data, 0);
-		}
-		else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
-		{
-			parse_touch_package_v5_0(fr_data, 0, &mti, report_packet_length);
-			if(res < 0)
-			{
-				DBG_ERR("Failed to parse packet of finger touch");
-				return -1;
-			}
-		}
-		else
-		{
-			DBG_ERR("Can't detect which of protocols are used in the packet");
-			return -1;
-		}
-	}
-	else
-	{
-		DBG_ERR("Unknow firmware mode : %x", core_fr->actual_fw_mode);
+		DBG_ERR("Failed to parse packet of finger touch");
 		return -1;
 	}
 
-	if(core_fr->isEnableNetlink)
-	{
-		netlink_reply_msg(fr_data, report_packet_length);
-	}
+	//DBG_INFO("tInfo.nCount = %d, nLastCount = %d\n", mti.key_count, last_count);
 
-	kfree(fr_data);
+	// interpret parsed packat and send input events to uplayer
+	if(mti.key_count > 0)
+	{
+#ifdef USE_TYPE_B_PROTOCOL
+		for (i = 0; i < mti.key_count; i++)
+		{
+			input_report_key(core_fr->input_device, BTN_TOUCH, 1);
+			core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
+
+			input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 1);
+		}
+
+		for (i = 0; i < MAX_TOUCH_NUM; i++)
+		{
+			//DBG_INFO("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+
+			if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
+			{
+				core_fr_touch_release(0, 0, i);
+			}
+
+			PreviousTouch[i] = CurrentTouch[i];
+		}
+#else
+		for (i = 0; i < mti.key_count; i++)
+		{
+			core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
+		}
+#endif
+		input_sync(core_fr->input_device);
+
+		last_count = mti.key_count;
+	}
+	else // key_count < 0
+	{
+		if (last_count > 0)
+		{
+#ifdef USE_TYPE_B_PROTOCOL
+			for (i = 0; i < MAX_TOUCH_NUM; i++)
+			{
+				//DBG_INFO("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+
+				if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
+				{
+					core_fr_touch_release(0, 0, i);
+				}
+				PreviousTouch[i] = CurrentTouch[i];
+			}
+
+			input_report_key(core_fr->input_device, BTN_TOUCH, 0);
+			input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
+#else
+			core_fr_touch_release(0, 0, 0);
+#endif
+			input_sync(core_fr->input_device);
+
+			last_count = 0;
+		}
+	}
 	return res;
 }
 
+// commands according to the procotol used on a chip.
+extern uint8_t pcmd[10];
+
+int core_fr_mode_control(uint8_t* from_user)
+{
+	int mode;
+	int i, j, res = 0;
+
+	uint8_t actual_mode[] = 
+	{
+		P5_0_FIRMWARE_DEMO_MODE,
+		P5_0_FIRMWARE_DEBUG_MODE,
+		P5_0_FIRMWARE_TEST_MODE,
+		P5_0_FIRMWARE_I2CUART_MODE,
+	};
+
+	if(from_user == NULL)
+	{
+		DBG_ERR("Arguments from user space is invaild");
+		goto out;
+	}
+
+	for(i = 0; i < 3; i++)
+		DBG_INFO("from_user[%d] = %x", i, from_user[i]);
+
+	mode = from_user[0];
+
+	for(i = 0; i < sizeof(actual_mode); i++)
+	{
+		if(actual_mode[i] == mode)
+		{
+			// need to disable finger reprot ?
+			
+			if(actual_mode[i] == P5_0_FIRMWARE_I2CUART_MODE)
+			{
+				uint8_t buf[3];
+
+				buf[0] = pcmd[6];
+				buf[1] = *(from_user+1);
+				buf[2] = *(from_user+2);
+				for(j = 0; j < 3; j++)
+					DBG_INFO("buf[%d] = %x",i,buf[i]);
+
+				res = core_i2c_write(core_config->slave_i2c_addr, buf, 3);
+				if(res < 0)
+					goto out;
+			}
+			else
+			{
+				uint8_t buf[2];
+
+				buf[0] = pcmd[5];
+				buf[1] = actual_mode[i];
+				for(j = 0; j < 2; j++)
+					DBG_INFO("buf[%d] = %x",i,buf[i]);
+
+				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
+				if(res < 0)
+					goto out;
+			}
+
+			core_fr->actual_fw_mode = actual_mode[i];
+		}
+	}
+
+	return res;
+
+out:
+	DBG_ERR("Failed to change mode on firmware, res = %d", res);
+	return res;
+
+}
+EXPORT_SYMBOL(core_fr_mode_control);
 /*
  * The hash table is used to handle calling functions that deal with packets of finger report.
  * The function might be different based on differnet types of chip.
  *
  */
 typedef struct {
-	uint32_t chip_id;
-	int (*finger_report)(void);
+	uint16_t protocol;
+	int (*finger_report)(uint8_t *packet, int length);
 } fr_hashtable;
 
 fr_hashtable fr_t[] = {
-	{CHIP_TYPE_ILI2121, finger_report_ili2121},
-	{CHIP_TYPE_ILI7807, finger_report_ili7807},
-	{CHIP_TYPE_ILI9881, finger_report_ili7807},
+	{ILITEK_PROTOCOL_V3_2, finger_report_ver_3_2},
+	{ILITEK_PROTOCOL_V5_0, finger_report_ver_5_0},
 };
 
 /*
@@ -537,24 +520,67 @@ fr_hashtable fr_t[] = {
 void core_fr_handler(void)
 {
 	int i, len = sizeof(fr_t)/sizeof(fr_t[0]);
+	uint8_t *fr_data = NULL;
+	uint16_t report_packet_length = -1;
 
 	if(core_fr->isEnableFR)
 	{
+
 		for(i = 0; i < len; i++)
 		{
-			if(fr_t[i].chip_id == core_fr->chip_id)
+			if(fr_t[i].protocol == core_config->use_protocol)
 			{
+				if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+				{
+					DBG_INFO("**** FW MODE = %d", core_fr->actual_fw_mode);
+					if(core_fr->actual_fw_mode == core_fr->fw_demo_mode)
+					{
+						report_packet_length = P5_0_DEMO_MODE_PACKET_LENGTH;
+					}
+					else if(core_fr->actual_fw_mode == core_fr->fw_debug_mode)
+					{
+						report_packet_length = P5_0_DEBUG_MODE_PACKET_LENGTH;
+					}
+					else
+					{
+						DBG_ERR("Unknow firmware mode : %d", core_fr->actual_fw_mode);
+						return;
+					}
+				}
+
+				if(!report_packet_length)
+				{
+					DBG_ERR("Unknow packet length : %d", report_packet_length);
+					return;
+				}
+
+				fr_data = (uint8_t*)kmalloc(sizeof(uint8_t) * report_packet_length, GFP_KERNEL);
+				memset(fr_data, 0xFF, sizeof(uint8_t) * report_packet_length);
+
 				mutex_lock(&MUTEX);
-				fr_t[i].finger_report();
+				fr_t[i].finger_report(fr_data, report_packet_length);
 				mutex_unlock(&MUTEX);
+
 				break;
 			}
+		}
+
+		//for(i = 0; i < 9; i++)
+		//	DBG_INFO("fr_data[%d] = %x", i, fr_data[i]);
+
+		if(core_fr->isEnableNetlink)
+		{
+			netlink_reply_msg(fr_data, report_packet_length);
 		}
 	}
 	else
 	{
 		DBG_INFO("The figner report was disabled");
 	}
+
+	kfree(fr_data);
+
+	return;
 }
 EXPORT_SYMBOL(core_fr_handler);
 
@@ -582,25 +608,34 @@ int core_fr_init(struct i2c_client *pClient)
 
 			if(core_fr->chip_id == CHIP_TYPE_ILI2121)
 			{
-				core_fr->fw_unknow_mode = ILI2121_FIRMWARE_UNKNOWN_MODE;
-				core_fr->fw_demo_mode =	  ILI2121_FIRMWARE_DEMO_MODE;
-				core_fr->fw_debug_mode =  ILI2121_FIRMWARE_DEBUG_MODE;
-				core_fr->actual_fw_mode = ILI2121_FIRMWARE_DEMO_MODE;
+				if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+				{
+					core_fr->fw_unknow_mode = ILI2121_FIRMWARE_UNKNOWN_MODE;
+					core_fr->fw_demo_mode =	  ILI2121_FIRMWARE_DEMO_MODE;
+					core_fr->fw_debug_mode =  ILI2121_FIRMWARE_DEBUG_MODE;
+					core_fr->actual_fw_mode = ILI2121_FIRMWARE_DEMO_MODE;
+				}
 
 			}
 			else if(core_fr->chip_id == CHIP_TYPE_ILI7807)
 			{
-				core_fr->fw_unknow_mode = ILI7807_FIRMWARE_UNKNOWN_MODE;
-				core_fr->fw_demo_mode =	  ILI7807_FIRMWARE_DEMO_MODE;
-				core_fr->fw_debug_mode =  ILI7807_FIRMWARE_DEBUG_MODE;
-				core_fr->actual_fw_mode = ILI7807_FIRMWARE_DEMO_MODE;
+				if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+				{
+					core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
+					core_fr->fw_demo_mode =	  P5_0_FIRMWARE_DEMO_MODE;
+					core_fr->fw_debug_mode =  P5_0_FIRMWARE_DEBUG_MODE;
+					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
+				}
 			}
 			else if(core_fr->chip_id == CHIP_TYPE_ILI9881)
 			{
-				core_fr->fw_unknow_mode = ILI9881_FIRMWARE_UNKNOWN_MODE;
-				core_fr->fw_demo_mode =	  ILI9881_FIRMWARE_DEMO_MODE;
-				core_fr->fw_debug_mode =  ILI9881_FIRMWARE_DEBUG_MODE;
-				core_fr->actual_fw_mode = ILI9881_FIRMWARE_DEMO_MODE;
+				if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+				{
+					core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
+					core_fr->fw_demo_mode =	  P5_0_FIRMWARE_DEMO_MODE;
+					core_fr->fw_debug_mode =  P5_0_FIRMWARE_DEBUG_MODE;
+					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
+				}
 			}
 		}
 	}

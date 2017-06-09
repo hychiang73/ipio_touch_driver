@@ -41,7 +41,7 @@ extern CORE_FIRMWARE *core_firmware;
 extern platform_info *TIC;
 
 #define ILITEK_IOCTL_MAGIC	100 
-#define ILITEK_IOCTL_MAXNR	16
+#define ILITEK_IOCTL_MAXNR	18
 
 #define ILITEK_IOCTL_I2C_WRITE_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 0, uint8_t*)
 #define ILITEK_IOCTL_I2C_SET_WRITE_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 1, int)
@@ -62,8 +62,11 @@ extern platform_info *TIC;
 #define ILITEK_IOCTL_TP_DRV_VER				_IOWR(ILITEK_IOCTL_MAGIC, 13, uint8_t*)
 #define ILITEK_IOCTL_TP_CHIP_ID				_IOWR(ILITEK_IOCTL_MAGIC, 14, uint32_t*)
 
-#define ILITEK_IOCTL_TP_NETLINK_CTRL		_IOWR(ILITEK_IOCTL_MAGIC, 15, int)
-#define ILITEK_IOCTL_TP_NETLINK_STATUS		_IOWR(ILITEK_IOCTL_MAGIC, 16, int)
+#define ILITEK_IOCTL_TP_NETLINK_CTRL		_IOWR(ILITEK_IOCTL_MAGIC, 15, int*)
+#define ILITEK_IOCTL_TP_NETLINK_STATUS		_IOWR(ILITEK_IOCTL_MAGIC, 16, int*)
+
+#define ILITEK_IOCTL_TP_MODE_CTRL			_IOWR(ILITEK_IOCTL_MAGIC, 17, uint8_t*)
+#define ILITEK_IOCTL_TP_MODE_STATUS			_IOWR(ILITEK_IOCTL_MAGIC, 18, int*)
 
 
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
@@ -390,9 +393,31 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			}
 			break;
 
+		case ILITEK_IOCTL_TP_MODE_CTRL:
+			res = copy_from_user(szBuf, (uint8_t*)arg, 3);
+			if(res < 0)
+			{
+				DBG_ERR("Failed to copy data from user space");
+			}
+			else
+			{
+				core_fr_mode_control(szBuf);
+			}
+			break;
+
+		case ILITEK_IOCTL_TP_MODE_STATUS:
+			DBG_INFO("Current firmware mode : %d", core_fr->actual_fw_mode);
+			res = copy_to_user((int*)arg, &core_fr->actual_fw_mode, sizeof(int));
+			if(res < 0)
+			{
+				DBG_ERR("Failed to copy chip id to user space");
+			}
+			break;
+
 		default:
 			res = -ENOTTY;
 			break;
+
 	}
 
 	return res;

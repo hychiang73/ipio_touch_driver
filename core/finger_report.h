@@ -48,15 +48,18 @@ typedef struct {
 
 	int isEnableFR;
 
+	/* able to send packet to user space */
 	int isEnableNetlink;
 
 	uint32_t chip_id;
 
-	/* mutual firmware info */
+	/* firmware mode */
 	uint8_t fw_unknow_mode;
 	uint8_t fw_demo_mode;
 	uint8_t fw_debug_mode;
 	uint16_t actual_fw_mode;
+
+	/* mutual firmware info */
 	uint16_t log_packet_length;
 	uint8_t log_packet_header;
 	uint8_t type;
@@ -69,6 +72,7 @@ typedef struct {
 
 extern void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id);
 extern void core_fr_touch_release(int32_t x, int32_t y, int32_t id);
+extern int core_fr_mode_control(uint8_t *from_user);
 extern void core_fr_handler(void);
 extern int core_fr_init(struct i2c_client *);
 extern void core_fr_remove(void);
