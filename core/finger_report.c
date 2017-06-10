@@ -282,7 +282,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	// start to parsing the packet of finger report
 	if(fr_data[0] == P5_0_DEMO_PACKET_ID)
 	{
-		DBG_INFO(" **** DEMO MODE ****");
+		DBG_INFO(" **** Packet belongs DEMO MODE ****");
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -315,13 +315,42 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			CurrentTouch[i] = 1;
 #endif
 		}
-		//TODO: sending fr packets up to app layer if log enabled
 	}
 	else if(fr_data[0] == P5_0_DEBUG_PACKET_ID)
 	{
-		DBG_INFO("**** DEBUG MODE ****");
+		DBG_INFO(" **** Packet belongs DEBUG MODE ****");
 
-		//TODO: implement parsing packet in debug mode
+		for (i = 0; i < MAX_TOUCH_NUM; i++)
+		{
+			if ((fr_data[(3 * i) + 5] == 0xFF) && (fr_data[(3 * i) + 6] && 0xFF) && (fr_data[(3 * i) + 7] == 0xFF))
+			{
+#ifdef USE_TYPE_B_PROTOCOL
+				CurrentTouch[i] = 0;
+#endif
+				continue;
+			}
+
+			nX = (((fr_data[(3 * i) + 5] & 0xF0) << 4) | (fr_data[(3 * i) + 6]));
+			nY = (((fr_data[(3 * i) + 5] & 0x0F) << 8) | (fr_data[(3 * i) + 7]));
+
+			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+			pInfo->mtp[pInfo->key_count].pressure = 1;
+			pInfo->mtp[pInfo->key_count].id = i;
+
+			DBG_INFO("[x,y]=[%d,%d]", nX, nY);
+			DBG_INFO("point[%d] : (%d,%d) = %d\n",
+					pInfo->mtp[pInfo->key_count].id,
+					pInfo->mtp[pInfo->key_count].x,
+					pInfo->mtp[pInfo->key_count].y,
+					pInfo->mtp[pInfo->key_count].pressure);
+
+			pInfo->key_count++;
+
+#ifdef USE_TYPE_B_PROTOCOL
+			CurrentTouch[i] = 1;
+#endif
+		}
 	}
 
 	return res;
@@ -354,6 +383,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 		DBG_ERR("Failed to read finger report packet");
 		return res;
 	}
+
 	res = parse_touch_package_v5_0(fr_data, &mti, length);
 	if(res < 0)
 	{
@@ -396,7 +426,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 
 		last_count = mti.key_count;
 	}
-	else // key_count < 0
+	else
 	{
 		if (last_count > 0)
 		{
@@ -465,8 +495,6 @@ int core_fr_mode_control(uint8_t* from_user)
 				buf[0] = pcmd[6];
 				buf[1] = *(from_user+1);
 				buf[2] = *(from_user+2);
-				for(j = 0; j < 3; j++)
-					DBG_INFO("buf[%d] = %x",i,buf[i]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 3);
 				if(res < 0)
@@ -478,8 +506,6 @@ int core_fr_mode_control(uint8_t* from_user)
 
 				buf[0] = pcmd[5];
 				buf[1] = actual_mode[i];
-				for(j = 0; j < 2; j++)
-					DBG_INFO("buf[%d] = %x",i,buf[i]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
 				if(res < 0)
@@ -495,12 +521,15 @@ int core_fr_mode_control(uint8_t* from_user)
 out:
 	DBG_ERR("Failed to change mode on firmware, res = %d", res);
 	return res;
-
 }
 EXPORT_SYMBOL(core_fr_mode_control);
+
 /*
  * The hash table is used to handle calling functions that deal with packets of finger report.
- * The function might be different based on differnet types of chip.
+ * The callback function might be different of what a protocol is used on a chip.
+ *
+ * It's possible to have the different protocol according to customer's requirement on the same
+ * touch ic with customised firmware.
  *
  */
 typedef struct {
@@ -514,7 +543,10 @@ fr_hashtable fr_t[] = {
 };
 
 /*
- * The function is an entry when the work queue registered by IRS activates.
+ * The function is an entry when the work queue registered by ISR activates.
+ *
+ * Here will allocate the size of packet depending on what the current protocol
+ * is used on its firmware.
  *
  */
 void core_fr_handler(void)
@@ -532,7 +564,6 @@ void core_fr_handler(void)
 			{
 				if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
-					DBG_INFO("**** FW MODE = %d", core_fr->actual_fw_mode);
 					if(core_fr->actual_fw_mode == core_fr->fw_demo_mode)
 					{
 						report_packet_length = P5_0_DEMO_MODE_PACKET_LENGTH;
@@ -564,9 +595,6 @@ void core_fr_handler(void)
 				break;
 			}
 		}
-
-		//for(i = 0; i < 9; i++)
-		//	DBG_INFO("fr_data[%d] = %x", i, fr_data[i]);
 
 		if(core_fr->isEnableNetlink)
 		{

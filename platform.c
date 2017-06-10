@@ -511,8 +511,6 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		DBG_ERR("Failed to read IC info");
 	}
 
-//	core_fr_mode_control(1, 0);
-
 	return 0;
 
 out:
