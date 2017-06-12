@@ -466,8 +466,8 @@ int core_fr_mode_control(uint8_t* from_user)
 	uint8_t actual_mode[] = 
 	{
 		P5_0_FIRMWARE_DEMO_MODE,
-		P5_0_FIRMWARE_DEBUG_MODE,
 		P5_0_FIRMWARE_TEST_MODE,
+		P5_0_FIRMWARE_DEBUG_MODE,
 		P5_0_FIRMWARE_I2CUART_MODE,
 	};
 

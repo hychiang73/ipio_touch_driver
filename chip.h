@@ -78,8 +78,8 @@
 // firmware mode
 #define P5_0_FIRMWARE_UNKNOWN_MODE		0xFF
 #define P5_0_FIRMWARE_DEMO_MODE			0x00
-#define P5_0_FIRMWARE_DEBUG_MODE		0x01
-#define P5_0_FIRMWARE_TEST_MODE			0x02
+#define P5_0_FIRMWARE_TEST_MODE			0x01
+#define P5_0_FIRMWARE_DEBUG_MODE		0x02
 #define P5_0_FIRMWARE_I2CUART_MODE		0x03 //defined by ourself 
 
 // Packet ID at the first byte of each finger touch packet
