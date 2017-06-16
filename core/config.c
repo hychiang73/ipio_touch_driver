@@ -351,7 +351,7 @@ int core_config_ice_mode_enable(void)
 {
 	DBG_INFO();
 
-	return core_config_ice_mode_write(0x181062, 0x0, 1);
+	return core_config_ice_mode_write(0x181062, 0x0, 0);
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 
