@@ -259,78 +259,28 @@ EXPORT_SYMBOL(vfIceRegRead);
 
 
 /*
- * Doing soft reset on IC. The feature may only support to ILI7807.
+ * Doing soft reset on a touch IC.
  *
+ * At the upgrade firmware stage, calling this function will move new code from flash to iram
+ * and run it after touch ic been reseted.
  */
 int core_config_ic_reset(uint32_t id)
 {
 	DBG_INFO();
 
 	if(id == CHIP_TYPE_ILI7807)
-	{
-		core_config_ice_mode_enable();
-
 		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);
-	} 
-
-	return 0;
+	else if(id == CHIP_TYPE_ILI9881)
+		return core_config_ice_mode_write(0x40050, 0x00019881, 4);
+	else if(id == CHIP_TYPE_ILI2121)
+		return core_config_ice_mode_write(0x4004C,0x00012120, 2);
+	else
+	{
+		DBG_ERR("This chip (0x%x) doesn't support the feature", id);
+		return -1;
+	}
 }
 EXPORT_SYMBOL(core_config_ic_reset);
-
-
-/*
- * Doing Reset in ICE Mode.
- *
- */
-int core_config_ice_mode_reset(void)
-{
-    int res = 0;
-
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
-	{
-		res = core_config_ice_mode_write(0x04004C, 0x2120, 2);
-		if (res < 0)
-		{
-			DBG_ERR("OutWrite(0x04004C, 0x2120, 2) error, res = %d\n", res);
-			goto out;
-		}
-
-		mdelay(10);
-
-		res = core_config_ice_mode_write(0x04004E, 0x01, 1);
-		if (res < 0)
-		{
-			DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
-			goto out;
-		}
-	}
-	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
-	{
-		// write chip's key
-		res = core_config_ice_mode_write(core_config->ic_reset_addr, 0x7807, 2);
-		if (res < 0)
-		{
-			DBG_ERR("OutWrite(0x%x, 0x7807, 2) error, res = %d\n", core_config->ic_reset_addr, res);
-			goto out;
-		}
-
-		mdelay(10);
-
-		// chip reset doing in ice mode
-		res = core_config_ice_mode_write(0x04004E, 0x01, 1);
-		if (res < 0)
-		{
-			DBG_ERR("OutWrite(0x04004E, 0x01, 1) error, res = %d\n", res);
-			goto out;
-		}
-	}
-
-    return res;
-
-out:
-	return res;
-}
-EXPORT_SYMBOL(core_config_ice_mode_reset);
 
 int core_config_ice_mode_disable(void)
 {
@@ -766,18 +716,6 @@ int core_config_get_chip_id(void)
 
 		if(RealID == core_config->chip_id)
 		{
-			core_config_ic_reset(RealID);
-
-			mdelay(60);
-
-			res = core_config_ice_mode_reset();
-			if(res < 0)
-			{
-				DBG_ERR("Failed to reset ICE mode");
-				res = -EINVAL;
-				goto out;
-			}
-
 			res = core_config_ice_mode_disable();
 			if(res < 0)
 			{

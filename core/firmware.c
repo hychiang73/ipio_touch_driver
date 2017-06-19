@@ -572,7 +572,7 @@ static int ili7807_firmware_upgrade(void)
 	}
 
 	// it's fine if got an error in reset ice mode at second time.
-	core_config_ice_mode_reset();
+	core_config_ic_reset(core_firmware->chip_id);
 
 	mdelay(50);
 
@@ -594,7 +594,7 @@ static int ili7807_firmware_upgrade(void)
 
 out:
 	core_config_ice_mode_disable();
-	core_config_ice_mode_reset();
+	core_config_ic_reset(core_firmware->chip_id);
 	return res;
 
 #endif
@@ -734,13 +734,13 @@ static int ili2121_firmware_upgrade(void)
 	{
 		//TODO: may add a retry func as protection.
 		
-		core_config_ice_mode_reset();
+		core_config_ic_reset(core_firmware->chip_id);
 		DBG_INFO("Both checksum didn't match");
 		res = -1;
 		return res;
 	}
 
-	core_config_ice_mode_reset();
+	core_config_ic_reset(core_firmware->chip_id);
 
     szCmd[0] = ILI2121_TP_CMD_READ_DATA;
     res = core_i2c_write(core_config->slave_i2c_addr, &szCmd[0], 1);
