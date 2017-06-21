@@ -152,7 +152,7 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 	if(res < 0)
 		goto out;
 
-	mdelay(10);
+	mdelay(1);
 
     res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
 	if(res < 0)

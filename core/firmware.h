@@ -30,35 +30,27 @@ typedef struct _CORE_FIRMWARE {
     uint32_t chip_id;
 
 	uint8_t new_fw_ver[4];
-
 	uint8_t old_fw_ver[4];
 
 	uint32_t ap_start_addr;
+	uint32_t ap_end_addr;
+	uint32_t ap_checksum;
+	int ap_crc;
 
 	uint32_t df_start_addr;
-
-	uint32_t ap_end_addr;
-
 	uint32_t df_end_addr;
-
-	uint32_t ap_checksum;
-
-	uint32_t ap_crc;
-
 	uint32_t df_checksum;
 
-	uint32_t df_crc;
-
 	uint32_t start_addr;
-
 	uint32_t end_addr;
-
 	uint32_t checksum;
 
 	uint32_t update_status;
+	uint32_t max_count;
+
+	int verify_method;
 
     bool isUpgraded;
-
 	bool isCRC;
 
 	int (*upgrade_func)(void);
