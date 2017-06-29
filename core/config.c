@@ -757,14 +757,13 @@ int core_config_init(void)
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			alloca_size = sizeof(*core_config) * sizeof(uint8_t) * 6;
-			core_config = (CORE_CONFIG*)kmalloc(alloca_size, GFP_KERNEL);
-			memset(core_config, 0x0, alloca_size);
+			core_config = (CORE_CONFIG*)kzalloc(alloca_size, GFP_KERNEL);
 
 			alloca_size = sizeof(*core_config->tp_info);
-			core_config->tp_info = (TP_INFO*)kmalloc(alloca_size, GFP_KERNEL);
-			memset(core_config->tp_info, 0x0, alloca_size);
+			core_config->tp_info = (TP_INFO*)kzalloc(alloca_size, GFP_KERNEL);
 
 			core_config->chip_id = SUP_CHIP_LIST[i];
+			core_config->chip_type = 0x0000;
 
 			if(core_config->chip_id == CHIP_TYPE_ILI2121)
 			{

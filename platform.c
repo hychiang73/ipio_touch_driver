@@ -52,8 +52,6 @@ void ilitek_platform_disable_irq(void)
 {
     unsigned long nIrqFlag;
 
-	DBG_INFO();
-
     spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
 
 	if(TIC->isIrqEnable == true)
@@ -86,8 +84,6 @@ EXPORT_SYMBOL(ilitek_platform_disable_irq);
 void ilitek_platform_enable_irq(void)
 {
     unsigned long nIrqFlag;
-
-	DBG_INFO();
 
     spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
 
@@ -456,7 +452,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 #endif
 
 	DBG_INFO("Driver version : %s", DRIVER_VERSION);
-	DBG_INFO("Touch IC supported by the driver is %x", ON_BOARD_IC);
+	DBG_INFO("This driver now supports %x !", ON_BOARD_IC);
 
 	// Different ICs may require different delay time for the reset.
 	// They may also depend on what your platform need to.

@@ -34,7 +34,7 @@
 #define ON_BOARD_IC		0x9881
 
 // shows the version of driver
-#define DRIVER_VERSION	"1.0.0.0"
+#define DRIVER_VERSION	"1.0.0.1"
 
 // sets the level of debug message
 #define DBG_LEVEL

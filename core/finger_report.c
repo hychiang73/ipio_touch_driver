@@ -557,7 +557,6 @@ void core_fr_handler(void)
 
 	if(core_fr->isEnableFR)
 	{
-
 		for(i = 0; i < len; i++)
 		{
 			if(fr_t[i].protocol == core_config->use_protocol)

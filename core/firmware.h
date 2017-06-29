@@ -35,7 +35,7 @@ typedef struct _CORE_FIRMWARE {
 	uint32_t ap_start_addr;
 	uint32_t ap_end_addr;
 	uint32_t ap_checksum;
-	int ap_crc;
+	uint32_t ap_crc;
 
 	uint32_t df_start_addr;
 	uint32_t df_end_addr;
@@ -49,6 +49,9 @@ typedef struct _CORE_FIRMWARE {
 	uint32_t max_count;
 
 	int verify_method;
+
+	// used only for TDDI
+	int delay_after_upgrade;
 
     bool isUpgraded;
 	bool isCRC;
