@@ -11,6 +11,12 @@ The following lists which of IC types supported by the driver.
 
 # Release Note
 
+* V1.0.0.1
+  * Support firmware upgrade for 9881F
+  * Improved the stability while upgrading firmware
+  * Improved the stability while reading chid id from touch ic
+  * Fixed some bugs
+
 * V1.0.0.0
   * Support ILI7807F, ILI9881F
   * Support protocol v5.0
