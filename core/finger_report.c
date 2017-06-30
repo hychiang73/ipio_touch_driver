@@ -22,6 +22,7 @@
  *
  */
 
+ #define DEBUG
 
 #include <linux/errno.h>
 #include <linux/types.h>
@@ -32,6 +33,7 @@
 #include <linux/i2c.h>
 
 #include "../chip.h"
+#include "../platform.h"
 #include "config.h"
 #include "i2c.h"
 #include "finger_report.h"
@@ -41,7 +43,6 @@ extern int nums_chip;
 extern struct mutex MUTEX;
 extern CORE_CONFIG *core_config;
 
-extern void netlink_reply_msg(uint8_t *, int);
 /*
  * It represents an id and its position in each fingers
  */
@@ -70,7 +71,6 @@ uint8_t PreviousTouch[MAX_TOUCH_NUM];
 // store all necessary variables for the use of finger touch
 CORE_FINGER_REPORT *core_fr;
 
-
 /*
  * Create input device and config its settings
  *
@@ -79,8 +79,6 @@ static int input_device_create(struct i2c_client *client)
 {
 	int res = 0;
 
-	DBG_INFO();
-
 	core_fr->input_device = input_allocate_device();
 
 	if(IS_ERR(core_fr->input_device))
@@ -88,7 +86,8 @@ static int input_device_create(struct i2c_client *client)
 		DBG_ERR("Failed to allocate touch input device");
 		return -ENOMEM;
 	}
-	DBG_INFO("client->name = %s", client->name);	
+
+	DBG_INFO("i2c_client.name = %s", client->name);	
 	core_fr->input_device->name = client->name;
 	core_fr->input_device->phys = "I2C";
 	core_fr->input_device->dev.parent = &client->dev;
@@ -158,8 +157,6 @@ static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
 {
 	int i;
 	int32_t nCheckSum = 0;
-
-	DBG_INFO();
 
 	for (i = 0; i < nLength; i++)
 	{
@@ -263,17 +260,17 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	uint8_t check_sum = 0;
 	uint32_t nX = 0, nY = 0;
 
-    //for(i = 0; i < 9; i++)
-//		DBG_INFO("fr_data[%d] = %x", i, fr_data[i]);
+    for(i = 0; i < 9; i++)
+		DBG("fr_data[%d] = %x", i, fr_data[i]);
 
 	//TODO: calculate report rate
 
 	check_sum = CalculateCheckSum(&fr_data[0], (rpl-1));	
-    DBG_INFO("fr_data = %x  ;  check_sum : %x ", fr_data[rpl-1], check_sum);
+    DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl-1], check_sum);
 
     if (fr_data[rpl-1] != check_sum)
     {
-        DBG_ERR("WRONG CHECKSUM");
+        DBG_ERR("Wrong checksum");
         return -1;
     }
 
@@ -282,7 +279,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	// start to parsing the packet of finger report
 	if(fr_data[0] == P5_0_DEMO_PACKET_ID)
 	{
-		DBG_INFO(" **** Packet belongs DEMO MODE ****");
+		DBG_INFO(" **** Parsing DEMO packets ****");
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -318,7 +315,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	}
 	else if(fr_data[0] == P5_0_DEBUG_PACKET_ID)
 	{
-		DBG_INFO(" **** Packet belongs DEBUG MODE ****");
+		DBG_INFO(" **** Parsing DEBUG packets ****");
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -391,7 +388,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 		return -1;
 	}
 
-	//DBG_INFO("tInfo.nCount = %d, nLastCount = %d\n", mti.key_count, last_count);
+	DBG("tInfo.nCount = %d, nLastCount = %d\n", mti.key_count, last_count);
 
 	// interpret parsed packat and send input events to uplayer
 	if(mti.key_count > 0)
@@ -407,7 +404,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
-			//DBG_INFO("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+			DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
 
 			if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
 			{
@@ -433,7 +430,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 #ifdef USE_TYPE_B_PROTOCOL
 			for (i = 0; i < MAX_TOUCH_NUM; i++)
 			{
-				//DBG_INFO("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+				DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
 
 				if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
 				{
@@ -551,7 +548,7 @@ fr_hashtable fr_t[] = {
  */
 void core_fr_handler(void)
 {
-	int i, len = sizeof(fr_t)/sizeof(fr_t[0]);
+	int i, len = ARRAY_SIZE(fr_t);
 	uint8_t *fr_data = NULL;
 	uint16_t report_packet_length = -1;
 
@@ -583,6 +580,8 @@ void core_fr_handler(void)
 					DBG_ERR("Unknow packet length : %d", report_packet_length);
 					return;
 				}
+
+				DBG("Length of report packet = %d", report_packet_length);
 
 				fr_data = (uint8_t*)kmalloc(sizeof(uint8_t) * report_packet_length, GFP_KERNEL);
 				memset(fr_data, 0xFF, sizeof(uint8_t) * report_packet_length);
@@ -619,19 +618,11 @@ int core_fr_init(struct i2c_client *pClient)
 	{
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
-			core_fr = (CORE_FINGER_REPORT*)kmalloc(sizeof(*core_fr), GFP_KERNEL);
+			core_fr = (CORE_FINGER_REPORT*)kzalloc(sizeof(*core_fr), GFP_KERNEL);
 
 			core_fr->chip_id = SUP_CHIP_LIST[i];
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
-
-			core_fr->log_packet_length = 0x0;
-			core_fr->log_packet_header = 0x0;
-			core_fr->type = 0x0;
-			core_fr->Mx = 0x0;
-			core_fr->My = 0x0;
-			core_fr->Sd = 0x0;
-			core_fr->Ss = 0x0;
 
 			if(core_fr->chip_id == CHIP_TYPE_ILI2121)
 			{
@@ -693,7 +684,7 @@ EXPORT_SYMBOL(core_fr_init);
 
 void core_fr_remove(void)
 {
-	DBG_INFO();
+	DBG_INFO("Remove core-FingerReport members");
 
 	input_unregister_device(core_fr->input_device);
 	input_free_device(core_fr->input_device);

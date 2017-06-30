@@ -21,6 +21,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
+#define DEBUG
 
 #include "platform.h"
 
@@ -43,11 +44,6 @@ int isr_gpio = 0;
 extern CORE_CONFIG			*core_config;
 extern CORE_FINGER_REPORT	*core_fr;
 
-/*
- * The function is exported by other c files 
- * allowing them to disable IRQ.
- *
- */
 void ilitek_platform_disable_irq(void)
 {
     unsigned long nIrqFlag;
@@ -76,11 +72,6 @@ void ilitek_platform_disable_irq(void)
 }
 EXPORT_SYMBOL(ilitek_platform_disable_irq);
 
-/*
- * The function is exported by other c files 
- * allowing them to enable IRQ.
- *
- */
 void ilitek_platform_enable_irq(void)
 {
     unsigned long nIrqFlag;
@@ -111,6 +102,7 @@ EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
 void ilitek_platform_tp_power_on(bool isEnable)
 {
+	DBG("TP Power on : %d ", isEnable);
 	if(isEnable)
 	{
 		gpio_direction_output(TIC->reset_gpio, 1);
@@ -153,18 +145,11 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 }
 #endif
 
-/*
- * This queue is activated by an interrupt.
- *
- * Typically it only allows one interrupt coming to call before
- * the event of figner touch is completed.
- *
- */
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
     unsigned long nIrqFlag;
 
-	DBG_INFO();
+	DBG("IRQ enable = %d", TIC->isIrqEnable);
 
     spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
 
@@ -180,15 +165,11 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 	TIC->isIrqEnable = true;
 }
 
-/*
- * It is registered by ISR to activate a function with work queue
- *
- */
 static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
     unsigned long nIrqFlag;
 
-	DBG_INFO();
+	DBG("Calling the function in work queue");
 
     spin_lock_irqsave(&SPIN_LOCK, nIrqFlag);
 
@@ -206,13 +187,6 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
     return IRQ_HANDLED;
 }
 
-/*
- * ISR Register
- *
- * The func not only registers an ISR, but initialises work queue
- * function for the exeuction of finger report.
- *
- */
 static int ilitek_platform_isr_register(void)
 {
 	int res = 0;
@@ -221,7 +195,7 @@ static int ilitek_platform_isr_register(void)
 
 	isr_gpio = gpio_to_irq(TIC->int_gpio);
 
-	DBG_INFO("isr_gpio = %d", isr_gpio);
+	DBG("isr_gpio = %d", isr_gpio);
 
     res = request_threaded_irq(
 				isr_gpio,
@@ -234,23 +208,16 @@ static int ilitek_platform_isr_register(void)
 	if(res != 0)
 	{
 		DBG_ERR("Failed to register irq handler, irq = %d, res = %d",
-				isr_gpio,
-				res);
-		return res;
+				isr_gpio, res);
+		goto out;
 	}
 
 	TIC->isIrqEnable = true;
 
+out:
 	return res;
 }
 
-/*
- * Set up INT/RESET pin according to a developement board.
- *
- * You have to figure out how to config the gpios, either
- * by a dts or a board configuration.
- *
- */
 static int ilitek_platform_gpio(void)
 {
 	int res = 0;
@@ -283,77 +250,78 @@ static int ilitek_platform_gpio(void)
 	if(res < 0)
 	{
 		DBG_ERR("Request IRQ GPIO failed, res = %d", res);
-		return res;
+		goto out;
 	}
 
 	res = gpio_request(gpios[1], "ILITEK_TP_RESET");
 	if(res < 0)
 	{
 		DBG_ERR("Request RESET GPIO failed, res = %d", res);
-		return res;
+		goto out;
 	}
 
 	gpio_direction_input(gpios[0]);
 
-	DBG_INFO("int gpio = %d", gpios[0]);
-	DBG_INFO("reset gpio = %d", gpios[1]);
+	DBG_INFO("GPIO INT: %d", gpios[0]);
+	DBG_INFO("GPIO RESET: %d", gpios[1]);
 
 	TIC->int_gpio = gpios[0];
 	TIC->reset_gpio = gpios[1];
 
+out:
 	return res;
 }
 
-/*
- * Get Touch IC information.
- *
- */
 static int ilitek_platform_read_tp_info(void)
 {
 	int res = 0;
+
+	ilitek_platform_disable_irq();
 
 	res = core_config_get_chip_id();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to get chip id, res = %d", res);
-		return res;
+		goto out;
 	}
 
 	res = core_config_get_fw_ver();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to get firmware version, res = %d", res);
-		return res;
+		goto out;
 	}
 
 	res = core_config_get_core_ver();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to get firmware version, res = %d", res);
-		return res;
+		goto out;
 	}
 
 	res = core_config_get_protocol_ver();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to get protocol version, res = %d", res);
-		return res;
+		goto out;
 	}
 
 	res = core_config_get_tp_info();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to get TP information, res = %d", res);
-		return res;
+		goto out;
 	}
 
 	res = core_config_get_key_info();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to get key information, res = %d", res);
-		return res;
+		goto out;
 	}
 
+out:
+	ilitek_platform_enable_irq();
 	return res;
 }
 
@@ -363,6 +331,7 @@ static int ilitek_platform_read_tp_info(void)
  */
 static int ilitek_platform_core_remove(void)
 {
+	DBG_INFO("Remove all core's compoenets");
 	core_config_remove();
 	core_i2c_remove();
 	core_firmware_remove();
@@ -377,7 +346,7 @@ static int ilitek_platform_core_remove(void)
  */
 static int ilitek_platform_core_init(void)
 {
-	DBG_INFO();
+	DBG("Initialise core's components ");
 
 	if(core_config_init() < 0 ||
 		core_i2c_init(TIC->client) < 0 ||
@@ -385,6 +354,7 @@ static int ilitek_platform_core_init(void)
 		core_fr_init(TIC->client) < 0)
 	{
 		ilitek_platform_core_remove();
+		DBG_ERR("Failed to initialise core components");
 		return -EINVAL;
 	}
 
@@ -395,7 +365,7 @@ static int ilitek_platform_core_init(void)
 
 static int ilitek_platform_remove(struct i2c_client *client)
 {
-	DBG_INFO();
+	DBG("Remove platform components");
 
 	if(TIC->isIrqEnable)
 	{
@@ -452,7 +422,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 #endif
 
 	DBG_INFO("Driver version : %s", DRIVER_VERSION);
-	DBG_INFO("This driver now supports %x !", ON_BOARD_IC);
+	DBG_INFO("This driver now supports %x ", ON_BOARD_IC);
 
 	// Different ICs may require different delay time for the reset.
 	// They may also depend on what your platform need to.
@@ -565,7 +535,7 @@ static int __init ilitek_platform_init(void)
 
 static void __exit ilitek_platform_exit(void)
 {
-	DBG_INFO("i2c driver has been removed");
+	DBG_INFO("I2C driver has been removed");
 
 	i2c_del_driver(&tp_i2c_driver);
 }

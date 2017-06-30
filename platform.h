@@ -75,9 +75,14 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 
 } platform_info;
 
+// exported from platform.c
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
 extern void ilitek_platform_tp_power_on(bool isEnable);
+
+// export from userspsace.c
+extern void netlink_reply_msg(void *raw, int size);
 extern int ilitek_proc_init(void);
 extern void ilitek_proc_remove(void);
+
 #endif
