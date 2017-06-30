@@ -22,6 +22,7 @@
  *
  */
 
+#define DEBUG
 
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -71,9 +72,6 @@ extern platform_info *TIC;
 
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
 
-/*
- * This node provides user space showing how long the process of upgrade firmware remained.
- */
 static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
@@ -88,10 +86,12 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 
 	len = sprintf(buff, "%02d", core_firmware->update_status);
 
+	DBG("update status = %d \n", core_firmware->update_status);
+
 	res = copy_to_user((uint32_t*)buff, &core_firmware->update_status, len);
 	if(res < 0)
 	{
-		DBG_INFO("Failed to copy data to user space");
+		DBG_ERR("Failed to copy data to user space");
 	}
 
 	*pPos = len;
@@ -99,10 +99,6 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 	return len;
 }
 
-/*
- * This node provides users showing if the upgrade process is successful.
- *
- */
 static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
@@ -117,10 +113,12 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 
 	len = sprintf(buff, "%d", core_firmware->isUpgraded);
 
-	res = copy_to_user((uint8_t*)buff, &core_firmware->isUpgraded, len);
+	DBG("isUpgraded = %d \n", core_firmware->isUpgraded);
+
+	res = copy_to_user((uint32_t*)buff, &core_firmware->isUpgraded, len);
 	if(res < 0)
 	{
-		DBG_INFO("Failed to copy data to user space");
+		DBG_ERR("Failed to copy data to user space");
 	}
 
 	*pPos = len;
@@ -131,7 +129,6 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 /*
  * To avoid the restriction of selinux, we assigned a fixed path where locates firmware file,
  * reading (cat) this node to notify driver running the upgrade process from user space.
- *
  */
 static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -173,6 +170,8 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	uint8_t	 szBuf[512] = {0};
 	static uint16_t i2c_rw_length = 0;
 	uint32_t id_to_user = 0x0;
+
+	DBG("cmd = %d", _IOC_NR(cmd));
 
 	if(_IOC_TYPE(cmd) != ILITEK_IOCTL_MAGIC)
 	{
@@ -385,7 +384,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			break;
 
 		case ILITEK_IOCTL_TP_NETLINK_STATUS:
-			DBG_INFO("Check if Netlink is enabled : %d", core_fr->isEnableNetlink);
+			DBG("Check if Netlink is enabled : %d", core_fr->isEnableNetlink);
 			res = copy_to_user((int*)arg, &core_fr->isEnableNetlink, sizeof(int));
 			if(res < 0)
 			{
@@ -406,7 +405,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			break;
 
 		case ILITEK_IOCTL_TP_MODE_STATUS:
-			DBG_INFO("Current firmware mode : %d", core_fr->actual_fw_mode);
+			DBG("Current firmware mode : %d", core_fr->actual_fw_mode);
 			res = copy_to_user((int*)arg, &core_fr->actual_fw_mode, sizeof(int));
 			if(res < 0)
 			{
@@ -489,14 +488,17 @@ void netlink_reply_msg(void *raw, int size)
 	int msg_size = size;
 	uint8_t *data = (uint8_t *)raw;
 
-	DBG_INFO("msg_size = %d", msg_size);
+	DBG_INFO("The size of data being sent to user = %d", msg_size);
 	DBG_INFO("pid = %d", pid);
 	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
 
 	if(core_fr->isEnableNetlink == true)
 	{
-		skb_out = nlmsg_new(msg_size, 0);
-		if (!skb_out) {
+		if(skb_out != NULL)
+			skb_out = nlmsg_new(msg_size, 0);
+
+		if (!skb_out) 
+		{
 			DBG_INFO("Failed to allocate new skb");
 			return;
 		}
@@ -509,9 +511,10 @@ void netlink_reply_msg(void *raw, int size)
 
 		res = nlmsg_unicast(nl_sk, skb_out, pid);
 		if (res < 0)
-			DBG_INFO("Error while sending back to user space");
+			DBG_ERR("Failed to send data back to user");
 	}
 }
+EXPORT_SYMBOL(netlink_reply_msg);
 
 void netlink_recv_msg(struct sk_buff *skb)
 {
@@ -523,7 +526,8 @@ void netlink_recv_msg(struct sk_buff *skb)
 	{
 		nlh = (struct nlmsghdr *)skb->data;
 
-		DBG_INFO("Received a request from client: %s, %d", (char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
+		DBG_INFO("Received a request from client: %s, %d", 
+		(char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
 
 		// pid of sending process
 		pid = nlh->nlmsg_pid; 
@@ -533,12 +537,10 @@ void netlink_recv_msg(struct sk_buff *skb)
 		if(pid != 0)
 		{
 			DBG_INFO("The channel of Netlink has been established successfully !");
-			core_fr->isEnableNetlink = true;
 		}
 		else
 		{
 			DBG_INFO("Failed to establish the channel between kernel and user space");
-			core_fr->isEnableNetlink = false;
 		}
 	}
 }
@@ -553,7 +555,7 @@ int netlink_init(void)
 {
 	int res = 0;
 
-	DBG_INFO();
+	DBG("Initialise Netlink memebrs");
 
 	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
 
@@ -569,7 +571,7 @@ int netlink_init(void)
 int ilitek_proc_init(void)
 {
 	int i = 0, res = 0;
-	int node = sizeof(proc_table) / sizeof(proc_table[0]);
+	int node = ARRAY_SIZE(proc_table);
 
 	proc_dir_ilitek = proc_mkdir("ilitek", NULL);
 
@@ -598,7 +600,7 @@ int ilitek_proc_init(void)
 void ilitek_proc_remove(void)
 {
 	int i = 0;
-	int node = sizeof(proc_table) / sizeof(proc_table[0]);
+	int node = ARRAY_SIZE(proc_table);
 
 	for(; i < node; i++)
 	{

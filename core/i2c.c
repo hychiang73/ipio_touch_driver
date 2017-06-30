@@ -53,7 +53,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
 	{
 		res = -EIO;
-		DBG_ERR("I2C Write Error");
+		DBG_ERR("I2C Write Error, res = %d", res);
 	}
 	
 	return res;
@@ -79,7 +79,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
 	{
 		res = -EIO;
-		DBG_ERR("I2C Read Error");
+		DBG_ERR("I2C Read Error, res = %d", res);
 	}
 
     return res;
@@ -90,9 +90,7 @@ int core_i2c_init(struct i2c_client *client)
 {
 	core_i2c = (CORE_I2C*)kmalloc(sizeof(*core_i2c), GFP_KERNEL);
 
-	DBG_INFO();
-
-	if(core_i2c == NULL) 
+	if(IS_ERR(core_i2c)) 
 	{
 		DBG_ERR("init core-i2c failed !");
 		return -EINVAL;
@@ -106,7 +104,7 @@ EXPORT_SYMBOL(core_i2c_init);
 
 void core_i2c_remove(void)
 {
-	DBG_INFO();
+	DBG_INFO("Remove core-i2c members");
 
 	kfree(core_i2c);
 }

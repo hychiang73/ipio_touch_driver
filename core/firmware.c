@@ -22,6 +22,8 @@
  *
  */
 
+ #define DEBUG
+
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -125,9 +127,8 @@ static int ili2121_checkcum(uint32_t nStartAddr, uint32_t nEndAddr)
 		szBuf[0] = core_config_read_write_onebyte(0x41011);
 
 		if ((szBuf[0] & 0x01) == 0)
-		{
 			break;
-		}
+
 		mdelay(100);
 	} 		
 
@@ -246,6 +247,7 @@ static int ili7807_polling_flash_busy(void)
 		timer--;
 	}
 
+	DBG_ERR("Polling busy Time out !");
 	return -1;
 }
 
@@ -265,6 +267,7 @@ static int ili7807_write_enable(void)
 	return 0;
 
 out:
+	DBG_ERR("Write enable failed !");
 	return -EIO;
 }
 
@@ -376,7 +379,7 @@ static int ili7807_firmware_upgrade(void)
 	if(core_firmware->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
-	DBG_INFO("Erase Flash ...");
+	DBG_INFO("Erasing Flash data ...");
 	for(erase_start_addr = 0; erase_start_addr < 0xE0; )
 	{
 		res = ili7807_write_enable();
@@ -416,10 +419,9 @@ static int ili7807_firmware_upgrade(void)
 		core_config_ice_mode_write(0x041008, 0xFF, 1);
 
 		temp_buf = core_config_read_write_onebyte(0x041010);
+
 		if(temp_buf != 0xFF)
-		{
 			DBG_ERR("Failed to read data at 0x%x ", erase_start_addr);
-		}
 
 		erase_start_addr = erase_start_addr + 0x10;
 
@@ -430,7 +432,7 @@ static int ili7807_firmware_upgrade(void)
 	mdelay(1);
 
 	//write data into flash
-	DBG_INFO("Write data info flash ...");
+	DBG_INFO("Writing data info flash ...");
     for (i = core_firmware->ap_start_addr; i < core_firmware->ap_end_addr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
 	{
 		res = ili7807_write_enable();
@@ -464,7 +466,7 @@ static int ili7807_firmware_upgrade(void)
 
 		if (core_i2c_write(core_config->slave_i2c_addr, buf, UPDATE_FIRMWARE_PAGE_LENGTH + 4) < 0)
 		{
-			DBG_INFO("Failed to write data at address = 0x%X, start_addr = 0x%X, end_addr = 0x%X"
+			DBG_ERR("Failed to write data at address = 0x%X, start_addr = 0x%X, end_addr = 0x%X"
 					,(int)i, (int)core_firmware->ap_start_addr, (int)core_firmware->ap_end_addr);
 			res = -EIO;
 			goto out;
@@ -481,7 +483,7 @@ static int ili7807_firmware_upgrade(void)
 		}
 
         core_firmware->update_status = (i * 101) / core_firmware->ap_end_addr;
-        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
+        DBG_INFO("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
 	}
 
 	// We do have to reset chip in order to move new code from flash to iram.
@@ -708,8 +710,6 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
     uint32_t nApChecksum = 0x0, nDfChecksum = 0x0, nLength = 0, nAddr = 0, nType = 0;
 	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0;
 
-	DBG_INFO("size = %d", nSize);
-
 	core_firmware->ap_start_addr = 0;
 	core_firmware->ap_end_addr = 0;
 	core_firmware->ap_checksum = 0;
@@ -930,11 +930,12 @@ int core_firmware_upgrade(const char *pFilePath)
 	// update firmware version if upgraded
 	if(core_firmware->isUpgraded)
 	{
-		DBG_INFO("The New Firmware version : ");
+		DBG_INFO("Update firmware version");
 		core_config_get_fw_ver();
-		for(; i < 4; i++)
+		for(; i < ARRAY_SIZE(core_config->firmware_ver); i++)
 		{
 			core_firmware->new_fw_ver[i] = core_config->firmware_ver[i];
+			DBG("new_fw_ver[%d] = %x : ", i, core_firmware->new_fw_ver[i])
 		}
 	}
 
@@ -947,8 +948,6 @@ out:
 int core_firmware_init(void)
 {
 	int i = 0, j = 0, res = 0; 
-
-	DBG_INFO();
 
 	for(; i < nums_chip; i++)
 	{
@@ -1002,7 +1001,7 @@ out:
 
 void core_firmware_remove(void)
 {
-	DBG_INFO();
+	DBG_INFO("Remove core-firmware members");
 
 	kfree(core_firmware);
 }

@@ -30,20 +30,20 @@
 // If developers'd like to add a new chip used in the driver, they must also add 
 // the type of chip they want to support in core/sup_chip.c.
 //#define ON_BOARD_IC		0x2121
-//#define ON_BOARD_IC		0x7807
-#define ON_BOARD_IC		0x9881
+#define ON_BOARD_IC		0x7807
+//#define ON_BOARD_IC		0x9881
 
 // shows the version of driver
-#define DRIVER_VERSION	"1.0.0.1"
-
-// sets the level of debug message
-#define DBG_LEVEL
+#define DRIVER_VERSION	"1.0.0.2"
 
 #define DBG_INFO(fmt, arg...) \
-			printk(KERN_INFO "ILITEK: (%s): " fmt "\n", __func__, ##arg);
+			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 #define DBG_ERR(fmt, arg...) \
-			printk(KERN_ERR "ILITEK: (%s): " fmt "\n", __func__, ##arg);
+			pr_err("ILITEK: (%s): " fmt "\n", __func__, __LINE__, ##arg);
+
+#define DBG(fmt, arg...) \
+			pr_debug( "ILITEK: (%s): " fmt "\n", __func__, __LINE__, ##arg);
 
 /*
  * Relative Firmware Upgrade
