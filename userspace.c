@@ -144,7 +144,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	ilitek_platform_disable_irq();
 
-	res = core_firmware_upgrade(UPDATE_FW_PATH);
+	res = core_firmware_upgrade(UPDATE_FW_PATH, false);
 
 	ilitek_platform_enable_irq();
 
@@ -157,6 +157,40 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 	else
 	{
 		DBG_INFO("Succeed to upgrade firmware");
+	}
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint32_t len;
+
+	DBG_INFO("Preparing to upgarde firmware by IRAM");
+
+	if(*pPos != 0)
+	{
+		return 0;
+	}
+
+	ilitek_platform_disable_irq();
+
+	res = core_firmware_upgrade(UPDATE_FW_PATH, true);
+
+	ilitek_platform_enable_irq();
+
+	if(res < 0)
+	{
+		// return the status to user space even if any error occurs.
+		core_firmware->update_status = res;
+		DBG_ERR("Failed to upgrade firwmare by IRAM, res = %d", res);
+	}
+	else
+	{
+		DBG_INFO("Succeed to upgrade firmware by IRAM");
 	}
 
 	*pPos = len;
@@ -427,6 +461,7 @@ struct proc_dir_entry *proc_ioctl;
 struct proc_dir_entry *proc_fw_status;
 struct proc_dir_entry *proc_fw_process;
 struct proc_dir_entry *proc_fw_upgrade;
+struct proc_dir_entry *proc_iram_upgrade;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
@@ -442,6 +477,10 @@ struct file_operations proc_fw_process_fops = {
 
 struct file_operations proc_fw_upgrade_fops = {
 	.read = ilitek_proc_fw_upgrade_read,
+};
+
+struct file_operations proc_iram_upgrade_fops = {
+	.read = ilitek_proc_iram_upgrade_read,
 };
 
 /*
@@ -474,6 +513,7 @@ proc_node_t proc_table[] = {
 	{"fw_status",NULL,	&proc_fw_status_fops,false},
 	{"fw_process",NULL, &proc_fw_process_fops,false},
 	{"fw_upgrade",NULL, &proc_fw_upgrade_fops,false},
+	{"iram_upgrade",NULL, &proc_iram_upgrade_fops,false},
 };
 
 struct sock *nl_sk;

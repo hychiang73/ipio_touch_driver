@@ -47,14 +47,10 @@ extern int nums_chip;
 
 CORE_FIRMWARE *core_firmware;
 
-uint8_t flash_fw[MAX_FLASH_FIRMWARE_SIZE];
-
-// IRAM test 
-//#define IRAM_TEST
-
-#ifdef IRAM_TEST
-uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE];
-#endif
+// the size of two arrays is different, depending on
+// which of methods to upgrade firmware you choose for.
+uint8_t flash_fw[MAX_FLASH_FIRMWARE_SIZE] = {0};
+uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = {0};
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -271,18 +267,15 @@ out:
 	return -EIO;
 }
 
-#ifdef IRAM_TEST
 static int iram_upgrade(void)
 {
 	int i, j, k, res = 0;
 	int update_page_len = UPDATE_FIRMWARE_PAGE_LENGTH;
 	uint8_t buf[512];
 
+	core_firmware->update_status = 0;
+
 	DBG_INFO("Upgrade firmware written data into IRAM directly");
-
-	ilitek_platform_ic_reset();
-
-	mdelay(1);
 
 	res = core_config_ice_mode_enable();
 	if(res < 0)
@@ -291,16 +284,15 @@ static int iram_upgrade(void)
 		return res;
 	}
 
-	core_config_ice_mode_write(0x4100C, 0x01, 0);
-
 	mdelay(20);
 
 	core_config_reset_watch_dog();
 
-	DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
-				core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
+	DBG("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
+			core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
 
 	// write hex to the addr of iram
+	DBG_INFO("Writting data into IRAM ...");
 	for(i = core_firmware->start_addr; i < core_firmware->end_addr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
 	{
 		if((i + 256) > core_firmware->end_addr)
@@ -314,10 +306,7 @@ static int iram_upgrade(void)
 		buf[1] = (char)((i & 0x000000FF));
 
 		for(j = 0; j < update_page_len; j++)
-		{
 			buf[4 + j] = iram_fw[i + j];
-		//	DBG_INFO("write --- buf[4 + %d] = %x", j, buf[4+j])
-		}
 
 		if(core_i2c_write(core_config->slave_i2c_addr, buf, update_page_len + 4))
 		{
@@ -327,29 +316,27 @@ static int iram_upgrade(void)
             return res;
 		}
 
-        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, (i * 100) / core_firmware->end_addr, '%');
+        core_firmware->update_status = (i * 101) / core_firmware->ap_end_addr;
+        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
 
 		mdelay(3);
 	}
 
 	// ice mode code reset
-	DBG_INFO("ice mode code reset");
+	DBG_INFO("Doing code reset ...");
 	core_config_ice_mode_write(0x40040, 0xAE, 1);
-//	mdelay(1);
 	core_config_ice_mode_write(0x40040, 0x00, 1);
 
 	mdelay(10);
 
 	core_config_ice_mode_disable();
-	//core_config_ice_mode_reset();
 
 	//TODO: check iram status
 
 	return res;
 }
-#endif //IRAM_TEST
 
-static int ili7807_firmware_upgrade(void)
+static int ili7807_firmware_upgrade(bool isIRAM)
 {
 	int i, j, k, res = 0;
 	uint32_t erase_start_addr = 0;
@@ -359,11 +346,12 @@ static int ili7807_firmware_upgrade(void)
 
 	core_firmware->update_status = 0;
 
-#ifdef IRAM_TEST
-	res = iram_upgrade();
-	return res;
-#else
-	
+	if(isIRAM)
+	{
+		res = iram_upgrade();
+		return res;
+	}
+
 	DBG_INFO("Enter to ICE Mode");
 
 	res = core_config_ice_mode_enable();
@@ -432,7 +420,7 @@ static int ili7807_firmware_upgrade(void)
 	mdelay(1);
 
 	//write data into flash
-	DBG_INFO("Writing data info flash ...");
+	DBG_INFO("Writing data into flash ...");
     for (i = core_firmware->ap_start_addr; i < core_firmware->ap_end_addr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
 	{
 		res = ili7807_write_enable();
@@ -483,7 +471,7 @@ static int ili7807_firmware_upgrade(void)
 		}
 
         core_firmware->update_status = (i * 101) / core_firmware->ap_end_addr;
-        DBG_INFO("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
+        printk("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
 	}
 
 	// We do have to reset chip in order to move new code from flash to iram.
@@ -520,11 +508,9 @@ out:
 	core_config_ice_mode_disable();
 	core_config_ic_reset(core_firmware->chip_id);
 	return res;
-
-#endif
 }
 
-static int ili2121_firmware_upgrade(void)
+static int ili2121_firmware_upgrade(bool isIRAM)
 {
     int32_t nUpdateRetryCount = 0, nUpgradeStatus = 0, nUpdateLength = 0;
 	int32_t	nCheckFwFlag = 0, nChecksum = 0, i = 0, j = 0, k = 0;
@@ -701,7 +687,7 @@ static int ili2121_firmware_upgrade(void)
 	return res;
 }
 
-static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
+static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t CRC32 = 0;
     uint32_t i = 0, j = 0, k = 0;
@@ -802,17 +788,17 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
 				// fill data
 				for (j = 0, k = 0; j < (nLength * 2); j += 2, k ++)
 				{
-#ifdef IRAM_TEST 
-					iram_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
-#endif
-					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					if(isIRAM)
+						iram_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					else
+						flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 				}
 			}
 
 			i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;        
 		}
 
-		if(core_firmware->isCRC == true)
+		if(core_firmware->isCRC == true && isIRAM == false)
 		{
 			CRC32 = calc_crc32(nApStartAddr, nApEndAddr, flash_fw);			
 		}
@@ -849,7 +835,7 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize)
  * @pFilePath: pass a path where locates user's firmware file.
  *
  */
-int core_firmware_upgrade(const char *pFilePath)
+int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 {
 	int res = 0, i = 0, fsize;
 	uint8_t *hex_buffer;
@@ -905,7 +891,7 @@ int core_firmware_upgrade(const char *pFilePath)
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
 
-			res == convert_firmware(hex_buffer, fsize);
+			res == convert_firmware(hex_buffer, fsize, isIRAM);
 
 			if( res < 0)
 			{
@@ -915,7 +901,7 @@ int core_firmware_upgrade(const char *pFilePath)
 			else
 			{
 				// calling that function defined at init depends on chips.
-				res = core_firmware->upgrade_func();
+				res = core_firmware->upgrade_func(isIRAM);
 				if(res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);

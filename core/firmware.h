@@ -56,12 +56,12 @@ typedef struct _CORE_FIRMWARE {
     bool isUpgraded;
 	bool isCRC;
 
-	int (*upgrade_func)(void);
+	int (*upgrade_func)(bool isIRAM);
 
 } CORE_FIRMWARE;
 
 //extern int core_firmware_iram_upgrade(const char* fpath);
-extern int core_firmware_upgrade(const char*);
+extern int core_firmware_upgrade(const char*, bool isIRAM);
 extern int core_firmware_init(void);
 extern void core_firmware_remove(void);
 
