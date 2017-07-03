@@ -178,9 +178,9 @@ static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
  */
 void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
-    DBG_INFO("point touch pressed"); 
+    DBG("point touch pressed"); 
 
-    DBG_INFO("id = %d, x = %d, y = %d", id, x, y);
+    DBG("id = %d, x = %d, y = %d", id, x, y);
 
 #ifdef USE_TYPE_B_PROTOCOL
     input_mt_slot(core_fr->input_device, id);
@@ -220,9 +220,9 @@ EXPORT_SYMBOL(core_fr_touch_press);
  */
 void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
-    DBG_INFO("point touch released"); 
+    DBG("point touch released"); 
 
-    DBG_INFO("id = %d, x = %d, y = %d", id, x, y);
+    DBG("id = %d, x = %d, y = %d", id, x, y);
 
 #ifdef USE_TYPE_B_PROTOCOL
     input_mt_slot(core_fr->input_device, id);
@@ -279,7 +279,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	// start to parsing the packet of finger report
 	if(fr_data[0] == P5_0_DEMO_PACKET_ID)
 	{
-		DBG_INFO(" **** Parsing DEMO packets ****");
+		DBG(" **** Parsing DEMO packets ****");
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -299,8 +299,8 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			pInfo->mtp[pInfo->key_count].pressure = fr_data[4 * (i + 1)];
 			pInfo->mtp[pInfo->key_count].id = i;
 
-			DBG_INFO("[x,y]=[%d,%d]", nX, nY);
-			DBG_INFO("point[%d] : (%d,%d) = %d\n",
+			DBG("[x,y]=[%d,%d]", nX, nY);
+			DBG("point[%d] : (%d,%d) = %d\n",
 					pInfo->mtp[pInfo->key_count].id,
 					pInfo->mtp[pInfo->key_count].x,
 					pInfo->mtp[pInfo->key_count].y,
@@ -315,7 +315,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	}
 	else if(fr_data[0] == P5_0_DEBUG_PACKET_ID)
 	{
-		DBG_INFO(" **** Parsing DEBUG packets ****");
+		DBG(" **** Parsing DEBUG packets ****");
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -335,8 +335,8 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			pInfo->mtp[pInfo->key_count].pressure = 1;
 			pInfo->mtp[pInfo->key_count].id = i;
 
-			DBG_INFO("[x,y]=[%d,%d]", nX, nY);
-			DBG_INFO("point[%d] : (%d,%d) = %d\n",
+			DBG("[x,y]=[%d,%d]", nX, nY);
+			DBG("point[%d] : (%d,%d) = %d\n",
 					pInfo->mtp[pInfo->key_count].id,
 					pInfo->mtp[pInfo->key_count].x,
 					pInfo->mtp[pInfo->key_count].y,
@@ -475,7 +475,7 @@ int core_fr_mode_control(uint8_t* from_user)
 	}
 
 	for(i = 0; i < 3; i++)
-		DBG_INFO("from_user[%d] = %x", i, from_user[i]);
+		DBG("from_user[%d] = %x", i, from_user[i]);
 
 	mode = from_user[0];
 

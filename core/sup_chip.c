@@ -21,16 +21,16 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include "../chip.h"
 
 /*
- * The two vars will be exported to all core modules to them identifying which of 
+ * The two vars will be exported to all core modules identifying which of 
  * chips is exactly used on the board.
  *
- * They initialise configurations acorrding to the result from the list in the init 
- * function of each core modules.
+ * They're used to initialise configurations acorrding to the result from the support list 
+ * in the init function of each core modules.
  */
 
 uint32_t SUP_CHIP_LIST[] = {
@@ -39,4 +39,4 @@ uint32_t SUP_CHIP_LIST[] = {
 	CHIP_TYPE_ILI9881,
 };
 
-int nums_chip = sizeof(SUP_CHIP_LIST) / sizeof(SUP_CHIP_LIST[0]);
+int nums_chip = ARRAY_SIZE(SUP_CHIP_LIST);
