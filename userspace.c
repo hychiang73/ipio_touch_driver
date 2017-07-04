@@ -611,11 +611,10 @@ int netlink_init(void)
 int ilitek_proc_init(void)
 {
 	int i = 0, res = 0;
-	int node = ARRAY_SIZE(proc_table);
 
 	proc_dir_ilitek = proc_mkdir("ilitek", NULL);
 
-	for(; i < node; i++)
+	for(; i < ARRAY_SIZE(proc_table); i++)
 	{
 		proc_table[i].node = proc_create(proc_table[i].name, 0666, proc_dir_ilitek, proc_table[i].fops);
 
@@ -640,9 +639,8 @@ int ilitek_proc_init(void)
 void ilitek_proc_remove(void)
 {
 	int i = 0;
-	int node = ARRAY_SIZE(proc_table);
 
-	for(; i < node; i++)
+	for(; i < ARRAY_SIZE(proc_table); i++)
 	{
 		if(proc_table[i].isCreated == true)
 		{

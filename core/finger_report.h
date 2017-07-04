@@ -56,6 +56,7 @@ typedef struct {
 	/* firmware mode */
 	uint8_t fw_unknow_mode;
 	uint8_t fw_demo_mode;
+	uint8_t fw_test_mode;
 	uint8_t fw_debug_mode;
 	uint16_t actual_fw_mode;
 

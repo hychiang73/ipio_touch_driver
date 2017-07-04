@@ -40,10 +40,10 @@
 			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 #define DBG_ERR(fmt, arg...) \
-			pr_err("ILITEK: (%s): " fmt "\n", __func__, __LINE__, ##arg);
+			pr_err("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 #define DBG(fmt, arg...) \
-			pr_debug( "ILITEK: (%s): " fmt "\n", __func__, __LINE__, ##arg);
+			pr_debug( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 /*
  * Relative Firmware Upgrade
@@ -92,6 +92,7 @@
 // length of finger touch packet
 #define P5_0_DEMO_MODE_PACKET_LENGTH  	43
 #define P5_0_DEBUG_MODE_PACKET_LENGTH  	1280
+#define P5_0_TEST_MODE_PACKET_LENGTH  	1180
 
 /*
  *  ILI2121

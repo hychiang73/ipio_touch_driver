@@ -457,8 +457,9 @@ extern uint8_t pcmd[10];
 
 int core_fr_mode_control(uint8_t* from_user)
 {
-	int mode;
+	int mode, size;
 	int i, j, res = 0;
+	uint8_t buf[3] = {0};
 
 	uint8_t actual_mode[] = 
 	{
@@ -468,55 +469,75 @@ int core_fr_mode_control(uint8_t* from_user)
 		P5_0_FIRMWARE_I2CUART_MODE,
 	};
 
+	ilitek_platform_disable_irq();
+
 	if(from_user == NULL)
 	{
-		DBG_ERR("Arguments from user space is invaild");
+		DBG_ERR("Arguments from user space are invaild");
 		goto out;
 	}
 
-	for(i = 0; i < 3; i++)
-		DBG("from_user[%d] = %x", i, from_user[i]);
+	DBG("size = %d, mode = %x, cmd_1 = %x, cmd_2 = %x ",
+		ARRAY_SIZE(actual_mode), from_user[0], from_user[1], from_user[2]);
 
 	mode = from_user[0];
 
-	for(i = 0; i < sizeof(actual_mode); i++)
+	for(i = 0; i < ARRAY_SIZE(actual_mode); i++)
 	{
 		if(actual_mode[i] == mode)
 		{
-			// need to disable finger reprot ?
-			
-			if(actual_mode[i] == P5_0_FIRMWARE_I2CUART_MODE)
+			if(mode == P5_0_FIRMWARE_I2CUART_MODE)
 			{
-				uint8_t buf[3];
-
 				buf[0] = pcmd[6];
 				buf[1] = *(from_user+1);
 				buf[2] = *(from_user+2);
+
+				DBG_INFO("Switch to I2CUART mode, cmd = 0x%x, byte 1 = 0x%x, byte 2 = 9x%x",
+							buf[0], buf[1], buf[2]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 3);
 				if(res < 0)
 					goto out;
 			}
-			else
+			else if(mode == P5_0_FIRMWARE_TEST_MODE)
 			{
-				uint8_t buf[2];
-
+				//TODO: doing sensor test (moving mp core to iram).
 				buf[0] = pcmd[5];
 				buf[1] = actual_mode[i];
+
+				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
+							buf[0], buf[1]);
+			}
+			else
+			{
+				buf[0] = pcmd[5];
+				buf[1] = actual_mode[i];
+
+				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
+							buf[0], buf[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
 				if(res < 0)
 					goto out;
 			}
-
 			core_fr->actual_fw_mode = actual_mode[i];
+			break;
+		}
+
+		if(i == (ARRAY_SIZE(actual_mode) - 1))
+		{
+			DBG_ERR("Unknown Mode");
+			res = -1;
+			goto out;
 		}
 	}
 
+	ilitek_platform_enable_irq();
 	return res;
 
 out:
-	DBG_ERR("Failed to change mode on firmware, res = %d", res);
+	DBG_ERR("Failed to change mode, res = %d", res);
+	ilitek_platform_enable_irq();
 	return res;
 }
 EXPORT_SYMBOL(core_fr_mode_control);
@@ -563,6 +584,10 @@ void core_fr_handler(void)
 					if(core_fr->actual_fw_mode == core_fr->fw_demo_mode)
 					{
 						report_packet_length = P5_0_DEMO_MODE_PACKET_LENGTH;
+					}
+					else if(core_fr->actual_fw_mode == core_fr->fw_test_mode)
+					{
+						report_packet_length = P5_0_TEST_MODE_PACKET_LENGTH;
 					}
 					else if(core_fr->actual_fw_mode == core_fr->fw_debug_mode)
 					{
@@ -641,6 +666,7 @@ int core_fr_init(struct i2c_client *pClient)
 				{
 					core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
 					core_fr->fw_demo_mode =	  P5_0_FIRMWARE_DEMO_MODE;
+					core_fr->fw_test_mode =	  P5_0_FIRMWARE_TEST_MODE;
 					core_fr->fw_debug_mode =  P5_0_FIRMWARE_DEBUG_MODE;
 					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 				}
@@ -651,6 +677,7 @@ int core_fr_init(struct i2c_client *pClient)
 				{
 					core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
 					core_fr->fw_demo_mode =	  P5_0_FIRMWARE_DEMO_MODE;
+					core_fr->fw_test_mode =	  P5_0_FIRMWARE_TEST_MODE;
 					core_fr->fw_debug_mode =  P5_0_FIRMWARE_DEBUG_MODE;
 					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 				}
