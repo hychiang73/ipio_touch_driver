@@ -26,16 +26,15 @@
  * Relative Driver with Touch IC
  */
 
-// The macro allows users to change the supprot of driver in differnet chips.
-// If developers'd like to add a new chip used in the driver, they must also add 
-// the type of chip they want to support in core/sup_chip.c.
+// This macro defines what types of chip supported by the driver.
 //#define ON_BOARD_IC		0x2121
 #define ON_BOARD_IC		0x7807
 //#define ON_BOARD_IC		0x9881
 
-// shows the version of driver
+// Shows the version of driver
 #define DRIVER_VERSION	"1.0.0.2"
 
+// Simple debug macro.
 #define DBG_INFO(fmt, arg...) \
 			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 

@@ -492,7 +492,7 @@ int core_fr_mode_control(uint8_t* from_user)
 				buf[1] = *(from_user+1);
 				buf[2] = *(from_user+2);
 
-				DBG_INFO("Switch to I2CUART mode, cmd = 0x%x, byte 1 = 0x%x, byte 2 = 9x%x",
+				DBG_INFO("Switch to I2CUART mode, cmd = 0x%x, byte 1 = 0x%x, byte 2 = 0x%x",
 							buf[0], buf[1], buf[2]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 3);
@@ -503,15 +503,19 @@ int core_fr_mode_control(uint8_t* from_user)
 			{
 				//TODO: doing sensor test (moving mp core to iram).
 				buf[0] = pcmd[5];
-				buf[1] = actual_mode[i];
+				buf[1] = mode;
 
 				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
 							buf[0], buf[1]);
+
+				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
+				if(res < 0)
+					goto out;
 			}
 			else
 			{
 				buf[0] = pcmd[5];
-				buf[1] = actual_mode[i];
+				buf[1] = mode;
 
 				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
 							buf[0], buf[1]);
