@@ -273,6 +273,11 @@ static int iram_upgrade(void)
 
 	core_firmware->update_status = 0;
 
+	// doing reset for erasing iram data before upgrade it.
+	ilitek_platform_tp_power_on(1);
+
+	mdelay(1);
+
 	DBG_INFO("Upgrade firmware written data into IRAM directly");
 
 	res = core_config_ice_mode_enable();
