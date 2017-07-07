@@ -25,22 +25,6 @@
 #ifndef __FINGER_REPORT_H
 #define __FINGER_REPORT_H
 
-// Either B TYPE or A Type in MTP
-#define USE_TYPE_B_PROTOCOL 
-
-//#define ENABLE_GESTURE_WAKEUP
-
-// Whether to detect the value of pressure in finger touch
-//#define FORCE_TOUCH
-
-// set up width and heigth of a screen
-#define TOUCH_SCREEN_X_MIN	0
-#define TOUCH_SCREEN_Y_MIN	0
-#define TOUCH_SCREEN_X_MAX	1080
-#define TOUCH_SCREEN_Y_MAX	1920
-
-#define TPD_HEIGHT 2048
-#define TPD_WIDTH  2048
 
 typedef struct {
 
@@ -71,10 +55,9 @@ typedef struct {
 
 } CORE_FINGER_REPORT;
 
-extern void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id);
-extern void core_fr_touch_release(int32_t x, int32_t y, int32_t id);
 extern int core_fr_mode_control(uint8_t *from_user);
 extern void core_fr_handler(void);
+extern void core_fr_input_set_param(struct input_dev *input_device);
 extern int core_fr_init(struct i2c_client *);
 extern void core_fr_remove(void);
 

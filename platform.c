@@ -325,6 +325,46 @@ out:
 	return res;
 }
 
+static int ilitek_platform_input_init(void)
+{
+	int res = 0;
+
+	TIC->input_device = input_allocate_device();
+
+	if(IS_ERR(TIC->input_device))
+	{
+		DBG_ERR("Failed to allocate touch input device");
+		res = -ENOMEM;
+		goto fail_alloc;
+	}
+
+	TIC->input_device->name = TIC->client->name;
+	TIC->input_device->phys = "I2C";
+	TIC->input_device->dev.parent = &TIC->client->dev;
+	TIC->input_device->id.bustype = BUS_I2C;
+
+	core_fr_input_set_param(TIC->input_device);
+
+   /* register the input device to input sub-system */
+    res = input_register_device(TIC->input_device);
+    if (res < 0)
+    {
+        DBG_ERR("Failed to register touch input device, res = %d", res);
+        goto out;
+    }
+
+	return res;
+
+fail_alloc:
+	input_free_device(core_fr->input_device);
+	return res;
+
+out:
+	input_unregister_device(TIC->input_device);
+	input_free_device(core_fr->input_device);
+	return res ;
+}
+
 /*
  * Remove Core APIs memeory being allocated.
  *
@@ -375,16 +415,24 @@ static int ilitek_platform_remove(struct i2c_client *client)
 	if(isr_gpio != 0 && TIC->int_gpio != 0 && TIC->reset_gpio != 0)
 	{
 		free_irq(isr_gpio, (void *)TIC->i2c_id);
-
 		gpio_free(TIC->int_gpio);
 		gpio_free(TIC->reset_gpio);
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&TIC->early_suspend);
+	if(TIC->early_suspend != NULL)
+	{
+		unregister_early_suspend(&TIC->early_suspend);
+	}
 #endif
 
 	ilitek_platform_core_remove();
+
+	if(TIC->input_device != NULL)
+	{
+		input_unregister_device(TIC->input_device);
+		input_free_device(TIC->input_device);
+	}
 
 	kfree(TIC);
 
@@ -479,7 +527,13 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		DBG_ERR("Failed to read IC info");
 	}
 
-	return 0;
+	res = ilitek_platform_input_init();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to init input device in kernel");
+	}
+
+	return res;
 
 out:
 	ilitek_platform_remove(TIC->client);

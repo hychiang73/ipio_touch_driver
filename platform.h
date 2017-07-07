@@ -55,6 +55,8 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 
 	struct i2c_client *client;
 
+	struct input_dev *input_device;
+
 	const struct i2c_device_id *i2c_id;
 
 	uint32_t chip_id;

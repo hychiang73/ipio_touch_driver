@@ -70,77 +70,22 @@ uint8_t PreviousTouch[MAX_TOUCH_NUM];
 
 CORE_FINGER_REPORT *core_fr;
 
-static int input_device_create(struct i2c_client *client)
-{
-	int res = 0;
+// Either B TYPE or A Type in MTP
+#define USE_TYPE_B_PROTOCOL 
 
-	core_fr->input_device = input_allocate_device();
+//#define ENABLE_GESTURE_WAKEUP
 
-	if(IS_ERR(core_fr->input_device))
-	{
-		DBG_ERR("Failed to allocate touch input device");
-		return -ENOMEM;
-	}
+// Whether to detect the value of pressure in finger touch
+//#define FORCE_TOUCH
 
-	DBG_INFO("i2c_client.name = %s", client->name);	
-	core_fr->input_device->name = client->name;
-	core_fr->input_device->phys = "I2C";
-	core_fr->input_device->dev.parent = &client->dev;
-	core_fr->input_device->id.bustype = BUS_I2C;
+// set up width and heigth of a screen
+#define TOUCH_SCREEN_X_MIN	0
+#define TOUCH_SCREEN_Y_MIN	0
+#define TOUCH_SCREEN_X_MAX	1080
+#define TOUCH_SCREEN_Y_MAX	1920
 
-    // set the supported event type for input device
-    set_bit(EV_ABS, core_fr->input_device->evbit);
-    set_bit(EV_SYN, core_fr->input_device->evbit);
-    set_bit(EV_KEY, core_fr->input_device->evbit);
-    set_bit(BTN_TOUCH, core_fr->input_device->keybit);
-    set_bit(INPUT_PROP_DIRECT, core_fr->input_device->propbit);
-    
-	//TODO: set virtual keys
-	
-#ifdef ENABLE_GESTURE_WAKEUP
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_W);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_Z);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_V);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_O);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_M);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_C);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_E);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_S);
-#endif
-
-    input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, (MAX_TOUCH_NUM-1), 0, 0);
-
-    input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
-    input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
-
-#ifdef USE_TYPE_B_PROTOCOL
-    input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, TOUCH_SCREEN_X_MIN, TOUCH_SCREEN_X_MAX, 0, 0);
-    input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, TOUCH_SCREEN_Y_MIN, TOUCH_SCREEN_Y_MAX, 0, 0);
-	
-#ifdef FORCE_TOUCH
-    input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
-#endif
-
-    set_bit(BTN_TOOL_FINGER, core_fr->input_device->keybit);
-    input_mt_init_slots(core_fr->input_device, MAX_TOUCH_NUM, 0);
-#endif
-
-    /* register the input device to input sub-system */
-    res = input_register_device(core_fr->input_device);
-    if (res < 0)
-    {
-        DBG_ERR("Failed to register touch input device, res = %d", res);
-		input_free_device(core_fr->input_device);
-        return res;
-    }
-
-	return res;
-}
+#define TPD_HEIGHT 2048
+#define TPD_WIDTH  2048
 
 /*
  * Calculate the check sum of each packet reported by firmware 
@@ -148,7 +93,7 @@ static int input_device_create(struct i2c_client *client)
  * @pMsg: packet come from firmware
  * @nLength : the length of its packet
  */
-static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
+static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
 {
 	int i;
 	int32_t nCheckSum = 0;
@@ -169,9 +114,8 @@ static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
  * @y: the axis of Y
  * @pressure: the value of pressue on a screen
  * @id: an id represents a finger pressing on a screen
- *
  */
-static core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
+static void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
     DBG("point touch pressed"); 
 
@@ -182,10 +126,12 @@ static core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
     input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, true);
     input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
     input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+
 #ifdef FORCE_TOUCH
     input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
 #endif
-#else
+
+#else // for A protocol
     input_report_key(core_fr->input_device, BTN_TOUCH, 1);
 
     // ABS_MT_TRACKING_ID is used for ILI7807/ILI21xx only
@@ -195,6 +141,7 @@ static core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
     input_report_abs(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 1);
     input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
     input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+
 #ifdef FORCE_TOUCH
     input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
 #endif
@@ -210,7 +157,6 @@ static core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
  * @x: the axis of X
  * @y: the axis of Y
  * @id: an id represents a finger leaving from a screen.
- *
  */
 static void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
@@ -221,7 +167,7 @@ static void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 #ifdef USE_TYPE_B_PROTOCOL
     input_mt_slot(core_fr->input_device, id);
     input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);
-#else 
+#else // for A protocol
     input_report_key(core_fr->input_device, BTN_TOUCH, 0);
     input_mt_sync(core_fr->input_device);
 #endif
@@ -240,7 +186,6 @@ static int parse_touch_package_v3_2(uint8_t *fr_packet, int mode)
  * @mode: a mode on the current firmware. (demo or debug)
  * @pInfo: a struct of mutual touch information.
  * @rpl: the lenght of packet of finger report.
- *
  */
 static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *pInfo, int rpl)
 {
@@ -253,7 +198,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 
 	//TODO: calculate report rate
 
-	check_sum = CalculateCheckSum(&fr_data[0], (rpl-1));	
+	check_sum = cal_fr_checksum(&fr_data[0], (rpl-1));	
     DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl-1], check_sum);
 
     if (fr_data[rpl-1] != check_sum)
@@ -351,7 +296,6 @@ static int finger_report_ver_3_2(uint8_t *fr_data, int length)
 /*
  * The function is called by an interrupt and used to handle packet of finger 
  * touch from firmware. A differnece in the process of the data is acorrding to the protocol
- *
  */
 static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 {
@@ -403,7 +347,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 
 			PreviousTouch[i] = CurrentTouch[i];
 		}
-#else
+#else // for A protocol
 		for (i = 0; i < mti.key_count; i++)
 		{
 			core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
@@ -431,7 +375,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 
 			input_report_key(core_fr->input_device, BTN_TOUCH, 0);
 			input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
-#else
+#else // for A protocol
 			core_fr_touch_release(0, 0, 0);
 #endif
 			input_sync(core_fr->input_device);
@@ -491,7 +435,6 @@ int core_fr_mode_control(uint8_t* from_user)
 			}
 			else if(mode == P5_0_FIRMWARE_TEST_MODE)
 			{
-				//TODO: doing sensor test (moving mp core to iram).
 				buf[0] = pcmd[5];
 				buf[1] = mode;
 
@@ -501,6 +444,9 @@ int core_fr_mode_control(uint8_t* from_user)
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
 				if(res < 0)
 					goto out;
+
+				//TODO: doing sensor test (moving mp core to iram).
+
 			}
 			else
 			{
@@ -537,12 +483,12 @@ out:
 EXPORT_SYMBOL(core_fr_mode_control);
 
 /*
- * The hash table is used to handle calling functions that deal with packets of finger report.
+ * The table is used to handle calling functions that deal with packets of finger report.
  * The callback function might be different of what a protocol is used on a chip.
  *
  * It's possible to have the different protocol according to customer's requirement on the same
- * touch ic with customised firmware.
- *
+ * touch ic with customised firmware, so I don't have to identify which of the ic has been used; instead,
+ * the version of protocol should match its parsing pattern.
  */
 typedef struct {
 	uint16_t protocol;
@@ -555,11 +501,10 @@ fr_hashtable fr_t[] = {
 };
 
 /*
- * The function is an entry when the work queue registered by ISR activates.
+ * The function is an entry for the work queue registered by ISR activates.
  *
  * Here will allocate the size of packet depending on what the current protocol
  * is used on its firmware.
- *
  */
 void core_fr_handler(void)
 {
@@ -626,6 +571,82 @@ void core_fr_handler(void)
 }
 EXPORT_SYMBOL(core_fr_handler);
 
+void core_fr_input_set_param(struct input_dev *input_device)
+{
+	int max_x = 0, max_y = 0, min_x = 0, min_y = 0;
+	int max_tp = 0;
+
+	core_fr->input_device = input_device;
+
+    // set the supported event type for input device
+    set_bit(EV_ABS, core_fr->input_device->evbit);
+    set_bit(EV_SYN, core_fr->input_device->evbit);
+    set_bit(EV_KEY, core_fr->input_device->evbit);
+    set_bit(BTN_TOUCH, core_fr->input_device->keybit);
+	set_bit(BTN_TOOL_FINGER, core_fr->input_device->keybit);
+    set_bit(INPUT_PROP_DIRECT, core_fr->input_device->propbit);
+
+	if(IS_ERR(core_config->tp_info))
+	{
+		max_x = TOUCH_SCREEN_X_MAX;
+		max_y = TOUCH_SCREEN_Y_MAX;
+		min_x = TOUCH_SCREEN_X_MIN;
+		min_y = TOUCH_SCREEN_Y_MIN;
+		max_tp = MAX_TOUCH_NUM;
+	}
+	else
+	{
+		max_x = core_config->tp_info->nMaxX;
+		max_y = core_config->tp_info->nMaxY;
+		min_x = core_config->tp_info->nMinX;
+		min_y = core_config->tp_info->nMinY;
+		max_tp = core_config->tp_info->nMaxTouchNum;
+	}
+
+	DBG("input resolution : max_x = %d, max_y = %d, min_x = %d, min_y = %d",
+			max_x, max_y, min_x, min_y);
+	DBG("input touch number: max_tp = %d", max_tp);
+
+	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, min_x, max_x, 0, 0);
+	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, min_y, max_y, 0, 0);
+
+	input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
+    input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
+
+#ifdef FORCE_TOUCH
+    input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
+#endif
+
+#ifdef USE_TYPE_B_PROTOCOL
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+		input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
+	#else
+		input_mt_init_slots(core_fr->input_device, max_tp);
+	#endif
+#else // for A protocol
+	input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
+#endif
+
+	//TODO: set virtual keys if tp has key count
+
+#ifdef ENABLE_GESTURE_WAKEUP
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_W);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_Z);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_V);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_O);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_M);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_C);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_E);
+    input_set_capability(core_fr->input_device, EV_KEY, KEY_S);
+#endif
+}
+EXPORT_SYMBOL(core_fr_input_set_param);
+
 int core_fr_init(struct i2c_client *pClient)
 {
 	int i = 0, res = 0;
@@ -680,21 +701,12 @@ int core_fr_init(struct i2c_client *pClient)
 	{
 		DBG_ERR("Failed to init core_fr APIs");
 		res = -ENOMEM;
-		goto Err;
+		goto out;
 	} 
-	else
-	{
-		res = input_device_create(pClient);
-		if(res < 0)
-		{
-			DBG_ERR("Failed to create input device");
-			goto Err;
-		}
-	}
 
 	return res;
 
-Err:
+out:
 	core_fr_remove();
 	return res;
 }
@@ -703,9 +715,6 @@ EXPORT_SYMBOL(core_fr_init);
 void core_fr_remove(void)
 {
 	DBG_INFO("Remove core-FingerReport members");
-
-	input_unregister_device(core_fr->input_device);
-	input_free_device(core_fr->input_device);
 	kfree(core_fr);
 }
 EXPORT_SYMBOL(core_fr_remove);
