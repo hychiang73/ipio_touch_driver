@@ -75,7 +75,7 @@ extern platform_info *TIC;
 static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
-	uint32_t len;
+	uint32_t len = 0;
 
 	// If file position is non-zero,  we assume the string has been read 
 	// and indicates that there is no more data to be read.
@@ -102,7 +102,7 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
-	uint32_t len;
+	uint32_t len = 0;
 
 	// If file position is non-zero,  we assume the string has been read 
 	// and indicates that there is no more data to be read.
@@ -133,7 +133,7 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
-	uint32_t len;
+	uint32_t len = 0;
 
 	DBG_INFO("Preparing to upgarde firmware");
 
@@ -167,7 +167,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
-	uint32_t len;
+	uint32_t len = 0;
 
 	DBG_INFO("Preparing to upgarde firmware by IRAM");
 
@@ -200,7 +200,7 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	int i, res = 0, length = 0;
+	int res = 0, length = 0;
 	uint8_t	 szBuf[512] = {0};
 	static uint16_t i2c_rw_length = 0;
 	uint32_t id_to_user = 0x0;
@@ -566,7 +566,7 @@ void netlink_recv_msg(struct sk_buff *skb)
 	{
 		nlh = (struct nlmsghdr *)skb->data;
 
-		DBG_INFO("Received a request from client: %s, %d", 
+		DBG("Received a request from client: %s, %d",
 		(char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
 
 		// pid of sending process
@@ -574,13 +574,14 @@ void netlink_recv_msg(struct sk_buff *skb)
 
 		DBG_INFO("the pid of sending process = %d", pid);
 
+		// TODO: may do something if there's not receiving msg from user.
 		if(pid != 0)
 		{
-			DBG_INFO("The channel of Netlink has been established successfully !");
+			DBG_ERR("The channel of Netlink has been established successfully !");
 		}
 		else
 		{
-			DBG_INFO("Failed to establish the channel between kernel and user space");
+			DBG_ERR("Failed to establish the channel between kernel and user space");
 		}
 	}
 }
@@ -595,7 +596,7 @@ int netlink_init(void)
 {
 	int res = 0;
 
-	DBG("Initialise Netlink memebrs");
+	DBG_INFO("Initialise Netlink and create its socket");
 
 	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
 
@@ -635,6 +636,7 @@ int ilitek_proc_init(void)
 
 	return res;
 }
+EXPORT_SYMBOL(ilitek_proc_init);
 
 void ilitek_proc_remove(void)
 {
@@ -652,3 +654,4 @@ void ilitek_proc_remove(void)
 	remove_proc_entry("ilitek", NULL);
 	netlink_kernel_release(nl_sk);
 }
+EXPORT_SYMBOL(ilitek_proc_remove);

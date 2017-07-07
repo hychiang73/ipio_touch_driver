@@ -221,7 +221,7 @@ out:
 
 static int ili7807_polling_flash_busy(void)
 {
-	int i, res = 0, timer = 500;
+	int timer = 500;
 
 	core_config_ice_mode_write(0x041000, 0x0, 1);
 	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
@@ -249,8 +249,6 @@ static int ili7807_polling_flash_busy(void)
 
 static int ili7807_write_enable(void)
 {
-	int res = 0;
-
 	if(core_config_ice_mode_write(0x041000, 0x0, 1) < 0)
 		goto out;
 	if(core_config_ice_mode_write(0x041004, 0x66aa55, 3) < 0)
@@ -269,7 +267,7 @@ out:
 
 static int iram_upgrade(void)
 {
-	int i, j, k, res = 0;
+	int i, j, res = 0;
 	int update_page_len = UPDATE_FIRMWARE_PAGE_LENGTH;
 	uint8_t buf[512];
 
@@ -338,11 +336,10 @@ static int iram_upgrade(void)
 
 static int ili7807_firmware_upgrade(bool isIRAM)
 {
-	int i, j, k, res = 0;
+	int i, j, res = 0;
 	uint32_t erase_start_addr = 0;
     uint8_t buf[512] = {0};
 	uint32_t temp_buf = 0;
-	uint32_t iram_check = 0;
 
 	core_firmware->update_status = 0;
 
@@ -512,13 +509,12 @@ out:
 
 static int ili2121_firmware_upgrade(bool isIRAM)
 {
-    int32_t nUpdateRetryCount = 0, nUpgradeStatus = 0, nUpdateLength = 0;
-	int32_t	nCheckFwFlag = 0, nChecksum = 0, i = 0, j = 0, k = 0;
-    uint8_t szFwVersion[4] = {0};
+    int32_t nUpgradeStatus = 0, nUpdateLength = 0;
+	int32_t	i = 0, j = 0, k = 0;
     uint8_t szBuf[512] = {0};
 	uint8_t szCmd[2] = {0};
-    uint32_t nApStartAddr = 0, nDfStartAddr = 0, nApEndAddr = 0, nDfEndAddr = 0;
-	uint32_t nApChecksum = 0, nDfChecksum = 0, nTemp = 0, nIcChecksum = 0;
+    uint32_t nApStartAddr = 0, nApEndAddr = 0;
+	uint32_t nApChecksum = 0, nTemp = 0, nIcChecksum = 0;
 	int res = 0;
 
 	nApStartAddr = core_firmware->ap_start_addr;
@@ -687,7 +683,7 @@ static int ili2121_firmware_upgrade(bool isIRAM)
 	return res;
 }
 
-static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
+static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t CRC32 = 0;
     uint32_t i = 0, j = 0, k = 0;
@@ -838,7 +834,7 @@ static int32_t convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 {
 	int res = 0, i = 0, fsize;
-	uint8_t *hex_buffer;
+	uint8_t *hex_buffer = NULL;
 
     struct file *pfile = NULL;
     struct inode *inode;
@@ -891,7 +887,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
 
-			res == convert_firmware(hex_buffer, fsize, isIRAM);
+			res = convert_firmware(hex_buffer, fsize, isIRAM);
 
 			if( res < 0)
 			{

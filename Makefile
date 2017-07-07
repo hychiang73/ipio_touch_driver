@@ -1,3 +1,4 @@
+ccflags-y += -Wall
 INCLUDE=core
 
 #obj-$(CONFIG_TOUCHSCREEN_ILITEK) +=  platform.o userspace.o \

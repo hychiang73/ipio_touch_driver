@@ -30,13 +30,11 @@
 #include "config.h"
 #include "i2c.h"
 
-extern CORE_CONFIG *core_config;
-
 CORE_I2C *core_i2c;
 
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-    int res = 0, i;
+    int res = 0;
 
     struct i2c_msg msgs[] =
     {
@@ -62,7 +60,7 @@ EXPORT_SYMBOL(core_i2c_write);
 
 int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-    int res = 0, i;
+    int res = 0;
 
     struct i2c_msg msgs[] =
     {
@@ -108,4 +106,4 @@ void core_i2c_remove(void)
 
 	kfree(core_i2c);
 }
-
+EXPORT_SYMBOL(core_i2c_remove);

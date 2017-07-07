@@ -329,7 +329,7 @@ out:
  * Remove Core APIs memeory being allocated.
  *
  */
-static int ilitek_platform_core_remove(void)
+static void ilitek_platform_core_remove(void)
 {
 	DBG_INFO("Remove all core's compoenets");
 	core_config_remove();
@@ -387,6 +387,8 @@ static int ilitek_platform_remove(struct i2c_client *client)
 	ilitek_platform_core_remove();
 
 	kfree(TIC);
+
+	return 0;
 }
 
 /*

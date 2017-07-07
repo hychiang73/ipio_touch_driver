@@ -362,8 +362,8 @@ int core_config_get_key_info(void)
 		goto out;
 	}
 
-	// for(; i < key_info_len; i++)
-	// 	DBG("buf[%d] = %x", i , szReadBuf[i]);
+	for(i = 0; i < key_info_len; i++)
+		DBG("key_info[%d] = %x", i , szReadBuf[i]);
 
 	if(core_config->tp_info->nKeyCount)
 	{
@@ -441,8 +441,8 @@ int core_config_get_tp_info(void)
 		goto out;
 	}
 
-	// for(; i < tp_info_len; i++)
-	// 	DBG("buf[%d] = %x", i, szReadBuf[i]);
+	for(; i < tp_info_len; i++)
+		DBG("tp_info[%d] = %x", i, szReadBuf[i]);
 
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
@@ -507,7 +507,6 @@ int core_config_get_protocol_ver(void)
 {
 	int res = 0, i = 0;
 	uint8_t szReadBuf[protocol_cmd_len];
-	uint8_t temp[2];
 
 	memset(szReadBuf, 0, sizeof(szReadBuf));
 
@@ -530,7 +529,7 @@ int core_config_get_protocol_ver(void)
 	for(; i < protocol_cmd_len; i++)
 	{
 		core_config->protocol_ver[i] = szReadBuf[i];
-		// DBG("protocol_ver[%d] = %d", i, core_config->protocol_ver[i]);
+		DBG("protocol_ver[%d] = %d", i, szReadBuf[i]);
 	}
 
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
@@ -632,7 +631,7 @@ int core_config_get_fw_ver(void)
 	for(; i < fw_cmd_len; i++)
 	{
 		core_config->firmware_ver[i] = szReadBuf[i]; 
-		// DBG("firmware_ver[%d] = %d", i, core_config->firmware_ver[i]);
+		DBG("firmware_ver[%d] = %d", i, szReadBuf[i]);
 	}
 
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
@@ -662,8 +661,8 @@ EXPORT_SYMBOL(core_config_get_fw_ver);
 
 int core_config_get_chip_id(void)
 {
-    int i, res = 0;
-    uint32_t RealID = 0, PIDData = 0, flag;
+    int res = 0;
+    uint32_t RealID = 0, PIDData = 0;
 
 	res = core_config_ice_mode_enable();
 	if(res < 0)

@@ -68,13 +68,8 @@ struct mutual_touch_info mti;
 uint8_t CurrentTouch[MAX_TOUCH_NUM];
 uint8_t PreviousTouch[MAX_TOUCH_NUM]; 
 
-// store all necessary variables for the use of finger touch
 CORE_FINGER_REPORT *core_fr;
 
-/*
- * Create input device and config its settings
- *
- */
 static int input_device_create(struct i2c_client *client)
 {
 	int res = 0;
@@ -235,14 +230,10 @@ void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 EXPORT_SYMBOL(core_fr_touch_release);
 
 
-//TODO
-/*
- * It mainly parses the packet assembled by protocol v3.2
- *
- */
 static int parse_touch_package_v3_2(uint8_t *fr_packet, int mode)
 {
-	DBG_INFO();
+	DBG_INFO("Not implemented yet");
+	return 0;
 }
 
 /*
@@ -355,7 +346,9 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 
 static int finger_report_ver_3_2(uint8_t *fr_data, int length)
 {
-	DBG_INFO();
+	DBG_INFO("Not implemented yet");
+	parse_touch_package_v3_2(NULL, 0);
+	return 0;
 }
 
 /*
@@ -457,8 +450,8 @@ extern uint8_t pcmd[10];
 
 int core_fr_mode_control(uint8_t* from_user)
 {
-	int mode, size;
-	int i, j, res = 0;
+	int mode;
+	int i, res = 0;
 	uint8_t buf[3] = {0};
 
 	uint8_t actual_mode[] = 
@@ -629,12 +622,9 @@ void core_fr_handler(void)
 		}
 	}
 	else
-	{
-		DBG_INFO("The figner report was disabled");
-	}
+		DBG_ERR("The figner report was disabled");
 
 	kfree(fr_data);
-
 	return;
 }
 EXPORT_SYMBOL(core_fr_handler);
