@@ -156,7 +156,12 @@ static int ilitek_platform_gpio(void)
 # Release Note
 
 * V1.0.0.2
-
+  * Fixed the issue of no resposne while using A protocol.
+  * Now the resolution of input device can correctly be set by TP info.
+  * Added compiler flag -Wall
+  * Added disable/enable irq while chiang firmware mode before and after.
+  * Added dynamic debug outputs.
+  * Added a feature that allows firmware upgrading into IRAM directly.
 
 * V1.0.0.1
   * Support firmware upgrade for 9881F
