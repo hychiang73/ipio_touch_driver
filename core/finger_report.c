@@ -171,7 +171,7 @@ static uint8_t CalculateCheckSum(uint8_t *pMsg, uint32_t nLength)
  * @id: an id represents a finger pressing on a screen
  *
  */
-void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
+static core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
     DBG("point touch pressed"); 
 
@@ -202,7 +202,6 @@ void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
     input_mt_sync(core_fr->input_device);
 #endif
 }
-EXPORT_SYMBOL(core_fr_touch_press);
 
 /*
  * It'd be called when a finger's touched up from a screen. It'll notify
@@ -213,7 +212,7 @@ EXPORT_SYMBOL(core_fr_touch_press);
  * @id: an id represents a finger leaving from a screen.
  *
  */
-void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
+static void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
     DBG("point touch released"); 
 
@@ -227,8 +226,6 @@ void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
     input_mt_sync(core_fr->input_device);
 #endif
 }
-EXPORT_SYMBOL(core_fr_touch_release);
-
 
 static int parse_touch_package_v3_2(uint8_t *fr_packet, int mode)
 {
