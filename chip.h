@@ -32,7 +32,7 @@
 //#define ON_BOARD_IC		0x9881
 
 // Shows the version of driver
-#define DRIVER_VERSION	"1.0.0.2"
+#define DRIVER_VERSION	"1.0.0.3"
 
 // Simple debug macro.
 #define DBG_INFO(fmt, arg...) \

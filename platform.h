@@ -44,7 +44,10 @@
 #include "core/firmware.h"
 #include "core/finger_report.h"
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+#else 
 #include <linux/earlysuspend.h>
 #endif
 
@@ -71,7 +74,9 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 
 	bool isIrqEnable;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_FB
+	struct notifier_block notifier_fb;
+#else
 	struct early_suspend early_suspend;
 #endif
 
@@ -82,7 +87,7 @@ extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
 extern void ilitek_platform_tp_power_on(bool isEnable);
 
-// export from userspsace.c
+// exported from userspsace.c
 extern void netlink_reply_msg(void *raw, int size);
 extern int ilitek_proc_init(void);
 extern void ilitek_proc_remove(void);

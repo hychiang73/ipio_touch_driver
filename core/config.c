@@ -280,6 +280,30 @@ int core_config_ic_reset(uint32_t id)
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
+void core_config_ic_suspend(void)
+{
+	uint8_t cmd[2];
+
+	DBG_INFO("Tell IC to suspend");
+
+	cmd[0] = 0x02;
+	cmd[1] = 0x00; // sleep in
+
+	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+}
+
+void core_config_ic_resume(void)
+{
+	uint8_t cmd[2];
+
+	DBG_INFO("Tell IC to resume");
+
+	cmd[0] = 0x02;
+	cmd[1] = 0x01; // sleep out
+
+	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+}
+
 int core_config_ice_mode_disable(void)
 {
 	uint8_t cmd[4];

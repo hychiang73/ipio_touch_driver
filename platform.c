@@ -30,6 +30,7 @@
 #include <linux/of_gpio.h>
 #define DTS_INT_GPIO	"touch,irq-gpio"
 #define DTS_RESET_GPIO	"touch,reset-gpio"
+#define DTS_OF_NAME		"tchip,ilitek"
 #endif
 
 #define I2C_DEVICE_ID	"ILITEK_TP_ID"
@@ -119,12 +120,47 @@ void ilitek_platform_tp_power_on(bool isEnable)
 }
 EXPORT_SYMBOL(ilitek_platform_tp_power_on);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_FB
+static int ilitek_platform_notifier_fb(struct notifier_block *self, 
+					unsigned long event, void *data)
+{
+	int *blank;
+	struct fb_event *evdata = data;
+
+	DBG_INFO("Notifier's event = %ld", event);
+
+	//TODO: can't disable irq if gesture has enabled.
+
+	if(event == FB_EVENT_BLANK)
+	{
+		blank = evdata->data;
+		if(*blank == FB_BLANK_POWERDOWN)
+		{
+			// the event of suspend
+			DBG_INFO("Touch FB_BLANK_POWERDOWN");
+			ilitek_platform_disable_irq();
+			core_config_ic_suspend();
+	
+		}
+		else if(*blank == FB_BLANK_UNBLANK)
+		{
+			// the event of resume
+			DBG_INFO("Touch FB_BLANK_UNBLANK");
+			core_config_ic_resume();
+			ilitek_platform_enable_irq();
+		}
+	}
+
+	return 0;
+}
+#else // CONFIG_HAS_EARLYSUSPEND
 static void ilitek_platform_late_resume(struct early_suspend *h)
 {
 	DBG_INFO();
 
 	core_fr->isEnableFR = true;
+
+	ilitek_platform_enable_irq();
 
 	ilitek_platform_tp_power_on(true);
 }
@@ -141,9 +177,37 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 	core_fr->isEnableFR = false;
 
+	ilitek_platform_disable_irq();
+
 	ilitek_platform_tp_power_on(false);
 }
 #endif
+
+/*
+ * Register a callback function when the event of suspend and resume occurs.
+ *
+ * The default used to wake up the cb function comes from notifier block mechnaism.
+ * If you'd rather liek to use early suspend, CONFIG_HAS_EARLYSUSPEND in kernel config
+ * must be enabled.
+ */
+static int ilitek_platform_reg_suspend(void)
+{
+	int res = 0;
+
+	DBG_INFO("Register suspend/resume callback function");
+
+#ifdef CONFIG_FB
+	TIC->notifier_fb.notifier_call = ilitek_platform_notifier_fb;
+	res = fb_register_client(&TIC->notifier_fb);
+#else
+	TIC->early_suspend->suspend = ilitek_platform_early_suspend;
+	TIC->early_suspend->esume  = ilitek_platform_late_resume;
+	TIC->early_suspend->level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	register_early_suspend(TIC->early_suspend);
+#endif
+
+	return res;
+}
 
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
@@ -419,11 +483,10 @@ static int ilitek_platform_remove(struct i2c_client *client)
 		gpio_free(TIC->reset_gpio);
 	}
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	if(TIC->early_suspend != NULL)
-	{
-		unregister_early_suspend(&TIC->early_suspend);
-	}
+#ifdef CONFIG_FB
+	fb_unregister_client(&TIC->notifier_fb);
+#else
+	unregister_early_suspend(&TIC->early_suspend);
 #endif
 
 	ilitek_platform_core_remove();
@@ -458,30 +521,18 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	}
 
 	// initialise the struct of touch ic memebers.
-	TIC = (platform_info*)kmalloc(sizeof(*TIC), GFP_KERNEL);
+	TIC = (platform_info*)kzalloc(sizeof(*TIC), GFP_KERNEL);
 	TIC->client = client;
 	TIC->i2c_id = id;
 	TIC->chip_id = ON_BOARD_IC; // it must match the chip what you're using on board.
 	TIC->isIrqEnable = false;
-	
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	TIC->early_suspend->suspend = ilitek_platform_early_suspend;
-	TIC->early_suspend->esume  = ilitek_platform_late_resume;
-	TIC->early_suspend->level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	register_early_suspend(TIC->early_suspend);
-#endif
 
 	DBG_INFO("Driver version : %s", DRIVER_VERSION);
 	DBG_INFO("This driver now supports %x ", ON_BOARD_IC);
 
 	// Different ICs may require different delay time for the reset.
 	// They may also depend on what your platform need to.
-	if(TIC->chip_id == CHIP_TYPE_ILI2121)
-	{
-		TIC->delay_time_high = 10;
-		TIC->delay_time_low = 10;
-	}
-	else if(TIC->chip_id == CHIP_TYPE_ILI7807)
+	if(TIC->chip_id == CHIP_TYPE_ILI7807)
 	{
 		TIC->delay_time_high = 10;
 		TIC->delay_time_low = 5;
@@ -533,6 +584,16 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		DBG_ERR("Failed to init input device in kernel");
 	}
 
+	// To make sure our ic runing well before the work,
+	// pulling RESET pin as low/high once after read TP info.
+	ilitek_platform_tp_power_on(true);
+
+	res = ilitek_platform_reg_suspend();
+	if(res < 0)
+	{
+		DBG_ERR("Failed to register suspend/resume CB function");
+	}
+
 	return res;
 
 out:
@@ -555,7 +616,7 @@ MODULE_DEVICE_TABLE(i2c, tp_device_id);
  *
  */
 static struct of_device_id tp_match_table[] = {
-	{ .compatible = "tchip,ilitek"},
+	{ .compatible = DTS_OF_NAME},
     {},
 };
 

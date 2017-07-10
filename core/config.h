@@ -94,6 +94,8 @@ extern uint32_t vfIceRegRead(uint32_t addr);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);
 
 extern int core_config_reset_watch_dog(void);
+extern void core_config_ic_suspend(void);
+extern void core_config_ic_resume(void);
 extern int core_config_ic_reset(uint32_t id);
 
 extern uint32_t core_config_ice_mode_read(uint32_t addr);
