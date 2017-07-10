@@ -30,7 +30,7 @@
 #include "config.h"
 #include "i2c.h"
 
-CORE_I2C *core_i2c;
+struct core_i2c_data *core_i2c;
 
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
@@ -86,7 +86,7 @@ EXPORT_SYMBOL(core_i2c_read);
 
 int core_i2c_init(struct i2c_client *client)
 {
-	core_i2c = (CORE_I2C*)kmalloc(sizeof(*core_i2c), GFP_KERNEL);
+	core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
 
 	if(IS_ERR(core_i2c)) 
 	{

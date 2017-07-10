@@ -41,16 +41,15 @@
 #include "i2c.h"
 #include "firmware.h"
 
-extern CORE_CONFIG *core_config;
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
-
-CORE_FIRMWARE *core_firmware;
 
 // the size of two arrays is different, depending on
 // which of methods to upgrade firmware you choose for.
 uint8_t flash_fw[MAX_FLASH_FIRMWARE_SIZE] = {0};
 uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = {0};
+
+struct core_firmware_data *core_firmware;
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -940,7 +939,7 @@ int core_firmware_init(void)
 	{
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
-			core_firmware = (CORE_FIRMWARE*)kzalloc(sizeof(*core_firmware), GFP_KERNEL);
+			core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
 
 			core_firmware->chip_id = SUP_CHIP_LIST[i];
 

@@ -25,7 +25,7 @@
 #ifndef __FIRMWARE_H
 #define __FIRMWARE_H
 
-typedef struct _CORE_FIRMWARE {
+struct core_firmware_data {
 
     uint32_t chip_id;
 
@@ -57,8 +57,9 @@ typedef struct _CORE_FIRMWARE {
 	bool isCRC;
 
 	int (*upgrade_func)(bool isIRAM);
+};
 
-} CORE_FIRMWARE;
+extern struct core_firmware_data *core_firmware;
 
 //extern int core_firmware_iram_upgrade(const char* fpath);
 extern int core_firmware_upgrade(const char*, bool isIRAM);

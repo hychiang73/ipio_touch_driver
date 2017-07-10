@@ -26,7 +26,7 @@
 #define __FINGER_REPORT_H
 
 
-typedef struct {
+struct core_fr_data {
 
 	struct input_dev *input_device;
 
@@ -53,7 +53,9 @@ typedef struct {
 	uint8_t Sd;
 	uint8_t Ss;
 
-} CORE_FINGER_REPORT;
+};
+
+extern struct core_fr_data *core_fr;
 
 extern int core_fr_mode_control(uint8_t *from_user);
 extern void core_fr_handler(void);

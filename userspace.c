@@ -36,11 +36,6 @@
 #include "chip.h"
 #include "platform.h"
 
-extern CORE_CONFIG *core_config;
-extern CORE_FINGER_REPORT *core_fr;
-extern CORE_FIRMWARE *core_firmware;
-extern platform_info *TIC;
-
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	18
 
@@ -68,7 +63,6 @@ extern platform_info *TIC;
 
 #define ILITEK_IOCTL_TP_MODE_CTRL			_IOWR(ILITEK_IOCTL_MAGIC, 17, uint8_t*)
 #define ILITEK_IOCTL_TP_MODE_STATUS			_IOWR(ILITEK_IOCTL_MAGIC, 18, int*)
-
 
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
 

@@ -43,8 +43,6 @@
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
 
-CORE_CONFIG *core_config;
-
 // the length returned from touch ic after command.
 int fw_cmd_len = 0;
 int protocol_cmd_len = 0;
@@ -55,6 +53,8 @@ int core_cmd_len = 0;
 // protocol commands defined on chip.h
 // it's able to store 10 commands as default.
 uint8_t pcmd[10] = {0};
+
+struct core_config_data *core_config;
 
 /*
  * assign i2c commands according to the version of protocol.
@@ -748,10 +748,10 @@ int core_config_init(void)
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			alloca_size = sizeof(*core_config) * sizeof(uint8_t) * 6;
-			core_config = (CORE_CONFIG*)kzalloc(alloca_size, GFP_KERNEL);
+			core_config = kzalloc(alloca_size, GFP_KERNEL);
 
 			alloca_size = sizeof(*core_config->tp_info);
-			core_config->tp_info = (TP_INFO*)kzalloc(alloca_size, GFP_KERNEL);
+			core_config->tp_info = kzalloc(alloca_size, GFP_KERNEL);
 
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0x0000;

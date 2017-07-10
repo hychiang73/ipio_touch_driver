@@ -59,7 +59,7 @@ typedef struct {
 
 } TP_INFO;
 
-typedef struct _CORE_CONFIG {
+struct core_config_data {
 
     uint32_t chip_id;
 	uint32_t chip_type;
@@ -82,7 +82,9 @@ typedef struct _CORE_CONFIG {
 
 	TP_INFO *tp_info;
 
-} CORE_CONFIG;
+};
+
+extern struct core_config_data *core_config;
 
 extern int fw_cmd_len;
 extern int protocol_cmd_len;

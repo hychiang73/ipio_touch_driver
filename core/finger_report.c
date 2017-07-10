@@ -40,8 +40,6 @@
 
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
-extern struct mutex MUTEX;
-extern CORE_CONFIG *core_config;
 
 /*
  * It represents an id and its position in each fingers
@@ -68,8 +66,6 @@ struct mutual_touch_info mti;
 uint8_t CurrentTouch[MAX_TOUCH_NUM];
 uint8_t PreviousTouch[MAX_TOUCH_NUM]; 
 
-CORE_FINGER_REPORT *core_fr;
-
 // Either B TYPE or A Type in MTP
 #define USE_TYPE_B_PROTOCOL 
 
@@ -86,6 +82,8 @@ CORE_FINGER_REPORT *core_fr;
 
 #define TPD_HEIGHT 2048
 #define TPD_WIDTH  2048
+
+struct core_fr_data *core_fr;
 
 /*
  * Calculate the check sum of each packet reported by firmware 
@@ -550,9 +548,9 @@ void core_fr_handler(void)
 				fr_data = (uint8_t*)kmalloc(sizeof(uint8_t) * report_packet_length, GFP_KERNEL);
 				memset(fr_data, 0xFF, sizeof(uint8_t) * report_packet_length);
 
-				mutex_lock(&MUTEX);
+				mutex_lock(&ipd->MUTEX);
 				fr_t[i].finger_report(fr_data, report_packet_length);
-				mutex_unlock(&MUTEX);
+				mutex_unlock(&ipd->MUTEX);
 
 				break;
 			}
@@ -655,7 +653,7 @@ int core_fr_init(struct i2c_client *pClient)
 	{
 		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
-			core_fr = (CORE_FINGER_REPORT*)kzalloc(sizeof(*core_fr), GFP_KERNEL);
+			core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
 
 			core_fr->chip_id = SUP_CHIP_LIST[i];
 			core_fr->isEnableFR = true;

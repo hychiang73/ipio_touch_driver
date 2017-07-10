@@ -34,7 +34,8 @@
 // Shows the version of driver
 #define DRIVER_VERSION	"1.0.0.3"
 
-// Simple debug macro.
+// In kernel pr_debug is disabled as default, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
+// in terminal to enable it if you'd like to see more debug details. 
 #define DBG_INFO(fmt, arg...) \
 			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 

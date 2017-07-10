@@ -25,9 +25,11 @@
 #ifndef __I2C_H
 #define __I2C_H
 
-typedef struct {
+struct core_i2c_data {
 	struct i2c_client *client;
-} CORE_I2C;
+};
+
+extern struct core_i2c_data *core_i2c;
 
 extern int core_i2c_write(uint8_t, uint8_t *, uint16_t);
 extern int core_i2c_read(uint8_t, uint8_t *, uint16_t);

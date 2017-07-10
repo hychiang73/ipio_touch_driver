@@ -54,7 +54,7 @@
 #ifndef __PLATFORM_H
 #define __PLATFORM_H
 
-typedef struct  _ILITEK_PLATFORM_INFO {
+struct ilitek_platform_data {
 
 	struct i2c_client *client;
 
@@ -62,14 +62,18 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 
 	const struct i2c_device_id *i2c_id;
 
+	struct work_struct report_work_queue;
+
+	struct mutex MUTEX;
+	spinlock_t SPIN_LOCK;
+
 	uint32_t chip_id;
 
 	int int_gpio;
-
 	int reset_gpio;
+	int isr_gpio;
 	
 	int delay_time_high;
-
 	int delay_time_low;
 
 	bool isIrqEnable;
@@ -80,7 +84,9 @@ typedef struct  _ILITEK_PLATFORM_INFO {
 	struct early_suspend early_suspend;
 #endif
 
-} platform_info;
+};
+
+extern struct ilitek_platform_data *ipd;
 
 // exported from platform.c
 extern void ilitek_platform_disable_irq(void);
