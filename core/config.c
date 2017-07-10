@@ -92,6 +92,7 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 		pcmd[4] = PCMD_5_0_GET_CORE_VERSION;
 		pcmd[5] = PCMD_5_0_MODE_CONTROL;
 		pcmd[6] = PCMD_5_0_I2C_UART;
+		pcmd[7] = PCMD_5_0_SLEEP_CONTROL;
 	}
 }
 
@@ -286,11 +287,12 @@ void core_config_ic_suspend(void)
 
 	DBG_INFO("Tell IC to suspend");
 
-	cmd[0] = 0x02;
+	cmd[0] = pcmd[7];
 	cmd[1] = 0x00; // sleep in
 
 	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 }
+EXPORT_SYMBOL(core_config_ic_suspend);
 
 void core_config_ic_resume(void)
 {
@@ -298,11 +300,18 @@ void core_config_ic_resume(void)
 
 	DBG_INFO("Tell IC to resume");
 
-	cmd[0] = 0x02;
+	cmd[0] = pcmd[7];
 	cmd[1] = 0x01; // sleep out
 
 	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+
+	// it's better to do reset after resuem.
+	core_config_ice_mode_enable();
+	mdelay(10);
+	core_config_ic_reset(core_config->chip_id);
+	core_config_ice_mode_disable();
 }
+EXPORT_SYMBOL(core_config_ic_resume);
 
 int core_config_ice_mode_disable(void)
 {
