@@ -506,7 +506,7 @@ int core_config_get_tp_info(void)
 		core_config->tp_info->nMinX = szReadBuf[1];
 		core_config->tp_info->nMinY = szReadBuf[2];
 		core_config->tp_info->nMaxX = (szReadBuf[4] << 8) + szReadBuf[3];
-		core_config->tp_info->nMaxY = (szReadBuf[5] << 8) + szReadBuf[6];
+		core_config->tp_info->nMaxY = (szReadBuf[6] << 8) + szReadBuf[5];
 		core_config->tp_info->nXChannelNum = szReadBuf[7];
 		core_config->tp_info->nYChannelNum = szReadBuf[8];
 		core_config->tp_info->self_tx_channel_num = szReadBuf[9];
