@@ -529,10 +529,9 @@ void netlink_reply_msg(void *raw, int size)
 	DBG_INFO("pid = %d", pid);
 	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
 
-	if(core_fr->isEnableNetlink == true)
+	if(core_fr->isEnableNetlink)
 	{
-		if(skb_out != NULL)
-			skb_out = nlmsg_new(msg_size, 0);
+		skb_out = nlmsg_new(msg_size, 0);
 
 		if (!skb_out) 
 		{
@@ -559,27 +558,26 @@ static void netlink_recv_msg(struct sk_buff *skb)
 
 	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
 
-	if(core_fr->isEnableNetlink)
+	nlh = (struct nlmsghdr *)skb->data;
+
+	DBG("Received a request from client: %s, %d",
+	(char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
+
+	// pid of sending process
+	pid = nlh->nlmsg_pid; 
+
+	DBG_INFO("the pid of sending process = %d", pid);
+
+	// TODO: may do something if there's not receiving msg from user.
+	if(pid != 0)
 	{
-		nlh = (struct nlmsghdr *)skb->data;
-
-		DBG("Received a request from client: %s, %d",
-		(char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
-
-		// pid of sending process
-		pid = nlh->nlmsg_pid; 
-
-		DBG_INFO("the pid of sending process = %d", pid);
-
-		// TODO: may do something if there's not receiving msg from user.
-		if(pid != 0)
-		{
-			DBG_ERR("The channel of Netlink has been established successfully !");
-		}
-		else
-		{
-			DBG_ERR("Failed to establish the channel between kernel and user space");
-		}
+		DBG_ERR("The channel of Netlink has been established successfully !");
+		core_fr->isEnableNetlink = true;
+	}
+	else
+	{
+		DBG_ERR("Failed to establish the channel between kernel and user space");
+		core_fr->isEnableNetlink = false;
 	}
 }
 
