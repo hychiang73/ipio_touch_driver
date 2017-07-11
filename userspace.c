@@ -510,6 +510,9 @@ proc_node_t proc_table[] = {
 	{"iram_upgrade",NULL, &proc_iram_upgrade_fops,false},
 };
 
+
+#define NETLINK_USER	31
+
 struct sock *nl_sk;
 struct nlmsghdr *nlh;
 struct sk_buff *skb_out;
@@ -550,7 +553,7 @@ void netlink_reply_msg(void *raw, int size)
 }
 EXPORT_SYMBOL(netlink_reply_msg);
 
-void netlink_recv_msg(struct sk_buff *skb)
+static void netlink_recv_msg(struct sk_buff *skb)
 {
 	pid = 0;
 
@@ -580,19 +583,21 @@ void netlink_recv_msg(struct sk_buff *skb)
 	}
 }
 
-#define NETLINK_USER	31
-
-struct netlink_kernel_cfg cfg = {
-		.input = netlink_recv_msg,
-};
-
-int netlink_init(void)
+static int netlink_init(void)
 {
 	int res = 0;
 
-	DBG_INFO("Initialise Netlink and create its socket");
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, netlink_recv_msg, NULL, THIS_MODULE);
+#else
+	struct netlink_kernel_cfg cfg = {
+			.input = netlink_recv_msg,
+	};
 
 	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
+#endif
+
+	DBG_INFO("Initialise Netlink and create its socket");
 
 	if(!nl_sk)
 	{
