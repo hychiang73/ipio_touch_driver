@@ -37,6 +37,7 @@
 #endif
 
 #include "../chip.h"
+#include "../platform.h"
 #include "config.h"
 #include "i2c.h"
 
@@ -509,11 +510,11 @@ int core_config_get_tp_info(void)
 		core_config->tp_info->nMaxY = (szReadBuf[6] << 8) + szReadBuf[5];
 		core_config->tp_info->nXChannelNum = szReadBuf[7];
 		core_config->tp_info->nYChannelNum = szReadBuf[8];
-		core_config->tp_info->self_tx_channel_num = szReadBuf[9];
-		core_config->tp_info->self_rx_channel_num = szReadBuf[10];
-		core_config->tp_info->side_touch_type = szReadBuf[11];
-		core_config->tp_info->nMaxTouchNum = szReadBuf[12];
-		core_config->tp_info->nKeyCount = szReadBuf[13];
+		core_config->tp_info->self_tx_channel_num = szReadBuf[11];
+		core_config->tp_info->self_rx_channel_num = szReadBuf[12];
+		core_config->tp_info->side_touch_type = szReadBuf[13];
+		core_config->tp_info->nMaxTouchNum = szReadBuf[9];
+		core_config->tp_info->nKeyCount = szReadBuf[10];
 
 		core_config->tp_info->nMaxKeyButtonNum = 5;
 
@@ -697,6 +698,8 @@ int core_config_get_chip_id(void)
     int res = 0;
     uint32_t RealID = 0, PIDData = 0;
 
+	ilitek_platform_tp_power_on(1);
+
 	res = core_config_ice_mode_enable();
 	if(res < 0)
 	{
@@ -704,7 +707,8 @@ int core_config_get_chip_id(void)
 		goto out;
 	}
 
-	core_config_reset_watch_dog();
+	if(core_config->chip_id != CHIP_TYPE_ILI9881)
+		core_config_reset_watch_dog();
 
 	PIDData = core_config_ice_mode_read(core_config->pid_addr);
 
@@ -714,17 +718,7 @@ int core_config_get_chip_id(void)
 
 		DBG_INFO("CHIP ID = 0x%x, CHIP TYPE = %04x", RealID, core_config->chip_type);
 
-		if(RealID == core_config->chip_id)
-		{
-			res = core_config_ice_mode_disable();
-			if(res < 0)
-			{
-				DBG_ERR("Failed to exit ICE mode");
-				res = -EINVAL;
-				goto out;
-			}
-		}
-		else
+		if(RealID != core_config->chip_id)
 		{
 			DBG_ERR("CHIP ID error : 0x%x ", RealID);
 			res = -ENODEV;
@@ -738,10 +732,14 @@ int core_config_get_chip_id(void)
 		goto out;
 	}
 
+	core_config_ice_mode_disable();
+	core_config_ic_reset(core_config->chip_id);
 	return res;
 
 out:
 	DBG_ERR("Failed to get chip id");
+	core_config_ice_mode_disable();	
+	core_config_ic_reset(core_config->chip_id);
 	return res;
 
 }

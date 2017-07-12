@@ -353,6 +353,20 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 		return res;
 	}
 
+	ilitek_platform_tp_power_on(1);
+
+	mdelay(5);
+	
+	if(core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	{
+		// This command is used to fixed the bug of spi clk in 7807F
+		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
+		if(res < 0)
+			goto out;
+
+		mdelay(25);
+	}
+
 	DBG_INFO("Enter to ICE Mode");
 
 	res = core_config_ice_mode_enable();
