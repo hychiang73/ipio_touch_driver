@@ -700,6 +700,8 @@ int core_config_get_chip_id(void)
 
 	ilitek_platform_tp_power_on(1);
 
+	mdelay(1);
+
 	res = core_config_ice_mode_enable();
 	if(res < 0)
 	{
@@ -707,8 +709,7 @@ int core_config_get_chip_id(void)
 		goto out;
 	}
 
-	if(core_config->chip_id != CHIP_TYPE_ILI9881)
-		core_config_reset_watch_dog();
+	mdelay(20);
 
 	PIDData = core_config_ice_mode_read(core_config->pid_addr);
 
@@ -733,13 +734,11 @@ int core_config_get_chip_id(void)
 	}
 
 	core_config_ice_mode_disable();
-	core_config_ic_reset(core_config->chip_id);
 	return res;
 
 out:
 	DBG_ERR("Failed to get chip id");
 	core_config_ice_mode_disable();	
-	core_config_ic_reset(core_config->chip_id);
 	return res;
 
 }

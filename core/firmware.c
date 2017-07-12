@@ -355,18 +355,6 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 	ilitek_platform_tp_power_on(1);
 
-	mdelay(5);
-	
-	if(core_firmware->chip_id != CHIP_TYPE_ILI9881)
-	{
-		// This command is used to fixed the bug of spi clk in 7807F
-		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
-		if(res < 0)
-			goto out;
-
-		mdelay(25);
-	}
-
 	DBG_INFO("Enter to ICE Mode");
 
 	res = core_config_ice_mode_enable();
@@ -376,7 +364,17 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 		goto out;
 	}
 
-	mdelay(20);
+	mdelay(5);
+	
+	if(core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	{
+		// This command is used to fixed the bug of spi clk in 7807F
+		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
+		if(res < 0)
+			goto out;
+	}
+
+	mdelay(25);
 
 	// there is no need to disable WTD if you're using 9881
 	if(core_firmware->chip_id != CHIP_TYPE_ILI9881)
@@ -521,7 +519,6 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 out:
 	core_config_ice_mode_disable();
-	core_config_ic_reset(core_firmware->chip_id);
 	return res;
 }
 

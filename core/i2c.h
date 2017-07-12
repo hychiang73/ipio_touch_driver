@@ -27,6 +27,7 @@
 
 struct core_i2c_data {
 	struct i2c_client *client;
+	int clk;
 };
 
 extern struct core_i2c_data *core_i2c;

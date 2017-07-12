@@ -46,7 +46,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-	msgs[0].scl_rate = 400000;
+	msgs[0].scl_rate = core_i2c->clk;
 
 	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
 	{
@@ -72,7 +72,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-    msgs[0].scl_rate = 400000;
+    msgs[0].scl_rate = core_i2c->clk;
 
 	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
 	{
@@ -95,6 +95,11 @@ int core_i2c_init(struct i2c_client *client)
 	}
 
 	core_i2c->client = client;
+
+    if(ON_BOARD_IC == CHIP_TYPE_ILI7807)
+        core_i2c->clk = 50000;
+    else
+        core_i2c->clk = 400000;
 
 	return 0;
 }
