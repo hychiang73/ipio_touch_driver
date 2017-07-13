@@ -94,6 +94,7 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 		pcmd[5] = PCMD_5_0_MODE_CONTROL;
 		pcmd[6] = PCMD_5_0_I2C_UART;
 		pcmd[7] = PCMD_5_0_SLEEP_CONTROL;
+		pcmd[8] = PCMD_5_0_CDC_BUSY_STATE;
 	}
 }
 

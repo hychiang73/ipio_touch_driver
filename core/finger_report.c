@@ -37,6 +37,7 @@
 #include "config.h"
 #include "i2c.h"
 #include "finger_report.h"
+#include "mp_test.h"
 
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
@@ -443,8 +444,8 @@ int core_fr_mode_control(uint8_t* from_user)
 				if(res < 0)
 					goto out;
 
-				//TODO: doing sensor test (moving mp core to iram).
-
+				// doing sensor test 
+				core_mp_switch_mode();
 			}
 			else
 			{
