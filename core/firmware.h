@@ -25,9 +25,9 @@
 #ifndef __FIRMWARE_H
 #define __FIRMWARE_H
 
-struct core_firmware_data {
-
-    uint32_t chip_id;
+struct core_firmware_data
+{
+	uint32_t chip_id;
 
 	uint8_t new_fw_ver[4];
 	uint8_t old_fw_ver[4];
@@ -53,7 +53,7 @@ struct core_firmware_data {
 	// used only for TDDI
 	int delay_after_upgrade;
 
-    bool isUpgraded;
+	bool isUpgraded;
 	bool isCRC;
 
 	int (*upgrade_func)(bool isIRAM);
@@ -62,7 +62,7 @@ struct core_firmware_data {
 extern struct core_firmware_data *core_firmware;
 
 //extern int core_firmware_iram_upgrade(const char* fpath);
-extern int core_firmware_upgrade(const char*, bool isIRAM);
+extern int core_firmware_upgrade(const char *, bool isIRAM);
 extern int core_firmware_init(void);
 extern void core_firmware_remove(void);
 

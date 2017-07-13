@@ -25,9 +25,8 @@
 #ifndef __FINGER_REPORT_H
 #define __FINGER_REPORT_H
 
-
-struct core_fr_data {
-
+struct core_fr_data
+{
 	struct input_dev *input_device;
 
 	int isEnableFR;
@@ -52,7 +51,6 @@ struct core_fr_data {
 	uint8_t My;
 	uint8_t Sd;
 	uint8_t Ss;
-
 };
 
 extern struct core_fr_data *core_fr;

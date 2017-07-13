@@ -25,7 +25,8 @@
 #ifndef __I2C_H
 #define __I2C_H
 
-struct core_i2c_data {
+struct core_i2c_data
+{
 	struct i2c_client *client;
 	int clk;
 };

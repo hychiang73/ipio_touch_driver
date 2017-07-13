@@ -46,15 +46,15 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-	msgs[0].scl_rate = core_i2c->clk;
+    msgs[0].scl_rate = core_i2c->clk;
 
-	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
-	{
-		res = -EIO;
-		DBG_ERR("I2C Write Error, res = %d", res);
-	}
-	
-	return res;
+    if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
+    {
+        res = -EIO;
+        DBG_ERR("I2C Write Error, res = %d", res);
+    }
+
+    return res;
 }
 EXPORT_SYMBOL(core_i2c_write);
 
@@ -74,11 +74,11 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 
     msgs[0].scl_rate = core_i2c->clk;
 
-	if(i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
-	{
-		res = -EIO;
-		DBG_ERR("I2C Read Error, res = %d", res);
-	}
+    if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
+    {
+        res = -EIO;
+        DBG_ERR("I2C Read Error, res = %d", res);
+    }
 
     return res;
 }
@@ -86,29 +86,29 @@ EXPORT_SYMBOL(core_i2c_read);
 
 int core_i2c_init(struct i2c_client *client)
 {
-	core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
+    core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
 
-	if(IS_ERR(core_i2c)) 
-	{
-		DBG_ERR("init core-i2c failed !");
-		return -EINVAL;
-	}
+    if (IS_ERR(core_i2c))
+    {
+        DBG_ERR("init core-i2c failed !");
+        return -EINVAL;
+    }
 
-	core_i2c->client = client;
+    core_i2c->client = client;
 
-    if(ON_BOARD_IC == CHIP_TYPE_ILI7807)
+    if (ON_BOARD_IC == CHIP_TYPE_ILI7807)
         core_i2c->clk = 50000;
     else
         core_i2c->clk = 400000;
 
-	return 0;
+    return 0;
 }
 EXPORT_SYMBOL(core_i2c_init);
 
 void core_i2c_remove(void)
 {
-	DBG_INFO("Remove core-i2c members");
+    DBG_INFO("Remove core-i2c members");
 
-	kfree(core_i2c);
+    kfree(core_i2c);
 }
 EXPORT_SYMBOL(core_i2c_remove);

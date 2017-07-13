@@ -25,15 +25,17 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-typedef struct {
-    int nId;
-    int nX;
-    int nY;
-    int nStatus;
-    int nFlag;
+typedef struct
+{
+	int nId;
+	int nX;
+	int nY;
+	int nStatus;
+	int nFlag;
 } VIRTUAL_KEYS;
 
-typedef struct {
+typedef struct
+{
 	uint16_t nMaxX;
 	uint16_t nMaxY;
 	uint16_t nMinX;
@@ -59,9 +61,10 @@ typedef struct {
 
 } TP_INFO;
 
-struct core_config_data {
+struct core_config_data
+{
 
-    uint32_t chip_id;
+	uint32_t chip_id;
 	uint32_t chip_type;
 
 	uint8_t protocol_ver[4];
@@ -72,16 +75,15 @@ struct core_config_data {
 
 	uint16_t use_protocol;
 
-    uint32_t slave_i2c_addr;
+	uint32_t slave_i2c_addr;
 
-    uint32_t ice_mode_addr;
+	uint32_t ice_mode_addr;
 
-    uint32_t pid_addr;
+	uint32_t pid_addr;
 
 	uint32_t ic_reset_addr;
 
 	TP_INFO *tp_info;
-
 };
 
 extern struct core_config_data *core_config;

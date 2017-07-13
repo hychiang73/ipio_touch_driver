@@ -64,8 +64,7 @@ struct core_config_data *core_config;
  */
 static void set_protocol_cmd(uint32_t protocol_ver)
 {
-
-	if(protocol_ver == ILITEK_PROTOCOL_V3_2)
+	if (protocol_ver == ILITEK_PROTOCOL_V3_2)
 	{
 		fw_cmd_len = 4;
 		protocol_cmd_len = 4;
@@ -76,9 +75,8 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 		pcmd[1] = PCMD_3_2_GET_FIRMWARE_VERSION;
 		pcmd[2] = PCMD_3_2_GET_PROTOCOL_VERSION;
 		pcmd[3] = PCMD_3_2_GET_KEY_INFORMATION;
-
 	}
-	else if(protocol_ver == ILITEK_PROTOCOL_V5_0)
+	else if (protocol_ver == ILITEK_PROTOCOL_V5_0)
 	{
 		fw_cmd_len = 4;
 		protocol_cmd_len = 3;
@@ -108,26 +106,25 @@ static uint32_t check_chip_id(uint32_t pid_data)
 {
 	uint32_t id = 0;
 
-	if(core_config->chip_id == CHIP_TYPE_ILI2121)
+	if (core_config->chip_id == CHIP_TYPE_ILI2121)
 	{
 		id = (vfIceRegRead(0xF001) << (8 * 1)) + (vfIceRegRead(0xF000));
 	}
-	else if(core_config->chip_id == CHIP_TYPE_ILI7807)
+	else if (core_config->chip_id == CHIP_TYPE_ILI7807)
 	{
 		id = pid_data >> 16;
 		core_config->chip_type = pid_data & 0x0000FFFF;
 
-		if(core_config->chip_type == ILI7807_TYPE_F)
+		if (core_config->chip_type == ILI7807_TYPE_F)
 		{
 			core_config->ic_reset_addr = 0x04004C;
-
-		} 
-		else if(core_config->chip_type == ILI7807_TYPE_H)
+		}
+		else if (core_config->chip_type == ILI7807_TYPE_H)
 		{
 			core_config->ic_reset_addr = 0x040050;
 		}
 	}
-	else if(core_config->chip_id == CHIP_TYPE_ILI9881)
+	else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 	{
 		id = pid_data >> 16;
 	}
@@ -144,28 +141,28 @@ static uint32_t check_chip_id(uint32_t pid_data)
  */
 uint32_t core_config_read_write_onebyte(uint32_t addr)
 {
-    int res = 0;
-    uint32_t data = 0;
-    uint8_t szOutBuf[64] = {0};
+	int res = 0;
+	uint32_t data = 0;
+	uint8_t szOutBuf[64] = {0};
 
-    szOutBuf[0] = 0x25;
-    szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
-    szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
-    szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
+	szOutBuf[0] = 0x25;
+	szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
+	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
+	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-    res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
-	if(res < 0)
+	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	if (res < 0)
 		goto out;
 
 	mdelay(1);
 
-    res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
-	if(res < 0)
+	res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
+	if (res < 0)
 		goto out;
 
-    data = (szOutBuf[0]);
+	data = (szOutBuf[0]);
 
-    return data;
+	return data;
 
 out:
 	DBG_ERR("Failed to read/write data in ICE mode, res = %d", res);
@@ -175,33 +172,32 @@ EXPORT_SYMBOL(core_config_read_write_onebyte);
 
 uint32_t core_config_ice_mode_read(uint32_t addr)
 {
-    int res = 0;
-    uint8_t szOutBuf[64] = {0};
-    uint32_t data = 0;
+	int res = 0;
+	uint8_t szOutBuf[64] = {0};
+	uint32_t data = 0;
 
-    szOutBuf[0] = 0x25;
-    szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
-    szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
-    szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
+	szOutBuf[0] = 0x25;
+	szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
+	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
+	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-    res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
-	if(res < 0)
+	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	if (res < 0)
 		goto out;
 
 	mdelay(10);
 
-    res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
-	if(res < 0)
+	res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
+	if (res < 0)
 		goto out;
 
-    data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
+	data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
 
-    return data;
+	return data;
 
 out:
 	DBG_ERR("Failed to read data in ICE mode, res = %d", res);
 	return res;
-
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
 
@@ -211,53 +207,52 @@ EXPORT_SYMBOL(core_config_ice_mode_read);
  */
 int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 {
-    int res = 0, i;
-    uint8_t szOutBuf[64] = {0};
+	int res = 0, i;
+	uint8_t szOutBuf[64] = {0};
 
-    szOutBuf[0] = 0x25;
-    szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
-    szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
-    szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
+	szOutBuf[0] = 0x25;
+	szOutBuf[1] = (char)((addr & 0x000000FF) >> 0);
+	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
+	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-    for(i = 0; i < size; i ++)
-    {
-        szOutBuf[i + 4] = (char)(data >> (8 * i));
-    }
+	for (i = 0; i < size; i++)
+	{
+		szOutBuf[i + 4] = (char)(data >> (8 * i));
+	}
 
-    res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
+	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
 
-	if(res < 0)
+	if (res < 0)
 		DBG_ERR("Failed to write data in ICE mode, res = %d", res);
 
-    return res;
+	return res;
 }
 EXPORT_SYMBOL(core_config_ice_mode_write);
 
 uint32_t vfIceRegRead(uint32_t addr)
 {
-    int i, nInTimeCount = 100;
-    uint8_t szBuf[4] = {0};
+	int i, nInTimeCount = 100;
+	uint8_t szBuf[4] = {0};
 
-    core_config_ice_mode_write(0x41000, 0x3B | (addr << 8), 4);
-    core_config_ice_mode_write(0x041004, 0x66AA5500, 4);
+	core_config_ice_mode_write(0x41000, 0x3B | (addr << 8), 4);
+	core_config_ice_mode_write(0x041004, 0x66AA5500, 4);
 
-    // Check Flag
-    // Check Busy Flag
-    for (i = 0; i < nInTimeCount; i ++)
-    {
-        szBuf[0] = core_config_read_write_onebyte(0x41011);
+	// Check Flag
+	// Check Busy Flag
+	for (i = 0; i < nInTimeCount; i++)
+	{
+		szBuf[0] = core_config_read_write_onebyte(0x41011);
 
-        if ((szBuf[0] & 0x01) == 0)
-        {
+		if ((szBuf[0] & 0x01) == 0)
+		{
 			break;
-        }
-        mdelay(5);
-    }
+		}
+		mdelay(5);
+	}
 
-    return core_config_read_write_onebyte(0x41012);
+	return core_config_read_write_onebyte(0x41012);
 }
 EXPORT_SYMBOL(vfIceRegRead);
-
 
 /*
  * Doing soft reset on a touch IC.
@@ -269,12 +264,12 @@ int core_config_ic_reset(uint32_t id)
 {
 	DBG("0x%x doing soft reset ", id);
 
-	if(id == CHIP_TYPE_ILI7807)
+	if (id == CHIP_TYPE_ILI7807)
 		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);
-	else if(id == CHIP_TYPE_ILI9881)
+	else if (id == CHIP_TYPE_ILI9881)
 		return core_config_ice_mode_write(0x40050, 0x00019881, 4);
-	else if(id == CHIP_TYPE_ILI2121)
-		return core_config_ice_mode_write(0x4004C,0x00012120, 2);
+	else if (id == CHIP_TYPE_ILI2121)
+		return core_config_ice_mode_write(0x4004C, 0x00012120, 2);
 	else
 	{
 		DBG_ERR("This chip (0x%x) doesn't support the feature", id);
@@ -339,7 +334,7 @@ EXPORT_SYMBOL(core_config_ice_mode_enable);
 
 int core_config_reset_watch_dog(void)
 {
-	if(core_config->chip_id == CHIP_TYPE_ILI2121)
+	if (core_config->chip_id == CHIP_TYPE_ILI2121)
 	{
 		// close watch dog
 		if (core_config_ice_mode_write(0x5200C, 0x0000, 2) < 0)
@@ -366,13 +361,13 @@ int core_config_reset_watch_dog(void)
 		if (core_config_ice_mode_write(0x041009, 0x0000, 2) < 0)
 			return -EFAULT;
 	}
-	else if(core_config->chip_id == CHIP_TYPE_ILI7807)
+	else if (core_config->chip_id == CHIP_TYPE_ILI7807)
 	{
 		core_config_ice_mode_write(0x5100C, 0x7, 1);
 		core_config_ice_mode_write(0x5100C, 0x78, 1);
 	}
 
-    return 0;
+	return 0;
 }
 EXPORT_SYMBOL(core_config_reset_watch_dog);
 
@@ -380,7 +375,7 @@ int core_config_get_key_info(void)
 {
 	int res = 0, i;
 	uint8_t szReadBuf[key_info_len];
-    
+
 	memset(szReadBuf, 0, sizeof(szReadBuf));
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[3], 1);
@@ -397,19 +392,19 @@ int core_config_get_key_info(void)
 		goto out;
 	}
 
-	for(i = 0; i < key_info_len; i++)
-		DBG("key_info[%d] = %x", i , szReadBuf[i]);
+	for (i = 0; i < key_info_len; i++)
+		DBG("key_info[%d] = %x", i, szReadBuf[i]);
 
-	if(core_config->tp_info->nKeyCount)
+	if (core_config->tp_info->nKeyCount)
 	{
-		
-		if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+
+		if (core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 		{
 
-			if(core_config->tp_info->nKeyCount > 5)
+			if (core_config->tp_info->nKeyCount > 5)
 			{
-				res = core_i2c_read(core_config->slave_i2c_addr, (szReadBuf+29), 25);
-				if(res < 0)
+				res = core_i2c_read(core_config->slave_i2c_addr, (szReadBuf + 29), 25);
+				if (res < 0)
 				{
 					DBG_ERR("Failed to read buffer of key info, res = %d\n", res);
 					goto out;
@@ -419,18 +414,18 @@ int core_config_get_key_info(void)
 			core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
 			core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
 
-			for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
+			for (i = 0; i < core_config->tp_info->nKeyCount; i++)
 			{
-				core_config->tp_info->virtual_key[i].nId = szReadBuf[i*5+4];
-				core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
-				core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
+				core_config->tp_info->virtual_key[i].nId = szReadBuf[i * 5 + 4];
+				core_config->tp_info->virtual_key[i].nX = (szReadBuf[i * 5 + 5] << 8) + szReadBuf[i * 5 + 6];
+				core_config->tp_info->virtual_key[i].nY = (szReadBuf[i * 5 + 7] << 8) + szReadBuf[i * 5 + 8];
 				core_config->tp_info->virtual_key[i].nStatus = 0;
 			}
 		}
-		else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+		else if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 		{
-			//TODO: Firmware not ready yet
-			#if 0
+//TODO: Firmware not ready yet
+#if 0
 			core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
 			core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
 
@@ -441,7 +436,7 @@ int core_config_get_key_info(void)
 				core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
 				core_config->tp_info->virtual_key[i].nStatus = 0;
 			}
-			#endif
+#endif
 		}
 	}
 
@@ -457,29 +452,29 @@ int core_config_get_tp_info(void)
 {
 	int res = 0, i = 0;
 	uint8_t szReadBuf[tp_info_len];
-    
+
 	memset(szReadBuf, 0, sizeof(szReadBuf));
 
-    res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[0], 1);
-	if(res < 0)
+	res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[0], 1);
+	if (res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
 		goto out;
 	}
-        
+
 	mdelay(10);
 
-    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], tp_info_len);
-	if(res < 0)
+	res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], tp_info_len);
+	if (res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
 		goto out;
 	}
 
-	for(; i < tp_info_len; i++)
+	for (; i < tp_info_len; i++)
 		DBG("tp_info[%d] = %x", i, szReadBuf[i]);
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+	if (core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
 		core_config->tp_info->nMinX = 0;
 		core_config->tp_info->nMinY = 0;
@@ -492,17 +487,17 @@ int core_config_get_tp_info(void)
 		core_config->tp_info->nKeyCount = szReadBuf[8];
 
 		DBG_INFO("nMaxX=%d, nMaxY=%d",
-				core_config->tp_info->nMaxX,
-				core_config->tp_info->nMaxY);
+				 core_config->tp_info->nMaxX,
+				 core_config->tp_info->nMaxY);
 		DBG_INFO("nXChannelNum=%d, nYChannelNum=%d",
-				core_config->tp_info->nXChannelNum,
-				core_config->tp_info->nYChannelNum);
+				 core_config->tp_info->nXChannelNum,
+				 core_config->tp_info->nYChannelNum);
 		DBG_INFO("nMaxTouchNum=%d, nMaxKeyButtonNum=%d, nKeyCount=%d",
-				core_config->tp_info->nMaxTouchNum,
-				core_config->tp_info->nMaxKeyButtonNum,
-				core_config->tp_info->nKeyCount);
+				 core_config->tp_info->nMaxTouchNum,
+				 core_config->tp_info->nMaxKeyButtonNum,
+				 core_config->tp_info->nKeyCount);
 	}
-	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	else if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
 		// in protocol v5, ignore the first btye because of a header.
 		core_config->tp_info->nMinX = szReadBuf[1];
@@ -520,14 +515,14 @@ int core_config_get_tp_info(void)
 		core_config->tp_info->nMaxKeyButtonNum = 5;
 
 		DBG_INFO("minX = %d, minY = %d, maxX = %d, maxY = %d",
-				core_config->tp_info->nMinX, core_config->tp_info->nMinY,
-				core_config->tp_info->nMaxX, core_config->tp_info->nMaxY);
-		DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d", 
-				core_config->tp_info->nXChannelNum, core_config->tp_info->nYChannelNum,
-				core_config->tp_info->self_tx_channel_num, core_config->tp_info->self_rx_channel_num);
+				 core_config->tp_info->nMinX, core_config->tp_info->nMinY,
+				 core_config->tp_info->nMaxX, core_config->tp_info->nMaxY);
+		DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d",
+				 core_config->tp_info->nXChannelNum, core_config->tp_info->nYChannelNum,
+				 core_config->tp_info->self_tx_channel_num, core_config->tp_info->self_rx_channel_num);
 		DBG_INFO("side_touch_type = %d, max_touch_num= %d, touch_key_num = %d, max_key_num = %d",
-				core_config->tp_info->side_touch_type, core_config->tp_info->nMaxTouchNum,
-				core_config->tp_info->nKeyCount, core_config->tp_info->nMaxKeyButtonNum);
+				 core_config->tp_info->side_touch_type, core_config->tp_info->nMaxTouchNum,
+				 core_config->tp_info->nKeyCount, core_config->tp_info->nMaxKeyButtonNum);
 	}
 
 	return res;
@@ -545,40 +540,40 @@ int core_config_get_protocol_ver(void)
 
 	memset(szReadBuf, 0, sizeof(szReadBuf));
 
-    res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[2], 1);
-	if(res < 0)
+	res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[2], 1);
+	if (res < 0)
 	{
 		DBG_ERR("Failed to get protocol version error %d", res);
 		goto out;
 	}
-        
+
 	mdelay(10);
 
-    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], protocol_cmd_len);
-	if(res < 0)
+	res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], protocol_cmd_len);
+	if (res < 0)
 	{
 		DBG_ERR("Get firmware version error %d", res);
 		goto out;
 	}
-        
-	for(; i < protocol_cmd_len; i++)
+
+	for (; i < protocol_cmd_len; i++)
 	{
 		core_config->protocol_ver[i] = szReadBuf[i];
 		DBG("protocol_ver[%d] = %d", i, szReadBuf[i]);
 	}
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+	if (core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
-		DBG_INFO("Procotol Version = %d.%d", 
-				core_config->protocol_ver[0], 
-				core_config->protocol_ver[1]); 
+		DBG_INFO("Procotol Version = %d.%d",
+				 core_config->protocol_ver[0],
+				 core_config->protocol_ver[1]);
 	}
-	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	else if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
 		// in protocol v5, ignore the first btye because of a header.
-		DBG_INFO("Procotol Version = %d.%d", 
-				core_config->protocol_ver[1], 
-				core_config->protocol_ver[2]); 
+		DBG_INFO("Procotol Version = %d.%d",
+				 core_config->protocol_ver[1],
+				 core_config->protocol_ver[2]);
 	}
 
 	return res;
@@ -596,10 +591,10 @@ int core_config_get_core_ver(void)
 
 	memset(szReadBuf, 0, sizeof(szReadBuf));
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
 		res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[4], 1);
-		if(res < 0)
+		if (res < 0)
 		{
 			DBG_ERR("Failed to write cmd to get fw version %d", res);
 			goto out;
@@ -608,31 +603,30 @@ int core_config_get_core_ver(void)
 		mdelay(10);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], core_cmd_len);
-		if(res < 0)
+		if (res < 0)
 		{
 			DBG_ERR("Failed to read fw version %d", res);
 			goto out;
 		}
 
-		for(; i < core_cmd_len; i++)
+		for (; i < core_cmd_len; i++)
 		{
-			core_config->core_ver[i] = szReadBuf[i]; 
+			core_config->core_ver[i] = szReadBuf[i];
 		}
 	}
 
 	// in protocol v5, ignore the first btye because of a header.
-	DBG_INFO("Core Version = %d.%d.%d.%d", 
-			core_config->core_ver[1], 
-			core_config->core_ver[2], 
-			core_config->core_ver[3],
-			core_config->core_ver[4]);
+	DBG_INFO("Core Version = %d.%d.%d.%d",
+			 core_config->core_ver[1],
+			 core_config->core_ver[2],
+			 core_config->core_ver[3],
+			 core_config->core_ver[4]);
 
 	return res;
 
 out:
 	DBG_ERR("Failed to get core version");
 	return res;
-
 }
 EXPORT_SYMBOL(core_config_get_core_ver);
 
@@ -647,43 +641,43 @@ int core_config_get_fw_ver(void)
 
 	memset(szReadBuf, 0, sizeof(szReadBuf));
 
-    res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[1], 1);
-	if(res < 0)
+	res = core_i2c_write(core_config->slave_i2c_addr, &pcmd[1], 1);
+	if (res < 0)
 	{
 		DBG_ERR("Failed to write cmd to get fw version %d", res);
 		goto out;
 	}
 
-    mdelay(10);
+	mdelay(10);
 
-    res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_cmd_len);
-	if(res < 0)
+	res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_cmd_len);
+	if (res < 0)
 	{
 		DBG_ERR("Failed to read fw version %d", res);
 		goto out;
 	}
 
-	for(; i < fw_cmd_len; i++)
+	for (; i < fw_cmd_len; i++)
 	{
-		core_config->firmware_ver[i] = szReadBuf[i]; 
+		core_config->firmware_ver[i] = szReadBuf[i];
 		DBG("firmware_ver[%d] = %d", i, szReadBuf[i]);
 	}
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+	if (core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 	{
-		DBG_INFO("Firmware Version = %d.%d.%d.%d", 
-				core_config->firmware_ver[0], 
-				core_config->firmware_ver[1], 
-				core_config->firmware_ver[2],
-				core_config->firmware_ver[3]);
+		DBG_INFO("Firmware Version = %d.%d.%d.%d",
+				 core_config->firmware_ver[0],
+				 core_config->firmware_ver[1],
+				 core_config->firmware_ver[2],
+				 core_config->firmware_ver[3]);
 	}
-	else if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	else if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
 		// in protocol v5, ignore the first btye because of a header.
-		DBG_INFO("Firmware Version = %d.%d.%d", 
-				core_config->firmware_ver[1], 
-				core_config->firmware_ver[2], 
-				core_config->firmware_ver[3]);
+		DBG_INFO("Firmware Version = %d.%d.%d",
+				 core_config->firmware_ver[1],
+				 core_config->firmware_ver[2],
+				 core_config->firmware_ver[3]);
 	}
 
 	return res;
@@ -696,15 +690,15 @@ EXPORT_SYMBOL(core_config_get_fw_ver);
 
 int core_config_get_chip_id(void)
 {
-    int res = 0;
-    uint32_t RealID = 0, PIDData = 0;
+	int res = 0;
+	uint32_t RealID = 0, PIDData = 0;
 
 	ilitek_platform_tp_power_on(1);
 
 	mdelay(1);
 
 	res = core_config_ice_mode_enable();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to enter ICE mode, res = %d", res);
 		goto out;
@@ -720,7 +714,7 @@ int core_config_get_chip_id(void)
 
 		DBG_INFO("CHIP ID = 0x%x, CHIP TYPE = %04x", RealID, core_config->chip_type);
 
-		if(RealID != core_config->chip_id)
+		if (RealID != core_config->chip_id)
 		{
 			DBG_ERR("CHIP ID error : 0x%x ", RealID);
 			res = -ENODEV;
@@ -739,9 +733,8 @@ int core_config_get_chip_id(void)
 
 out:
 	DBG_ERR("Failed to get chip id");
-	core_config_ice_mode_disable();	
+	core_config_ice_mode_disable();
 	return res;
-
 }
 EXPORT_SYMBOL(core_config_get_chip_id);
 
@@ -750,9 +743,9 @@ int core_config_init(void)
 	int i = 0, res = 0;
 	int alloca_size = 0;
 
-	for(; i < nums_chip; i++)
+	for (; i < nums_chip; i++)
 	{
-		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
+		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			alloca_size = sizeof(*core_config) * sizeof(uint8_t) * 6;
 			core_config = kzalloc(alloca_size, GFP_KERNEL);
@@ -763,32 +756,31 @@ int core_config_init(void)
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0x0000;
 
-			if(core_config->chip_id == CHIP_TYPE_ILI2121)
+			if (core_config->chip_id == CHIP_TYPE_ILI2121)
 			{
-				core_config->use_protocol	= ILITEK_PROTOCOL_V3_2;
+				core_config->use_protocol = ILITEK_PROTOCOL_V3_2;
 				core_config->slave_i2c_addr = ILI2121_SLAVE_ADDR;
-				core_config->ice_mode_addr	= ILI2121_ICE_MODE_ADDR;
-				core_config->pid_addr		= ILI2121_PID_ADDR;
-
+				core_config->ice_mode_addr = ILI2121_ICE_MODE_ADDR;
+				core_config->pid_addr = ILI2121_PID_ADDR;
 			}
-			else if(core_config->chip_id == CHIP_TYPE_ILI7807)
+			else if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
-				core_config->use_protocol	= ILITEK_PROTOCOL_V5_0;
+				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
-				core_config->ice_mode_addr	= ILI7807_ICE_MODE_ADDR;
-				core_config->pid_addr		= ILI7807_PID_ADDR;
+				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
+				core_config->pid_addr = ILI7807_PID_ADDR;
 			}
-			else if(core_config->chip_id == CHIP_TYPE_ILI9881)
+			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 			{
-				core_config->use_protocol	= ILITEK_PROTOCOL_V5_0;
+				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI9881_SLAVE_ADDR;
-				core_config->ice_mode_addr	= ILI9881_ICE_MODE_ADDR;
-				core_config->pid_addr		= ILI9881_PID_ADDR;
+				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
+				core_config->pid_addr = ILI9881_PID_ADDR;
 			}
 		}
 	}
 
-	if(IS_ERR(core_config)) 
+	if (IS_ERR(core_config))
 	{
 		DBG_ERR("Can't find any chip IDs from the support list, init core-config failed ");
 		res = -ENOMEM;
@@ -800,7 +792,7 @@ int core_config_init(void)
 	}
 
 	return res;
-	
+
 out:
 	core_config_remove();
 	return res;
@@ -816,4 +808,3 @@ void core_config_remove(void)
 	kfree(core_config->tp_info);
 }
 EXPORT_SYMBOL(core_config_remove);
-

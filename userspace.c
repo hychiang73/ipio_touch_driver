@@ -71,9 +71,9 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 	int res = 0;
 	uint32_t len = 0;
 
-	// If file position is non-zero,  we assume the string has been read 
+	// If file position is non-zero,  we assume the string has been read
 	// and indicates that there is no more data to be read.
-	if(*pPos != 0)
+	if (*pPos != 0)
 	{
 		return 0;
 	}
@@ -82,8 +82,8 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 
 	DBG("update status = %d \n", core_firmware->update_status);
 
-	res = copy_to_user((uint32_t*)buff, &core_firmware->update_status, len);
-	if(res < 0)
+	res = copy_to_user((uint32_t *)buff, &core_firmware->update_status, len);
+	if (res < 0)
 	{
 		DBG_ERR("Failed to copy data to user space");
 	}
@@ -98,9 +98,9 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 	int res = 0;
 	uint32_t len = 0;
 
-	// If file position is non-zero,  we assume the string has been read 
+	// If file position is non-zero,  we assume the string has been read
 	// and indicates that there is no more data to be read.
-	if(*pPos != 0)
+	if (*pPos != 0)
 	{
 		return 0;
 	}
@@ -109,8 +109,8 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 
 	DBG("isUpgraded = %d \n", core_firmware->isUpgraded);
 
-	res = copy_to_user((uint32_t*)buff, &core_firmware->isUpgraded, len);
-	if(res < 0)
+	res = copy_to_user((uint32_t *)buff, &core_firmware->isUpgraded, len);
+	if (res < 0)
 	{
 		DBG_ERR("Failed to copy data to user space");
 	}
@@ -131,7 +131,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	DBG_INFO("Preparing to upgarde firmware");
 
-	if(*pPos != 0)
+	if (*pPos != 0)
 	{
 		return 0;
 	}
@@ -142,7 +142,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	ilitek_platform_enable_irq();
 
-	if(res < 0)
+	if (res < 0)
 	{
 		// return the status to user space even if any error occurs.
 		core_firmware->update_status = res;
@@ -165,7 +165,7 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 
 	DBG_INFO("Preparing to upgarde firmware by IRAM");
 
-	if(*pPos != 0)
+	if (*pPos != 0)
 	{
 		return 0;
 	}
@@ -176,7 +176,7 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 
 	ilitek_platform_enable_irq();
 
-	if(res < 0)
+	if (res < 0)
 	{
 		// return the status to user space even if any error occurs.
 		core_firmware->update_status = res;
@@ -195,256 +195,255 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int res = 0, length = 0;
-	uint8_t	 szBuf[512] = {0};
+	uint8_t szBuf[512] = {0};
 	static uint16_t i2c_rw_length = 0;
 	uint32_t id_to_user = 0x0;
 
 	DBG("cmd = %d", _IOC_NR(cmd));
 
-	if(_IOC_TYPE(cmd) != ILITEK_IOCTL_MAGIC)
+	if (_IOC_TYPE(cmd) != ILITEK_IOCTL_MAGIC)
 	{
 		DBG_ERR("The Magic number doesn't match");
 		return -ENOTTY;
 	}
 
-	if(_IOC_NR(cmd) > ILITEK_IOCTL_MAXNR)
+	if (_IOC_NR(cmd) > ILITEK_IOCTL_MAXNR)
 	{
 		DBG_ERR("The number of ioctl doesn't match");
 		return -ENOTTY;
 	}
 
-	switch(cmd)
+	switch (cmd)
 	{
-		case ILITEK_IOCTL_I2C_WRITE_DATA:
-			res = copy_from_user(szBuf, (uint8_t*)arg, i2c_rw_length);
-			if(res < 0)
+	case ILITEK_IOCTL_I2C_WRITE_DATA:
+		res = copy_from_user(szBuf, (uint8_t *)arg, i2c_rw_length);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy data from user space");
+		}
+		else
+		{
+			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
+			if (res < 0)
 			{
-				DBG_ERR("Failed to copy data from user space");
+				DBG_ERR("Failed to write data via i2c");
+			}
+		}
+		break;
+
+	case ILITEK_IOCTL_I2C_READ_DATA:
+		res = core_i2c_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
+		if (res < 0)
+		{
+			DBG_INFO("Failed to read data via i2c");
+		}
+		else
+		{
+			res = copy_to_user((uint8_t *)arg, szBuf, i2c_rw_length);
+			if (res < 0)
+			{
+				DBG_INFO("Failed to copy data to user space");
+			}
+		}
+		break;
+
+	case ILITEK_IOCTL_I2C_SET_WRITE_LENGTH:
+	case ILITEK_IOCTL_I2C_SET_READ_LENGTH:
+		i2c_rw_length = arg;
+		break;
+
+	case ILITEK_IOCTL_TP_HW_RESET:
+		ilitek_platform_tp_power_on(true);
+		break;
+
+	case ILITEK_IOCTL_TP_POWER_SWITCH:
+		DBG_INFO("Not implemented yet");
+		break;
+
+	case ILITEK_IOCTL_TP_REPORT_SWITCH:
+		res = copy_from_user(szBuf, (uint8_t *)arg, 1);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy data from user space");
+		}
+		else
+		{
+			if (szBuf[0])
+			{
+				core_fr->isEnableFR = true;
+				DBG_INFO("Function of finger report was enabled");
 			}
 			else
 			{
-				res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
-				if(res < 0)
-				{
-					DBG_ERR("Failed to write data via i2c");
-				}
+				core_fr->isEnableFR = false;
+				DBG_INFO("Function of finger report was disabled");
 			}
-			break;
+		}
+		break;
 
-		case ILITEK_IOCTL_I2C_READ_DATA:
-			res = core_i2c_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
-			if(res < 0)
+	case ILITEK_IOCTL_TP_IRQ_SWITCH:
+		res = copy_from_user(szBuf, (uint8_t *)arg, 1);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy data from user space");
+		}
+		else
+		{
+			if (szBuf[0])
 			{
-				DBG_INFO("Failed to read data via i2c");
+				ilitek_platform_enable_irq();
 			}
 			else
 			{
-				res = copy_to_user((uint8_t*)arg, szBuf, i2c_rw_length);
-				if(res < 0)
-				{
-					DBG_INFO("Failed to copy data to user space");
-				}
+				ilitek_platform_disable_irq();
 			}
-			break;
+		}
+		break;
 
-		case ILITEK_IOCTL_I2C_SET_WRITE_LENGTH:
-		case ILITEK_IOCTL_I2C_SET_READ_LENGTH:
-			i2c_rw_length = arg;
-			break;
+	case ILITEK_IOCTL_TP_DEBUG_LEVEL:
+		DBG_INFO("Not implemented yet");
+		break;
 
-		case ILITEK_IOCTL_TP_HW_RESET:
-			ilitek_platform_tp_power_on(true);
-			break;
+	case ILITEK_IOCTL_TP_FUNC_MODE:
+		DBG_INFO("Not implemented yet");
+		break;
 
-		case ILITEK_IOCTL_TP_POWER_SWITCH:
-			DBG_INFO("Not implemented yet");
-			break;
+	case ILITEK_IOCTL_TP_FW_VER:
+		res = core_config_get_fw_ver();
+		if (res < 0)
+		{
+			DBG_ERR("Failed to get firmware version");
+		}
+		else
+		{
+			res = copy_to_user((uint8_t *)arg, core_config->firmware_ver, fw_cmd_len);
+			if (res < 0)
+			{
+				DBG_ERR("Failed to copy firmware version to user space");
+			}
+		}
+		break;
 
-		case ILITEK_IOCTL_TP_REPORT_SWITCH:
-			res = copy_from_user(szBuf, (uint8_t*)arg, 1);
-			if(res < 0)
+	case ILITEK_IOCTL_TP_PL_VER:
+		res = core_config_get_protocol_ver();
+		if (res < 0)
+		{
+			DBG_ERR("Failed to get protocol version");
+		}
+		else
+		{
+			res = copy_to_user((uint8_t *)arg, core_config->protocol_ver, protocol_cmd_len);
+			if (res < 0)
 			{
-				DBG_ERR("Failed to copy data from user space");
+				DBG_ERR("Failed to copy protocol version to user space");
 			}
-			else
-			{
-				if(szBuf[0])
-				{
-					core_fr->isEnableFR = true;
-					DBG_INFO("Function of finger report was enabled");
-				}
-				else
-				{
-					core_fr->isEnableFR = false;
-					DBG_INFO("Function of finger report was disabled");
-				}
-			}
-			break;
+		}
+		break;
 
-		case ILITEK_IOCTL_TP_IRQ_SWITCH:
-			res = copy_from_user(szBuf, (uint8_t*)arg, 1);
-			if(res < 0)
+	case ILITEK_IOCTL_TP_CORE_VER:
+		res = core_config_get_core_ver();
+		if (res < 0)
+		{
+			DBG_ERR("Failed to get core version");
+		}
+		else
+		{
+			res = copy_to_user((uint8_t *)arg, core_config->core_ver, core_cmd_len);
+			if (res < 0)
 			{
-				DBG_ERR("Failed to copy data from user space");
+				DBG_ERR("Failed to copy core version to user space");
 			}
-			else
-			{
-				if(szBuf[0])
-				{
-					ilitek_platform_enable_irq();
-				}
-				else
-				{
-					ilitek_platform_disable_irq();
-				}
-			}
-			break;
+		}
+		break;
 
-		case ILITEK_IOCTL_TP_DEBUG_LEVEL:
-			DBG_INFO("Not implemented yet");
-			break;
+	case ILITEK_IOCTL_TP_DRV_VER:
+		length = sprintf(szBuf, "%s", DRIVER_VERSION);
+		if (!length)
+		{
+			DBG_ERR("Failed to convert driver version from definiation");
+		}
+		else
+		{
+			res = copy_to_user((uint8_t *)arg, szBuf, length);
+			if (res < 0)
+			{
+				DBG_INFO("Failed to copy driver ver to user space");
+			}
+		}
+		break;
 
-		case ILITEK_IOCTL_TP_FUNC_MODE:
-			DBG_INFO("Not implemented yet");
-			break;
+	case ILITEK_IOCTL_TP_CHIP_ID:
+		res = core_config_get_chip_id();
+		if (res < 0)
+		{
+			DBG_ERR("Failed to get chip id");
+		}
+		else
+		{
+			id_to_user = core_config->chip_id << 16 | core_config->chip_type;
 
-		case ILITEK_IOCTL_TP_FW_VER:
-			res = core_config_get_fw_ver();
-			if(res < 0)
-			{
-				DBG_ERR("Failed to get firmware version");
-			}
-			else
-			{
-				res = copy_to_user((uint8_t*)arg, core_config->firmware_ver, fw_cmd_len);
-				if(res < 0)
-				{
-					DBG_ERR("Failed to copy firmware version to user space");
-				}
-			}
-			break;
-
-		case ILITEK_IOCTL_TP_PL_VER:
-			res = core_config_get_protocol_ver();
-			if(res < 0)
-			{
-				DBG_ERR("Failed to get protocol version");
-			}
-			else
-			{
-				res = copy_to_user((uint8_t*)arg, core_config->protocol_ver, protocol_cmd_len);
-				if(res < 0)
-				{
-					DBG_ERR("Failed to copy protocol version to user space");
-				}
-			}
-			break;
-
-		case ILITEK_IOCTL_TP_CORE_VER:
-			res = core_config_get_core_ver();
-			if(res < 0)
-			{
-				DBG_ERR("Failed to get core version");
-			}
-			else
-			{
-				res = copy_to_user((uint8_t*)arg, core_config->core_ver, core_cmd_len);
-				if(res < 0)
-				{
-					DBG_ERR("Failed to copy core version to user space");
-				}
-			}
-			break;
-
-		case ILITEK_IOCTL_TP_DRV_VER:
-			length = sprintf(szBuf, "%s", DRIVER_VERSION);
-			if(!length)
-			{
-				DBG_ERR("Failed to convert driver version from definiation");
-			}
-			else
-			{
-				res = copy_to_user((uint8_t*)arg, szBuf, length);
-				if(res < 0)
-				{
-					DBG_INFO("Failed to copy driver ver to user space");
-				}
-			}
-			break;
-
-		case ILITEK_IOCTL_TP_CHIP_ID:
-			res = core_config_get_chip_id();
-			if(res < 0)
-			{
-				DBG_ERR("Failed to get chip id");
-			}
-			else
-			{
-				id_to_user = core_config->chip_id << 16 | core_config->chip_type;
-
-				res = copy_to_user((uint32_t*)arg, &id_to_user, sizeof(uint32_t));
-				if(res < 0)
-				{
-					DBG_ERR("Failed to copy chip id to user space");
-				}
-			}
-			break;
-
-		case ILITEK_IOCTL_TP_NETLINK_CTRL:
-			res = copy_from_user(szBuf, (uint8_t*)arg, 1);
-			if(res < 0)
-			{
-				DBG_ERR("Failed to copy data from user space");
-			}
-			else
-			{
-				if(szBuf[0])
-				{
-					core_fr->isEnableNetlink = true;
-					DBG_INFO("Netlink has been enabled");
-				}
-				else
-				{
-					core_fr->isEnableNetlink = false;
-					DBG_INFO("Netlink has been disabled");
-				}
-			}
-			break;
-
-		case ILITEK_IOCTL_TP_NETLINK_STATUS:
-			DBG("Check if Netlink is enabled : %d", core_fr->isEnableNetlink);
-			res = copy_to_user((int*)arg, &core_fr->isEnableNetlink, sizeof(int));
-			if(res < 0)
+			res = copy_to_user((uint32_t *)arg, &id_to_user, sizeof(uint32_t));
+			if (res < 0)
 			{
 				DBG_ERR("Failed to copy chip id to user space");
 			}
-			break;
+		}
+		break;
 
-		case ILITEK_IOCTL_TP_MODE_CTRL:
-			res = copy_from_user(szBuf, (uint8_t*)arg, 3);
-			if(res < 0)
+	case ILITEK_IOCTL_TP_NETLINK_CTRL:
+		res = copy_from_user(szBuf, (uint8_t *)arg, 1);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy data from user space");
+		}
+		else
+		{
+			if (szBuf[0])
 			{
-				DBG_ERR("Failed to copy data from user space");
+				core_fr->isEnableNetlink = true;
+				DBG_INFO("Netlink has been enabled");
 			}
 			else
 			{
-				core_fr_mode_control(szBuf);
+				core_fr->isEnableNetlink = false;
+				DBG_INFO("Netlink has been disabled");
 			}
-			break;
+		}
+		break;
 
-		case ILITEK_IOCTL_TP_MODE_STATUS:
-			DBG("Current firmware mode : %d", core_fr->actual_fw_mode);
-			res = copy_to_user((int*)arg, &core_fr->actual_fw_mode, sizeof(int));
-			if(res < 0)
-			{
-				DBG_ERR("Failed to copy chip id to user space");
-			}
-			break;
+	case ILITEK_IOCTL_TP_NETLINK_STATUS:
+		DBG("Check if Netlink is enabled : %d", core_fr->isEnableNetlink);
+		res = copy_to_user((int *)arg, &core_fr->isEnableNetlink, sizeof(int));
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy chip id to user space");
+		}
+		break;
 
-		default:
-			res = -ENOTTY;
-			break;
+	case ILITEK_IOCTL_TP_MODE_CTRL:
+		res = copy_from_user(szBuf, (uint8_t *)arg, 3);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy data from user space");
+		}
+		else
+		{
+			core_fr_mode_control(szBuf);
+		}
+		break;
 
+	case ILITEK_IOCTL_TP_MODE_STATUS:
+		DBG("Current firmware mode : %d", core_fr->actual_fw_mode);
+		res = copy_to_user((int *)arg, &core_fr->actual_fw_mode, sizeof(int));
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy chip id to user space");
+		}
+		break;
+
+	default:
+		res = -ENOTTY;
+		break;
 	}
 
 	return res;
@@ -462,11 +461,11 @@ struct file_operations proc_ioctl_fops = {
 };
 
 struct file_operations proc_fw_status_fops = {
-	.read  = ilitek_proc_fw_status_read,
+	.read = ilitek_proc_fw_status_read,
 };
 
 struct file_operations proc_fw_process_fops = {
-	.read  = ilitek_proc_fw_process_read,
+	.read = ilitek_proc_fw_process_read,
 };
 
 struct file_operations proc_fw_upgrade_fops = {
@@ -486,7 +485,8 @@ struct file_operations proc_iram_upgrade_fops = {
  * creates all nodes under /proc.
  *
  */
-typedef struct {
+typedef struct
+{
 
 	// node's name.
 	char *name;
@@ -499,19 +499,18 @@ typedef struct {
 
 	// indicate if a node is created.
 	bool isCreated;
-	
+
 } proc_node_t;
 
 proc_node_t proc_table[] = {
-	{"ioctl",	 NULL,	&proc_ioctl_fops,	false},
-	{"fw_status",NULL,	&proc_fw_status_fops,false},
-	{"fw_process",NULL, &proc_fw_process_fops,false},
-	{"fw_upgrade",NULL, &proc_fw_upgrade_fops,false},
-	{"iram_upgrade",NULL, &proc_iram_upgrade_fops,false},
+	{"ioctl", NULL, &proc_ioctl_fops, false},
+	{"fw_status", NULL, &proc_fw_status_fops, false},
+	{"fw_process", NULL, &proc_fw_process_fops, false},
+	{"fw_upgrade", NULL, &proc_fw_upgrade_fops, false},
+	{"iram_upgrade", NULL, &proc_iram_upgrade_fops, false},
 };
 
-
-#define NETLINK_USER	31
+#define NETLINK_USER 31
 
 struct sock *nl_sk;
 struct nlmsghdr *nlh;
@@ -529,11 +528,11 @@ void netlink_reply_msg(void *raw, int size)
 	DBG_INFO("pid = %d", pid);
 	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
 
-	if(core_fr->isEnableNetlink)
+	if (core_fr->isEnableNetlink)
 	{
 		skb_out = nlmsg_new(msg_size, 0);
 
-		if (!skb_out) 
+		if (!skb_out)
 		{
 			DBG_INFO("Failed to allocate new skb");
 			return;
@@ -561,15 +560,15 @@ static void netlink_recv_msg(struct sk_buff *skb)
 	nlh = (struct nlmsghdr *)skb->data;
 
 	DBG("Received a request from client: %s, %d",
-	(char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
+		(char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
 
 	// pid of sending process
-	pid = nlh->nlmsg_pid; 
+	pid = nlh->nlmsg_pid;
 
 	DBG_INFO("the pid of sending process = %d", pid);
 
 	// TODO: may do something if there's not receiving msg from user.
-	if(pid != 0)
+	if (pid != 0)
 	{
 		DBG_ERR("The channel of Netlink has been established successfully !");
 		core_fr->isEnableNetlink = true;
@@ -589,7 +588,7 @@ static int netlink_init(void)
 	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, netlink_recv_msg, NULL, THIS_MODULE);
 #else
 	struct netlink_kernel_cfg cfg = {
-			.input = netlink_recv_msg,
+		.input = netlink_recv_msg,
 	};
 
 	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
@@ -597,7 +596,7 @@ static int netlink_init(void)
 
 	DBG_INFO("Initialise Netlink and create its socket");
 
-	if(!nl_sk)
+	if (!nl_sk)
 	{
 		DBG_ERR("Failed to create nelink socket");
 		res = -EFAULT;
@@ -612,11 +611,11 @@ int ilitek_proc_init(void)
 
 	proc_dir_ilitek = proc_mkdir("ilitek", NULL);
 
-	for(; i < ARRAY_SIZE(proc_table); i++)
+	for (; i < ARRAY_SIZE(proc_table); i++)
 	{
 		proc_table[i].node = proc_create(proc_table[i].name, 0666, proc_dir_ilitek, proc_table[i].fops);
 
-		if(proc_table[i].node == NULL)
+		if (proc_table[i].node == NULL)
 		{
 			proc_table[i].isCreated = false;
 			DBG_ERR("Failed to create %s under /proc", proc_table[i].name);
@@ -639,9 +638,9 @@ void ilitek_proc_remove(void)
 {
 	int i = 0;
 
-	for(; i < ARRAY_SIZE(proc_table); i++)
+	for (; i < ARRAY_SIZE(proc_table); i++)
 	{
-		if(proc_table[i].isCreated == true)
+		if (proc_table[i].isCreated == true)
 		{
 			DBG_INFO("Removed %s under /proc", proc_table[i].name);
 			remove_proc_entry(proc_table[i].name, proc_dir_ilitek);

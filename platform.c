@@ -39,13 +39,13 @@ struct ilitek_platform_data *ipd;
 
 void ilitek_platform_disable_irq(void)
 {
-    unsigned long nIrqFlag;
+	unsigned long nIrqFlag;
 
-    spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
-	if(ipd->isIrqEnable == true)
+	if (ipd->isIrqEnable == true)
 	{
-		if(ipd->isr_gpio)
+		if (ipd->isr_gpio)
 		{
 			disable_irq_nosync(ipd->isr_gpio);
 			ipd->isIrqEnable = false;
@@ -61,19 +61,19 @@ void ilitek_platform_disable_irq(void)
 		DBG_INFO("IRQ was already disabled");
 	}
 
-    spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 }
 EXPORT_SYMBOL(ilitek_platform_disable_irq);
 
 void ilitek_platform_enable_irq(void)
 {
-    unsigned long nIrqFlag;
+	unsigned long nIrqFlag;
 
-    spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
-	if(ipd->isIrqEnable == false)
+	if (ipd->isIrqEnable == false)
 	{
-		if(ipd->isr_gpio)
+		if (ipd->isr_gpio)
 		{
 			enable_irq(ipd->isr_gpio);
 			ipd->isIrqEnable = true;
@@ -89,14 +89,14 @@ void ilitek_platform_enable_irq(void)
 		DBG_INFO("IRQ was already enabled");
 	}
 
-    spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
 void ilitek_platform_tp_power_on(bool isEnable)
 {
 	DBG("TP Power on : %d ", isEnable);
-	if(isEnable)
+	if (isEnable)
 	{
 		gpio_direction_output(ipd->reset_gpio, 1);
 		mdelay(ipd->delay_time_high);
@@ -113,8 +113,8 @@ void ilitek_platform_tp_power_on(bool isEnable)
 EXPORT_SYMBOL(ilitek_platform_tp_power_on);
 
 #ifdef CONFIG_FB
-static int ilitek_platform_notifier_fb(struct notifier_block *self, 
-					unsigned long event, void *data)
+static int ilitek_platform_notifier_fb(struct notifier_block *self,
+									   unsigned long event, void *data)
 {
 	int *blank;
 	struct fb_event *evdata = data;
@@ -123,18 +123,17 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 
 	//TODO: can't disable irq if gesture has enabled.
 
-	if(event == FB_EVENT_BLANK)
+	if (event == FB_EVENT_BLANK)
 	{
 		blank = evdata->data;
-		if(*blank == FB_BLANK_POWERDOWN)
+		if (*blank == FB_BLANK_POWERDOWN)
 		{
 			// the event of suspend
 			DBG_INFO("Touch FB_BLANK_POWERDOWN");
 			ilitek_platform_disable_irq();
 			core_config_ic_suspend();
-	
 		}
-		else if(*blank == FB_BLANK_UNBLANK)
+		else if (*blank == FB_BLANK_UNBLANK)
 		{
 			// the event of resume
 			DBG_INFO("Touch FB_BLANK_UNBLANK");
@@ -163,7 +162,7 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 	//TODO: there is doing nothing if an upgrade firmware's processing.
 
-	core_fr_touch_release(0,0,0);
+	core_fr_touch_release(0, 0, 0);
 
 	input_sync(core_fr->input_device);
 
@@ -193,8 +192,8 @@ static int ilitek_platform_reg_suspend(void)
 	res = fb_register_client(&ipd->notifier_fb);
 #else
 	ipd->early_suspend->suspend = ilitek_platform_early_suspend;
-	ipd->early_suspend->esume  = ilitek_platform_late_resume;
-	ipd->early_suspend->level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	ipd->early_suspend->esume = ilitek_platform_late_resume;
+	ipd->early_suspend->level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	register_early_suspend(ipd->early_suspend);
 #endif
 
@@ -203,13 +202,13 @@ static int ilitek_platform_reg_suspend(void)
 
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
-    unsigned long nIrqFlag;
+	unsigned long nIrqFlag;
 
 	DBG("IRQ enable = %d", ipd->isIrqEnable);
 
-    spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
-	if(!ipd->isIrqEnable)
+	if (!ipd->isIrqEnable)
 	{
 		core_fr_handler();
 
@@ -223,45 +222,45 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 
 static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
-    unsigned long nIrqFlag;
+	unsigned long nIrqFlag;
 
 	DBG("Calling the function in work queue");
 
-    spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
-	if(ipd->isIrqEnable)
+	if (ipd->isIrqEnable)
 	{
 		disable_irq_nosync(ipd->isr_gpio);
 
 		schedule_work(&ipd->report_work_queue);
 	}
 
-    spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 
 	ipd->isIrqEnable = false;
 
-    return IRQ_HANDLED;
+	return IRQ_HANDLED;
 }
 
 static int ilitek_platform_isr_register(void)
 {
 	int res = 0;
-	
+
 	INIT_WORK(&ipd->report_work_queue, ilitek_platform_work_queue);
 
 	ipd->isr_gpio = gpio_to_irq(ipd->int_gpio);
 
 	DBG("ipd->isr_gpio = %d", ipd->isr_gpio);
 
-    res = request_threaded_irq(
-				ipd->isr_gpio,
-				NULL,
-				ilitek_platform_irq_handler,
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				"ilitek",
-				NULL);
+	res = request_threaded_irq(
+		ipd->isr_gpio,
+		NULL,
+		ilitek_platform_irq_handler,
+		IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+		"ilitek",
+		NULL);
 
-	if(res != 0)
+	if (res != 0)
 	{
 		DBG_ERR("Failed to register irq handler, irq = %d, res = %d",
 				ipd->isr_gpio, res);
@@ -281,7 +280,7 @@ static int ilitek_platform_gpio(void)
 	struct device_node *dev_node = ipd->client->dev.of_node;
 	uint32_t flag;
 #endif
-	uint32_t gpios[2] = {0};// 0: int, 1:reset
+	uint32_t gpios[2] = {0}; // 0: int, 1:reset
 
 #ifdef CONFIG_OF
 	gpios[0] = of_get_named_gpio_flags(dev_node, DTS_INT_GPIO, 0, &flag);
@@ -289,28 +288,28 @@ static int ilitek_platform_gpio(void)
 #endif
 
 	//TODO: implemente gpio config if a platform isn't set up by dts.
-	
-	if(!gpio_is_valid(gpios[0]))
+
+	if (!gpio_is_valid(gpios[0]))
 	{
 		DBG_ERR("Invalid irq gpio: %d", gpios[0]);
 		return -EBADR;
 	}
 
-	if(!gpio_is_valid(gpios[1]))
+	if (!gpio_is_valid(gpios[1]))
 	{
 		DBG_ERR("Invalid reset gpio: %d", gpios[1]);
 		return -EBADR;
 	}
 
 	res = gpio_request(gpios[0], "ILITEK_TP_IRQ");
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Request IRQ GPIO failed, res = %d", res);
 		goto out;
 	}
 
 	res = gpio_request(gpios[1], "ILITEK_TP_RESET");
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Request RESET GPIO failed, res = %d", res);
 		goto out;
@@ -335,42 +334,42 @@ static int ilitek_platform_read_tp_info(void)
 	ilitek_platform_disable_irq();
 
 	res = core_config_get_chip_id();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to get chip id, res = %d", res);
 		goto out;
 	}
 
 	res = core_config_get_fw_ver();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to get firmware version, res = %d", res);
 		goto out;
 	}
 
 	res = core_config_get_core_ver();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to get firmware version, res = %d", res);
 		goto out;
 	}
 
 	res = core_config_get_protocol_ver();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to get protocol version, res = %d", res);
 		goto out;
 	}
 
 	res = core_config_get_tp_info();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to get TP information, res = %d", res);
 		goto out;
 	}
 
 	res = core_config_get_key_info();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to get key information, res = %d", res);
 		goto out;
@@ -387,7 +386,7 @@ static int ilitek_platform_input_init(void)
 
 	ipd->input_device = input_allocate_device();
 
-	if(IS_ERR(ipd->input_device))
+	if (IS_ERR(ipd->input_device))
 	{
 		DBG_ERR("Failed to allocate touch input device");
 		res = -ENOMEM;
@@ -401,13 +400,13 @@ static int ilitek_platform_input_init(void)
 
 	core_fr_input_set_param(ipd->input_device);
 
-   /* register the input device to input sub-system */
-    res = input_register_device(ipd->input_device);
-    if (res < 0)
-    {
-        DBG_ERR("Failed to register touch input device, res = %d", res);
-        goto out;
-    }
+	/* register the input device to input sub-system */
+	res = input_register_device(ipd->input_device);
+	if (res < 0)
+	{
+		DBG_ERR("Failed to register touch input device, res = %d", res);
+		goto out;
+	}
 
 	return res;
 
@@ -418,7 +417,7 @@ fail_alloc:
 out:
 	input_unregister_device(ipd->input_device);
 	input_free_device(core_fr->input_device);
-	return res ;
+	return res;
 }
 
 /*
@@ -444,7 +443,7 @@ static int ilitek_platform_core_init(void)
 {
 	DBG("Initialise core's components ");
 
-	if(core_config_init() < 0 ||
+	if (core_config_init() < 0 ||
 		core_i2c_init(ipd->client) < 0 ||
 		core_firmware_init() < 0 ||
 		core_fr_init(ipd->client) < 0)
@@ -463,12 +462,12 @@ static int ilitek_platform_remove(struct i2c_client *client)
 {
 	DBG("Remove platform components");
 
-	if(ipd->isIrqEnable)
+	if (ipd->isIrqEnable)
 	{
 		disable_irq_nosync(ipd->isr_gpio);
 	}
 
-	if(ipd->isr_gpio != 0 && ipd->int_gpio != 0 && ipd->reset_gpio != 0)
+	if (ipd->isr_gpio != 0 && ipd->int_gpio != 0 && ipd->reset_gpio != 0)
 	{
 		free_irq(ipd->isr_gpio, (void *)ipd->i2c_id);
 		gpio_free(ipd->int_gpio);
@@ -483,7 +482,7 @@ static int ilitek_platform_remove(struct i2c_client *client)
 
 	ilitek_platform_core_remove();
 
-	if(ipd->input_device != NULL)
+	if (ipd->input_device != NULL)
 	{
 		input_unregister_device(ipd->input_device);
 		input_free_device(ipd->input_device);
@@ -506,10 +505,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 {
 	int res = 0;
 
-    if (client == NULL)
-    {
-        DBG_ERR("i2c client is NULL");
-        return -ENODEV;
+	if (client == NULL)
+	{
+		DBG_ERR("i2c client is NULL");
+		return -ENODEV;
 	}
 
 	// initialise the struct of touch ic memebers.
@@ -524,12 +523,12 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	// Different ICs may require different delay time for the reset.
 	// They may also depend on what your platform need to.
-	if(ipd->chip_id == CHIP_TYPE_ILI7807)
+	if (ipd->chip_id == CHIP_TYPE_ILI7807)
 	{
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 5;
 	}
-	else if(ipd->chip_id == CHIP_TYPE_ILI9881)
+	else if (ipd->chip_id == CHIP_TYPE_ILI9881)
 	{
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 5;
@@ -540,23 +539,23 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		ipd->delay_time_low = 10;
 	}
 
-    mutex_init(&ipd->MUTEX);
-    spin_lock_init(&ipd->SPIN_LOCK);
+	mutex_init(&ipd->MUTEX);
+	spin_lock_init(&ipd->SPIN_LOCK);
 
 	res = ilitek_platform_gpio();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to request gpios ");
 	}
 
 	res = ilitek_platform_isr_register();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to register ISR");
 	}
 
 	res = ilitek_platform_core_init();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to init core APIs");
 		goto out;
@@ -565,13 +564,13 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ilitek_platform_tp_power_on(true);
 
 	res = ilitek_platform_read_tp_info();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to read IC info");
 	}
 
 	res = ilitek_platform_input_init();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to init input device in kernel");
 	}
@@ -581,7 +580,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ilitek_platform_tp_power_on(true);
 
 	res = ilitek_platform_reg_suspend();
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to register suspend/resume CB function");
 	}
@@ -591,13 +590,12 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 out:
 	ilitek_platform_remove(ipd->client);
 	return res;
-
 }
 
 static const struct i2c_device_id tp_device_id[] =
-{
-    {I2C_DEVICE_ID, 0},
-    {}, /* should not omitted */
+	{
+		{I2C_DEVICE_ID, 0},
+		{}, /* should not omitted */
 };
 
 MODULE_DEVICE_TABLE(i2c, tp_device_id);
@@ -608,20 +606,20 @@ MODULE_DEVICE_TABLE(i2c, tp_device_id);
  *
  */
 static struct of_device_id tp_match_table[] = {
-	{ .compatible = DTS_OF_NAME},
-    {},
+	{.compatible = DTS_OF_NAME},
+	{},
 };
 
 static struct i2c_driver tp_i2c_driver =
-{
-    .driver = {
-        .name = I2C_DEVICE_ID,
-        .owner = THIS_MODULE,
-        .of_match_table = tp_match_table,
-    },
-    .probe = ilitek_platform_probe,
-    .remove = ilitek_platform_remove,
-    .id_table = tp_device_id,
+	{
+		.driver = {
+			.name = I2C_DEVICE_ID,
+			.owner = THIS_MODULE,
+			.of_match_table = tp_match_table,
+		},
+		.probe = ilitek_platform_probe,
+		.remove = ilitek_platform_remove,
+		.id_table = tp_device_id,
 };
 
 static int __init ilitek_platform_init(void)
@@ -630,7 +628,7 @@ static int __init ilitek_platform_init(void)
 
 	res = i2c_add_driver(&tp_i2c_driver);
 
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to add i2c driver");
 		i2c_del_driver(&tp_i2c_driver);

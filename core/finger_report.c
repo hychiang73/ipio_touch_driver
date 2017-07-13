@@ -22,7 +22,7 @@
  *
  */
 
- #define DEBUG
+#define DEBUG
 
 #include <linux/errno.h>
 #include <linux/types.h>
@@ -45,7 +45,8 @@ extern int nums_chip;
 /*
  * It represents an id and its position in each fingers
  */
-struct mutual_touch_point {
+struct mutual_touch_point
+{
 	uint16_t id;
 	uint16_t x;
 	uint16_t y;
@@ -55,7 +56,8 @@ struct mutual_touch_point {
 /*
  * It represents keys and their code with each fingers
  */
-struct mutual_touch_info {
+struct mutual_touch_info
+{
 	uint8_t key_count;
 	uint8_t key_code;
 	struct mutual_touch_point mtp[10];
@@ -65,10 +67,10 @@ struct mutual_touch_info mti;
 
 // record the status of touch being pressed or released currently and previosuly.
 uint8_t CurrentTouch[MAX_TOUCH_NUM];
-uint8_t PreviousTouch[MAX_TOUCH_NUM]; 
+uint8_t PreviousTouch[MAX_TOUCH_NUM];
 
 // Either B TYPE or A Type in MTP
-#define USE_TYPE_B_PROTOCOL 
+#define USE_TYPE_B_PROTOCOL
 
 //#define ENABLE_GESTURE_WAKEUP
 
@@ -76,13 +78,13 @@ uint8_t PreviousTouch[MAX_TOUCH_NUM];
 //#define FORCE_TOUCH
 
 // set up width and heigth of a screen
-#define TOUCH_SCREEN_X_MIN	0
-#define TOUCH_SCREEN_Y_MIN	0
-#define TOUCH_SCREEN_X_MAX	1080
-#define TOUCH_SCREEN_Y_MAX	1920
+#define TOUCH_SCREEN_X_MIN 0
+#define TOUCH_SCREEN_Y_MIN 0
+#define TOUCH_SCREEN_X_MAX 1080
+#define TOUCH_SCREEN_Y_MAX 1920
 
 #define TPD_HEIGHT 2048
-#define TPD_WIDTH  2048
+#define TPD_WIDTH 2048
 
 struct core_fr_data *core_fr;
 
@@ -116,36 +118,36 @@ static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
  */
 static void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
-    DBG("point touch pressed"); 
+	DBG("point touch pressed");
 
-    DBG("id = %d, x = %d, y = %d", id, x, y);
+	DBG("id = %d, x = %d, y = %d", id, x, y);
 
 #ifdef USE_TYPE_B_PROTOCOL
-    input_mt_slot(core_fr->input_device, id);
-    input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, true);
-    input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
-    input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+	input_mt_slot(core_fr->input_device, id);
+	input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, true);
+	input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
+	input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
 
 #ifdef FORCE_TOUCH
-    input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
+	input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
 #endif
 
 #else // for A protocol
-    input_report_key(core_fr->input_device, BTN_TOUCH, 1);
+	input_report_key(core_fr->input_device, BTN_TOUCH, 1);
 
-    // ABS_MT_TRACKING_ID is used for ILI7807/ILI21xx only
-	input_report_abs(core_fr->input_device, ABS_MT_TRACKING_ID, id); 
+	// ABS_MT_TRACKING_ID is used for ILI7807/ILI21xx only
+	input_report_abs(core_fr->input_device, ABS_MT_TRACKING_ID, id);
 
-    input_report_abs(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 1);
-    input_report_abs(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 1);
-    input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
-    input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+	input_report_abs(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 1);
+	input_report_abs(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 1);
+	input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
+	input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
 
 #ifdef FORCE_TOUCH
-    input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
+	input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
 #endif
 
-    input_mt_sync(core_fr->input_device);
+	input_mt_sync(core_fr->input_device);
 #endif
 }
 
@@ -159,16 +161,16 @@ static void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t
  */
 static void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
-    DBG("point touch released"); 
+	DBG("point touch released");
 
-    DBG("id = %d, x = %d, y = %d", id, x, y);
+	DBG("id = %d, x = %d, y = %d", id, x, y);
 
 #ifdef USE_TYPE_B_PROTOCOL
-    input_mt_slot(core_fr->input_device, id);
-    input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);
+	input_mt_slot(core_fr->input_device, id);
+	input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);
 #else // for A protocol
-    input_report_key(core_fr->input_device, BTN_TOUCH, 0);
-    input_mt_sync(core_fr->input_device);
+	input_report_key(core_fr->input_device, BTN_TOUCH, 0);
+	input_mt_sync(core_fr->input_device);
 #endif
 }
 
@@ -192,24 +194,24 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	uint8_t check_sum = 0;
 	uint32_t nX = 0, nY = 0;
 
-    for(i = 0; i < 9; i++)
+	for (i = 0; i < 9; i++)
 		DBG("fr_data[%d] = %x", i, fr_data[i]);
 
 	//TODO: calculate report rate
 
-	check_sum = cal_fr_checksum(&fr_data[0], (rpl-1));	
-    DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl-1], check_sum);
+	check_sum = cal_fr_checksum(&fr_data[0], (rpl - 1));
+	DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl - 1], check_sum);
 
-    if (fr_data[rpl-1] != check_sum)
-    {
-        DBG_ERR("Wrong checksum");
-        return -1;
-    }
+	if (fr_data[rpl - 1] != check_sum)
+	{
+		DBG_ERR("Wrong checksum");
+		return -1;
+	}
 
 	//TODO: parse packets for gesture/glove features if they're enabled
 
 	// start to parsing the packet of finger report
-	if(fr_data[0] == P5_0_DEMO_PACKET_ID)
+	if (fr_data[0] == P5_0_DEMO_PACKET_ID)
 	{
 		DBG(" **** Parsing DEMO packets ****");
 
@@ -233,10 +235,10 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
-					pInfo->mtp[pInfo->key_count].id,
-					pInfo->mtp[pInfo->key_count].x,
-					pInfo->mtp[pInfo->key_count].y,
-					pInfo->mtp[pInfo->key_count].pressure);
+				pInfo->mtp[pInfo->key_count].id,
+				pInfo->mtp[pInfo->key_count].x,
+				pInfo->mtp[pInfo->key_count].y,
+				pInfo->mtp[pInfo->key_count].pressure);
 
 			pInfo->key_count++;
 
@@ -245,7 +247,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 #endif
 		}
 	}
-	else if(fr_data[0] == P5_0_DEBUG_PACKET_ID)
+	else if (fr_data[0] == P5_0_DEBUG_PACKET_ID)
 	{
 		DBG(" **** Parsing DEBUG packets ****");
 
@@ -269,10 +271,10 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
-					pInfo->mtp[pInfo->key_count].id,
-					pInfo->mtp[pInfo->key_count].x,
-					pInfo->mtp[pInfo->key_count].y,
-					pInfo->mtp[pInfo->key_count].pressure);
+				pInfo->mtp[pInfo->key_count].id,
+				pInfo->mtp[pInfo->key_count].x,
+				pInfo->mtp[pInfo->key_count].y,
+				pInfo->mtp[pInfo->key_count].pressure);
 
 			pInfo->key_count++;
 
@@ -300,7 +302,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 {
 	int i, res = 0;
 	static int last_count = 0;
-	
+
 	// initialise struct of mutual toucn info
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
 
@@ -308,14 +310,14 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 
 	// read finger touch packet when an interrupt occurs
 	res = core_i2c_read(core_config->slave_i2c_addr, fr_data, length);
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to read finger report packet");
 		return res;
 	}
 
 	res = parse_touch_package_v5_0(fr_data, &mti, length);
-	if(res < 0)
+	if (res < 0)
 	{
 		DBG_ERR("Failed to parse packet of finger touch");
 		return -1;
@@ -324,7 +326,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 	DBG("tInfo.nCount = %d, nLastCount = %d\n", mti.key_count, last_count);
 
 	// interpret parsed packat and send input events to uplayer
-	if(mti.key_count > 0)
+	if (mti.key_count > 0)
 	{
 #ifdef USE_TYPE_B_PROTOCOL
 		for (i = 0; i < mti.key_count; i++)
@@ -388,23 +390,23 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 // commands according to the procotol used on a chip.
 extern uint8_t pcmd[10];
 
-int core_fr_mode_control(uint8_t* from_user)
+int core_fr_mode_control(uint8_t *from_user)
 {
 	int mode;
 	int i, res = 0;
 	uint8_t buf[3] = {0};
 
-	uint8_t actual_mode[] = 
-	{
-		P5_0_FIRMWARE_DEMO_MODE,
-		P5_0_FIRMWARE_TEST_MODE,
-		P5_0_FIRMWARE_DEBUG_MODE,
-		P5_0_FIRMWARE_I2CUART_MODE,
-	};
+	uint8_t actual_mode[] =
+		{
+			P5_0_FIRMWARE_DEMO_MODE,
+			P5_0_FIRMWARE_TEST_MODE,
+			P5_0_FIRMWARE_DEBUG_MODE,
+			P5_0_FIRMWARE_I2CUART_MODE,
+		};
 
 	ilitek_platform_disable_irq();
 
-	if(from_user == NULL)
+	if (from_user == NULL)
 	{
 		DBG_ERR("Arguments from user space are invaild");
 		goto out;
@@ -415,36 +417,36 @@ int core_fr_mode_control(uint8_t* from_user)
 
 	mode = from_user[0];
 
-	for(i = 0; i < ARRAY_SIZE(actual_mode); i++)
+	for (i = 0; i < ARRAY_SIZE(actual_mode); i++)
 	{
-		if(actual_mode[i] == mode)
+		if (actual_mode[i] == mode)
 		{
-			if(mode == P5_0_FIRMWARE_I2CUART_MODE)
+			if (mode == P5_0_FIRMWARE_I2CUART_MODE)
 			{
 				buf[0] = pcmd[6];
-				buf[1] = *(from_user+1);
-				buf[2] = *(from_user+2);
+				buf[1] = *(from_user + 1);
+				buf[2] = *(from_user + 2);
 
 				DBG_INFO("Switch to I2CUART mode, cmd = 0x%x, byte 1 = 0x%x, byte 2 = 0x%x",
-							buf[0], buf[1], buf[2]);
+						 buf[0], buf[1], buf[2]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 3);
-				if(res < 0)
+				if (res < 0)
 					goto out;
 			}
-			else if(mode == P5_0_FIRMWARE_TEST_MODE)
+			else if (mode == P5_0_FIRMWARE_TEST_MODE)
 			{
 				buf[0] = pcmd[5];
 				buf[1] = mode;
 
 				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
-							buf[0], buf[1]);
+						 buf[0], buf[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
-				if(res < 0)
+				if (res < 0)
 					goto out;
 
-				// doing sensor test 
+				// doing sensor test
 				core_mp_switch_mode();
 			}
 			else
@@ -453,17 +455,17 @@ int core_fr_mode_control(uint8_t* from_user)
 				buf[1] = mode;
 
 				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
-							buf[0], buf[1]);
+						 buf[0], buf[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
-				if(res < 0)
+				if (res < 0)
 					goto out;
 			}
 			core_fr->actual_fw_mode = actual_mode[i];
 			break;
 		}
 
-		if(i == (ARRAY_SIZE(actual_mode) - 1))
+		if (i == (ARRAY_SIZE(actual_mode) - 1))
 		{
 			DBG_ERR("Unknown Mode");
 			res = -1;
@@ -489,7 +491,8 @@ EXPORT_SYMBOL(core_fr_mode_control);
  * touch ic with customised firmware, so I don't have to identify which of the ic has been used; instead,
  * the version of protocol should match its parsing pattern.
  */
-typedef struct {
+typedef struct
+{
 	uint16_t protocol;
 	int (*finger_report)(uint8_t *packet, int length);
 } fr_hashtable;
@@ -511,23 +514,23 @@ void core_fr_handler(void)
 	uint8_t *fr_data = NULL;
 	uint16_t report_packet_length = -1;
 
-	if(core_fr->isEnableFR)
+	if (core_fr->isEnableFR)
 	{
-		for(i = 0; i < len; i++)
+		for (i = 0; i < len; i++)
 		{
-			if(fr_t[i].protocol == core_config->use_protocol)
+			if (fr_t[i].protocol == core_config->use_protocol)
 			{
-				if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
-					if(core_fr->actual_fw_mode == core_fr->fw_demo_mode)
+					if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
 					{
 						report_packet_length = P5_0_DEMO_MODE_PACKET_LENGTH;
 					}
-					else if(core_fr->actual_fw_mode == core_fr->fw_test_mode)
+					else if (core_fr->actual_fw_mode == core_fr->fw_test_mode)
 					{
 						report_packet_length = P5_0_TEST_MODE_PACKET_LENGTH;
 					}
-					else if(core_fr->actual_fw_mode == core_fr->fw_debug_mode)
+					else if (core_fr->actual_fw_mode == core_fr->fw_debug_mode)
 					{
 						report_packet_length = P5_0_DEBUG_MODE_PACKET_LENGTH;
 					}
@@ -538,7 +541,7 @@ void core_fr_handler(void)
 					}
 				}
 
-				if(!report_packet_length)
+				if (!report_packet_length)
 				{
 					DBG_ERR("Unknow packet length : %d", report_packet_length);
 					return;
@@ -546,7 +549,7 @@ void core_fr_handler(void)
 
 				DBG("Length of report packet = %d", report_packet_length);
 
-				fr_data = (uint8_t*)kmalloc(sizeof(uint8_t) * report_packet_length, GFP_KERNEL);
+				fr_data = (uint8_t *)kmalloc(sizeof(uint8_t) * report_packet_length, GFP_KERNEL);
 				memset(fr_data, 0xFF, sizeof(uint8_t) * report_packet_length);
 
 				mutex_lock(&ipd->MUTEX);
@@ -557,7 +560,7 @@ void core_fr_handler(void)
 			}
 		}
 
-		if(core_fr->isEnableNetlink)
+		if (core_fr->isEnableNetlink)
 		{
 			netlink_reply_msg(fr_data, report_packet_length);
 		}
@@ -577,15 +580,15 @@ void core_fr_input_set_param(struct input_dev *input_device)
 
 	core_fr->input_device = input_device;
 
-    // set the supported event type for input device
-    set_bit(EV_ABS, core_fr->input_device->evbit);
-    set_bit(EV_SYN, core_fr->input_device->evbit);
-    set_bit(EV_KEY, core_fr->input_device->evbit);
-    set_bit(BTN_TOUCH, core_fr->input_device->keybit);
+	// set the supported event type for input device
+	set_bit(EV_ABS, core_fr->input_device->evbit);
+	set_bit(EV_SYN, core_fr->input_device->evbit);
+	set_bit(EV_KEY, core_fr->input_device->evbit);
+	set_bit(BTN_TOUCH, core_fr->input_device->keybit);
 	set_bit(BTN_TOOL_FINGER, core_fr->input_device->keybit);
-    set_bit(INPUT_PROP_DIRECT, core_fr->input_device->propbit);
+	set_bit(INPUT_PROP_DIRECT, core_fr->input_device->propbit);
 
-	if(IS_ERR(core_config->tp_info))
+	if (IS_ERR(core_config->tp_info))
 	{
 		max_x = TOUCH_SCREEN_X_MAX;
 		max_y = TOUCH_SCREEN_Y_MAX;
@@ -603,45 +606,45 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	}
 
 	DBG("input resolution : max_x = %d, max_y = %d, min_x = %d, min_y = %d",
-			max_x, max_y, min_x, min_y);
+		max_x, max_y, min_x, min_y);
 	DBG("input touch number: max_tp = %d", max_tp);
 
 	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, min_x, max_x, 0, 0);
 	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, min_y, max_y, 0, 0);
 
 	input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
-    input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
+	input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 
 #ifdef FORCE_TOUCH
-    input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
+	input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
 #endif
 
 #ifdef USE_TYPE_B_PROTOCOL
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-		input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
-	#else
-		input_mt_init_slots(core_fr->input_device, max_tp);
-	#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
+	input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
+#else
+	input_mt_init_slots(core_fr->input_device, max_tp);
+#endif
 #else // for A protocol
 	input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
 #endif
 
-	//TODO: set virtual keys if tp has key count
+//TODO: set virtual keys if tp has key count
 
 #ifdef ENABLE_GESTURE_WAKEUP
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_W);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_Z);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_V);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_O);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_M);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_C);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_E);
-    input_set_capability(core_fr->input_device, EV_KEY, KEY_S);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_W);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_Z);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_V);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_O);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_M);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_C);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_E);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_S);
 #endif
 }
 EXPORT_SYMBOL(core_fr_input_set_param);
@@ -650,9 +653,9 @@ int core_fr_init(struct i2c_client *pClient)
 {
 	int i = 0, res = 0;
 
-	for(; i < nums_chip; i++)
+	for (; i < nums_chip; i++)
 	{
-		if(SUP_CHIP_LIST[i] == ON_BOARD_IC)
+		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
 
@@ -660,48 +663,47 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
 
-			if(core_fr->chip_id == CHIP_TYPE_ILI2121)
+			if (core_fr->chip_id == CHIP_TYPE_ILI2121)
 			{
-				if(core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
+				if (core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 				{
 					core_fr->fw_unknow_mode = ILI2121_FIRMWARE_UNKNOWN_MODE;
-					core_fr->fw_demo_mode =	  ILI2121_FIRMWARE_DEMO_MODE;
-					core_fr->fw_debug_mode =  ILI2121_FIRMWARE_DEBUG_MODE;
+					core_fr->fw_demo_mode = ILI2121_FIRMWARE_DEMO_MODE;
+					core_fr->fw_debug_mode = ILI2121_FIRMWARE_DEBUG_MODE;
 					core_fr->actual_fw_mode = ILI2121_FIRMWARE_DEMO_MODE;
 				}
-
 			}
-			else if(core_fr->chip_id == CHIP_TYPE_ILI7807)
+			else if (core_fr->chip_id == CHIP_TYPE_ILI7807)
 			{
-				if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
 					core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
-					core_fr->fw_demo_mode =	  P5_0_FIRMWARE_DEMO_MODE;
-					core_fr->fw_test_mode =	  P5_0_FIRMWARE_TEST_MODE;
-					core_fr->fw_debug_mode =  P5_0_FIRMWARE_DEBUG_MODE;
+					core_fr->fw_demo_mode = P5_0_FIRMWARE_DEMO_MODE;
+					core_fr->fw_test_mode = P5_0_FIRMWARE_TEST_MODE;
+					core_fr->fw_debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
 					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 				}
 			}
-			else if(core_fr->chip_id == CHIP_TYPE_ILI9881)
+			else if (core_fr->chip_id == CHIP_TYPE_ILI9881)
 			{
-				if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
 					core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
-					core_fr->fw_demo_mode =	  P5_0_FIRMWARE_DEMO_MODE;
-					core_fr->fw_test_mode =	  P5_0_FIRMWARE_TEST_MODE;
-					core_fr->fw_debug_mode =  P5_0_FIRMWARE_DEBUG_MODE;
+					core_fr->fw_demo_mode = P5_0_FIRMWARE_DEMO_MODE;
+					core_fr->fw_test_mode = P5_0_FIRMWARE_TEST_MODE;
+					core_fr->fw_debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
 					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 				}
 			}
 		}
 	}
 
-	if(IS_ERR(core_fr))
+	if (IS_ERR(core_fr))
 	{
 		DBG_ERR("Failed to init core_fr APIs");
 		res = -ENOMEM;
 		goto out;
-	} 
+	}
 
 	return res;
 
