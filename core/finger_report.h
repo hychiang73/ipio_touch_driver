@@ -29,10 +29,16 @@ struct core_fr_data
 {
 	struct input_dev *input_device;
 
+	/* the default of finger report is enabled */
 	int isEnableFR;
-
-	/* able to send packet to user space */
+	/* used to send finger report packet to user psace */
 	int isEnableNetlink;
+	/* for Linux multi-touch protocol */
+	int btype;
+	/* enable Gesture with virtual keys */
+	int isEnableGes;
+	/* allow input dev to report the value of physical touch */
+	int isEnablePressure;
 
 	uint32_t chip_id;
 

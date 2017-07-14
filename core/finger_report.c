@@ -69,14 +69,6 @@ struct mutual_touch_info mti;
 uint8_t CurrentTouch[MAX_TOUCH_NUM];
 uint8_t PreviousTouch[MAX_TOUCH_NUM];
 
-// Either B TYPE or A Type in MTP
-#define USE_TYPE_B_PROTOCOL
-
-//#define ENABLE_GESTURE_WAKEUP
-
-// Whether to detect the value of pressure in finger touch
-//#define FORCE_TOUCH
-
 // set up width and heigth of a screen
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
@@ -118,37 +110,35 @@ static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
  */
 static void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
-	DBG("point touch pressed");
+	DBG("btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
 
-	DBG("id = %d, x = %d, y = %d", id, x, y);
+	if(core_fr->btype)
+	{
+		input_mt_slot(core_fr->input_device, id);
+		input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, true);
+		input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
+		input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
 
-#ifdef USE_TYPE_B_PROTOCOL
-	input_mt_slot(core_fr->input_device, id);
-	input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, true);
-	input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
-	input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+		if(core_fr->isEnablePressure)
+			input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
+	}
+	else
+	{
+		input_report_key(core_fr->input_device, BTN_TOUCH, 1);
 
-#ifdef FORCE_TOUCH
-	input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
-#endif
+		input_report_abs(core_fr->input_device, ABS_MT_TRACKING_ID, id);
+		input_report_abs(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 1);
+		input_report_abs(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 1);
+		input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
+		input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
 
-#else // for A protocol
-	input_report_key(core_fr->input_device, BTN_TOUCH, 1);
+		if(core_fr->isEnablePressure)
+			input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
 
-	// ABS_MT_TRACKING_ID is used for ILI7807/ILI21xx only
-	input_report_abs(core_fr->input_device, ABS_MT_TRACKING_ID, id);
+		input_mt_sync(core_fr->input_device);
+	}
 
-	input_report_abs(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 1);
-	input_report_abs(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 1);
-	input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
-	input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
-
-#ifdef FORCE_TOUCH
-	input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
-#endif
-
-	input_mt_sync(core_fr->input_device);
-#endif
+	return;
 }
 
 /*
@@ -161,17 +151,18 @@ static void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t
  */
 static void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
-	DBG("point touch released");
+	DBG("btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
 
-	DBG("id = %d, x = %d, y = %d", id, x, y);
-
-#ifdef USE_TYPE_B_PROTOCOL
-	input_mt_slot(core_fr->input_device, id);
-	input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);
-#else // for A protocol
-	input_report_key(core_fr->input_device, BTN_TOUCH, 0);
-	input_mt_sync(core_fr->input_device);
-#endif
+	if(core_fr->btype)
+	{
+		input_mt_slot(core_fr->input_device, id);
+		input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);	
+	}
+	else
+	{
+		input_report_key(core_fr->input_device, BTN_TOUCH, 0);
+		input_mt_sync(core_fr->input_device);	
+	}
 }
 
 static int parse_touch_package_v3_2(uint8_t *fr_packet, int mode)
@@ -219,9 +210,10 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 		{
 			if ((fr_data[(4 * i) + 1] == 0xFF) && (fr_data[(4 * i) + 2] && 0xFF) && (fr_data[(4 * i) + 3] == 0xFF))
 			{
-#ifdef USE_TYPE_B_PROTOCOL
-				CurrentTouch[i] = 0;
-#endif
+				if(core_fr->btype)
+				{
+					CurrentTouch[i] = 0;
+				}
 				continue;
 			}
 
@@ -242,9 +234,10 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 
 			pInfo->key_count++;
 
-#ifdef USE_TYPE_B_PROTOCOL
-			CurrentTouch[i] = 1;
-#endif
+			if(core_fr->btype)
+			{
+				CurrentTouch[i] = 1;
+			}
 		}
 	}
 	else if (fr_data[0] == P5_0_DEBUG_PACKET_ID)
@@ -255,9 +248,10 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 		{
 			if ((fr_data[(3 * i) + 5] == 0xFF) && (fr_data[(3 * i) + 6] && 0xFF) && (fr_data[(3 * i) + 7] == 0xFF))
 			{
-#ifdef USE_TYPE_B_PROTOCOL
-				CurrentTouch[i] = 0;
-#endif
+				if(core_fr->btype)
+				{
+					CurrentTouch[i] = 0;
+				}
 				continue;
 			}
 
@@ -278,9 +272,10 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 
 			pInfo->key_count++;
 
-#ifdef USE_TYPE_B_PROTOCOL
-			CurrentTouch[i] = 1;
-#endif
+			if(core_fr->btype)
+			{
+				CurrentTouch[i] = 1;
+			}
 		}
 	}
 
@@ -328,41 +323,16 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 	// interpret parsed packat and send input events to uplayer
 	if (mti.key_count > 0)
 	{
-#ifdef USE_TYPE_B_PROTOCOL
-		for (i = 0; i < mti.key_count; i++)
+		if(core_fr->btype)
 		{
-			input_report_key(core_fr->input_device, BTN_TOUCH, 1);
-			core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
-
-			input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 1);
-		}
-
-		for (i = 0; i < MAX_TOUCH_NUM; i++)
-		{
-			DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
-
-			if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
+			for (i = 0; i < mti.key_count; i++)
 			{
-				core_fr_touch_release(0, 0, i);
+				input_report_key(core_fr->input_device, BTN_TOUCH, 1);
+				core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
+
+				input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 1);
 			}
 
-			PreviousTouch[i] = CurrentTouch[i];
-		}
-#else // for A protocol
-		for (i = 0; i < mti.key_count; i++)
-		{
-			core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
-		}
-#endif
-		input_sync(core_fr->input_device);
-
-		last_count = mti.key_count;
-	}
-	else
-	{
-		if (last_count > 0)
-		{
-#ifdef USE_TYPE_B_PROTOCOL
 			for (i = 0; i < MAX_TOUCH_NUM; i++)
 			{
 				DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
@@ -371,14 +341,45 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 				{
 					core_fr_touch_release(0, 0, i);
 				}
+
 				PreviousTouch[i] = CurrentTouch[i];
 			}
+		}
+		else
+		{
+			for (i = 0; i < mti.key_count; i++)
+			{
+				core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
+			}
+		}
+		input_sync(core_fr->input_device);
 
-			input_report_key(core_fr->input_device, BTN_TOUCH, 0);
-			input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
-#else // for A protocol
-			core_fr_touch_release(0, 0, 0);
-#endif
+		last_count = mti.key_count;
+	}
+	else
+	{
+		if (last_count > 0)
+		{
+			if(core_fr->btype)
+			{
+				for (i = 0; i < MAX_TOUCH_NUM; i++)
+				{
+					DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+
+					if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
+					{
+						core_fr_touch_release(0, 0, i);
+					}
+					PreviousTouch[i] = CurrentTouch[i];
+				}
+				input_report_key(core_fr->input_device, BTN_TOUCH, 0);
+				input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
+			}
+			else
+			{
+				core_fr_touch_release(0, 0, 0);
+			}
+
 			input_sync(core_fr->input_device);
 
 			last_count = 0;
@@ -609,43 +610,48 @@ void core_fr_input_set_param(struct input_dev *input_device)
 		max_x, max_y, min_x, min_y);
 	DBG("input touch number: max_tp = %d", max_tp);
 
-	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, min_x, max_x, 0, 0);
-	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, min_y, max_y, 0, 0);
+	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, min_x, max_x - 1, 0, 0);
+	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, min_y, max_y - 1, 0, 0);
 
 	input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 
-#ifdef FORCE_TOUCH
-	input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
-#endif
+	if(core_fr->isEnablePressure)
+		input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
 
-#ifdef USE_TYPE_B_PROTOCOL
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
-	input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
-#else
-	input_mt_init_slots(core_fr->input_device, max_tp);
-#endif
-#else // for A protocol
-	input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
-#endif
+	if(core_fr->btype)
+	{
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
+			input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
+		#else
+			input_mt_init_slots(core_fr->input_device, max_tp);
+		#endif
+	}
+	else
+	{
+		input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
+	}
 
-//TODO: set virtual keys if tp has key count
+	//TODO: set virtual keys if tp has key count
 
-#ifdef ENABLE_GESTURE_WAKEUP
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_W);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_Z);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_V);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_O);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_M);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_C);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_E);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_S);
-#endif
+	if(core_fr->isEnableGes)
+	{
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_W);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_Z);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_V);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_O);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_M);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_C);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_E);
+		input_set_capability(core_fr->input_device, EV_KEY, KEY_S);
+	}
+
+	return;
 }
 EXPORT_SYMBOL(core_fr_input_set_param);
 
@@ -662,6 +668,9 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->chip_id = SUP_CHIP_LIST[i];
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
+			core_fr->btype = true;
+			core_fr->isEnableGes = false;
+			core_fr->isEnablePressure = false;
 
 			if (core_fr->chip_id == CHIP_TYPE_ILI2121)
 			{

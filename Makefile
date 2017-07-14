@@ -7,6 +7,7 @@ obj-$(CONFIG_TOUCHSCREEN_ILITEK) +=  platform.o userspace.o \
 								$(INCLUDE)/i2c.o \
 								$(INCLUDE)/firmware.o \
 								$(INCLUDE)/finger_report.o \
+								$(INCLUDE)/mp_test.o \
 
 #obj-m += ilitek.o
 
@@ -16,6 +17,7 @@ obj-$(CONFIG_TOUCHSCREEN_ILITEK) +=  platform.o userspace.o \
         $(INCLUDE)/i2c.o \
         $(INCLUDE)/firmware.o \
         $(INCLUDE)/finger_report.o \
+		$(INCLUDE)/mp_test.o \
 
 #TOOLCHAIN = /home/ilisa/Workplace/rk3288_sdk/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin
 #CC = $(TOOLCHAIN)/arm-eabi-gcc
