@@ -220,6 +220,9 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			nX = (((fr_data[(4 * i) + 1] & 0xF0) << 4) | (fr_data[(4 * i) + 2]));
 			nY = (((fr_data[(4 * i) + 1] & 0x0F) << 8) | (fr_data[(4 * i) + 3]));
 
+			// FIXME:
+			// the axis reported from firmware has soem problems so that we need to transfer them.
+			// if use MTK platform with the IC, we transfer them as well.
 			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
 			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
 			pInfo->mtp[pInfo->key_count].pressure = fr_data[4 * (i + 1)];
@@ -258,6 +261,9 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			nX = (((fr_data[(3 * i) + 5] & 0xF0) << 4) | (fr_data[(3 * i) + 6]));
 			nY = (((fr_data[(3 * i) + 5] & 0x0F) << 8) | (fr_data[(3 * i) + 7]));
 
+			// FIXME:
+			// the axis reported from firmware has soem problems so that we need to transfer them.
+			// if use MTK platform with the IC, we transfer them as well.
 			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
 			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
 			pInfo->mtp[pInfo->key_count].pressure = 1;
