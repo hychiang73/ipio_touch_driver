@@ -155,6 +155,15 @@ static int ilitek_platform_gpio(void)
 
 # Release Note
 
+* V1.0.0.3
+  * Fixed the issue of create skb buff in netlink
+  * Fixed the issue of doing bitwise with tp info got from ic
+  * Improved the stability with IRAM upgrade.
+  * Improved the stability while getting chip id, particularly 7807F.
+  * Added Notifier FB as main suspend/resume function called.
+  * Added MP Test in Test mode but 7807F not supported it yet.
+  * Optimised code structure.
+
 * V1.0.0.2
   * Fixed the issue of no resposne while using A protocol.
   * Now the resolution of input device can correctly be set by TP info.
