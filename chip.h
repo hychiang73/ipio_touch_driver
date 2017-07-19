@@ -49,11 +49,12 @@
  * Relative Firmware Upgrade
  */
 
-#define MAX_HEX_FILE_SIZE			160*1024
-#define MAX_FLASH_FIRMWARE_SIZE		256*1024
-#define MAX_IRAM_FIRMWARE_SIZE		60*1024
+#define MAX_HEX_FILE_SIZE			(160*1024)
+#define MAX_FLASH_FIRMWARE_SIZE		(256*1024)
+#define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
 
 #define UPDATE_FIRMWARE_PAGE_LENGTH		256
+#define FLASH_PROGRAM_SIZE			(4*1024)
 
 /*
  * Protocol commands 
