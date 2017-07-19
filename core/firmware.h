@@ -35,7 +35,7 @@ struct core_firmware_data
 	uint32_t ap_start_addr;
 	uint32_t ap_end_addr;
 	uint32_t ap_checksum;
-	uint32_t ap_crc;
+	uint32_t crc32;
 
 	uint32_t df_start_addr;
 	uint32_t df_end_addr;
