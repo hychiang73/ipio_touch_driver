@@ -52,6 +52,8 @@ uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = {0};
 
 int Ssize = 0;
 int sec_length = 0;
+uint32_t tmp_ck = 0x0;
+uint8_t tmp_crc[FLASH_PROGRAM_SIZE] = {0};
 
 struct flash_sector
 {
@@ -349,7 +351,9 @@ static int iram_upgrade(void)
 static int ili7807_firmware_upgrade(bool isIRAM)
 {
 	int i, j, res = 0;
-	//uint32_t erase_start_addr = 0;
+	int split = 0;
+	int p = 0;
+	int over_count = 0;
 	uint8_t buf[512] = {0};
 	uint32_t temp_buf = 0;
 	uint32_t start_addr = core_firmware->start_addr;
@@ -358,9 +362,6 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 	uint32_t fpz = FLASH_PROGRAM_SIZE, k;
 	uint32_t sec_checksum = 0x0;
 	uint32_t check_len = 0x0;
-	int split = 0;
-	int p = 0;
-	int over_count = 0;
 
 	core_firmware->update_status = 0;
 
@@ -525,21 +526,14 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
-	// check the data just written to firmware is valid.
-	DBG_INFO("Checking the data in iram is valid ...");
+	// check the data that we've just written into the iram.
+	DBG_INFO("Checking the data in iram if it's valid ...");
 	for(i = 0, k = fpz; i < sec_length; i = p)
 	{
 		for(j = i; j < sec_length; j++, k+=fpz)
 		{
-			DBG_INFO("i = %d , j = %d , k = 0x%x", i, j, k);
-			DBG_INFO("ffls[i%d].ss_addr = 0x%x, ", i, ffls[i].ss_addr);
-			DBG_INFO("ffls[j%d].se_addr = 0x%x, ", j, ffls[j].se_addr);
-			DBG_INFO("check_len = 0x%x", check_len);
-			DBG_INFO("sec_checksum = 0x%x", sec_checksum);
-
 			if(ffls[j].se_addr > core_firmware->max_count)
 			{
-				//check_len = ffls[j].se_addr - ffls[i].ss_addr;
 				if(over_count == 0)
 				{
 					if(check_len == 0)
@@ -554,11 +548,11 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 					if(verify_data != sec_checksum)
 					{
 						DBG_ERR("Data is invalid");
+						res = -1;
+						goto out;
 					}
 					else
-					{
 						DBG_INFO("Data is correct");
-					}
 
 					check_len = 0x0;
 					sec_checksum = 0x0;
@@ -568,7 +562,6 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 					break;
 				}
 
-				DBG_INFO("ffls[j%d].se_addr = %x, k = %x", j, ffls[j].se_addr , k);
 				if(ffls[j].se_addr == k)
 				{
 					check_len = ffls[j].se_addr - ffls[i].ss_addr;
@@ -584,21 +577,17 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 					if(sec_checksum == 0)
 						sec_checksum = sec_checksum + ffls[j].checksum;
 
-
-					DBG_INFO("SPLIT: ffls[i%d].ss_addr = 0x%x,  ffls[j%d]se_addr = 0x%x,", i, ffls[i].ss_addr, j, ffls[j].se_addr);
-					DBG_INFO("SPLIT: check_len = 0x%x, checksum = %x", check_len, sec_checksum)
-
 					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
 					DBG_INFO("verify_data = %x , sec_checksum = %x", verify_data, sec_checksum);
 
 					if(verify_data != sec_checksum)
 					{
 						DBG_ERR("Data is invalid");
+						res = -1;
+						goto out;
 					}
 					else
-					{
 						DBG_INFO("Data is correct");
-					}
 
 					check_len = 0x0;
 					sec_checksum = 0x0;
@@ -626,22 +615,17 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 					if(sec_checksum == 0)
 						sec_checksum = sec_checksum + ffls[j].checksum;
 
-					//check_len = ffls[j].se_addr - ffls[i].ss_addr;
-
-					DBG_INFO("SPLIT: ffls[%d].ss_addr = 0x%x, se_addr = 0x%x,", i, ffls[i].ss_addr,ffls[i].se_addr);
-					DBG_INFO("SPLIT: check_len = 0x%x, checksum = %x", check_len, sec_checksum)
-
 					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
 					DBG_INFO("verify_data = %x , sec_checksum = %x", verify_data, sec_checksum);
 
 					if(verify_data != sec_checksum)
 					{
 						DBG_ERR("Data is invalid");
+						res = -1;
+						goto out;
 					}
 					else
-					{
 						DBG_INFO("Data is correct");
-					}
 
 					check_len = 0x0;
 					sec_checksum = 0x0;
@@ -651,27 +635,28 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 					break;
 				}
 			}
-			DBG_INFO("AFTER: check_len = 0x%x", check_len);
-			DBG_INFO("AFTER: sec_checksum = 0x%x", sec_checksum);
-			DBG_INFO("AFTER: k = 0x%x", k);
-			DBG_INFO("AFTER: p = %d", p);
-			DBG_INFO("---------------------------------");
 		}
-		DBG_INFO("AFTER 1: check_len = 0x%x", check_len);
-		DBG_INFO("AFTER 1: sec_checksum = 0x%x", sec_checksum);
-		DBG_INFO("AFTER 1: k = 0x%x", k);
-		DBG_INFO("AFTER: p = %d", p);
-		DBG_INFO("=============================================");
 		if(split == 0 && j >= sec_length )
 		{
-			DBG_INFO("Ask for the start addr  = 0x%x, len = 0x%x", ffls[i].ss_addr, check_len);
 			if(check_len > end_addr)
 				check_len = end_addr;
+
 			verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
 			DBG_INFO("OUT: verify_data = %x , sec_checksum = %x", verify_data, sec_checksum);
+			if(verify_data != sec_checksum)
+			{
+				DBG_ERR("Data is invalid");
+				res = -1;
+				goto out;
+			}
+			else
+				DBG_INFO("Data is correct");
+
 			break;
 		}
 	}
+
+	return res;
 
 out:
 	core_config_ice_mode_disable();
@@ -862,16 +847,12 @@ static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0,nExAddr = 0, CRC32 = 0;
 
 	int index = 0;
-	uint32_t tmp_ck = 0x0;
-	uint8_t *tmp_crc= NULL;
 	uint32_t fpz = FLASH_PROGRAM_SIZE;
 
 	core_firmware->start_addr = 0;
 	core_firmware->end_addr = 0;
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
-
-	tmp_crc = kzalloc(sizeof(FLASH_PROGRAM_SIZE), GFP_KERNEL);
 
 	for (; i < nSize;)
 	{
@@ -978,7 +959,7 @@ static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		for(j = ffls[i].ss_addr, x = 0; j < ffls[i].se_addr || x < FLASH_PROGRAM_SIZE; j++, x++)
 		{
 			 tmp_ck = tmp_ck + flash_fw[j];
-			 tmp_crc[x] = tmp_crc[x] + flash_fw[j];
+			 tmp_crc[x] = flash_fw[j];
 		}
 
 		// calculate the crc in each sector.
@@ -1001,12 +982,10 @@ static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 
 	DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X, CRC = %x",
 				nStartAddr, nEndAddr, nChecksum, CRC32);
-	kfree(tmp_crc);
 	return 0;
 
 out:
 	DBG_ERR("Failed to convert HEX data");
-	kfree(tmp_crc);
 	return -1;
 }
 
@@ -1020,7 +999,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 {
 	int res = 0, i = 0, fsize;
 	uint8_t *hex_buffer = NULL;
-
 	struct file *pfile = NULL;
 	struct inode *inode;
 	mm_segment_t old_fs;
@@ -1068,7 +1046,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			old_fs = get_fs();
 
 			// set userspace mem segment equal to kernel's one.
-			set_fs(KERNEL_DS);
+			set_fs(get_ds());
 
 			// read firmware data from userspace mem segment
 			vfs_read(pfile, hex_buffer, fsize, &pos);
