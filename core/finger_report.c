@@ -594,22 +594,22 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	set_bit(BTN_TOOL_FINGER, core_fr->input_device->keybit);
 	set_bit(INPUT_PROP_DIRECT, core_fr->input_device->propbit);
 
-	if (IS_ERR(core_config->tp_info))
-	{
+	// if (IS_ERR(core_config->tp_info))
+	// {
 		max_x = TOUCH_SCREEN_X_MAX;
 		max_y = TOUCH_SCREEN_Y_MAX;
 		min_x = TOUCH_SCREEN_X_MIN;
 		min_y = TOUCH_SCREEN_Y_MIN;
 		max_tp = MAX_TOUCH_NUM;
-	}
-	else
-	{
-		max_x = core_config->tp_info->nMaxX;
-		max_y = core_config->tp_info->nMaxY;
-		min_x = core_config->tp_info->nMinX;
-		min_y = core_config->tp_info->nMinY;
-		max_tp = core_config->tp_info->nMaxTouchNum;
-	}
+	// }
+	// else
+	// {
+	// 	max_x = core_config->tp_info->nMaxX;
+	// 	max_y = core_config->tp_info->nMaxY;
+	// 	min_x = core_config->tp_info->nMinX;
+	// 	min_y = core_config->tp_info->nMinY;
+	// 	max_tp = core_config->tp_info->nMaxTouchNum;
+	// }
 
 	DBG("input resolution : max_x = %d, max_y = %d, min_x = %d, min_y = %d",
 		max_x, max_y, min_x, min_y);
