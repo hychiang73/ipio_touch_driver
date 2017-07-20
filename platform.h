@@ -37,6 +37,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/version.h>
+#include <linux/regulator/consumer.h>
 
 #include "chip.h"
 #include "core/config.h"
@@ -54,6 +55,8 @@
 #ifndef __PLATFORM_H
 #define __PLATFORM_H
 
+#define ENABLE_REGULATOR_POWER_ON
+
 struct ilitek_platform_data {
 
 	struct i2c_client *client;
@@ -63,6 +66,11 @@ struct ilitek_platform_data {
 	const struct i2c_device_id *i2c_id;
 
 	struct work_struct report_work_queue;
+
+#ifdef ENABLE_REGULATOR_POWER_ON
+	struct regulator *vdd;
+	struct regulator *vdd_i2c;
+#endif
 
 	struct mutex MUTEX;
 	spinlock_t SPIN_LOCK;
@@ -92,6 +100,9 @@ extern struct ilitek_platform_data *ipd;
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
 extern void ilitek_platform_tp_power_on(bool isEnable);
+#ifdef ENABLE_REGULATOR_POWER_ON
+extern void ilitek_regulator_power_on(bool status);
+#endif
 
 // exported from userspsace.c
 extern void netlink_reply_msg(void *raw, int size);
