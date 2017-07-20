@@ -260,19 +260,19 @@ EXPORT_SYMBOL(vfIceRegRead);
  * At the upgrade firmware stage, calling this function will move new code from flash to iram
  * and run it after touch ic been reseted.
  */
-int core_config_ic_reset(uint32_t id)
+int core_config_ic_reset(void)
 {
-	DBG("0x%x doing soft reset ", id);
+	DBG("0x%x doing soft reset ", core_config->chip_id);
 
-	if (id == CHIP_TYPE_ILI7807)
-		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);
-	else if (id == CHIP_TYPE_ILI9881)
+	if (core_config->chip_id == CHIP_TYPE_ILI7807)
+		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);	
+	else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 		return core_config_ice_mode_write(0x40050, 0x00019881, 4);
-	else if (id == CHIP_TYPE_ILI2121)
+	else if (core_config->chip_id == CHIP_TYPE_ILI2121)
 		return core_config_ice_mode_write(0x4004C, 0x00012120, 2);
 	else
 	{
-		DBG_ERR("This chip (0x%x) doesn't support the feature", id);
+		DBG_ERR("This chip (0x%x) doesn't support the feature", core_config->chip_id);
 		return -1;
 	}
 }
@@ -305,7 +305,7 @@ void core_config_ic_resume(void)
 	// it's better to do reset after resuem.
 	core_config_ice_mode_enable();
 	mdelay(10);
-	core_config_ic_reset(core_config->chip_id);
+	core_config_ic_reset();
 	core_config_ice_mode_disable();
 }
 EXPORT_SYMBOL(core_config_ic_resume);

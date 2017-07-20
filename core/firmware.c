@@ -156,7 +156,8 @@ static uint32_t ili7807_check_data(uint32_t start_addr, uint32_t end_addr)
 	//write_len = core_firmware->ap_end_addr + 1;
 	write_len = end_addr;
 
-	DBG_INFO("start = 0x%x , write_len = 0x%x", start_addr, end_addr);
+	DBG_INFO("start = 0x%x , write_len = 0x%x, max_count = %x", 
+				start_addr, end_addr, core_firmware->max_count);
 
 	if (write_len > core_firmware->max_count)
 	{
@@ -177,7 +178,10 @@ static uint32_t ili7807_check_data(uint32_t start_addr, uint32_t end_addr)
 	// Dummy
 	core_config_ice_mode_write(0x041008, 0xFF, 1);
 	// Set Receive count
-	core_config_ice_mode_write(0x04100C, write_len, 2);
+	if(core_firmware->max_count == 0xFFFF)
+		core_config_ice_mode_write(0x04100C, write_len, 2);
+	else if(core_firmware->max_count == 0x1FFFF)
+		core_config_ice_mode_write(0x04100C, write_len, 3);
 	// Checksum enable
 	core_config_ice_mode_write(0x041014, 0x10000, 3);
 	// Start to receive
@@ -655,14 +659,14 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 				goto out;
 			}
 
-			core_firmware->update_status = (j * 100) / end_addr;
+			core_firmware->update_status = (j * 101) / end_addr;
 			printk("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
 		}
 	}
 
 	// We do have to reset chip in order to move new code from flash to iram.
 	DBG_INFO("Doing Soft Reset ..");
-	core_config_ic_reset(core_firmware->chip_id);
+	core_config_ic_reset();
 
 	// the delay time moving code depends on what the touch IC you're using.
 	mdelay(core_firmware->delay_after_upgrade);
@@ -824,13 +828,13 @@ static int ili2121_firmware_upgrade(bool isIRAM)
 	{
 		//TODO: may add a retry func as protection.
 
-		core_config_ic_reset(core_firmware->chip_id);
+		core_config_ic_reset();
 		DBG_INFO("Both checksum didn't match");
 		res = -1;
 		return res;
 	}
 
-	core_config_ic_reset(core_firmware->chip_id);
+	core_config_ic_reset();
 
 	szCmd[0] = ILI2121_TP_CMD_READ_DATA;
 	res = core_i2c_write(core_config->slave_i2c_addr, &szCmd[0], 1);
@@ -1034,6 +1038,14 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	DBG_INFO("file path = %s", pFilePath);
 
 	core_firmware->isUpgraded = false;
+
+	if(core_firmware->chip_id == CHIP_TYPE_ILI7807)
+	{
+		if(core_config->chip_type == ILI7807_TYPE_F)
+			core_firmware->max_count = 0xFFFF;
+		else if(core_config->chip_type == ILI7807_TYPE_H)
+			core_firmware->max_count = 0x1FFFF;
+	}
 
 	//TODO: to compare old/new version if upgraded.
 

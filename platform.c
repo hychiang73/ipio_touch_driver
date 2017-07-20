@@ -561,7 +561,8 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		goto out;
 	}
 
-	ilitek_platform_tp_power_on(true);
+	if(ipd->int_gpio != 0 && ipd->reset_gpio !=0)
+		ilitek_platform_tp_power_on(true);
 
 	res = ilitek_platform_read_tp_info();
 	if (res < 0)
@@ -577,7 +578,8 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	// To make sure our ic runing well before the work,
 	// pulling RESET pin as low/high once after read TP info.
-	ilitek_platform_tp_power_on(true);
+	if(ipd->int_gpio != 0  && ipd->reset_gpio !=0)
+		ilitek_platform_tp_power_on(true);
 
 	res = ilitek_platform_reg_suspend();
 	if (res < 0)
