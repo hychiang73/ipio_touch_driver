@@ -510,7 +510,7 @@ proc_node_t proc_table[] = {
 	{"iram_upgrade", NULL, &proc_iram_upgrade_fops, false},
 };
 
-#define NETLINK_USER 31
+#define NETLINK_USER 21
 
 struct sock *nl_sk;
 struct nlmsghdr *nlh;
@@ -560,7 +560,7 @@ static void netlink_recv_msg(struct sk_buff *skb)
 	nlh = (struct nlmsghdr *)skb->data;
 
 	DBG("Received a request from client: %s, %d",
-		(char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
+		(char *)NLMSG_DATA(nlh), (int)strlen((char *)NLMSG_DATA(nlh)));
 
 	// pid of sending process
 	pid = nlh->nlmsg_pid;
