@@ -68,6 +68,7 @@
 
 /* V5.0 */
 #define ILITEK_PROTOCOL_V5_0			0x50
+#define PCMD_5_0_READ_DATA_CTRL			0xF6
 #define PCMD_5_0_GET_TP_INFORMATION		0x20
 #define PCMD_5_0_GET_KEY_INFORMATION	0x27
 #define PCMD_5_0_GET_FIRMWARE_VERSION	0x21
@@ -77,6 +78,7 @@
 #define PCMD_5_0_I2C_UART				0x40
 #define PCMD_5_0_SLEEP_CONTROL			0x02
 #define PCMD_5_0_CDC_BUSY_STATE			0xF3
+
 
 // firmware mode
 #define P5_0_FIRMWARE_UNKNOWN_MODE		0xFF
