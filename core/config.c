@@ -285,7 +285,7 @@ void core_config_ic_suspend(void)
 
 	DBG_INFO("Tell IC to suspend");
 
-	cmd[0] = pcmd[7];
+	cmd[0] = pcmd[8];
 	cmd[1] = 0x00; // sleep in
 
 	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
@@ -298,7 +298,7 @@ void core_config_ic_resume(void)
 
 	DBG_INFO("Tell IC to resume");
 
-	cmd[0] = pcmd[7];
+	cmd[0] = pcmd[8];
 	cmd[1] = 0x01; // sleep out
 
 	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
@@ -307,7 +307,6 @@ void core_config_ic_resume(void)
 	core_config_ice_mode_enable();
 	mdelay(10);
 	core_config_ic_reset();
-	core_config_ice_mode_disable();
 }
 EXPORT_SYMBOL(core_config_ic_resume);
 

@@ -429,7 +429,7 @@ int core_fr_mode_control(uint8_t *from_user)
 		{
 			if (mode == P5_0_FIRMWARE_I2CUART_MODE)
 			{
-				buf[0] = pcmd[6];
+				buf[0] = pcmd[7];
 				buf[1] = *(from_user + 1);
 				buf[2] = *(from_user + 2);
 
@@ -442,7 +442,7 @@ int core_fr_mode_control(uint8_t *from_user)
 			}
 			else if (mode == P5_0_FIRMWARE_TEST_MODE)
 			{
-				buf[0] = pcmd[5];
+				buf[0] = pcmd[6];
 				buf[1] = mode;
 
 				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
@@ -457,7 +457,7 @@ int core_fr_mode_control(uint8_t *from_user)
 			}
 			else
 			{
-				buf[0] = pcmd[5];
+				buf[0] = pcmd[6];
 				buf[1] = mode;
 
 				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
