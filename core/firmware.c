@@ -228,6 +228,169 @@ out:
 
 }
 
+//TODO: These calculations need to be optimised later.
+static int verify_flash_data(void)
+{
+	int i, j, p = 0, do_once = 0, split = 0, res = 0;
+	uint32_t fpz = FLASH_PROGRAM_SIZE, k;
+	uint32_t verify_data = 0;
+	uint32_t local_data = 0;
+	uint32_t sec_checksum = 0x0;
+	uint32_t sec_crc32 = 0;
+	uint32_t check_len = 0x0;
+
+	for(i = 0, k = fpz; i < sec_length; i = p)
+	{
+		for(j = i; j < sec_length; j++, k+=fpz)
+		{
+			if(ffls[j].se_addr > core_firmware->max_count)
+			{
+				if(do_once == 0)
+				{
+					if(check_len == 0)
+						check_len = ffls[j].se_addr - ffls[i].ss_addr;
+				
+					if(sec_checksum == 0)
+						sec_checksum = ffls[j].checksum;
+					
+					if(sec_crc32 == 0)
+						sec_crc32 = ffls[j].crc32;
+
+					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
+
+					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
+					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
+
+					if(verify_data != local_data)
+					{
+						DBG_ERR("Data is invalid");
+						res = -1;
+						goto out;
+					}
+					else
+						DBG_INFO("Data is correct");
+
+					check_len = 0x0;
+					sec_checksum = 0x0;
+					sec_crc32 = 0;
+					p = j;
+					//k+= fpz;
+					do_once = 1;
+					break;
+				}
+
+				if(ffls[j].se_addr == k)
+				{
+					check_len = ffls[j].se_addr - ffls[i].ss_addr;
+					sec_checksum = sec_checksum + ffls[j].checksum;
+					sec_crc32 = sec_crc32 + ffls[j].crc32;
+					split = 0;
+					p++;
+				}
+				else
+				{
+					if(check_len == 0)
+						check_len = ffls[j].se_addr - ffls[i].ss_addr;
+					
+					if(sec_checksum == 0)
+						sec_checksum = sec_checksum + ffls[j].checksum;
+
+					if(sec_crc32 == 0)
+						sec_crc32 = ffls[j].crc32;
+
+					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
+
+					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
+					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
+
+					if(verify_data != local_data)
+					{
+						DBG_ERR("Data is invalid");
+						res = -1;
+						goto out;
+					}
+					else
+						DBG_INFO("Data is correct");
+
+					check_len = 0x0;
+					sec_checksum = 0x0;
+					sec_crc32 = 0;
+					split = 1;
+					p = j;
+					k+= fpz;
+					break;
+				}
+			}
+			else
+			{
+				if(ffls[j].se_addr == k)
+				{
+					check_len = ffls[j].se_addr - ffls[i].ss_addr;
+					sec_checksum = sec_checksum + ffls[j].checksum;
+					sec_crc32 = sec_crc32 + ffls[j].crc32;
+					split = 0;
+					p++;
+				}
+				else
+				{
+					if(check_len == 0)
+						check_len = ffls[j].se_addr - ffls[i].ss_addr;
+					
+					if(sec_checksum == 0)
+						sec_checksum = sec_checksum + ffls[j].checksum;
+
+					if(sec_crc32 == 0)
+						sec_crc32 = ffls[j].crc32;
+
+					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
+					
+					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
+					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
+
+					if(verify_data != local_data)
+					{
+						DBG_ERR("Data is invalid");
+						res = -1;
+						goto out;
+					}
+					else
+						DBG_INFO("Data is correct");
+
+					check_len = 0x0;
+					sec_checksum = 0x0;
+					split = 1;
+					p = j;
+					k+= fpz;
+					break;
+				}
+			}
+		}
+		if(split == 0 && j >= sec_length )
+		{
+			if(check_len > core_firmware->end_addr)
+				check_len = core_firmware->end_addr;
+
+			verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
+			local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
+			DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
+
+			if(verify_data != local_data)
+			{
+				DBG_ERR("Data is invalid");
+				res = -1;
+				goto out;
+			}
+			else
+				DBG_INFO("Data is correct");
+
+			break;
+		}
+	}
+
+out:
+	return res;
+}
+
 static int ili7807_polling_flash_busy(void)
 {
 	int timer = 500;
@@ -351,17 +514,10 @@ static int iram_upgrade(void)
 static int ili7807_firmware_upgrade(bool isIRAM)
 {
 	int i, j, res = 0;
-	int split = 0;
-	int p = 0;
-	int over_count = 0;
 	uint8_t buf[512] = {0};
-	uint32_t temp_buf = 0;
+	uint32_t temp_buf = 0, k;
 	uint32_t start_addr = core_firmware->start_addr;
 	uint32_t end_addr = core_firmware->end_addr;
-	uint32_t verify_data = 0;
-	uint32_t fpz = FLASH_PROGRAM_SIZE, k;
-	uint32_t sec_checksum = 0x0;
-	uint32_t check_len = 0x0;
 
 	core_firmware->update_status = 0;
 
@@ -514,7 +670,6 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 	// ensure that the chip has been updated
 	DBG_INFO("Enter to ICE Mode again");
 	res = core_config_ice_mode_enable();
-
 	if (res < 0)
 	{
 		DBG_ERR("Failed to enable ICE mode");
@@ -528,135 +683,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 	// check the data that we've just written into the iram.
 	DBG_INFO("Checking the data in iram if it's valid ...");
-	for(i = 0, k = fpz; i < sec_length; i = p)
-	{
-		for(j = i; j < sec_length; j++, k+=fpz)
-		{
-			if(ffls[j].se_addr > core_firmware->max_count)
-			{
-				if(over_count == 0)
-				{
-					if(check_len == 0)
-						check_len = ffls[j].se_addr - ffls[i].ss_addr;
-				
-					if(sec_checksum == 0)
-						sec_checksum = sec_checksum + ffls[j].checksum;
-
-					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
-					DBG_INFO("verify_data = %x , sec_checksum = %x", verify_data, sec_checksum);
-
-					if(verify_data != sec_checksum)
-					{
-						DBG_ERR("Data is invalid");
-						res = -1;
-						goto out;
-					}
-					else
-						DBG_INFO("Data is correct");
-
-					check_len = 0x0;
-					sec_checksum = 0x0;
-					p = j;
-					//k+= fpz;
-					over_count = 1;
-					break;
-				}
-
-				if(ffls[j].se_addr == k)
-				{
-					check_len = ffls[j].se_addr - ffls[i].ss_addr;
-					sec_checksum = sec_checksum + ffls[j].checksum;
-					split = 0;
-					p++;
-				}
-				else
-				{
-					if(check_len == 0)
-						check_len = ffls[j].se_addr - ffls[i].ss_addr;
-					
-					if(sec_checksum == 0)
-						sec_checksum = sec_checksum + ffls[j].checksum;
-
-					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
-					DBG_INFO("verify_data = %x , sec_checksum = %x", verify_data, sec_checksum);
-
-					if(verify_data != sec_checksum)
-					{
-						DBG_ERR("Data is invalid");
-						res = -1;
-						goto out;
-					}
-					else
-						DBG_INFO("Data is correct");
-
-					check_len = 0x0;
-					sec_checksum = 0x0;
-					split = 1;
-					p = j;
-					k+= fpz;
-					break;
-				}
-			}
-
-			if(over_count == 0)
-			{
-				if(ffls[j].se_addr == k && ffls[j].se_addr < core_firmware->max_count)
-				{
-					check_len = ffls[j].se_addr - ffls[i].ss_addr;
-					sec_checksum = sec_checksum + ffls[j].checksum;
-					split = 0;
-					p++;
-				}
-				else
-				{
-					if(check_len == 0)
-						check_len = ffls[j].se_addr - ffls[i].ss_addr;
-					
-					if(sec_checksum == 0)
-						sec_checksum = sec_checksum + ffls[j].checksum;
-
-					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
-					DBG_INFO("verify_data = %x , sec_checksum = %x", verify_data, sec_checksum);
-
-					if(verify_data != sec_checksum)
-					{
-						DBG_ERR("Data is invalid");
-						res = -1;
-						goto out;
-					}
-					else
-						DBG_INFO("Data is correct");
-
-					check_len = 0x0;
-					sec_checksum = 0x0;
-					split = 1;
-					p = j;
-					k+= fpz;
-					break;
-				}
-			}
-		}
-		if(split == 0 && j >= sec_length )
-		{
-			if(check_len > end_addr)
-				check_len = end_addr;
-
-			verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
-			DBG_INFO("OUT: verify_data = %x , sec_checksum = %x", verify_data, sec_checksum);
-			if(verify_data != sec_checksum)
-			{
-				DBG_ERR("Data is invalid");
-				res = -1;
-				goto out;
-			}
-			else
-				DBG_INFO("Data is correct");
-
-			break;
-		}
-	}
-
-	return res;
+	res = verify_flash_data();
 
 out:
 	core_config_ice_mode_disable();
@@ -966,7 +993,7 @@ static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		if (core_firmware->isCRC == true && isIRAM == false)
 		{
 			ffls[i].crc32 = calc_crc32(ffls[i].ss_addr, ffls[i].se_addr, tmp_crc);
-			CRC32 = CRC32 + ffls[i].crc32;
+			CRC32 = ffls[i].crc32;
 		}
 
 		ffls[i].checksum = tmp_ck;
