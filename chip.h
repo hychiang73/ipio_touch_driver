@@ -79,7 +79,6 @@
 #define PCMD_5_0_SLEEP_CONTROL			0x02
 #define PCMD_5_0_CDC_BUSY_STATE			0xF3
 
-
 // firmware mode
 #define P5_0_FIRMWARE_UNKNOWN_MODE		0xFF
 #define P5_0_FIRMWARE_DEMO_MODE			0x00

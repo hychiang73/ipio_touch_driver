@@ -421,7 +421,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_MODE_CTRL:
-		res = copy_from_user(szBuf, (uint8_t *)arg, 3);
+		res = copy_from_user(szBuf, (uint8_t *)arg, 4);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to copy data from user space");
