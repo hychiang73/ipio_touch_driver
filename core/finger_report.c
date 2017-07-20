@@ -191,13 +191,12 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	//TODO: calculate report rate
 
 	check_sum = cal_fr_checksum(&fr_data[0], (rpl - 1));
-	DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl - 1], check_sum);
-
-	if (fr_data[rpl - 1] != check_sum)
-	{
-		DBG_ERR("Wrong checksum");
-		return -1;
-	}
+	// DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl - 1], check_sum);
+	// if (fr_data[rpl - 1] != check_sum)
+	// {
+	// 	DBG_ERR("Wrong checksum");
+	// 	return -1;
+	// }
 
 	//TODO: parse packets for gesture/glove features if they're enabled
 
@@ -454,7 +453,7 @@ int core_fr_mode_control(uint8_t *from_user)
 					goto out;
 
 				// doing sensor test
-				core_mp_switch_mode();
+				//core_mp_switch_mode();
 			}
 			else
 			{
