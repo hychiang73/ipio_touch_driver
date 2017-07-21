@@ -156,7 +156,7 @@ static int ilitek_platform_gpio(void)
 
 # Release Note
 
-& V1.0.0.4
+* V1.0.0.4
   * Add 7807H in the support list
   * Support 7807 FW upgrade
   * Set 1920*1080 as fixed resolution
