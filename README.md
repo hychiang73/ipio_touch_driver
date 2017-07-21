@@ -11,6 +11,7 @@ Ipio driver is a new touch driver used on the new products of ILITEK touch ICs. 
 The following lists which of IC types supported by the driver.
 
 * ILI7807F
+* ILI7807H
 * ILI9881F
 
 # Debugging
@@ -154,6 +155,16 @@ static int ilitek_platform_gpio(void)
 
 
 # Release Note
+
+& V1.0.0.4
+  * Add 7807H in the support list
+  * Support 7807 FW upgrade
+  * Set 1920*1080 as fixed resolution
+  * Add 0xF6 cmd for P5.0 befre reading data
+  * Change Netlink's port from 31 to 21
+  * Add Regulator power on
+  * Add I2CUART mode
+  * Add a new way to program flash
 
 * V1.0.0.3
   * Fixed the issue of create skb buff in netlink
