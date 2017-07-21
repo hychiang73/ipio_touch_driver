@@ -108,7 +108,7 @@ static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
  * @pressure: the value of pressue on a screen
  * @id: an id represents a finger pressing on a screen
  */
-static void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
+void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
 	DBG("btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
 
@@ -140,6 +140,7 @@ static void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t
 
 	return;
 }
+EXPORT_SYMBOL(core_fr_touch_press);
 
 /*
  * It'd be called when a finger's touched up from a screen. It'll notify
@@ -149,7 +150,7 @@ static void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t
  * @y: the axis of Y
  * @id: an id represents a finger leaving from a screen.
  */
-static void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
+void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
 	DBG("btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
 
@@ -162,6 +163,53 @@ static void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 	{
 		input_report_key(core_fr->input_device, BTN_TOUCH, 0);
 		input_mt_sync(core_fr->input_device);	
+	}
+}
+EXPORT_SYMBOL(core_fr_touch_release);
+
+static int again_read_len = 0;
+
+static void i2cuart_recv_packet(uint8_t *fr_data, int length)
+{
+	int res = 0, need_read_len = 0, one_data_bytes = 0;
+	again_read_len = 0;
+
+	if (fr_data[0] == 0x7A)
+	{
+		if ((fr_data[1] == 0x0) || (fr_data[1] == 0xFF))
+		{
+			need_read_len = fr_data[2];
+		}
+		else
+		{
+			need_read_len = fr_data[1] * fr_data[2];
+		}
+
+		if (fr_data[3] == 0 || fr_data[3] == 1 || fr_data[3] == 6)
+		{
+			one_data_bytes = 1;
+		}
+		else if (fr_data[3] == 2 || fr_data[3] == 3)
+		{
+			one_data_bytes = 2;
+		}
+		else if (fr_data[3] == 4 || fr_data[3] == 5)
+		{
+			one_data_bytes = 4;
+		}
+
+		DBG_INFO("need_read_len = %d  fr_data[1] = %d fr_data[2] = %d", 
+				need_read_len, fr_data[1], fr_data[2]);
+
+		if (need_read_len > (38 / one_data_bytes))
+		{
+			again_read_len = need_read_len * one_data_bytes - 38;
+			res = core_i2c_read(core_config->slave_i2c_addr, &fr_data[length], again_read_len);
+			if (res < 0)
+			{
+				DBG_ERR("Failed to read finger report packet");
+			}
+		}
 	}
 }
 
@@ -192,12 +240,11 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 
 	check_sum = cal_fr_checksum(&fr_data[0], (rpl - 1));
 	DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl - 1], check_sum);
-
-	if (fr_data[rpl - 1] != check_sum)
-	{
-		DBG_ERR("Wrong checksum");
-		return -1;
-	}
+	// if (fr_data[rpl - 1] != check_sum)
+	// {
+	// 	DBG_ERR("Wrong checksum");
+	// 	return -1;
+	// }
 
 	//TODO: parse packets for gesture/glove features if they're enabled
 
@@ -221,7 +268,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			nY = (((fr_data[(4 * i) + 1] & 0x0F) << 8) | (fr_data[(4 * i) + 3]));
 
 			// FIXME:
-			// the axis reported from firmware has soem problems so that we need to transfer them.
+			// the axis reported from firmware has some problems so that we need to transfer them.
 			// if use MTK platform with the IC, we transfer them as well.
 			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
 			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
@@ -262,7 +309,7 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			nY = (((fr_data[(3 * i) + 5] & 0x0F) << 8) | (fr_data[(3 * i) + 7]));
 
 			// FIXME:
-			// the axis reported from firmware has soem problems so that we need to transfer them.
+			// the axis reported from firmware has some problems so that we need to transfer them.
 			// if use MTK platform with the IC, we transfer them as well.
 			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
 			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
@@ -315,6 +362,15 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 	{
 		DBG_ERR("Failed to read finger report packet");
 		return res;
+	}
+
+	if (core_fr->i2cuart_mode == 1 && core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode)
+		i2cuart_recv_packet(fr_data, length);
+
+	if(fr_data[0] == P5_0_I2CUART_PACKET_ID)
+	{
+		DBG_INFO("Packet ID as I2CUART (%x), do nothing", fr_data[0]);
+		return 0;
 	}
 
 	res = parse_touch_package_v5_0(fr_data, &mti, length);
@@ -401,15 +457,15 @@ int core_fr_mode_control(uint8_t *from_user)
 {
 	int mode;
 	int i, res = 0;
-	uint8_t buf[3] = {0};
+	uint8_t cmd[4] = {0};
 
 	uint8_t actual_mode[] =
-		{
-			P5_0_FIRMWARE_DEMO_MODE,
-			P5_0_FIRMWARE_TEST_MODE,
-			P5_0_FIRMWARE_DEBUG_MODE,
-			P5_0_FIRMWARE_I2CUART_MODE,
-		};
+	{
+		P5_0_FIRMWARE_DEMO_MODE,
+		P5_0_FIRMWARE_TEST_MODE,
+		P5_0_FIRMWARE_DEBUG_MODE,
+		P5_0_FIRMWARE_I2CUART_MODE,
+	};
 
 	ilitek_platform_disable_irq();
 
@@ -419,8 +475,8 @@ int core_fr_mode_control(uint8_t *from_user)
 		goto out;
 	}
 
-	DBG("size = %d, mode = %x, cmd_1 = %x, cmd_2 = %x ",
-		ARRAY_SIZE(actual_mode), from_user[0], from_user[1], from_user[2]);
+	DBG("size = %d, mode = %x, b1 = %x, b2 = %x, b3 = %x",
+		(int)ARRAY_SIZE(actual_mode), from_user[0], from_user[1], from_user[2], from_user[3]);
 
 	mode = from_user[0];
 
@@ -430,41 +486,43 @@ int core_fr_mode_control(uint8_t *from_user)
 		{
 			if (mode == P5_0_FIRMWARE_I2CUART_MODE)
 			{
-				buf[0] = pcmd[6];
-				buf[1] = *(from_user + 1);
-				buf[2] = *(from_user + 2);
+				cmd[0] = pcmd[7];
+				cmd[1] = *(from_user + 1);
+				cmd[2] = *(from_user + 2);
+				cmd[3] = *(from_user + 3);
+				core_fr->i2cuart_mode = cmd[3];
 
-				DBG_INFO("Switch to I2CUART mode, cmd = 0x%x, byte 1 = 0x%x, byte 2 = 0x%x",
-						 buf[0], buf[1], buf[2]);
+				DBG_INFO("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x, b3 = %x",
+						 cmd[0], cmd[1], cmd[2], cmd[3]);
 
-				res = core_i2c_write(core_config->slave_i2c_addr, buf, 3);
+				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
 				if (res < 0)
 					goto out;
 			}
 			else if (mode == P5_0_FIRMWARE_TEST_MODE)
 			{
-				buf[0] = pcmd[5];
-				buf[1] = mode;
+				cmd[0] = pcmd[6];
+				cmd[1] = mode;
 
 				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
-						 buf[0], buf[1]);
+						 cmd[0], cmd[1]);
 
-				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
+				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 				if (res < 0)
 					goto out;
 
 				// doing sensor test
-				core_mp_switch_mode();
+				//core_mp_switch_mode();
 			}
 			else
 			{
-				buf[0] = pcmd[5];
-				buf[1] = mode;
+				cmd[0] = pcmd[6];
+				cmd[1] = mode;
 
 				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
-						 buf[0], buf[1]);
+						 cmd[0], cmd[1]);
 
-				res = core_i2c_write(core_config->slave_i2c_addr, buf, 2);
+				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 				if (res < 0)
 					goto out;
 			}
@@ -484,7 +542,6 @@ int core_fr_mode_control(uint8_t *from_user)
 	return res;
 
 out:
-	DBG_ERR("Failed to change mode, res = %d", res);
 	ilitek_platform_enable_irq();
 	return res;
 }
@@ -529,7 +586,8 @@ void core_fr_handler(void)
 			{
 				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
-					if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
+					if (core_fr->actual_fw_mode == core_fr->fw_demo_mode
+					 	|| core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode)
 					{
 						report_packet_length = P5_0_DEMO_MODE_PACKET_LENGTH;
 					}
@@ -556,8 +614,10 @@ void core_fr_handler(void)
 
 				DBG("Length of report packet = %d", report_packet_length);
 
-				fr_data = (uint8_t *)kmalloc(sizeof(uint8_t) * report_packet_length, GFP_KERNEL);
-				memset(fr_data, 0xFF, sizeof(uint8_t) * report_packet_length);
+				//FIXME: the size of 2048 is temporaily to store the packet of finger report.
+				// It should have a good reason to adjust it dynamically.
+				fr_data = (uint8_t *)kmalloc(sizeof(uint8_t) * 2048, GFP_KERNEL);
+				memset(fr_data, 0xFF, sizeof(uint8_t) * 2048);
 
 				mutex_lock(&ipd->MUTEX);
 				fr_t[i].finger_report(fr_data, report_packet_length);
@@ -569,7 +629,7 @@ void core_fr_handler(void)
 
 		if (core_fr->isEnableNetlink)
 		{
-			netlink_reply_msg(fr_data, report_packet_length);
+			netlink_reply_msg(fr_data, again_read_len > 0 ? (again_read_len + report_packet_length) : report_packet_length);
 		}
 	}
 	else
@@ -595,22 +655,22 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	set_bit(BTN_TOOL_FINGER, core_fr->input_device->keybit);
 	set_bit(INPUT_PROP_DIRECT, core_fr->input_device->propbit);
 
-	if (IS_ERR(core_config->tp_info))
-	{
+	// if (IS_ERR(core_config->tp_info))
+	// {
 		max_x = TOUCH_SCREEN_X_MAX;
 		max_y = TOUCH_SCREEN_Y_MAX;
 		min_x = TOUCH_SCREEN_X_MIN;
 		min_y = TOUCH_SCREEN_Y_MIN;
 		max_tp = MAX_TOUCH_NUM;
-	}
-	else
-	{
-		max_x = core_config->tp_info->nMaxX;
-		max_y = core_config->tp_info->nMaxY;
-		min_x = core_config->tp_info->nMinX;
-		min_y = core_config->tp_info->nMinY;
-		max_tp = core_config->tp_info->nMaxTouchNum;
-	}
+	// }
+	// else
+	// {
+	// 	max_x = core_config->tp_info->nMaxX;
+	// 	max_y = core_config->tp_info->nMaxY;
+	// 	min_x = core_config->tp_info->nMinX;
+	// 	min_y = core_config->tp_info->nMinY;
+	// 	max_tp = core_config->tp_info->nMaxTouchNum;
+	// }
 
 	DBG("input resolution : max_x = %d, max_y = %d, min_x = %d, min_y = %d",
 		max_x, max_y, min_x, min_y);
@@ -696,6 +756,7 @@ int core_fr_init(struct i2c_client *pClient)
 					core_fr->fw_demo_mode = P5_0_FIRMWARE_DEMO_MODE;
 					core_fr->fw_test_mode = P5_0_FIRMWARE_TEST_MODE;
 					core_fr->fw_debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
+					core_fr->fw_i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
 					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 				}
 			}
@@ -707,6 +768,7 @@ int core_fr_init(struct i2c_client *pClient)
 					core_fr->fw_demo_mode = P5_0_FIRMWARE_DEMO_MODE;
 					core_fr->fw_test_mode = P5_0_FIRMWARE_TEST_MODE;
 					core_fr->fw_debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
+					core_fr->fw_i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
 					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 				}
 			}

@@ -32,7 +32,7 @@
 //#define ON_BOARD_IC		0x9881
 
 // Shows the version of driver
-#define DRIVER_VERSION	"1.0.0.3"
+#define DRIVER_VERSION	"1.0.0.4"
 
 // In kernel pr_debug is disabled as default, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
 // in terminal to enable it if you'd like to see more debug details. 
@@ -49,11 +49,12 @@
  * Relative Firmware Upgrade
  */
 
-#define MAX_HEX_FILE_SIZE			160*1024
-#define MAX_FLASH_FIRMWARE_SIZE		256*1024
-#define MAX_IRAM_FIRMWARE_SIZE		60*1024
+#define MAX_HEX_FILE_SIZE			(160*1024)
+#define MAX_FLASH_FIRMWARE_SIZE		(256*1024)
+#define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
 
 #define UPDATE_FIRMWARE_PAGE_LENGTH		256
+#define FLASH_PROGRAM_SIZE			(4*1024)
 
 /*
  * Protocol commands 
@@ -67,6 +68,7 @@
 
 /* V5.0 */
 #define ILITEK_PROTOCOL_V5_0			0x50
+#define PCMD_5_0_READ_DATA_CTRL			0xF6
 #define PCMD_5_0_GET_TP_INFORMATION		0x20
 #define PCMD_5_0_GET_KEY_INFORMATION	0x27
 #define PCMD_5_0_GET_FIRMWARE_VERSION	0x21
@@ -118,18 +120,18 @@
 #define ILI2121_TP_CMD_READ_SUB_DATA		0x11
 
 /*
- * ILI7807
+ * ILI7807 Series
  */
 #define CHIP_TYPE_ILI7807		0x7807
 #define ILI7807_TYPE_F			0x0001
-#define ILI7807_TYPE_H			0x1101
+#define ILI7807_TYPE_H			0x1100
 
 #define ILI7807_SLAVE_ADDR		0x41
 #define ILI7807_ICE_MODE_ADDR	0x181062
 #define ILI7807_PID_ADDR		0x4009C
 
 /*
- * ILI9881
+ * ILI9881 Series
  */
 #define CHIP_TYPE_ILI9881		0x9881
 

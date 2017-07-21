@@ -39,6 +39,8 @@ struct core_fr_data
 	int isEnableGes;
 	/* allow input dev to report the value of physical touch */
 	int isEnablePressure;
+	/* used to change I2C Uart Mode when fw mode is in this mode */
+	uint8_t i2cuart_mode;
 
 	uint32_t chip_id;
 
@@ -47,6 +49,7 @@ struct core_fr_data
 	uint8_t fw_demo_mode;
 	uint8_t fw_test_mode;
 	uint8_t fw_debug_mode;
+	uint8_t fw_i2cuart_mode;
 	uint16_t actual_fw_mode;
 
 	/* mutual firmware info */
@@ -61,6 +64,8 @@ struct core_fr_data
 
 extern struct core_fr_data *core_fr;
 
+extern void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id);
+extern void core_fr_touch_release(int32_t x, int32_t y, int32_t id);
 extern int core_fr_mode_control(uint8_t *from_user);
 extern void core_fr_handler(void);
 extern void core_fr_input_set_param(struct input_dev *input_device);

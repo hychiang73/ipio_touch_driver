@@ -25,6 +25,8 @@
 #ifndef __FIRMWARE_H
 #define __FIRMWARE_H
 
+#define FLASH_SECTOR
+
 struct core_firmware_data
 {
 	uint32_t chip_id;
@@ -36,7 +38,9 @@ struct core_firmware_data
 	uint32_t ap_end_addr;
 	uint32_t ap_checksum;
 	uint32_t ap_crc;
-
+#ifdef FLASH_SECTOR
+	uint32_t crc32;
+#endif
 	uint32_t df_start_addr;
 	uint32_t df_end_addr;
 	uint32_t df_checksum;

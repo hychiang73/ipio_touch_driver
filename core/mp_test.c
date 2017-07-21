@@ -43,11 +43,16 @@ extern uint8_t pcmd[10];
 void core_mp_switch_mode(void)
 {
     int res = 0, timer = 500;
+    uint8_t cmd[2] = {0};
     uint8_t buf[2] = {0};
+
+    cmd[0] = pcmd[0];
+    cmd[1] = pcmd[9];
 
     while (timer > 0)
     {
-        core_i2c_write(core_config->slave_i2c_addr, &pcmd[8], 1);
+        core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+        core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
         mdelay(10);
         core_i2c_read(core_config->slave_i2c_addr, &buf[0], 1);
 
@@ -86,10 +91,9 @@ void core_mp_switch_mode(void)
 
     while (timer > 0)
     {
-        core_i2c_write(core_config->slave_i2c_addr, &pcmd[8], 1);
-
+        core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+        core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
         mdelay(10);
-
         core_i2c_read(core_config->slave_i2c_addr, &buf[0], 1);
 
         DBG_INFO("CDC busy state for MP = 0x%x", buf[0]);

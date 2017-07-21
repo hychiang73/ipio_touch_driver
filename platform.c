@@ -112,6 +112,57 @@ void ilitek_platform_tp_power_on(bool isEnable)
 }
 EXPORT_SYMBOL(ilitek_platform_tp_power_on);
 
+#ifdef ENABLE_REGULATOR_POWER_ON
+void ilitek_regulator_power_on(bool status)
+{
+	int res = 0;
+	DBG_INFO("%s", status ? "POWER ON":"POWER OFF");
+
+	if (status)
+	{
+		if (ipd->vdd) 
+		{
+			res = regulator_enable(ipd->vdd);
+			if (res < 0)
+			{
+				DBG_ERR("regulator_enable vdd fail");
+			}
+		}	
+		if (ipd->vdd_i2c) 
+		{
+			res = regulator_enable(ipd->vdd_i2c);
+			if (res < 0) 
+			{
+				DBG_ERR("regulator_enable vdd_i2c fail");
+			}
+		}	
+	}
+	else 
+	{
+		if (ipd->vdd) 
+		{
+			res = regulator_disable(ipd->vdd);
+			if (res < 0) 
+			{
+				DBG_ERR("regulator_enable vdd fail");
+			}
+		}	
+		if (ipd->vdd_i2c)
+		 {
+			res = regulator_disable(ipd->vdd_i2c);
+			if (res < 0) 
+			{
+				DBG_ERR("regulator_enable vdd_i2c fail");
+			}
+		}	
+	}
+
+	mdelay(5);
+	return;
+}
+EXPORT_SYMBOL(ilitek_regulator_power_on);
+#endif
+
 #ifdef CONFIG_FB
 static int ilitek_platform_notifier_fb(struct notifier_block *self,
 									   unsigned long event, void *data)
@@ -213,11 +264,10 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 		core_fr_handler();
 
 		enable_irq(ipd->isr_gpio);
+		ipd->isIrqEnable = true;
 	}
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
-
-	ipd->isIrqEnable = true;
 }
 
 static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
@@ -231,13 +281,11 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 	if (ipd->isIrqEnable)
 	{
 		disable_irq_nosync(ipd->isr_gpio);
-
+		ipd->isIrqEnable = false;
 		schedule_work(&ipd->report_work_queue);
 	}
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
-
-	ipd->isIrqEnable = false;
 
 	return IRQ_HANDLED;
 }
@@ -280,48 +328,56 @@ static int ilitek_platform_gpio(void)
 	struct device_node *dev_node = ipd->client->dev.of_node;
 	uint32_t flag;
 #endif
-	uint32_t gpios[2] = {0}; // 0: int, 1:reset
 
 #ifdef CONFIG_OF
-	gpios[0] = of_get_named_gpio_flags(dev_node, DTS_INT_GPIO, 0, &flag);
-	gpios[1] = of_get_named_gpio_flags(dev_node, DTS_RESET_GPIO, 0, &flag);
+	ipd->int_gpio = of_get_named_gpio_flags(dev_node, DTS_INT_GPIO, 0, &flag);
+	ipd->reset_gpio = of_get_named_gpio_flags(dev_node, DTS_RESET_GPIO, 0, &flag);
 #endif
+
+	DBG_INFO("GPIO INT: %d", ipd->int_gpio);
+	DBG_INFO("GPIO RESET: %d", ipd->reset_gpio);
 
 	//TODO: implemente gpio config if a platform isn't set up by dts.
 
-	if (!gpio_is_valid(gpios[0]))
+	if (!gpio_is_valid(ipd->int_gpio))
 	{
-		DBG_ERR("Invalid irq gpio: %d", gpios[0]);
+		DBG_ERR("Invalid INT gpio: %d", ipd->int_gpio);
 		return -EBADR;
 	}
 
-	if (!gpio_is_valid(gpios[1]))
+	if (!gpio_is_valid(ipd->reset_gpio))
 	{
-		DBG_ERR("Invalid reset gpio: %d", gpios[1]);
+		DBG_ERR("Invalid RESET gpio: %d", ipd->reset_gpio);
 		return -EBADR;
 	}
 
-	res = gpio_request(gpios[0], "ILITEK_TP_IRQ");
+	res = gpio_request(ipd->int_gpio, "ILITEK_TP_IRQ");
 	if (res < 0)
 	{
 		DBG_ERR("Request IRQ GPIO failed, res = %d", res);
-		goto out;
+		gpio_free(ipd->int_gpio);
+		res = gpio_request(ipd->int_gpio, "ILITEK_TP_IRQ");
+		if(res < 0)
+		{
+			DBG_ERR("Retrying request INT GPIO still failed , res = %d", res);
+			goto out;
+		}
 	}
 
-	res = gpio_request(gpios[1], "ILITEK_TP_RESET");
+	res = gpio_request(ipd->reset_gpio, "ILITEK_TP_RESET");
 	if (res < 0)
 	{
 		DBG_ERR("Request RESET GPIO failed, res = %d", res);
-		goto out;
+		gpio_free(ipd->reset_gpio);
+		res = gpio_request(ipd->reset_gpio, "ILITEK_TP_RESET");
+		if(res < 0)
+		{
+			DBG_ERR("Retrying request RESET GPIO still failed , res = %d", res);
+			goto out;
+		}
 	}
 
-	gpio_direction_input(gpios[0]);
-
-	DBG_INFO("GPIO INT: %d", gpios[0]);
-	DBG_INFO("GPIO RESET: %d", gpios[1]);
-
-	ipd->int_gpio = gpios[0];
-	ipd->reset_gpio = gpios[1];
+	gpio_direction_input(ipd->int_gpio);
 
 out:
 	return res;
@@ -504,6 +560,10 @@ static int ilitek_platform_remove(struct i2c_client *client)
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
+#ifdef ENABLE_REGULATOR_POWER_ON
+	const char *vdd_name = "vdd";
+	const char *vcc_i2c_name = "vcc_i2c";
+#endif
 
 	if (client == NULL)
 	{
@@ -542,16 +602,43 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	mutex_init(&ipd->MUTEX);
 	spin_lock_init(&ipd->SPIN_LOCK);
 
+#ifdef ENABLE_REGULATOR_POWER_ON
+	ipd->vdd = regulator_get(&ipd->client->dev, vdd_name);
+	if (IS_ERR(ipd->vdd))
+	{
+		DBG_ERR("regulator_get vdd fail");
+		ipd->vdd = NULL;
+	}
+	else 
+	{
+		res = regulator_set_voltage(ipd->vdd, 2800000, 3300000); 
+		if (res)
+		{
+			DBG_ERR("Failed to set 2800mv.");
+		}
+	}
+
+	ipd->vdd_i2c = regulator_get(&ipd->client->dev, vcc_i2c_name);
+	if (IS_ERR(ipd->vdd_i2c))
+	{
+		DBG_ERR("regulator_get vdd_i2c fail.");
+		ipd->vdd_i2c = NULL;
+	}
+	else
+	{
+		res = regulator_set_voltage(ipd->vdd_i2c, 1800000, 1800000);  
+		if (res) 
+		{
+			DBG_ERR("Failed to set 1800mv.");
+		}
+	}
+	ilitek_regulator_power_on(true);
+#endif
+
 	res = ilitek_platform_gpio();
 	if (res < 0)
 	{
 		DBG_ERR("Failed to request gpios ");
-	}
-
-	res = ilitek_platform_isr_register();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to register ISR");
 	}
 
 	res = ilitek_platform_core_init();
@@ -573,6 +660,12 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if (res < 0)
 	{
 		DBG_ERR("Failed to init input device in kernel");
+	}
+
+	res = ilitek_platform_isr_register();
+	if (res < 0)
+	{
+		DBG_ERR("Failed to register ISR");
 	}
 
 	// To make sure our ic runing well before the work,

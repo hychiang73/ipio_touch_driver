@@ -421,7 +421,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_MODE_CTRL:
-		res = copy_from_user(szBuf, (uint8_t *)arg, 3);
+		res = copy_from_user(szBuf, (uint8_t *)arg, 4);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to copy data from user space");
@@ -510,7 +510,7 @@ proc_node_t proc_table[] = {
 	{"iram_upgrade", NULL, &proc_iram_upgrade_fops, false},
 };
 
-#define NETLINK_USER 31
+#define NETLINK_USER 21
 
 struct sock *nl_sk;
 struct nlmsghdr *nlh;
@@ -560,7 +560,7 @@ static void netlink_recv_msg(struct sk_buff *skb)
 	nlh = (struct nlmsghdr *)skb->data;
 
 	DBG("Received a request from client: %s, %d",
-		(char *)NLMSG_DATA(nlh), strlen((char *)NLMSG_DATA(nlh)));
+		(char *)NLMSG_DATA(nlh), (int)strlen((char *)NLMSG_DATA(nlh)));
 
 	// pid of sending process
 	pid = nlh->nlmsg_pid;
