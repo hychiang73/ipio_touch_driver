@@ -50,6 +50,7 @@ extern int nums_chip;
 uint8_t *flash_fw = NULL;
 uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = {0};
 
+#ifdef FLASH_SECTOR
 int Ssize = 0;
 int sec_length = 0;
 uint32_t tmp_ck = 0x0;
@@ -62,9 +63,11 @@ struct flash_sector
 	uint32_t checksum; 
 	uint32_t crc32;
 	uint32_t dlength;
+	bool data_flag;
 };
 
 struct flash_sector *ffls;
+#endif
 
 struct core_firmware_data *core_firmware;
 
@@ -147,7 +150,8 @@ static int ili2121_checkcum(uint32_t nStartAddr, uint32_t nEndAddr)
 	return core_config_ice_mode_read(0x41018);
 }
 
-static uint32_t ili7807_check_data(uint32_t start_addr, uint32_t end_addr)
+#ifdef FLASH_SECTOR
+static uint32_t ili7807_check_data_sector(uint32_t start_addr, uint32_t end_addr)
 {
 	int timer = 500;
 	uint32_t write_len = 0;
@@ -231,7 +235,97 @@ out:
 	return -1;
 
 }
+#else
+static int ili7807_check_data(void)
+{
+	int timer = 500, res = 0;
+	uint32_t write_len = 0;
+	uint32_t iram_check = 0;
 
+	write_len = core_firmware->ap_end_addr + 1;
+
+	if (write_len > core_firmware->max_count)
+	{
+		DBG_ERR("The length (%x) written to firmware is greater than max count (%x)",
+				write_len, core_firmware->max_count);
+		goto out;
+	}
+
+	// CS low
+	core_config_ice_mode_write(0x041000, 0x0, 1);
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+	core_config_ice_mode_write(0x041008, 0x3b, 1);
+
+	// Set start address
+	core_config_ice_mode_write(0x041008, core_firmware->ap_start_addr, 3);
+	// Enable Dio_Rx_dual
+	core_config_ice_mode_write(0x041003, 0x01, 1);
+	// Dummy
+	core_config_ice_mode_write(0x041008, 0xFF, 1);
+	// Set Receive count
+	core_config_ice_mode_write(0x04100C, write_len, 2);
+	// Checksum enable
+	core_config_ice_mode_write(0x041014, 0x10000, 3);
+	// Start to receive
+	core_config_ice_mode_write(0x041010, 0xFF, 1);
+
+	mdelay(1);
+
+	while (timer > 0)
+	{
+		mdelay(1);
+
+		if (core_config_read_write_onebyte(0x041014) == 0x01)
+			break;
+
+		timer--;
+	}
+
+	// CS high
+	core_config_ice_mode_write(0x041000, 0x1, 1);
+
+	if (timer != 0)
+	{
+		// Disable dio_Rx_dual
+		core_config_ice_mode_write(0x041003, 0x0, 1);
+
+		if (core_firmware->isCRC == true)
+		{
+			// read CRC
+			iram_check = core_config_ice_mode_read(0x4101C);
+
+			if (core_firmware->ap_crc != iram_check)
+			{
+				DBG_ERR("CRC Error: ap_crc = %x , iram_check = %x",
+						core_firmware->ap_crc, iram_check);
+				goto out;
+			}
+		}
+		else
+		{
+			// read checksum
+			iram_check = core_config_ice_mode_read(0x041018);
+
+			if (core_firmware->ap_checksum != iram_check)
+			{
+				DBG_ERR("Checksum Error: ap_checksum = %x , iram_check = %x",
+						core_firmware->ap_checksum, iram_check);
+				goto out;
+			}
+		}
+
+		DBG_INFO("The data written into iram is correct !");
+
+		return res;
+	}
+
+out:
+	DBG_ERR("Failed to get correct data");
+	return -1;
+}
+#endif
+
+#ifdef FLASH_SECTOR
 //TODO: These calculations need to be optimised later.
 static int verify_flash_data(void)
 {
@@ -243,16 +337,20 @@ static int verify_flash_data(void)
 	uint32_t sec_crc32 = 0;
 	uint32_t check_len = 0x0;
 
-	for(i = 0, k = fpz; i < sec_length; i = p)
+	for(i = 0, k = 0; i <= sec_length + 1; i = p)
 	{
-		for(j = i; j < sec_length; j++, k+=fpz)
+		for(j = i; j < sec_length + 1; j++, k+=fpz)
 		{
+			if(!ffls[j].data_flag)
+				continue;
+			DBG_INFO("ffls[i%d].ss_addr = %x, se_addr = %x", i, ffls[i].ss_addr, ffls[i].se_addr);
+			DBG_INFO("ffls[j%d].ss_addr = %x, se_addr = %x", j, ffls[j].ss_addr, ffls[j].se_addr);
 			if(ffls[j].se_addr > core_firmware->max_count)
 			{
 				if(do_once == 0)
 				{
 					if(check_len == 0)
-						check_len = ffls[j].se_addr - ffls[i].ss_addr;
+						check_len = ffls[j].dlength;
 				
 					if(sec_checksum == 0)
 						sec_checksum = ffls[j].checksum;
@@ -260,7 +358,7 @@ static int verify_flash_data(void)
 					if(sec_crc32 == 0)
 						sec_crc32 = ffls[j].crc32;
 
-					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
+					verify_data = ili7807_check_data_sector(ffls[i].ss_addr, check_len);
 
 					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
 					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
@@ -283,9 +381,9 @@ static int verify_flash_data(void)
 					break;
 				}
 
-				if(ffls[j].se_addr == k)
+				if(ffls[j].ss_addr == k)
 				{
-					check_len = ffls[j].se_addr - ffls[i].ss_addr;
+					check_len = ffls[j].dlength;
 					sec_checksum = sec_checksum + ffls[j].checksum;
 					sec_crc32 = sec_crc32 + ffls[j].crc32;
 					split = 0;
@@ -294,7 +392,7 @@ static int verify_flash_data(void)
 				else
 				{
 					if(check_len == 0)
-						check_len = ffls[j].se_addr - ffls[i].ss_addr;
+						check_len = ffls[j].dlength;
 					
 					if(sec_checksum == 0)
 						sec_checksum = sec_checksum + ffls[j].checksum;
@@ -302,7 +400,7 @@ static int verify_flash_data(void)
 					if(sec_crc32 == 0)
 						sec_crc32 = ffls[j].crc32;
 
-					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
+					verify_data = ili7807_check_data_sector(ffls[i].ss_addr, check_len);
 
 					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
 					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
@@ -327,9 +425,9 @@ static int verify_flash_data(void)
 			}
 			else
 			{
-				if(ffls[j].se_addr == k)
+				if(ffls[j].ss_addr == k)
 				{
-					check_len = ffls[j].se_addr - ffls[i].ss_addr;
+					check_len = ffls[j].dlength;
 					sec_checksum = sec_checksum + ffls[j].checksum;
 					sec_crc32 = sec_crc32 + ffls[j].crc32;
 					split = 0;
@@ -338,7 +436,7 @@ static int verify_flash_data(void)
 				else
 				{
 					if(check_len == 0)
-						check_len = ffls[j].se_addr - ffls[i].ss_addr;
+						check_len = ffls[j].dlength;
 					
 					if(sec_checksum == 0)
 						sec_checksum = sec_checksum + ffls[j].checksum;
@@ -346,7 +444,7 @@ static int verify_flash_data(void)
 					if(sec_crc32 == 0)
 						sec_crc32 = ffls[j].crc32;
 
-					verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
+					verify_data = ili7807_check_data_sector(ffls[i].ss_addr, check_len);
 					
 					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
 					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
@@ -369,12 +467,12 @@ static int verify_flash_data(void)
 				}
 			}
 		}
-		if(split == 0 && j >= sec_length )
+		if(split == 0 && j > sec_length + 1 )
 		{
 			if(check_len > core_firmware->end_addr)
-				check_len = core_firmware->end_addr;
+				check_len = ffls[j].dlength;
 
-			verify_data = ili7807_check_data(ffls[i].ss_addr, check_len);
+			verify_data = ili7807_check_data_sector(ffls[i].ss_addr, check_len);
 			local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
 			DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
 
@@ -394,6 +492,7 @@ static int verify_flash_data(void)
 out:
 	return res;
 }
+#endif
 
 static int ili7807_polling_flash_busy(void)
 {
@@ -515,7 +614,8 @@ static int iram_upgrade(void)
 	return res;
 }
 
-static int ili7807_firmware_upgrade(bool isIRAM)
+#ifdef FLASH_SECTOR
+static int ili7807_firmware_upgrade_sector(bool isIRAM)
 {
 	int i, j, res = 0;
 	uint8_t buf[512] = {0};
@@ -559,8 +659,11 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 		core_config_reset_watch_dog();
 
 	DBG_INFO("Erasing Flash data ...");
-	for(i = 0; i < sec_length; i++)
+	for(i = 0; i < sec_length + 1; i++)
 	{
+		if(!ffls[i].data_flag)
+			continue;
+
 		res = ili7807_write_enable();
 		if (res < 0)
 		{
@@ -604,14 +707,19 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 		// CS High
 		core_config_ice_mode_write(0x041000, 0x1, 1);
+
+		DBG_INFO("Earsing data at start addr: %x ", ffls[i].ss_addr );
 	}
 
 	mdelay(1);
 
 	//write data into flash
 	DBG_INFO("Writing data into flash ...");
-	for(i = 0; i < sec_length; i++)
+	for(i = 0; i < sec_length + 1; i++)
 	{
+		if(!ffls[i].data_flag)
+			continue;
+	
 		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= UPDATE_FIRMWARE_PAGE_LENGTH)
 		{
 			res = ili7807_write_enable();
@@ -660,8 +768,10 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 			}
 
 			core_firmware->update_status = (j * 101) / end_addr;
-			printk("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
+			printk("%cUpgrading firmware ... (0x%x...0x%x), %02d%c", 0x0D, ffls[i].ss_addr, ffls[i].se_addr, core_firmware->update_status, '%');
 		}
+
+		DBG_INFO("Writing data at start addr: %x ", ffls[i].ss_addr);
 	}
 
 	// We do have to reset chip in order to move new code from flash to iram.
@@ -693,6 +803,193 @@ out:
 	core_config_ice_mode_disable();
 	return res;
 }
+#else
+static int ili7807_firmware_upgrade(bool isIRAM)
+{
+	int i, j, res = 0;
+	uint32_t erase_start_addr = 0;
+	uint8_t buf[512] = {0};
+	uint32_t temp_buf = 0;
+	uint32_t start_addr = core_firmware->start_addr;
+	uint32_t end_addr = core_firmware->end_addr;
+
+	core_firmware->update_status = 0;
+
+	if (isIRAM)
+	{
+		res = iram_upgrade();
+		return res;
+	}
+
+	ilitek_platform_tp_power_on(1);
+
+	DBG_INFO("Enter to ICE Mode");
+
+	res = core_config_ice_mode_enable();
+	if (res < 0)
+	{
+		DBG_ERR("Failed to enable ICE mode");
+		goto out;
+	}
+
+	mdelay(5);
+
+	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	{
+		// This command is used to fixed the bug of spi clk in 7807F
+		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
+		if (res < 0)
+			goto out;
+	}
+
+	mdelay(25);
+
+	// there is no need to disable WTD if you're using 9881
+	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+		core_config_reset_watch_dog();
+
+	DBG_INFO("Erasing Flash data ...");
+	for (erase_start_addr = 0; erase_start_addr < 0xE0;)
+	{
+		res = ili7807_write_enable();
+		if (res < 0)
+		{
+			DBG_ERR("Failed to config write enable");
+			goto out;
+		}
+
+		// CS low
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x20, 1);
+
+		core_config_ice_mode_write(0x041008, 0x0, 1);			   //Addr_H
+		core_config_ice_mode_write(0x041008, erase_start_addr, 1); //Addr_M
+		core_config_ice_mode_write(0x041008, 0x0, 1);			   //Addr_L
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+
+		mdelay(1);
+
+		res = ili7807_polling_flash_busy();
+		if (res < 0)
+		{
+			DBG_ERR("TIME OUT");
+			goto out;
+		}
+
+		// CS low
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x3, 1);
+
+		core_config_ice_mode_write(0x041008, 0x0, 1);
+		core_config_ice_mode_write(0x041008, erase_start_addr, 1);
+		core_config_ice_mode_write(0x041008, 0x0, 1);
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+
+		temp_buf = core_config_read_write_onebyte(0x041010);
+
+		if (temp_buf != 0xFF)
+			DBG_ERR("Failed to read data at 0x%x ", erase_start_addr);
+
+		erase_start_addr = erase_start_addr + 0x10;
+
+		// CS High
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+	}
+
+	mdelay(1);
+
+	//write data into flash
+	DBG_INFO("Writing data into flash ...");
+	for (i = start_addr; i < end_addr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
+	{
+		res = ili7807_write_enable();
+		if (res < 0)
+		{
+			DBG_ERR("Failed to config write enable");
+			goto out;
+		}
+
+		// CS low
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x02, 1);
+
+		core_config_ice_mode_write(0x041008, (i & 0xFF0000) >> 16, 1); //Addr_H
+		core_config_ice_mode_write(0x041008, (i & 0x00FF00) >> 8, 1);  //Addr_M
+		core_config_ice_mode_write(0x041008, (i & 0x0000FF), 1);	   //Addr_L
+
+		buf[0] = 0x25;
+		buf[3] = 0x04;
+		buf[2] = 0x10;
+		buf[1] = 0x08;
+
+		for (j = 0; j < UPDATE_FIRMWARE_PAGE_LENGTH; j++)
+		{
+			if (i + j <= end_addr)
+				buf[4 + j] = flash_fw[i + j];
+			else
+				buf[4 + j] = 0xFF;
+		}
+
+		if (core_i2c_write(core_config->slave_i2c_addr, buf, UPDATE_FIRMWARE_PAGE_LENGTH + 4) < 0)
+		{
+			DBG_ERR("Failed to write data at address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
+						(int)i, (int)start_addr, (int)end_addr);
+			res = -EIO;
+			goto out;
+		}
+
+		// CS high
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+
+		res = ili7807_polling_flash_busy();
+		if (res < 0)
+		{
+			DBG_ERR("TIME OUT");
+			goto out;
+		}
+
+		core_firmware->update_status = (i * 101) / core_firmware->ap_end_addr;
+		printk("%cupgrade firmware(ap code), %02d%c", 0x0D, core_firmware->update_status, '%');
+	}
+
+	// We do have to reset chip in order to move new code from flash to iram.
+	DBG_INFO("Doing Soft Reset ..");
+	core_config_ic_reset();
+
+	// the delay time moving code depends on what the touch IC you're using.
+	mdelay(core_firmware->delay_after_upgrade);
+
+	// ensure that the chip has been updated
+	DBG_INFO("Enter to ICE Mode again");
+	res = core_config_ice_mode_enable();
+
+	if (res < 0)
+	{
+		DBG_ERR("Failed to enable ICE mode");
+		goto out;
+	}
+
+	mdelay(20);
+
+	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+		core_config_reset_watch_dog();
+
+	// check the data just written to firmware is valid.
+	DBG_INFO("Checking the data in iram is valid ...");
+	res = ili7807_check_data();
+	if (res < 0)
+	{
+		DBG_ERR("The data written into iram isn't correct");
+	}
+
+out:
+	core_config_ice_mode_disable();
+	return res;
+}
+#endif
 
 static int ili2121_firmware_upgrade(bool isIRAM)
 {
@@ -871,7 +1168,8 @@ static int ili2121_firmware_upgrade(bool isIRAM)
 	return res;
 }
 
-static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
+#ifdef FLASH_SECTOR
+static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t i = 0, j = 0, k = 0, x = 0;
 	uint32_t nLength = 0, nAddr = 0, nType = 0;
@@ -914,8 +1212,7 @@ static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	
 		}
 
-		nAddr = nAddr + (nExAddr << 16);			
-
+		nAddr = nAddr + (nExAddr << 16);
 		if (pBuf[i + 1 + j + 2] == 0x0D)
 		{
 			nOffset = 2;
@@ -951,37 +1248,24 @@ static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 				{
 					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 
-					if(((nAddr + k) % fpz == 0))
+					if(nAddr + k != 0)
 					{
-						if((nAddr + k) != 0x0)
-						{
-							if(index == 0)
-								ffls[index].ss_addr = 0;
-							else
-								ffls[index].ss_addr = (nAddr + k) - fpz;
-							
-							ffls[index].se_addr = (nAddr + k);
-							ffls[index].dlength = nLength;
-							index++;
-						}
+						index = ((nAddr + k) / fpz); 
+						ffls[index].ss_addr = ((nAddr + k) - fpz) + 1;
+						ffls[index].se_addr = (nAddr + k);
+						ffls[index].dlength = (ffls[index].se_addr - ffls[index].ss_addr) + 1;
+						ffls[index].data_flag = true;
 					}
+
 				}
 			}
 		}
 		i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;
 	}
 
-	if(nEndAddr > ffls[index-1].se_addr)
-	{
-		ffls[index].ss_addr = ffls[index-1].se_addr;
-		ffls[index].se_addr = ffls[index].ss_addr + fpz;
-		index++;
-	}
-
-	// update sector's length
 	sec_length = index;
 
-	for(i = 0, k = fpz; i < sec_length; i++, k+= fpz)
+	for(i = 0, k = fpz; i < sec_length + 1; i++, k+= fpz)
 	{
 		tmp_ck = 0;
 		memset(tmp_crc, 0x0, sizeof(tmp_crc));
@@ -997,13 +1281,13 @@ static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		if (core_firmware->isCRC == true && isIRAM == false)
 		{
 			ffls[i].crc32 = calc_crc32(ffls[i].ss_addr, ffls[i].se_addr, tmp_crc);
-			CRC32 = ffls[i].crc32;
+			CRC32 = CRC32 + ffls[i].crc32;
 		}
 
 		ffls[i].checksum = tmp_ck;
 
-		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, checksum = %x, crc = %x", 
-		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[i].checksum, ffls[i].crc32 );
+		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, checksum = %x, crc = %x, data = %d", 
+		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].checksum, ffls[i].crc32, ffls[i].data_flag );
 	}
 
 	core_firmware->start_addr = nStartAddr;
@@ -1019,6 +1303,149 @@ out:
 	DBG_ERR("Failed to convert HEX data");
 	return -1;
 }
+#else
+static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
+{
+	uint32_t CRC32 = 0;
+	uint32_t i = 0, j = 0, k = 0;
+	uint32_t nApStartAddr = 0xFFFF, nDfStartAddr = 0xFFFF, nExAddr = 0;
+	uint32_t nApEndAddr = 0x0, nDfEndAddr = 0x0;
+	uint32_t nApChecksum = 0x0, nDfChecksum = 0x0, nLength = 0, nAddr = 0, nType = 0;
+	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0;
+
+	core_firmware->ap_start_addr = 0;
+	core_firmware->ap_end_addr = 0;
+	core_firmware->ap_checksum = 0;
+	core_firmware->ap_crc = 0;
+
+	if (nSize != 0)
+	{
+		for (; i < nSize;)
+		{
+			int32_t nOffset;
+
+			nLength = HexToDec(&pBuf[i + 1], 2);
+			nAddr = HexToDec(&pBuf[i + 3], 4);
+			nType = HexToDec(&pBuf[i + 7], 2);
+
+			// calculate checksum
+			for (j = 8; j < (2 + 4 + 2 + (nLength * 2)); j += 2)
+			{
+				if (nType == 0x00)
+				{
+					// for ice mode write method
+					nChecksum = nChecksum + HexToDec(&pBuf[i + 1 + j], 2);
+
+					if (nAddr + (j - 8) / 2 < nDfStartAddr)
+					{
+						nApChecksum = nApChecksum + HexToDec(&pBuf[i + 1 + j], 2);
+					}
+					else
+					{
+						nDfChecksum = nDfChecksum + HexToDec(&pBuf[i + 1 + j], 2);
+					}
+				}
+			}
+			if (nType == 0x04)
+			{
+				nExAddr = HexToDec(&pBuf[i + 9], 4);
+			}
+
+			nAddr = nAddr + (nExAddr << 16);
+
+			if (pBuf[i + 1 + j + 2] == 0x0D)
+			{
+				nOffset = 2;
+			}
+			else
+			{
+				nOffset = 1;
+			}
+
+			if (nType == 0x00)
+			{
+				if (nAddr > MAX_HEX_FILE_SIZE)
+				{
+					DBG_ERR("Invalid hex format");
+
+					return -EINVAL;
+				}
+
+				if (nAddr < nStartAddr)
+				{
+					nStartAddr = nAddr;
+				}
+				if ((nAddr + nLength) > nEndAddr)
+				{
+					nEndAddr = nAddr + nLength;
+				}
+
+				// for Bl protocol 1.4+, nApStartAddr and nApEndAddr
+				if (nAddr < nApStartAddr)
+				{
+					nApStartAddr = nAddr;
+				}
+
+				if ((nAddr + nLength) > nApEndAddr && (nAddr < nDfStartAddr))
+				{
+					nApEndAddr = nAddr + nLength - 1;
+
+					if (nApEndAddr > nDfStartAddr)
+					{
+						nApEndAddr = nDfStartAddr - 1;
+					}
+				}
+
+				// for Bl protocol 1.4+, bl_end_addr
+				if ((nAddr + nLength) > nDfEndAddr && (nAddr >= nDfStartAddr))
+				{
+					nDfEndAddr = nAddr + nLength;
+				}
+
+				// fill data
+				for (j = 0, k = 0; j < (nLength * 2); j += 2, k++)
+				{
+					if (isIRAM)
+						iram_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					else
+						flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+				}
+			}
+
+			i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;
+		}
+
+		if (core_firmware->isCRC == true && isIRAM == false)
+		{
+			CRC32 = calc_crc32(nApStartAddr, nApEndAddr, flash_fw);
+		}
+
+		core_firmware->ap_start_addr = nApStartAddr;
+		core_firmware->ap_end_addr = nApEndAddr;
+		core_firmware->ap_checksum = nApChecksum;
+		core_firmware->ap_crc = CRC32;
+
+		core_firmware->df_start_addr = nDfStartAddr;
+		core_firmware->df_end_addr = nDfEndAddr;
+		core_firmware->df_checksum = nDfChecksum;
+
+		core_firmware->start_addr = nStartAddr;
+		core_firmware->end_addr = nEndAddr;
+		core_firmware->checksum = nChecksum;
+
+		DBG_INFO("nApStartAddr = 0x%06X, nApEndAddr = 0x%06X, nApChecksum = 0x%06X, CRC = %x",
+				 nApStartAddr, nApEndAddr, nApChecksum, CRC32);
+		DBG_INFO("nDfStartAddr = 0x%06X, nDfEndAddr = 0x%06X, nDfChecksum = 0x%06X",
+				 nDfStartAddr, nDfEndAddr, nDfChecksum);
+		DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
+				 nStartAddr, nEndAddr, nChecksum);
+
+		return 0;
+	}
+
+	return -1;
+}
+#endif
 
 /*
  * It would basically be called by ioctl when users want to upgrade firmware.
@@ -1030,6 +1457,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 {
 	int res = 0, i = 0, fsize;
 	uint8_t *hex_buffer = NULL;
+
 	struct file *pfile = NULL;
 	struct inode *inode;
 	mm_segment_t old_fs;
@@ -1038,14 +1466,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	DBG_INFO("file path = %s", pFilePath);
 
 	core_firmware->isUpgraded = false;
-
-	if(core_firmware->chip_id == CHIP_TYPE_ILI7807)
-	{
-		if(core_config->chip_type == ILI7807_TYPE_F)
-			core_firmware->max_count = 0xFFFF;
-		else if(core_config->chip_type == ILI7807_TYPE_H)
-			core_firmware->max_count = 0x1FFFF;
-	}
 
 	//TODO: to compare old/new version if upgraded.
 
@@ -1077,10 +1497,11 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 			hex_buffer = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
 			flash_fw = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
+			memset(flash_fw, 0xff, sizeof(flash_fw));
+#ifdef FLASH_SECTOR
 			Ssize = fsize/FLASH_PROGRAM_SIZE;
 			ffls = kcalloc(Ssize, sizeof(uint32_t) * Ssize, GFP_KERNEL);
-			memset(flash_fw, 0xff, sizeof(flash_fw));
-			
+#endif
 			// store current userspace mem segment.
 			old_fs = get_fs();
 
@@ -1093,7 +1514,11 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
 
+#ifdef FLASH_SECTOR
+			res = convert_hex_file(hex_buffer, fsize, isIRAM);
+#else
 			res = convert_firmware(hex_buffer, fsize, isIRAM);
+#endif
 
 			if (res < 0)
 			{
@@ -1103,7 +1528,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			else
 			{
 				// calling that function defined at init depends on chips.
-				res = core_firmware->upgrade_func(isIRAM);
+				res = core_firmware->upgrade_func(isIRAM);				
 				if (res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
@@ -1131,7 +1556,6 @@ out:
 	filp_close(pfile, NULL);
 	kfree(hex_buffer);
 	kfree(flash_fw);
-	kfree(ffls);
 	return res;
 }
 
@@ -1162,14 +1586,22 @@ int core_firmware_init(void)
 			{
 				core_firmware->max_count = 0xFFFF;
 				core_firmware->isCRC = false;
+				#ifdef FLASH_SECTOR
+				core_firmware->upgrade_func = ili7807_firmware_upgrade_sector;
+				#else
 				core_firmware->upgrade_func = ili7807_firmware_upgrade;
+				#endif
 				core_firmware->delay_after_upgrade = 100;
 			}
 			else if (core_firmware->chip_id == CHIP_TYPE_ILI9881)
 			{
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;
+				#ifdef FLASH_SECTOR
+				core_firmware->upgrade_func = ili7807_firmware_upgrade_sector;
+				#else
 				core_firmware->upgrade_func = ili7807_firmware_upgrade;
+				#endif
 				core_firmware->delay_after_upgrade = 200;
 			}
 		}
