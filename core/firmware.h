@@ -25,7 +25,7 @@
 #ifndef __FIRMWARE_H
 #define __FIRMWARE_H
 
-//#define FLASH_SECTOR
+#define FLASH_SECTOR
 
 struct core_firmware_data
 {

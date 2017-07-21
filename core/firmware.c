@@ -69,6 +69,8 @@ struct flash_sector
 struct flash_sector *ffls;
 #endif
 
+#define CHECK(X,Y) ((X==Y) ? 0 : -1 )
+
 struct core_firmware_data *core_firmware;
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
@@ -107,7 +109,7 @@ static uint32_t calc_crc32(uint32_t start_addr, uint32_t end_addr, uint8_t *data
 	uint32_t CRC_POLY = 0x04C11DB7;
 	uint32_t ReturnCRC = 0xFFFFFFFF;
 
-	for (i = start_addr; i < end_addr + 1; i++)
+	for (i = start_addr; i < end_addr; i++)
 	{
 		ReturnCRC ^= (data[i] << 24);
 
@@ -151,13 +153,12 @@ static int ili2121_checkcum(uint32_t nStartAddr, uint32_t nEndAddr)
 }
 
 #ifdef FLASH_SECTOR
-static uint32_t ili7807_check_data_sector(uint32_t start_addr, uint32_t end_addr)
+static uint32_t ili7807_check_data(uint32_t start_addr, uint32_t end_addr)
 {
 	int timer = 500;
 	uint32_t write_len = 0;
 	uint32_t iram_check = 0;
 
-	//write_len = core_firmware->ap_end_addr + 1;
 	write_len = end_addr;
 
 	DBG_INFO("start = 0x%x , write_len = 0x%x, max_count = %x", 
@@ -181,11 +182,13 @@ static uint32_t ili7807_check_data_sector(uint32_t start_addr, uint32_t end_addr
 	core_config_ice_mode_write(0x041003, 0x01, 1);
 	// Dummy
 	core_config_ice_mode_write(0x041008, 0xFF, 1);
+
 	// Set Receive count
 	if(core_firmware->max_count == 0xFFFF)
 		core_config_ice_mode_write(0x04100C, write_len, 2);
 	else if(core_firmware->max_count == 0x1FFFF)
 		core_config_ice_mode_write(0x04100C, write_len, 3);
+
 	// Checksum enable
 	core_config_ice_mode_write(0x041014, 0x10000, 3);
 	// Start to receive
@@ -211,16 +214,7 @@ static uint32_t ili7807_check_data_sector(uint32_t start_addr, uint32_t end_addr
 		// Disable dio_Rx_dual
 		core_config_ice_mode_write(0x041003, 0x0, 1);
 
-		if (core_firmware->isCRC == true)
-		{
-			// read CRC
-			iram_check = core_config_ice_mode_read(0x4101C);
-		}
-		else
-		{
-			// read checksum
-			iram_check = core_config_ice_mode_read(0x041018);
-		}
+		iram_check = core_firmware->isCRC ? core_config_ice_mode_read(0x4101C) : core_config_ice_mode_read(0x041018);
 	}
 	else
 	{
@@ -326,170 +320,137 @@ out:
 #endif
 
 #ifdef FLASH_SECTOR
-//TODO: These calculations need to be optimised later.
+static void calc_verify_data(uint32_t sa, uint32_t se, uint32_t *ck, uint32_t *crc)
+{
+	uint32_t i = 0;
+	uint32_t tmp_ck = 0, tmp_crc = 0;
+
+	if(ck != NULL)
+	{
+		for(i = sa; i < se; i++)
+		{
+			tmp_ck = tmp_ck + flash_fw[i];
+		}
+		*ck = tmp_ck;
+	}
+
+	if(crc != NULL) {
+		tmp_crc = calc_crc32(sa, se, flash_fw);
+		*crc = tmp_crc;
+	}
+}
+
 static int verify_flash_data(void)
 {
-	int i, j, p = 0, do_once = 0, split = 0, res = 0;
-	uint32_t fpz = FLASH_PROGRAM_SIZE, k;
-	uint32_t verify_data = 0;
-	uint32_t local_data = 0;
-	uint32_t sec_checksum = 0x0;
-	uint32_t sec_crc32 = 0;
-	uint32_t check_len = 0x0;
+	int i = 0, res = 0;
+	uint32_t ss = 0x0, se = 0x0;
+	uint32_t vd = 0;
+	uint32_t sum_check = 0, sum_crc = 0;
+	int len = 0;
 
-	for(i = 0, k = 0; i <= sec_length + 1; i = p)
+	for(i = 0; i < sec_length + 1; i++)
 	{
-		for(j = i; j < sec_length + 1; j++, k+=fpz)
+		if(ffls[i].data_flag)
 		{
-			if(!ffls[j].data_flag)
-				continue;
-			DBG_INFO("ffls[i%d].ss_addr = %x, se_addr = %x", i, ffls[i].ss_addr, ffls[i].se_addr);
-			DBG_INFO("ffls[j%d].ss_addr = %x, se_addr = %x", j, ffls[j].ss_addr, ffls[j].se_addr);
-			if(ffls[j].se_addr > core_firmware->max_count)
+			if(ss > ffls[i].ss_addr || len == 0)
+				ss = ffls[i].ss_addr;
+
+			len = len + ffls[i].dlength;
+			se = ffls[i].se_addr + 1;
+
+			calc_verify_data(ss, se, &sum_check, NULL);
+
+			if(len >= (core_firmware->max_count - FLASH_PROGRAM_SIZE))
 			{
-				if(do_once == 0)
+				// commit data if its length is over than max count
+				calc_verify_data(ss, se, NULL, &sum_crc);
+				vd = ili7807_check_data(ss, len);
+				if(core_firmware->isCRC)
 				{
-					if(check_len == 0)
-						check_len = ffls[j].dlength;
-				
-					if(sec_checksum == 0)
-						sec_checksum = ffls[j].checksum;
-					
-					if(sec_crc32 == 0)
-						sec_crc32 = ffls[j].crc32;
-
-					verify_data = ili7807_check_data_sector(ffls[i].ss_addr, check_len);
-
-					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
-					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
-
-					if(verify_data != local_data)
+					res = CHECK(vd, sum_crc);
+					if(res < 0)
 					{
-						DBG_ERR("Data is invalid");
+						DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_crc);
 						res = -1;
-						goto out;
-					}
-					else
-						DBG_INFO("Data is correct");
-
-					check_len = 0x0;
-					sec_checksum = 0x0;
-					sec_crc32 = 0;
-					p = j;
-					//k+= fpz;
-					do_once = 1;
-					break;
-				}
-
-				if(ffls[j].ss_addr == k)
-				{
-					check_len = ffls[j].dlength;
-					sec_checksum = sec_checksum + ffls[j].checksum;
-					sec_crc32 = sec_crc32 + ffls[j].crc32;
-					split = 0;
-					p++;
+						break;						
+					}			
 				}
 				else
 				{
-					if(check_len == 0)
-						check_len = ffls[j].dlength;
-					
-					if(sec_checksum == 0)
-						sec_checksum = sec_checksum + ffls[j].checksum;
-
-					if(sec_crc32 == 0)
-						sec_crc32 = ffls[j].crc32;
-
-					verify_data = ili7807_check_data_sector(ffls[i].ss_addr, check_len);
-
-					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
-					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
-
-					if(verify_data != local_data)
+					res = CHECK(vd, sum_check);
+					if(res < 0)
 					{
-						DBG_ERR("Data is invalid");
+						DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_check);
 						res = -1;
-						goto out;
+						break;						
 					}
-					else
-						DBG_INFO("Data is correct");
-
-					check_len = 0x0;
-					sec_checksum = 0x0;
-					sec_crc32 = 0;
-					split = 1;
-					p = j;
-					k+= fpz;
-					break;
 				}
-			}
-			else
-			{
-				if(ffls[j].ss_addr == k)
-				{
-					check_len = ffls[j].dlength;
-					sec_checksum = sec_checksum + ffls[j].checksum;
-					sec_crc32 = sec_crc32 + ffls[j].crc32;
-					split = 0;
-					p++;
-				}
-				else
-				{
-					if(check_len == 0)
-						check_len = ffls[j].dlength;
-					
-					if(sec_checksum == 0)
-						sec_checksum = sec_checksum + ffls[j].checksum;
 
-					if(sec_crc32 == 0)
-						sec_crc32 = ffls[j].crc32;
-
-					verify_data = ili7807_check_data_sector(ffls[i].ss_addr, check_len);
-					
-					local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
-					DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
-
-					if(verify_data != local_data)
-					{
-						DBG_ERR("Data is invalid");
-						res = -1;
-						goto out;
-					}
-					else
-						DBG_INFO("Data is correct");
-
-					check_len = 0x0;
-					sec_checksum = 0x0;
-					split = 1;
-					p = j;
-					k+= fpz;
-					break;
-				}
+				ss = ffls[i].ss_addr;
+				sum_check = 0;
+				sum_crc = 0;
+				len = 0;
 			}
 		}
-		if(split == 0 && j > sec_length + 1 )
+		else
 		{
-			if(check_len > core_firmware->end_addr)
-				check_len = ffls[j].dlength;
-
-			verify_data = ili7807_check_data_sector(ffls[i].ss_addr, check_len);
-			local_data = core_firmware->isCRC == true ? sec_crc32 : sec_checksum;
-			DBG_INFO("OUT: verify_data = %x , local_data = %x", verify_data, local_data);
-
-			if(verify_data != local_data)
+			// split block and commit last data to check
+			if(len != 0)
 			{
-				DBG_ERR("Data is invalid");
-				res = -1;
-				goto out;
+				calc_verify_data(ss, se, NULL, &sum_crc);
+				vd = ili7807_check_data(ss, len);
+				if(core_firmware->isCRC)
+				{
+					res = CHECK(vd, sum_crc);
+					if(res < 0)
+					{
+						DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_check);
+						res = -1;
+						break;						
+					}								
+				}
+				else
+				{
+					res = CHECK(vd, sum_check);
+					if(res < 0)
+					{
+						DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_check);
+						res = -1;
+						break;						
+					}
+				}
 			}
-			else
-				DBG_INFO("Data is correct");
 
-			break;
+			ss = ffls[i].ss_addr;
+			sum_check = 0;
+			sum_crc = 0;
+			len = 0;
 		}
 	}
 
-out:
+	if(len != 0 && res != -1)
+	{
+		calc_verify_data(ss, core_firmware->end_addr - ss, NULL, &sum_crc);
+		vd = ili7807_check_data(ss, core_firmware->end_addr - ss);
+		if(core_firmware->isCRC)
+		{
+			res = CHECK(vd, sum_crc);
+			if(res < 0)
+			{
+				DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_crc);
+				res = -1;
+			}					
+		}
+		else
+		{
+			res = CHECK(vd, sum_check);
+			if(res < 0)
+			{
+				DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_check);
+			}
+		}
+	}
+
 	return res;
 }
 #endif
@@ -615,7 +576,7 @@ static int iram_upgrade(void)
 }
 
 #ifdef FLASH_SECTOR
-static int ili7807_firmware_upgrade_sector(bool isIRAM)
+static int ili7807_firmware_upgrade(bool isIRAM)
 {
 	int i, j, res = 0;
 	uint8_t buf[512] = {0};
@@ -770,8 +731,6 @@ static int ili7807_firmware_upgrade_sector(bool isIRAM)
 			core_firmware->update_status = (j * 101) / end_addr;
 			printk("%cUpgrading firmware ... (0x%x...0x%x), %02d%c", 0x0D, ffls[i].ss_addr, ffls[i].se_addr, core_firmware->update_status, '%');
 		}
-
-		DBG_INFO("Writing data at start addr: %x ", ffls[i].ss_addr);
 	}
 
 	// We do have to reset chip in order to move new code from flash to iram.
@@ -796,8 +755,9 @@ static int ili7807_firmware_upgrade_sector(bool isIRAM)
 		core_config_reset_watch_dog();
 
 	// check the data that we've just written into the iram.
-	DBG_INFO("Checking the data in iram if it's valid ...");
 	res = verify_flash_data();
+	if(res == 0)
+		DBG_INFO("Data Correct !");
 
 out:
 	core_config_ice_mode_disable();
@@ -1171,9 +1131,10 @@ static int ili2121_firmware_upgrade(bool isIRAM)
 #ifdef FLASH_SECTOR
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
-	uint32_t i = 0, j = 0, k = 0, x = 0;
+	uint32_t i = 0, j = 0, k = 0;
 	uint32_t nLength = 0, nAddr = 0, nType = 0;
-	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0,nExAddr = 0, CRC32 = 0;
+	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0,nExAddr = 0;
+	uint32_t CRC32 = 0;
 
 	int index = 0;
 	uint32_t fpz = FLASH_PROGRAM_SIZE;
@@ -1209,7 +1170,6 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		{
 			nExAddr = HexToDec(&pBuf[i + 9], 4);
 			nExAddr = nExAddr >> 12;
-	
 		}
 
 		nAddr = nAddr + (nExAddr << 16);
@@ -1248,13 +1208,17 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 				{
 					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 
-					if(nAddr + k != 0)
+					if((nAddr + k) != 0)
 					{
 						index = ((nAddr + k) / fpz); 
-						ffls[index].ss_addr = ((nAddr + k) - fpz) + 1;
-						ffls[index].se_addr = (nAddr + k);
-						ffls[index].dlength = (ffls[index].se_addr - ffls[index].ss_addr) + 1;
-						ffls[index].data_flag = true;
+						if(!ffls[index].data_flag)
+						{
+							ffls[index].ss_addr = index * fpz;
+							ffls[index].se_addr = (index + 1) * fpz - 1;
+							ffls[index].dlength = (ffls[index].se_addr - ffls[index].ss_addr) + 1;
+							ffls[index].data_flag = true;
+						}
+
 					}
 
 				}
@@ -1265,38 +1229,20 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 
 	sec_length = index;
 
-	for(i = 0, k = fpz; i < sec_length + 1; i++, k+= fpz)
+	for(i = 0; i < sec_length + 1; i++)
 	{
-		tmp_ck = 0;
-		memset(tmp_crc, 0x0, sizeof(tmp_crc));
+		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d", 
+		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag );
+	}
 
-		// calculate the checksum in each sector.
-		for(j = ffls[i].ss_addr, x = 0; j < ffls[i].se_addr || x < FLASH_PROGRAM_SIZE; j++, x++)
-		{
-			 tmp_ck = tmp_ck + flash_fw[j];
-			 tmp_crc[x] = flash_fw[j];
-		}
-
-		// calculate the crc in each sector.
-		if (core_firmware->isCRC == true && isIRAM == false)
-		{
-			ffls[i].crc32 = calc_crc32(ffls[i].ss_addr, ffls[i].se_addr, tmp_crc);
-			CRC32 = CRC32 + ffls[i].crc32;
-		}
-
-		ffls[i].checksum = tmp_ck;
-
-		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, checksum = %x, crc = %x, data = %d", 
-		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].checksum, ffls[i].crc32, ffls[i].data_flag );
+	if (core_firmware->isCRC == true && isIRAM == false)
+	{
+		CRC32 = calc_crc32(nStartAddr, nEndAddr-1, flash_fw);
 	}
 
 	core_firmware->start_addr = nStartAddr;
 	core_firmware->end_addr = nEndAddr;
-	core_firmware->checksum = nChecksum;
-	core_firmware->crc32 = CRC32;
-
-	DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X, CRC = %x",
-				nStartAddr, nEndAddr, nChecksum, CRC32);
+	DBG_INFO("nStartAddr = 0x%06X, nEndAddr = 0x%06X", nStartAddr, nEndAddr);
 	return 0;
 
 out:
@@ -1304,7 +1250,7 @@ out:
 	return -1;
 }
 #else
-static int convert_firmware(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
+static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t CRC32 = 0;
 	uint32_t i = 0, j = 0, k = 0;
@@ -1514,11 +1460,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			// restore userspace mem segment after read.
 			set_fs(old_fs);
 
-#ifdef FLASH_SECTOR
 			res = convert_hex_file(hex_buffer, fsize, isIRAM);
-#else
-			res = convert_firmware(hex_buffer, fsize, isIRAM);
-#endif
 
 			if (res < 0)
 			{
@@ -1586,22 +1528,14 @@ int core_firmware_init(void)
 			{
 				core_firmware->max_count = 0xFFFF;
 				core_firmware->isCRC = false;
-				#ifdef FLASH_SECTOR
-				core_firmware->upgrade_func = ili7807_firmware_upgrade_sector;
-				#else
 				core_firmware->upgrade_func = ili7807_firmware_upgrade;
-				#endif
 				core_firmware->delay_after_upgrade = 100;
 			}
 			else if (core_firmware->chip_id == CHIP_TYPE_ILI9881)
 			{
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;
-				#ifdef FLASH_SECTOR
-				core_firmware->upgrade_func = ili7807_firmware_upgrade_sector;
-				#else
 				core_firmware->upgrade_func = ili7807_firmware_upgrade;
-				#endif
 				core_firmware->delay_after_upgrade = 200;
 			}
 		}
