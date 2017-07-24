@@ -21,7 +21,7 @@ ilitek-objs :=  platform.o userspace.o \
 
 #TOOLCHAIN = /home/ilisa/Workplace/rk3288_sdk/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin
 #CC = $(TOOLCHAIN)/arm-eabi-gcc
-KERNEL_DIR= /home/ilisa/Workplace/rk3288_sdk/kernel
+KERNEL_DIR= /home/likewise-open/ILI/1061279/workplace/rk3288_sdk/kernel
 
 all:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
