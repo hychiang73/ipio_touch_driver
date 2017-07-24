@@ -1482,11 +1482,16 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		}
 	}
 
-	// update firmware version if upgraded
 	if (core_firmware->isUpgraded)
 	{
-		DBG_INFO("Update firmware version");
+		DBG_INFO("Update firmware information...");
 		core_config_get_fw_ver();
+		core_config_get_protocol_ver();
+		core_config_get_core_ver();
+		core_config_get_tp_info();
+		//core_config_get_key_info();
+
+		//FIXME
 		for (; i < ARRAY_SIZE(core_config->firmware_ver); i++)
 		{
 			core_firmware->new_fw_ver[i] = core_config->firmware_ver[i];
