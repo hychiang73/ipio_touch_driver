@@ -40,6 +40,7 @@
 #include "config.h"
 #include "i2c.h"
 #include "firmware.h"
+#include "flash.h"
 
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
@@ -54,7 +55,6 @@ uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = {0};
 int Ssize = 0;
 int sec_length = 0;
 uint32_t tmp_ck = 0x0;
-uint8_t tmp_crc[FLASH_PROGRAM_SIZE] = {0};
 
 struct flash_sector
 {
@@ -347,6 +347,7 @@ static int verify_flash_data(void)
 	uint32_t vd = 0;
 	uint32_t sum_check = 0, sum_crc = 0;
 	int len = 0;
+	int fps = flashtab->sector;
 
 	for(i = 0; i < sec_length + 1; i++)
 	{
@@ -360,7 +361,7 @@ static int verify_flash_data(void)
 
 			calc_verify_data(ss, se, &sum_check, NULL);
 
-			if(len >= (core_firmware->max_count - FLASH_PROGRAM_SIZE))
+			if(len >= (core_firmware->max_count - fps))
 			{
 				// commit data if its length is over than max count
 				calc_verify_data(ss, se, NULL, &sum_crc);
@@ -504,8 +505,8 @@ out:
 static int iram_upgrade(void)
 {
 	int i, j, res = 0;
-	int update_page_len = UPDATE_FIRMWARE_PAGE_LENGTH;
 	uint8_t buf[512];
+	int upl = flashtab->program_page;
 
 	core_firmware->update_status = 0;
 
@@ -532,11 +533,11 @@ static int iram_upgrade(void)
 
 	// write hex to the addr of iram
 	DBG_INFO("Writting data into IRAM ...");
-	for (i = core_firmware->start_addr; i < core_firmware->end_addr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
+	for (i = core_firmware->start_addr; i < core_firmware->end_addr; i += upl)
 	{
 		if ((i + 256) > core_firmware->end_addr)
 		{
-			update_page_len = core_firmware->end_addr % UPDATE_FIRMWARE_PAGE_LENGTH;
+			upl = core_firmware->end_addr % upl;
 		}
 
 		buf[0] = 0x25;
@@ -544,10 +545,10 @@ static int iram_upgrade(void)
 		buf[2] = (char)((i & 0x0000FF00) >> 8);
 		buf[1] = (char)((i & 0x000000FF));
 
-		for (j = 0; j < update_page_len; j++)
+		for (j = 0; j < upl; j++)
 			buf[4 + j] = iram_fw[i + j];
 
-		if (core_i2c_write(core_config->slave_i2c_addr, buf, update_page_len + 4))
+		if (core_i2c_write(core_config->slave_i2c_addr, buf, upl + 4))
 		{
 			DBG_INFO("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X",
 					 (int)i, (int)core_firmware->start_addr, (int)core_firmware->end_addr);
@@ -583,6 +584,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 	uint32_t temp_buf = 0, k;
 	uint32_t start_addr = core_firmware->start_addr;
 	uint32_t end_addr = core_firmware->end_addr;
+	int upl = flashtab->program_page;
 
 	core_firmware->update_status = 0;
 
@@ -605,9 +607,11 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 	mdelay(5);
 
-	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	// This command is used to fix the bug of spi clk in 7807F-AB
+	// while operating with flash.
+	if (core_firmware->chip_id == CHIP_TYPE_ILI7807 
+			&& core_config->chip_type == ILI7807_TYPE_F_AB)
 	{
-		// This command is used to fixed the bug of spi clk in 7807F
 		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
 		if (res < 0)
 			goto out;
@@ -681,7 +685,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 		if(!ffls[i].data_flag)
 			continue;
 	
-		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= UPDATE_FIRMWARE_PAGE_LENGTH)
+		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= upl)
 		{
 			res = ili7807_write_enable();
 			if (res < 0)
@@ -704,13 +708,13 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 			buf[2] = 0x10;
 			buf[1] = 0x08;
 
-			for (k = 0; k < UPDATE_FIRMWARE_PAGE_LENGTH; k++)
+			for (k = 0; k < upl; k++)
 			{
 				if (j + k <= end_addr)
 					buf[4 + k] = flash_fw[j + k];
 			}
 
-			if (core_i2c_write(core_config->slave_i2c_addr, buf, UPDATE_FIRMWARE_PAGE_LENGTH + 4) < 0)
+			if (core_i2c_write(core_config->slave_i2c_addr, buf, upl + 4) < 0)
 			{
 				DBG_ERR("Failed to write data at address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
 							(int)i, (int)start_addr, (int)end_addr);
@@ -794,7 +798,8 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 	mdelay(5);
 
-	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	if (core_firmware->chip_id == CHIP_TYPE_ILI7807 
+			&& core_confing->chip_type == ILI7807_TYPE_F_AB)
 	{
 		// This command is used to fixed the bug of spi clk in 7807F
 		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
@@ -960,6 +965,7 @@ static int ili2121_firmware_upgrade(bool isIRAM)
 	uint32_t nApStartAddr = 0, nApEndAddr = 0;
 	uint32_t nApChecksum = 0, nTemp = 0, nIcChecksum = 0;
 	int res = 0;
+	int upl = 256;
 
 	nApStartAddr = core_firmware->ap_start_addr;
 	nApEndAddr = core_firmware->ap_end_addr;
@@ -1030,9 +1036,9 @@ static int ili2121_firmware_upgrade(bool isIRAM)
 	mdelay(100);
 
 	DBG_INFO("Start to upgrade firmware from 0x%x to 0x%x in each size of %d",
-			 nApStartAddr, nApEndAddr, UPDATE_FIRMWARE_PAGE_LENGTH);
+			 nApStartAddr, nApEndAddr, upl);
 
-	for (i = nApStartAddr; i < nApEndAddr; i += UPDATE_FIRMWARE_PAGE_LENGTH)
+	for (i = nApStartAddr; i < nApEndAddr; i += upl)
 	{
 		res = core_config_ice_mode_write(0x041000, 0x06, 1);
 		if (res < 0)
@@ -1048,7 +1054,7 @@ static int ili2121_firmware_upgrade(bool isIRAM)
 		if (res < 0)
 			return res;
 
-		res = core_config_ice_mode_write(0x041004, 0x66aa5500 + UPDATE_FIRMWARE_PAGE_LENGTH - 1, 4);
+		res = core_config_ice_mode_write(0x041004, 0x66aa5500 + upl - 1, 4);
 		if (res < 0)
 			return res;
 
@@ -1057,12 +1063,12 @@ static int ili2121_firmware_upgrade(bool isIRAM)
 		szBuf[2] = (char)((0x041020 & 0x0000FF00) >> 8);
 		szBuf[1] = (char)((0x041020 & 0x000000FF));
 
-		for (k = 0; k < UPDATE_FIRMWARE_PAGE_LENGTH; k++)
+		for (k = 0; k < upl; k++)
 		{
 			szBuf[4 + k] = flash_fw[i + k];
 		}
 
-		if (core_i2c_write(core_config->slave_i2c_addr, szBuf, UPDATE_FIRMWARE_PAGE_LENGTH + 4) < 0)
+		if (core_i2c_write(core_config->slave_i2c_addr, szBuf, upl + 4) < 0)
 		{
 			DBG_INFO("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X",
 					 (int)i, (int)nApStartAddr, (int)nApEndAddr);
@@ -1137,7 +1143,8 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	uint32_t CRC32 = 0;
 
 	int index = 0;
-	uint32_t fpz = FLASH_PROGRAM_SIZE;
+	uint32_t fpz = flashtab->sector;
+	uint32_t max_flash_size = flashtab->mem_size;
 
 	core_firmware->start_addr = 0;
 	core_firmware->end_addr = 0;
@@ -1229,6 +1236,14 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 
 	sec_length = index;
 
+	if(ffls[sec_length-1].se_addr > max_flash_size)
+	{
+		DBG_ERR("The size written to flash is larger than it required (%x) (%x)", 
+					ffls[sec_length-1].se_addr, max_flash_size);
+		goto out;
+	}
+
+	// for debug
 	for(i = 0; i < sec_length + 1; i++)
 	{
 		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d", 
@@ -1409,9 +1424,13 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	mm_segment_t old_fs;
 	loff_t pos = 0;
 
-	DBG_INFO("file path = %s", pFilePath);
-
 	core_firmware->isUpgraded = false;
+
+	if(IS_ERR(flashtab))
+	{
+		DBG_ERR("Flash table isn't created");
+		goto out;
+	}
 
 	//TODO: to compare old/new version if upgraded.
 
@@ -1445,7 +1464,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			flash_fw = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
 			memset(flash_fw, 0xff, sizeof(flash_fw));
 #ifdef FLASH_SECTOR
-			Ssize = fsize/FLASH_PROGRAM_SIZE;
+			Ssize = fsize / flashtab->sector;
 			ffls = kcalloc(Ssize, sizeof(uint32_t) * Ssize, GFP_KERNEL);
 #endif
 			// store current userspace mem segment.

@@ -40,6 +40,7 @@
 #include "../platform.h"
 #include "config.h"
 #include "i2c.h"
+#include "flash.h"
 
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
@@ -97,6 +98,40 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 	}
 }
 
+static void read_flash_info(uint8_t cmd, int len)
+{
+	int i;
+	uint16_t flash_id = 9;
+	uint8_t buf[4] = {0};
+
+	// This command is used to fix the bug of spi clk in 7807F-AB
+	// when operating with flash.
+	if (core_firmware->chip_id == CHIP_TYPE_ILI7807 
+			&& core_config->chip_type == ILI7807_TYPE_F_AB)
+	{
+		core_config_ice_mode_write(0x4100C, 0x01, 1);
+		mdelay(25);
+	}
+
+	core_config_ice_mode_write(0x41000, 0x0, 1);// CS LOW
+
+	core_config_ice_mode_write(0x41004, 0x66aa55, 3);
+
+	core_config_ice_mode_write(0x41008, cmd, 1);
+
+	for(i = 0; i < len; i++)
+	{
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+		buf[i] = core_config_ice_mode_read(0x41010);
+	}
+
+	core_config_ice_mode_write(0x041000, 0x1, 1);// CS High
+
+	// look up the info and init struct after obtained flash id.
+	flash_id = buf[1] << 8 | buf[2];
+	core_flash_init(flash_id);
+}
+
 /*
  * It checks chip id shifting sepcific bits based on chip's requirement.
  *
@@ -116,7 +151,7 @@ static uint32_t check_chip_id(uint32_t pid_data)
 		id = pid_data >> 16;
 		core_config->chip_type = pid_data & 0x0000FFFF;
 
-		if (core_config->chip_type == ILI7807_TYPE_F)
+		if (core_config->chip_type == ILI7807_TYPE_F_AB)
 		{
 			core_config->ic_reset_addr = 0x04004C;
 		}
@@ -681,6 +716,7 @@ EXPORT_SYMBOL(core_config_get_fw_ver);
 int core_config_get_chip_id(void)
 {
 	int res = 0;
+	static int do_once = 0;
 	uint32_t RealID = 0, PIDData = 0;
 
 	ilitek_platform_tp_power_on(1);
@@ -717,6 +753,13 @@ int core_config_get_chip_id(void)
 		DBG_ERR("PID DATA error : 0x%x", PIDData);
 		res = -EINVAL;
 		goto out;
+	}
+
+	if(do_once == 0)
+	{
+		// reading flash id needs to let ic entry to ICE mode.
+		read_flash_info(0x9F, 4);
+		do_once = 1;
 	}
 
 	core_config_ic_reset();
@@ -798,5 +841,7 @@ void core_config_remove(void)
 	kfree(core_config);
 
 	kfree(core_config->tp_info);
+
+	core_flash_remove();
 }
 EXPORT_SYMBOL(core_config_remove);

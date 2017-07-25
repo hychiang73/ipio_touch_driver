@@ -198,7 +198,7 @@ static void i2cuart_recv_packet(uint8_t *fr_data, int length)
 			one_data_bytes = 4;
 		}
 
-		DBG_INFO("need_read_len = %d  fr_data[1] = %d fr_data[2] = %d", 
+		DBG("need_read_len = %d  fr_data[1] = %d fr_data[2] = %d", 
 				need_read_len, fr_data[1], fr_data[2]);
 
 		if (need_read_len > (38 / one_data_bytes))
@@ -372,7 +372,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 
 	if(fr_data[0] == P5_0_I2CUART_PACKET_ID)
 	{
-		DBG_INFO("Packet ID as I2CUART (%x), do nothing", fr_data[0]);
+		DBG("Packet ID as I2CUART (%x), do nothing", fr_data[0]);
 		return 0;
 	}
 
@@ -495,7 +495,7 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[3] = *(from_user + 3);
 				core_fr->i2cuart_mode = cmd[3];
 
-				DBG_INFO("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x, b3 = %x",
+				DBG("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x, b3 = %x",
 						 cmd[0], cmd[1], cmd[2], cmd[3]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
@@ -507,7 +507,7 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[0] = pcmd[6];
 				cmd[1] = mode;
 
-				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
+				DBG("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
 						 cmd[0], cmd[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
@@ -522,7 +522,7 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[0] = pcmd[6];
 				cmd[1] = mode;
 
-				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
+				DBG("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
 						 cmd[0], cmd[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
@@ -607,7 +607,7 @@ static uint16_t calc_packet_length(void)
 		}
 	}
 
-	DBG_INFO("rlen = %d, %x", rlen, rlen);
+	DBG("rlen = %d", rlen);
 	return rlen;
 }
 

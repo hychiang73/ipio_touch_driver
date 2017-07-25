@@ -18,6 +18,7 @@ ilitek-objs :=  platform.o userspace.o \
         $(INCLUDE)/firmware.o \
         $(INCLUDE)/finger_report.o \
 		$(INCLUDE)/mp_test.o \
+		$(INCLUDE)/flash.o
 
 #TOOLCHAIN = /home/ilisa/Workplace/rk3288_sdk/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin
 #CC = $(TOOLCHAIN)/arm-eabi-gcc
