@@ -83,6 +83,7 @@ struct ilitek_platform_data {
 	
 	int delay_time_high;
 	int delay_time_low;
+	int edge_delay;
 
 	bool isIrqEnable;
 

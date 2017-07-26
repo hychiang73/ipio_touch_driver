@@ -8,6 +8,7 @@ INCLUDE=core
 								$(INCLUDE)/firmware.o \
 								$(INCLUDE)/finger_report.o \
 								$(INCLUDE)/mp_test.o \
+								$(INCLUDE)/flash.o
 
 obj-m += ilitek.o
 

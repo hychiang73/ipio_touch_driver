@@ -103,7 +103,7 @@ void ilitek_platform_tp_power_on(bool isEnable)
 		gpio_set_value(ipd->reset_gpio, 0);
 		mdelay(ipd->delay_time_low);
 		gpio_set_value(ipd->reset_gpio, 1);
-		mdelay(ipd->delay_time_high);
+		mdelay(ipd->edge_delay);
 	}
 	else
 	{
@@ -587,16 +587,19 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	{
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 5;
+		ipd->edge_delay = 200;
 	}
 	else if (ipd->chip_id == CHIP_TYPE_ILI9881)
 	{
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 5;
+		ipd->edge_delay = 200;
 	}
 	else
 	{
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 10;
+		ipd->edge_delay = 10;
 	}
 
 	mutex_init(&ipd->MUTEX);
@@ -648,13 +651,13 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		goto out;
 	}
 
-	ilitek_platform_tp_power_on(true);
-
 	res = ilitek_platform_isr_register();
 	if (res < 0)
 	{
 		DBG_ERR("Failed to register ISR");
 	}
+
+	ilitek_platform_tp_power_on(1);
 
 	res = ilitek_platform_read_tp_info();
 	if (res < 0)
@@ -662,14 +665,15 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		DBG_ERR("Failed to read IC info");
 	}
 
+	// To make sure our ic runing well before the work,
+	// pulling RESET pin as low/high once after read TP info.
+	ilitek_platform_tp_power_on(true);
+
 	res = ilitek_platform_input_init();
 	if (res < 0)
 	{
 		DBG_ERR("Failed to init input device in kernel");
 	}
-	// To make sure our ic runing well before the work,
-	// pulling RESET pin as low/high once after read TP info.
-	ilitek_platform_tp_power_on(true);
 
 	res = ilitek_platform_reg_suspend();
 	if (res < 0)

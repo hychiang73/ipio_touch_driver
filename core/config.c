@@ -719,10 +719,6 @@ int core_config_get_chip_id(void)
 	static int do_once = 0;
 	uint32_t RealID = 0, PIDData = 0;
 
-	ilitek_platform_tp_power_on(1);
-
-	mdelay(1);
-
 	res = core_config_ice_mode_enable();
 	if (res < 0)
 	{

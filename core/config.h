@@ -87,7 +87,6 @@ struct core_config_data
 };
 
 extern struct core_config_data *core_config;
-extern struct flash_table *ft;
 
 extern int fw_cmd_len;
 extern int protocol_cmd_len;
