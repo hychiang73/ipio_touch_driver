@@ -764,14 +764,13 @@ int core_fr_init(struct i2c_client *pClient)
 		{
 			core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
 
-			core_fr->chip_id = SUP_CHIP_LIST[i];
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
 			core_fr->btype = true;
 			core_fr->isEnableGes = false;
 			core_fr->isEnablePressure = false;
 
-			if (core_fr->chip_id == CHIP_TYPE_ILI2121)
+			if (core_config->chip_id == CHIP_TYPE_ILI2121)
 			{
 				if (core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
 				{
@@ -781,7 +780,7 @@ int core_fr_init(struct i2c_client *pClient)
 					core_fr->actual_fw_mode = ILI2121_FIRMWARE_DEMO_MODE;
 				}
 			}
-			else if (core_fr->chip_id == CHIP_TYPE_ILI7807)
+			else if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
 				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
@@ -793,7 +792,7 @@ int core_fr_init(struct i2c_client *pClient)
 					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 				}
 			}
-			else if (core_fr->chip_id == CHIP_TYPE_ILI9881)
+			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 			{
 				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
