@@ -349,6 +349,11 @@ static int verify_flash_data(void)
 	int len = 0;
 	int fps = flashtab->sector;
 
+	// update max count if chip type is different
+	if(core_config->chip_id == CHIP_TYPE_ILI7807 &&
+		core_config->chip_type == ILI7807_TYPE_H)
+		core_firmware->max_count = 0x1FFFF;
+
 	for(i = 0; i < sec_length + 1; i++)
 	{
 		if(ffls[i].data_flag)
@@ -609,7 +614,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 	// This command is used to fix the bug of spi clk in 7807F-AB
 	// while operating with flash.
-	if (core_firmware->chip_id == CHIP_TYPE_ILI7807 
+	if (core_config->chip_id == CHIP_TYPE_ILI7807 
 			&& core_config->chip_type == ILI7807_TYPE_F_AB)
 	{
 		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
@@ -620,7 +625,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 	mdelay(25);
 
 	// there is no need to disable WTD if you're using 9881
-	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	if (core_config->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
 	DBG_INFO("Erasing Flash data ...");
@@ -755,7 +760,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 	mdelay(20);
 
-	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	if (core_config->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
 	// check the data that we've just written into the iram.
@@ -798,7 +803,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 	mdelay(5);
 
-	if (core_firmware->chip_id == CHIP_TYPE_ILI7807 
+	if (core_config->chip_id == CHIP_TYPE_ILI7807 
 			&& core_confing->chip_type == ILI7807_TYPE_F_AB)
 	{
 		// This command is used to fixed the bug of spi clk in 7807F
@@ -810,7 +815,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 	mdelay(25);
 
 	// there is no need to disable WTD if you're using 9881
-	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	if (core_config->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
 	DBG_INFO("Erasing Flash data ...");
@@ -939,7 +944,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 	mdelay(20);
 
-	if (core_firmware->chip_id != CHIP_TYPE_ILI9881)
+	if (core_config->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
 	// check the data just written to firmware is valid.
@@ -1431,8 +1436,9 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	pfile = filp_open(pFilePath, O_RDONLY, 0);
 	if (IS_ERR(pfile))
 	{
-		DBG_ERR("Error occurred while opening file %s.", pFilePath);
+		DBG_ERR("Failed to open the file at %s.", pFilePath);
 		res = -ENOENT;
+		goto fail;
 	}
 	else
 	{
@@ -1454,7 +1460,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		}
 		else
 		{
-
 			if(flashtab == NULL)
 			{
 				DBG_ERR("Flash table isn't created");
@@ -1522,6 +1527,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 out:
 	filp_close(pfile, NULL);
+fail:
 	kfree(hex_buffer);
 	kfree(flash_fw);
 	return res;
@@ -1537,27 +1543,25 @@ int core_firmware_init(void)
 		{
 			core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
 
-			core_firmware->chip_id = SUP_CHIP_LIST[i];
-
 			for (j = 0; j < 4; j++)
 			{
 				core_firmware->old_fw_ver[i] = core_config->firmware_ver[i];
 				core_firmware->new_fw_ver[i] = 0x0;
 			}
 
-			if (core_firmware->chip_id == CHIP_TYPE_ILI2121)
+			if (core_config->chip_id == CHIP_TYPE_ILI2121)
 			{
 				core_firmware->isCRC = false;
 				core_firmware->upgrade_func = ili2121_firmware_upgrade;
 			}
-			else if (core_firmware->chip_id == CHIP_TYPE_ILI7807)
+			else if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
 				core_firmware->max_count = 0xFFFF;
 				core_firmware->isCRC = false;
 				core_firmware->upgrade_func = ili7807_firmware_upgrade;
 				core_firmware->delay_after_upgrade = 100;
 			}
-			else if (core_firmware->chip_id == CHIP_TYPE_ILI9881)
+			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 			{
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;

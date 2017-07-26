@@ -101,12 +101,12 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 static void read_flash_info(uint8_t cmd, int len)
 {
 	int i;
-	uint16_t flash_id = 9;
+	uint16_t flash_id = 0, flash_mid = 0;
 	uint8_t buf[4] = {0};
 
 	// This command is used to fix the bug of spi clk in 7807F-AB
 	// when operating with flash.
-	if (core_firmware->chip_id == CHIP_TYPE_ILI7807 
+	if (core_config->chip_id == CHIP_TYPE_ILI7807 
 			&& core_config->chip_type == ILI7807_TYPE_F_AB)
 	{
 		core_config_ice_mode_write(0x4100C, 0x01, 1);
@@ -114,9 +114,7 @@ static void read_flash_info(uint8_t cmd, int len)
 	}
 
 	core_config_ice_mode_write(0x41000, 0x0, 1);// CS LOW
-
 	core_config_ice_mode_write(0x41004, 0x66aa55, 3);
-
 	core_config_ice_mode_write(0x41008, cmd, 1);
 
 	for(i = 0; i < len; i++)
@@ -127,9 +125,10 @@ static void read_flash_info(uint8_t cmd, int len)
 
 	core_config_ice_mode_write(0x041000, 0x1, 1);// CS High
 
-	// look up the info and init struct after obtained flash id.
+	// look up flash info and init its struct after obtained flash id.
+	flash_mid = buf[0];
 	flash_id = buf[1] << 8 | buf[2];
-	core_flash_init(flash_id);
+	core_flash_init(flash_mid, flash_id);
 }
 
 /*
@@ -298,7 +297,7 @@ EXPORT_SYMBOL(vfIceRegRead);
  */
 int core_config_ic_reset(void)
 {
-	DBG_INFO("0x%x doing soft reset ", core_config->chip_id);
+	DBG("0x%x doing soft reset ", core_config->chip_id);
 
 	if (core_config->chip_id == CHIP_TYPE_ILI7807)
 		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);	
