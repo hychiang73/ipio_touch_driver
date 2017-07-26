@@ -1449,6 +1449,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		if (fsize <= 0)
 		{
 			DBG_ERR("The size of file is zero");
+			res = -EINVAL;
 			goto out;
 		}
 		else
