@@ -1426,12 +1426,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 	core_firmware->isUpgraded = false;
 
-	if(IS_ERR(flashtab))
-	{
-		DBG_ERR("Flash table isn't created");
-		goto out;
-	}
-
 	//TODO: to compare old/new version if upgraded.
 
 	pfile = filp_open(pFilePath, O_RDONLY, 0);
@@ -1459,6 +1453,13 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		}
 		else
 		{
+
+			if(flashtab == NULL)
+			{
+				DBG_ERR("Flash table isn't created");
+				res = -ENOMEM;
+				goto out;
+			}
 
 			hex_buffer = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
 			flash_fw = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
