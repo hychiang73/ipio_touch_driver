@@ -383,57 +383,14 @@ out:
 	return res;
 }
 
-static int ilitek_platform_read_tp_info(void)
+static void ilitek_platform_read_tp_info(void)
 {
-	int res = 0;
-
-	ilitek_platform_disable_irq();
-
-	res = core_config_get_chip_id();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get chip id, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_fw_ver();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get firmware version, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_core_ver();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get firmware version, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_protocol_ver();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get protocol version, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_tp_info();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get TP information, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_key_info();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get key information, res = %d", res);
-		goto out;
-	}
-
-out:
-	ilitek_platform_enable_irq();
-	return res;
+	core_config_get_chip_id();
+	core_config_get_fw_ver();
+	core_config_get_core_ver();
+	core_config_get_protocol_ver();
+	core_config_get_tp_info();
+	core_config_get_key_info();
 }
 
 static int ilitek_platform_input_init(void)
@@ -651,29 +608,26 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		goto out;
 	}
 
-	res = ilitek_platform_isr_register();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to register ISR");
-	}
-
 	ilitek_platform_tp_power_on(1);
 
-	res = ilitek_platform_read_tp_info();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to read IC info");
-	}
-
-	// To make sure our ic runing well before the work,
-	// pulling RESET pin as low/high once after read TP info.
-	ilitek_platform_tp_power_on(true);
+	// get our tp ic information
+	ilitek_platform_read_tp_info();
 
 	res = ilitek_platform_input_init();
 	if (res < 0)
 	{
 		DBG_ERR("Failed to init input device in kernel");
 	}
+
+	res = ilitek_platform_isr_register();
+	if (res < 0)
+	{
+		DBG_ERR("Failed to register ISR");
+	}
+
+	// To make sure our ic runing well before the work,
+	// pulling RESET pin as low/high once after read TP info.
+	ilitek_platform_tp_power_on(true);
 
 	res = ilitek_platform_reg_suspend();
 	if (res < 0)

@@ -297,10 +297,15 @@ EXPORT_SYMBOL(vfIceRegRead);
  */
 int core_config_ic_reset(void)
 {
-	DBG("0x%x doing soft reset ", core_config->chip_id);
+	DBG_INFO("0x%x doing soft reset ", core_config->chip_id);
 
 	if (core_config->chip_id == CHIP_TYPE_ILI7807)
-		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);	
+	{
+		if(core_config->chip_type == ILI7807_TYPE_H)
+			return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00117807, 4);
+		else
+			return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);
+	}
 	else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 		return core_config_ice_mode_write(0x40050, 0x00019881, 4);
 	else if (core_config->chip_id == CHIP_TYPE_ILI2121)
@@ -425,6 +430,8 @@ int core_config_get_key_info(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -432,7 +439,7 @@ int core_config_get_key_info(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], key_info_len);
 		if (res < 0)
@@ -489,6 +496,8 @@ int core_config_get_tp_info(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -496,7 +505,7 @@ int core_config_get_tp_info(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], tp_info_len);
 		if (res < 0)
@@ -561,6 +570,8 @@ int core_config_get_protocol_ver(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -568,7 +579,7 @@ int core_config_get_protocol_ver(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], protocol_cmd_len);
 		if (res < 0)
@@ -616,6 +627,8 @@ int core_config_get_core_ver(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -623,7 +636,7 @@ int core_config_get_core_ver(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], core_cmd_len);
 		if (res < 0)
@@ -677,6 +690,8 @@ int core_config_get_fw_ver(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -684,7 +699,7 @@ int core_config_get_fw_ver(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_cmd_len);
 		if (res < 0)
