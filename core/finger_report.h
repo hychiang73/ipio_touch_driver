@@ -42,8 +42,6 @@ struct core_fr_data
 	/* used to change I2C Uart Mode when fw mode is in this mode */
 	uint8_t i2cuart_mode;
 
-	uint32_t chip_id;
-
 	/* firmware mode */
 	uint8_t fw_unknow_mode;
 	uint8_t fw_demo_mode;

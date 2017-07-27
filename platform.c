@@ -93,9 +93,9 @@ void ilitek_platform_enable_irq(void)
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
-void ilitek_platform_tp_power_on(bool isEnable)
+void ilitek_platform_tp_hw_reset(bool isEnable)
 {
-	DBG("TP Power on : %d ", isEnable);
+	DBG("HW Reset: %d ", isEnable);
 	if (isEnable)
 	{
 		gpio_direction_output(ipd->reset_gpio, 1);
@@ -103,14 +103,14 @@ void ilitek_platform_tp_power_on(bool isEnable)
 		gpio_set_value(ipd->reset_gpio, 0);
 		mdelay(ipd->delay_time_low);
 		gpio_set_value(ipd->reset_gpio, 1);
-		mdelay(ipd->delay_time_high);
+		mdelay(ipd->edge_delay);
 	}
 	else
 	{
 		gpio_set_value(ipd->reset_gpio, 0);
 	}
 }
-EXPORT_SYMBOL(ilitek_platform_tp_power_on);
+EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
 
 #ifdef ENABLE_REGULATOR_POWER_ON
 void ilitek_regulator_power_on(bool status)
@@ -204,7 +204,7 @@ static void ilitek_platform_late_resume(struct early_suspend *h)
 
 	ilitek_platform_enable_irq();
 
-	ilitek_platform_tp_power_on(true);
+	ilitek_platform_tp_hw_reset(true);
 }
 
 static void ilitek_platform_early_suspend(struct early_suspend *h)
@@ -221,7 +221,7 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 	ilitek_platform_disable_irq();
 
-	ilitek_platform_tp_power_on(false);
+	ilitek_platform_tp_hw_reset(false);
 }
 #endif
 
@@ -383,57 +383,14 @@ out:
 	return res;
 }
 
-static int ilitek_platform_read_tp_info(void)
+static void ilitek_platform_read_tp_info(void)
 {
-	int res = 0;
-
-	ilitek_platform_disable_irq();
-
-	res = core_config_get_chip_id();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get chip id, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_fw_ver();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get firmware version, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_core_ver();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get firmware version, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_protocol_ver();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get protocol version, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_tp_info();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get TP information, res = %d", res);
-		goto out;
-	}
-
-	res = core_config_get_key_info();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to get key information, res = %d", res);
-		goto out;
-	}
-
-out:
-	ilitek_platform_enable_irq();
-	return res;
+	core_config_get_chip_id();
+	core_config_get_fw_ver();
+	core_config_get_core_ver();
+	core_config_get_protocol_ver();
+	core_config_get_tp_info();
+	core_config_get_key_info();
 }
 
 static int ilitek_platform_input_init(void)
@@ -587,16 +544,19 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	{
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 5;
+		ipd->edge_delay = 200;
 	}
 	else if (ipd->chip_id == CHIP_TYPE_ILI9881)
 	{
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 5;
+		ipd->edge_delay = 200;
 	}
 	else
 	{
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 10;
+		ipd->edge_delay = 10;
 	}
 
 	mutex_init(&ipd->MUTEX);
@@ -648,13 +608,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		goto out;
 	}
 
-	ilitek_platform_tp_power_on(true);
+	ilitek_platform_tp_hw_reset(true);
 
-	res = ilitek_platform_read_tp_info();
-	if (res < 0)
-	{
-		DBG_ERR("Failed to read IC info");
-	}
+	// get our tp ic information
+	ilitek_platform_read_tp_info();
 
 	res = ilitek_platform_input_init();
 	if (res < 0)
@@ -670,7 +627,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	// To make sure our ic runing well before the work,
 	// pulling RESET pin as low/high once after read TP info.
-	ilitek_platform_tp_power_on(true);
+	ilitek_platform_tp_hw_reset(true);
 
 	res = ilitek_platform_reg_suspend();
 	if (res < 0)

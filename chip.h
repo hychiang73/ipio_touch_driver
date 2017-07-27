@@ -27,12 +27,11 @@
  */
 
 // This macro defines what types of chip supported by the driver.
-//#define ON_BOARD_IC		0x2121
-#define ON_BOARD_IC		0x7807
-//#define ON_BOARD_IC		0x9881
+//#define ON_BOARD_IC		0x7807
+#define ON_BOARD_IC		0x9881
 
 // Shows the version of driver
-#define DRIVER_VERSION	"1.0.0.4"
+#define DRIVER_VERSION	"1.0.0.5"
 
 // In kernel pr_debug is disabled as default, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
 // in terminal to enable it if you'd like to see more debug details. 
@@ -48,13 +47,9 @@
 /*
  * Relative Firmware Upgrade
  */
-
 #define MAX_HEX_FILE_SIZE			(160*1024)
 #define MAX_FLASH_FIRMWARE_SIZE		(256*1024)
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
-
-#define UPDATE_FIRMWARE_PAGE_LENGTH		256
-#define FLASH_PROGRAM_SIZE			(4*1024)
 
 /*
  * Protocol commands 
@@ -99,31 +94,11 @@
 #define P5_0_TEST_MODE_PACKET_LENGTH  	1180
 
 /*
- *  ILI2121
- */
-#define CHIP_TYPE_ILI2121		0x2121
-
-#define ILI2121_SLAVE_ADDR		0x41
-#define ILI2121_ICE_MODE_ADDR	0x181062
-#define ILI2121_PID_ADDR		0x4009C
-
-// firmware mode
-#define ILI2121_FIRMWARE_UNKNOWN_MODE		0xFF
-#define ILI2121_FIRMWARE_DEMO_MODE			0x00
-#define ILI2121_FIRMWARE_DEBUG_MODE			0x01
-
-// length of finger touch packet
-#define ILI2121_DEMO_MODE_PACKET_LENGTH		53
-
-// i2c command
-#define ILI2121_TP_CMD_READ_DATA			0x10
-#define ILI2121_TP_CMD_READ_SUB_DATA		0x11
-
-/*
  * ILI7807 Series
  */
 #define CHIP_TYPE_ILI7807		0x7807
-#define ILI7807_TYPE_F			0x0001
+#define ILI7807_TYPE_F_AA		0x0000
+#define ILI7807_TYPE_F_AB		0x0001
 #define ILI7807_TYPE_H			0x1100
 
 #define ILI7807_SLAVE_ADDR		0x41

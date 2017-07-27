@@ -98,8 +98,9 @@ int core_i2c_init(struct i2c_client *client)
 
     if (ON_BOARD_IC == CHIP_TYPE_ILI7807)
     {
-        if(core_config->chip_type == ILI7807_TYPE_F)
-            core_i2c->clk = 200000;
+        if(core_config->chip_type == ILI7807_TYPE_F_AA &&
+            core_config->chip_type == ILI7807_TYPE_F_AB)
+            core_i2c->clk = 100000;
         else
              core_i2c->clk = 400000;
     }

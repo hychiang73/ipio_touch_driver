@@ -40,6 +40,7 @@
 #include "../platform.h"
 #include "config.h"
 #include "i2c.h"
+#include "flash.h"
 
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
@@ -97,6 +98,39 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 	}
 }
 
+static void read_flash_info(uint8_t cmd, int len)
+{
+	int i;
+	uint16_t flash_id = 0, flash_mid = 0;
+	uint8_t buf[4] = {0};
+
+	// This command is used to fix the bug of spi clk in 7807F-AB
+	// when operating with flash.
+	if (core_config->chip_id == CHIP_TYPE_ILI7807 
+			&& core_config->chip_type == ILI7807_TYPE_F_AB)
+	{
+		core_config_ice_mode_write(0x4100C, 0x01, 1);
+		mdelay(25);
+	}
+
+	core_config_ice_mode_write(0x41000, 0x0, 1);// CS LOW
+	core_config_ice_mode_write(0x41004, 0x66aa55, 3);
+	core_config_ice_mode_write(0x41008, cmd, 1);
+
+	for(i = 0; i < len; i++)
+	{
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+		buf[i] = core_config_ice_mode_read(0x41010);
+	}
+
+	core_config_ice_mode_write(0x041000, 0x1, 1);// CS High
+
+	// look up flash info and init its struct after obtained flash id.
+	flash_mid = buf[0];
+	flash_id = buf[1] << 8 | buf[2];
+	core_flash_init(flash_mid, flash_id);
+}
+
 /*
  * It checks chip id shifting sepcific bits based on chip's requirement.
  *
@@ -107,16 +141,12 @@ static uint32_t check_chip_id(uint32_t pid_data)
 {
 	uint32_t id = 0;
 
-	if (core_config->chip_id == CHIP_TYPE_ILI2121)
-	{
-		id = (vfIceRegRead(0xF001) << (8 * 1)) + (vfIceRegRead(0xF000));
-	}
-	else if (core_config->chip_id == CHIP_TYPE_ILI7807)
+	if (core_config->chip_id == CHIP_TYPE_ILI7807)
 	{
 		id = pid_data >> 16;
 		core_config->chip_type = pid_data & 0x0000FFFF;
 
-		if (core_config->chip_type == ILI7807_TYPE_F)
+		if (core_config->chip_type == ILI7807_TYPE_F_AB)
 		{
 			core_config->ic_reset_addr = 0x04004C;
 		}
@@ -266,11 +296,14 @@ int core_config_ic_reset(void)
 	DBG_INFO("0x%x doing soft reset ", core_config->chip_id);
 
 	if (core_config->chip_id == CHIP_TYPE_ILI7807)
-		return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);	
+	{
+		if(core_config->chip_type == ILI7807_TYPE_H)
+			return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00117807, 4);
+		else
+			return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);
+	}
 	else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 		return core_config_ice_mode_write(0x40050, 0x00019881, 4);
-	else if (core_config->chip_id == CHIP_TYPE_ILI2121)
-		return core_config_ice_mode_write(0x4004C, 0x00012120, 2);
 	else
 	{
 		DBG_ERR("This chip (0x%x) doesn't support the feature", core_config->chip_id);
@@ -334,34 +367,7 @@ EXPORT_SYMBOL(core_config_ice_mode_enable);
 
 int core_config_reset_watch_dog(void)
 {
-	if (core_config->chip_id == CHIP_TYPE_ILI2121)
-	{
-		// close watch dog
-		if (core_config_ice_mode_write(0x5200C, 0x0000, 2) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x52020, 0x01, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x52020, 0x00, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x42000, 0x0F154900, 4) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x42014, 0x02, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x42000, 0x00000000, 4) < 0)
-			return -EFAULT;
-		//---------------------------------
-		if (core_config_ice_mode_write(0x041000, 0xab, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x041004, 0x66aa5500, 4) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x04100d, 0x00, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x04100b, 0x03, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x041009, 0x0000, 2) < 0)
-			return -EFAULT;
-	}
-	else if (core_config->chip_id == CHIP_TYPE_ILI7807)
+	 if (core_config->chip_id == CHIP_TYPE_ILI7807)
 	{
 		core_config_ice_mode_write(0x5100C, 0x7, 1);
 		core_config_ice_mode_write(0x5100C, 0x78, 1);
@@ -391,6 +397,8 @@ int core_config_get_key_info(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -398,7 +406,7 @@ int core_config_get_key_info(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], key_info_len);
 		if (res < 0)
@@ -455,6 +463,8 @@ int core_config_get_tp_info(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -462,7 +472,7 @@ int core_config_get_tp_info(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], tp_info_len);
 		if (res < 0)
@@ -527,6 +537,8 @@ int core_config_get_protocol_ver(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -534,7 +546,7 @@ int core_config_get_protocol_ver(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], protocol_cmd_len);
 		if (res < 0)
@@ -582,6 +594,8 @@ int core_config_get_core_ver(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -589,7 +603,7 @@ int core_config_get_core_ver(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], core_cmd_len);
 		if (res < 0)
@@ -643,6 +657,8 @@ int core_config_get_fw_ver(void)
 			goto out;
 		}
 
+		mdelay(1);
+
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
@@ -650,7 +666,7 @@ int core_config_get_fw_ver(void)
 			goto out;
 		}
 
-		mdelay(10);
+		mdelay(1);
 
 		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_cmd_len);
 		if (res < 0)
@@ -681,11 +697,8 @@ EXPORT_SYMBOL(core_config_get_fw_ver);
 int core_config_get_chip_id(void)
 {
 	int res = 0;
+	static int do_once = 0;
 	uint32_t RealID = 0, PIDData = 0;
-
-	ilitek_platform_tp_power_on(1);
-
-	mdelay(1);
 
 	res = core_config_ice_mode_enable();
 	if (res < 0)
@@ -719,6 +732,13 @@ int core_config_get_chip_id(void)
 		goto out;
 	}
 
+	if(do_once == 0)
+	{
+		// reading flash id needs to let ic entry to ICE mode.
+		read_flash_info(0x9F, 4);
+		do_once = 1;
+	}
+
 	core_config_ic_reset();
 	mdelay(150);
 	return res;
@@ -748,14 +768,7 @@ int core_config_init(void)
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0x0000;
 
-			if (core_config->chip_id == CHIP_TYPE_ILI2121)
-			{
-				core_config->use_protocol = ILITEK_PROTOCOL_V3_2;
-				core_config->slave_i2c_addr = ILI2121_SLAVE_ADDR;
-				core_config->ice_mode_addr = ILI2121_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI2121_PID_ADDR;
-			}
-			else if (core_config->chip_id == CHIP_TYPE_ILI7807)
+			if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
 				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
@@ -798,5 +811,7 @@ void core_config_remove(void)
 	kfree(core_config);
 
 	kfree(core_config->tp_info);
+
+	core_flash_remove();
 }
 EXPORT_SYMBOL(core_config_remove);

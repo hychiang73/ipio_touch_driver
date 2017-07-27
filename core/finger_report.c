@@ -58,7 +58,7 @@ struct mutual_touch_point
  */
 struct mutual_touch_info
 {
-	uint8_t key_count;
+	uint8_t touch_num;
 	uint8_t key_code;
 	struct mutual_touch_point mtp[10];
 };
@@ -198,7 +198,7 @@ static void i2cuart_recv_packet(uint8_t *fr_data, int length)
 			one_data_bytes = 4;
 		}
 
-		DBG_INFO("need_read_len = %d  fr_data[1] = %d fr_data[2] = %d", 
+		DBG("need_read_len = %d  fr_data[1] = %d fr_data[2] = %d", 
 				need_read_len, fr_data[1], fr_data[2]);
 
 		if (need_read_len > (38 / one_data_bytes))
@@ -240,11 +240,8 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 
 	check_sum = cal_fr_checksum(&fr_data[0], (rpl - 1));
 	DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl - 1], check_sum);
-	// if (fr_data[rpl - 1] != check_sum)
-	// {
-	// 	DBG_ERR("Wrong checksum");
-	// 	return -1;
-	// }
+	if (fr_data[rpl - 1] != check_sum)
+		DBG_ERR("Wrong checksum");
 
 	//TODO: parse packets for gesture/glove features if they're enabled
 
@@ -270,19 +267,19 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			// FIXME:
 			// the axis reported from firmware has some problems so that we need to transfer them.
 			// if use MTK platform with the IC, we transfer them as well.
-			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-			pInfo->mtp[pInfo->key_count].pressure = fr_data[4 * (i + 1)];
-			pInfo->mtp[pInfo->key_count].id = i;
+			pInfo->mtp[pInfo->touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+			pInfo->mtp[pInfo->touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+			pInfo->mtp[pInfo->touch_num].pressure = fr_data[4 * (i + 1)];
+			pInfo->mtp[pInfo->touch_num].id = i;
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
-				pInfo->mtp[pInfo->key_count].id,
-				pInfo->mtp[pInfo->key_count].x,
-				pInfo->mtp[pInfo->key_count].y,
-				pInfo->mtp[pInfo->key_count].pressure);
+				pInfo->mtp[pInfo->touch_num].id,
+				pInfo->mtp[pInfo->touch_num].x,
+				pInfo->mtp[pInfo->touch_num].y,
+				pInfo->mtp[pInfo->touch_num].pressure);
 
-			pInfo->key_count++;
+			pInfo->touch_num++;
 
 			if(core_fr->btype)
 			{
@@ -311,19 +308,19 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			// FIXME:
 			// the axis reported from firmware has some problems so that we need to transfer them.
 			// if use MTK platform with the IC, we transfer them as well.
-			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-			pInfo->mtp[pInfo->key_count].pressure = 1;
-			pInfo->mtp[pInfo->key_count].id = i;
+			pInfo->mtp[pInfo->touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+			pInfo->mtp[pInfo->touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+			pInfo->mtp[pInfo->touch_num].pressure = 1;
+			pInfo->mtp[pInfo->touch_num].id = i;
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
-				pInfo->mtp[pInfo->key_count].id,
-				pInfo->mtp[pInfo->key_count].x,
-				pInfo->mtp[pInfo->key_count].y,
-				pInfo->mtp[pInfo->key_count].pressure);
+				pInfo->mtp[pInfo->touch_num].id,
+				pInfo->mtp[pInfo->touch_num].x,
+				pInfo->mtp[pInfo->touch_num].y,
+				pInfo->mtp[pInfo->touch_num].pressure);
 
-			pInfo->key_count++;
+			pInfo->touch_num++;
 
 			if(core_fr->btype)
 			{
@@ -349,7 +346,7 @@ static int finger_report_ver_3_2(uint8_t *fr_data, int length)
 static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 {
 	int i, res = 0;
-	static int last_count = 0;
+	static int last_touch = 0;
 
 	// initialise struct of mutual toucn info
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
@@ -364,12 +361,18 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 		return res;
 	}
 
-	if (core_fr->i2cuart_mode == 1 && core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode)
+	if(core_fr->actual_fw_mode == core_fr->fw_debug_mode)
+	{
+		if(length != (fr_data[1] << 8 | fr_data[2]))
+			DBG_ERR("Length compared with the packet sent by firmware is wrong");
+	}
+	
+	if (core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode && core_fr->i2cuart_mode == 1)
 		i2cuart_recv_packet(fr_data, length);
 
 	if(fr_data[0] == P5_0_I2CUART_PACKET_ID)
 	{
-		DBG_INFO("Packet ID as I2CUART (%x), do nothing", fr_data[0]);
+		DBG("Packet ID as I2CUART (%x), do nothing", fr_data[0]);
 		return 0;
 	}
 
@@ -380,14 +383,14 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 		return -1;
 	}
 
-	DBG("tInfo.nCount = %d, nLastCount = %d\n", mti.key_count, last_count);
+	DBG("Touch Num = %d, LastTouch = %d\n", mti.touch_num, last_touch);
 
 	// interpret parsed packat and send input events to uplayer
-	if (mti.key_count > 0)
+	if (mti.touch_num > 0)
 	{
 		if(core_fr->btype)
 		{
-			for (i = 0; i < mti.key_count; i++)
+			for (i = 0; i < mti.touch_num; i++)
 			{
 				input_report_key(core_fr->input_device, BTN_TOUCH, 1);
 				core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
@@ -409,18 +412,18 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 		}
 		else
 		{
-			for (i = 0; i < mti.key_count; i++)
+			for (i = 0; i < mti.touch_num; i++)
 			{
 				core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
 			}
 		}
 		input_sync(core_fr->input_device);
 
-		last_count = mti.key_count;
+		last_touch = mti.touch_num;
 	}
 	else
 	{
-		if (last_count > 0)
+		if (last_touch > 0)
 		{
 			if(core_fr->btype)
 			{
@@ -444,7 +447,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 
 			input_sync(core_fr->input_device);
 
-			last_count = 0;
+			last_touch = 0;
 		}
 	}
 	return res;
@@ -492,7 +495,7 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[3] = *(from_user + 3);
 				core_fr->i2cuart_mode = cmd[3];
 
-				DBG_INFO("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x, b3 = %x",
+				DBG("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x, b3 = %x",
 						 cmd[0], cmd[1], cmd[2], cmd[3]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
@@ -504,7 +507,7 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[0] = pcmd[6];
 				cmd[1] = mode;
 
-				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
+				DBG("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
 						 cmd[0], cmd[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
@@ -519,7 +522,7 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[0] = pcmd[6];
 				cmd[1] = mode;
 
-				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
+				DBG("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
 						 cmd[0], cmd[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
@@ -548,6 +551,67 @@ out:
 EXPORT_SYMBOL(core_fr_mode_control);
 
 /*
+ * Calculate the length with different modes according to the format of protocol 5.0
+ *
+ * We compute the length before receiving its packet. If the length is differnet between
+ * firmware and the number we calculated, in this case I just print error message to inform users
+ * and still sending up to application.
+ */
+static uint16_t calc_packet_length(void)
+{
+	uint16_t xch = 0, ych = 0, stx = 0, srx = 0;
+	//FIXME: self_key not defined by firmware yet
+	uint16_t self_key = 2;
+	uint16_t rlen = 0;
+
+	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	{
+		if(!IS_ERR(core_config->tp_info))
+		{
+			xch = core_config->tp_info->nXChannelNum;
+			ych = core_config->tp_info->nYChannelNum;
+			stx = core_config->tp_info->self_tx_channel_num;
+			srx = core_config->tp_info->self_rx_channel_num;
+		}
+
+		if (core_fr->actual_fw_mode == core_fr->fw_demo_mode
+			 	|| core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode)
+		{
+			rlen = P5_0_DEMO_MODE_PACKET_LENGTH;
+		}
+		else if (core_fr->actual_fw_mode == core_fr->fw_test_mode)
+		{
+			if(IS_ERR(core_config->tp_info))
+				rlen = P5_0_TEST_MODE_PACKET_LENGTH;
+			else
+			{
+				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + 1;
+				rlen += 1;
+			}
+		}
+		else if (core_fr->actual_fw_mode == core_fr->fw_debug_mode)
+		{
+			if(IS_ERR(core_config->tp_info))
+				rlen = P5_0_DEBUG_MODE_PACKET_LENGTH;
+			else
+			{
+
+				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + (8 * 2) + 1;
+				rlen += 35;
+			}
+		}
+		else
+		{
+			DBG_ERR("Unknow firmware mode : %d", core_fr->actual_fw_mode);
+			rlen = -1;
+		}
+	}
+
+	DBG("rlen = %d", rlen);
+	return rlen;
+}
+
+/*
  * The table is used to handle calling functions that deal with packets of finger report.
  * The callback function might be different of what a protocol is used on a chip.
  *
@@ -574,66 +638,35 @@ fr_hashtable fr_t[] = {
  */
 void core_fr_handler(void)
 {
-	int i, len = ARRAY_SIZE(fr_t);
+	int i = 0;
 	uint8_t *fr_data = NULL;
-	uint16_t report_packet_length = -1;
+	uint16_t rlen = 0;
 
-	if (core_fr->isEnableFR)
+	if(core_fr->isEnableFR)
 	{
-		for (i = 0; i < len; i++)
+		rlen = calc_packet_length();
+		if(rlen > 0)
 		{
-			if (fr_t[i].protocol == core_config->use_protocol)
+			fr_data = (uint8_t *)kmalloc(sizeof(uint8_t) * rlen, GFP_KERNEL);
+			memset(fr_data, 0xFF, sizeof(uint8_t) * rlen);
+
+			while(i < ARRAY_SIZE(fr_t))
 			{
-				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+				if(core_config->use_protocol == fr_t[i].protocol)
 				{
-					if (core_fr->actual_fw_mode == core_fr->fw_demo_mode
-					 	|| core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode)
-					{
-						report_packet_length = P5_0_DEMO_MODE_PACKET_LENGTH;
-					}
-					else if (core_fr->actual_fw_mode == core_fr->fw_test_mode)
-					{
-						report_packet_length = P5_0_TEST_MODE_PACKET_LENGTH;
-					}
-					else if (core_fr->actual_fw_mode == core_fr->fw_debug_mode)
-					{
-						report_packet_length = P5_0_DEBUG_MODE_PACKET_LENGTH;
-					}
-					else
-					{
-						DBG_ERR("Unknow firmware mode : %d", core_fr->actual_fw_mode);
-						return;
-					}
+					mutex_lock(&ipd->MUTEX);
+					fr_t[i].finger_report(fr_data, rlen);
+					mutex_unlock(&ipd->MUTEX);
+
+					if (core_fr->isEnableNetlink)
+						netlink_reply_msg(fr_data, again_read_len > 0 ? (again_read_len + rlen) : rlen);
 				}
-
-				if (!report_packet_length)
-				{
-					DBG_ERR("Unknow packet length : %d", report_packet_length);
-					return;
-				}
-
-				DBG("Length of report packet = %d", report_packet_length);
-
-				//FIXME: the size of 2048 is temporaily to store the packet of finger report.
-				// It should have a good reason to adjust it dynamically.
-				fr_data = (uint8_t *)kmalloc(sizeof(uint8_t) * 2048, GFP_KERNEL);
-				memset(fr_data, 0xFF, sizeof(uint8_t) * 2048);
-
-				mutex_lock(&ipd->MUTEX);
-				fr_t[i].finger_report(fr_data, report_packet_length);
-				mutex_unlock(&ipd->MUTEX);
-
-				break;
+				i++;
 			}
-		}
-
-		if (core_fr->isEnableNetlink)
-		{
-			netlink_reply_msg(fr_data, again_read_len > 0 ? (again_read_len + report_packet_length) : report_packet_length);
 		}
 	}
 	else
-		DBG_ERR("The figner report was disabled");
+		DBG_INFO("The figner report was disabled");
 
 	kfree(fr_data);
 	return;
@@ -731,24 +764,13 @@ int core_fr_init(struct i2c_client *pClient)
 		{
 			core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
 
-			core_fr->chip_id = SUP_CHIP_LIST[i];
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
 			core_fr->btype = true;
 			core_fr->isEnableGes = false;
 			core_fr->isEnablePressure = false;
 
-			if (core_fr->chip_id == CHIP_TYPE_ILI2121)
-			{
-				if (core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
-				{
-					core_fr->fw_unknow_mode = ILI2121_FIRMWARE_UNKNOWN_MODE;
-					core_fr->fw_demo_mode = ILI2121_FIRMWARE_DEMO_MODE;
-					core_fr->fw_debug_mode = ILI2121_FIRMWARE_DEBUG_MODE;
-					core_fr->actual_fw_mode = ILI2121_FIRMWARE_DEMO_MODE;
-				}
-			}
-			else if (core_fr->chip_id == CHIP_TYPE_ILI7807)
+			if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
 				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
@@ -760,7 +782,7 @@ int core_fr_init(struct i2c_client *pClient)
 					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 				}
 			}
-			else if (core_fr->chip_id == CHIP_TYPE_ILI9881)
+			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 			{
 				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{
