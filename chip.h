@@ -27,11 +27,11 @@
  */
 
 // This macro defines what types of chip supported by the driver.
-#define ON_BOARD_IC		0x7807
-//#define ON_BOARD_IC		0x9881
+//#define ON_BOARD_IC		0x7807
+#define ON_BOARD_IC		0x9881
 
 // Shows the version of driver
-#define DRIVER_VERSION	"1.0.0.4"
+#define DRIVER_VERSION	"1.0.0.5"
 
 // In kernel pr_debug is disabled as default, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
 // in terminal to enable it if you'd like to see more debug details. 

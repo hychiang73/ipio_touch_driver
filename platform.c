@@ -93,9 +93,9 @@ void ilitek_platform_enable_irq(void)
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
-void ilitek_platform_tp_power_on(bool isEnable)
+void ilitek_platform_tp_hw_reset(bool isEnable)
 {
-	DBG("TP Power on : %d ", isEnable);
+	DBG("HW Reset: %d ", isEnable);
 	if (isEnable)
 	{
 		gpio_direction_output(ipd->reset_gpio, 1);
@@ -110,7 +110,7 @@ void ilitek_platform_tp_power_on(bool isEnable)
 		gpio_set_value(ipd->reset_gpio, 0);
 	}
 }
-EXPORT_SYMBOL(ilitek_platform_tp_power_on);
+EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
 
 #ifdef ENABLE_REGULATOR_POWER_ON
 void ilitek_regulator_power_on(bool status)
@@ -204,7 +204,7 @@ static void ilitek_platform_late_resume(struct early_suspend *h)
 
 	ilitek_platform_enable_irq();
 
-	ilitek_platform_tp_power_on(true);
+	ilitek_platform_tp_hw_reset(true);
 }
 
 static void ilitek_platform_early_suspend(struct early_suspend *h)
@@ -221,7 +221,7 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 	ilitek_platform_disable_irq();
 
-	ilitek_platform_tp_power_on(false);
+	ilitek_platform_tp_hw_reset(false);
 }
 #endif
 
@@ -608,7 +608,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		goto out;
 	}
 
-	ilitek_platform_tp_power_on(1);
+	ilitek_platform_tp_hw_reset(true);
 
 	// get our tp ic information
 	ilitek_platform_read_tp_info();
@@ -627,7 +627,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	// To make sure our ic runing well before the work,
 	// pulling RESET pin as low/high once after read TP info.
-	ilitek_platform_tp_power_on(true);
+	ilitek_platform_tp_hw_reset(true);
 
 	res = ilitek_platform_reg_suspend();
 	if (res < 0)

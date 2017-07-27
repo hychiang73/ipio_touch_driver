@@ -253,7 +253,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_HW_RESET:
-		ilitek_platform_tp_power_on(true);
+		ilitek_platform_tp_hw_reset(true);
 		break;
 
 	case ILITEK_IOCTL_TP_POWER_SWITCH:

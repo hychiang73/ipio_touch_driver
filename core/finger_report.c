@@ -58,7 +58,7 @@ struct mutual_touch_point
  */
 struct mutual_touch_info
 {
-	uint8_t key_count;
+	uint8_t touch_num;
 	uint8_t key_code;
 	struct mutual_touch_point mtp[10];
 };
@@ -267,19 +267,19 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			// FIXME:
 			// the axis reported from firmware has some problems so that we need to transfer them.
 			// if use MTK platform with the IC, we transfer them as well.
-			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-			pInfo->mtp[pInfo->key_count].pressure = fr_data[4 * (i + 1)];
-			pInfo->mtp[pInfo->key_count].id = i;
+			pInfo->mtp[pInfo->touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+			pInfo->mtp[pInfo->touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+			pInfo->mtp[pInfo->touch_num].pressure = fr_data[4 * (i + 1)];
+			pInfo->mtp[pInfo->touch_num].id = i;
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
-				pInfo->mtp[pInfo->key_count].id,
-				pInfo->mtp[pInfo->key_count].x,
-				pInfo->mtp[pInfo->key_count].y,
-				pInfo->mtp[pInfo->key_count].pressure);
+				pInfo->mtp[pInfo->touch_num].id,
+				pInfo->mtp[pInfo->touch_num].x,
+				pInfo->mtp[pInfo->touch_num].y,
+				pInfo->mtp[pInfo->touch_num].pressure);
 
-			pInfo->key_count++;
+			pInfo->touch_num++;
 
 			if(core_fr->btype)
 			{
@@ -308,19 +308,19 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			// FIXME:
 			// the axis reported from firmware has some problems so that we need to transfer them.
 			// if use MTK platform with the IC, we transfer them as well.
-			pInfo->mtp[pInfo->key_count].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-			pInfo->mtp[pInfo->key_count].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-			pInfo->mtp[pInfo->key_count].pressure = 1;
-			pInfo->mtp[pInfo->key_count].id = i;
+			pInfo->mtp[pInfo->touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+			pInfo->mtp[pInfo->touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+			pInfo->mtp[pInfo->touch_num].pressure = 1;
+			pInfo->mtp[pInfo->touch_num].id = i;
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
-				pInfo->mtp[pInfo->key_count].id,
-				pInfo->mtp[pInfo->key_count].x,
-				pInfo->mtp[pInfo->key_count].y,
-				pInfo->mtp[pInfo->key_count].pressure);
+				pInfo->mtp[pInfo->touch_num].id,
+				pInfo->mtp[pInfo->touch_num].x,
+				pInfo->mtp[pInfo->touch_num].y,
+				pInfo->mtp[pInfo->touch_num].pressure);
 
-			pInfo->key_count++;
+			pInfo->touch_num++;
 
 			if(core_fr->btype)
 			{
@@ -346,7 +346,7 @@ static int finger_report_ver_3_2(uint8_t *fr_data, int length)
 static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 {
 	int i, res = 0;
-	static int last_count = 0;
+	static int last_touch = 0;
 
 	// initialise struct of mutual toucn info
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
@@ -383,14 +383,14 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 		return -1;
 	}
 
-	DBG("tInfo.nCount = %d, nLastCount = %d\n", mti.key_count, last_count);
+	DBG("Touch Num = %d, LastTouch = %d\n", mti.touch_num, last_touch);
 
 	// interpret parsed packat and send input events to uplayer
-	if (mti.key_count > 0)
+	if (mti.touch_num > 0)
 	{
 		if(core_fr->btype)
 		{
-			for (i = 0; i < mti.key_count; i++)
+			for (i = 0; i < mti.touch_num; i++)
 			{
 				input_report_key(core_fr->input_device, BTN_TOUCH, 1);
 				core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
@@ -412,18 +412,18 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 		}
 		else
 		{
-			for (i = 0; i < mti.key_count; i++)
+			for (i = 0; i < mti.touch_num; i++)
 			{
 				core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
 			}
 		}
 		input_sync(core_fr->input_device);
 
-		last_count = mti.key_count;
+		last_touch = mti.touch_num;
 	}
 	else
 	{
-		if (last_count > 0)
+		if (last_touch > 0)
 		{
 			if(core_fr->btype)
 			{
@@ -447,7 +447,7 @@ static int finger_report_ver_5_0(uint8_t *fr_data, int length)
 
 			input_sync(core_fr->input_device);
 
-			last_count = 0;
+			last_touch = 0;
 		}
 	}
 	return res;
@@ -554,7 +554,7 @@ EXPORT_SYMBOL(core_fr_mode_control);
  * Calculate the length with different modes according to the format of protocol 5.0
  *
  * We compute the length before receiving its packet. If the length is differnet between
- * firmware the number we calculated, in this case I just print error message to inform users
+ * firmware and the number we calculated, in this case I just print error message to inform users
  * and still sending up to application.
  */
 static uint16_t calc_packet_length(void)

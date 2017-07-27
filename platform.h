@@ -100,7 +100,7 @@ extern struct ilitek_platform_data *ipd;
 // exported from platform.c
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
-extern void ilitek_platform_tp_power_on(bool isEnable);
+extern void ilitek_platform_tp_hw_reset(bool isEnable);
 #ifdef ENABLE_REGULATOR_POWER_ON
 extern void ilitek_regulator_power_on(bool status);
 #endif

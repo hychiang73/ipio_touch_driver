@@ -349,7 +349,7 @@ static int iram_upgrade(void)
 	core_firmware->update_status = 0;
 
 	// doing reset for erasing iram data before upgrade it.
-	ilitek_platform_tp_power_on(1);
+	ilitek_platform_tp_hw_reset(true);
 
 	mdelay(1);
 
@@ -431,7 +431,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 		return res;
 	}
 
-	ilitek_platform_tp_power_on(1);
+	ilitek_platform_tp_hw_reset(true);
 
 	DBG_INFO("Enter to ICE Mode");
 
