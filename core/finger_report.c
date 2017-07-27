@@ -770,17 +770,7 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnableGes = false;
 			core_fr->isEnablePressure = false;
 
-			if (core_config->chip_id == CHIP_TYPE_ILI2121)
-			{
-				if (core_config->use_protocol == ILITEK_PROTOCOL_V3_2)
-				{
-					core_fr->fw_unknow_mode = ILI2121_FIRMWARE_UNKNOWN_MODE;
-					core_fr->fw_demo_mode = ILI2121_FIRMWARE_DEMO_MODE;
-					core_fr->fw_debug_mode = ILI2121_FIRMWARE_DEBUG_MODE;
-					core_fr->actual_fw_mode = ILI2121_FIRMWARE_DEMO_MODE;
-				}
-			}
-			else if (core_config->chip_id == CHIP_TYPE_ILI7807)
+			if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
 				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 				{

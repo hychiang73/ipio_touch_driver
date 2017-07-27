@@ -141,11 +141,7 @@ static uint32_t check_chip_id(uint32_t pid_data)
 {
 	uint32_t id = 0;
 
-	if (core_config->chip_id == CHIP_TYPE_ILI2121)
-	{
-		id = (vfIceRegRead(0xF001) << (8 * 1)) + (vfIceRegRead(0xF000));
-	}
-	else if (core_config->chip_id == CHIP_TYPE_ILI7807)
+	if (core_config->chip_id == CHIP_TYPE_ILI7807)
 	{
 		id = pid_data >> 16;
 		core_config->chip_type = pid_data & 0x0000FFFF;
@@ -308,8 +304,6 @@ int core_config_ic_reset(void)
 	}
 	else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 		return core_config_ice_mode_write(0x40050, 0x00019881, 4);
-	else if (core_config->chip_id == CHIP_TYPE_ILI2121)
-		return core_config_ice_mode_write(0x4004C, 0x00012120, 2);
 	else
 	{
 		DBG_ERR("This chip (0x%x) doesn't support the feature", core_config->chip_id);
@@ -373,34 +367,7 @@ EXPORT_SYMBOL(core_config_ice_mode_enable);
 
 int core_config_reset_watch_dog(void)
 {
-	if (core_config->chip_id == CHIP_TYPE_ILI2121)
-	{
-		// close watch dog
-		if (core_config_ice_mode_write(0x5200C, 0x0000, 2) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x52020, 0x01, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x52020, 0x00, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x42000, 0x0F154900, 4) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x42014, 0x02, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x42000, 0x00000000, 4) < 0)
-			return -EFAULT;
-		//---------------------------------
-		if (core_config_ice_mode_write(0x041000, 0xab, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x041004, 0x66aa5500, 4) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x04100d, 0x00, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x04100b, 0x03, 1) < 0)
-			return -EFAULT;
-		if (core_config_ice_mode_write(0x041009, 0x0000, 2) < 0)
-			return -EFAULT;
-	}
-	else if (core_config->chip_id == CHIP_TYPE_ILI7807)
+	 if (core_config->chip_id == CHIP_TYPE_ILI7807)
 	{
 		core_config_ice_mode_write(0x5100C, 0x7, 1);
 		core_config_ice_mode_write(0x5100C, 0x78, 1);
@@ -801,14 +768,7 @@ int core_config_init(void)
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0x0000;
 
-			if (core_config->chip_id == CHIP_TYPE_ILI2121)
-			{
-				core_config->use_protocol = ILITEK_PROTOCOL_V3_2;
-				core_config->slave_i2c_addr = ILI2121_SLAVE_ADDR;
-				core_config->ice_mode_addr = ILI2121_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI2121_PID_ADDR;
-			}
-			else if (core_config->chip_id == CHIP_TYPE_ILI7807)
+			if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
 				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
