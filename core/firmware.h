@@ -25,34 +25,19 @@
 #ifndef __FIRMWARE_H
 #define __FIRMWARE_H
 
-#define FLASH_SECTOR
-
 struct core_firmware_data
 {
 	uint8_t new_fw_ver[4];
 	uint8_t old_fw_ver[4];
 
-	uint32_t ap_start_addr;
-	uint32_t ap_end_addr;
-	uint32_t ap_checksum;
-	uint32_t ap_crc;
-#ifdef FLASH_SECTOR
-	uint32_t crc32;
-#endif
-	uint32_t df_start_addr;
-	uint32_t df_end_addr;
-	uint32_t df_checksum;
-
 	uint32_t start_addr;
 	uint32_t end_addr;
 	uint32_t checksum;
+	uint32_t crc32;
 
 	uint32_t update_status;
 	uint32_t max_count;
 
-	int verify_method;
-
-	// used only for TDDI
 	int delay_after_upgrade;
 
 	bool isUpgraded;
