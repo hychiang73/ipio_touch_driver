@@ -108,8 +108,9 @@ static uint32_t calc_crc32(uint32_t start_addr, uint32_t end_addr, uint8_t *data
 	int i, j;
 	uint32_t CRC_POLY = 0x04C11DB7;
 	uint32_t ReturnCRC = 0xFFFFFFFF;
+	uint32_t len = start_addr + end_addr;
 
-	for (i = start_addr; i < end_addr; i++)
+	for (i = start_addr; i < len; i++)
 	{
 		ReturnCRC ^= (data[i] << 24);
 
@@ -138,7 +139,7 @@ static uint32_t ili7807_check_data(uint32_t start_addr, uint32_t end_addr)
 
 	write_len = end_addr;
 
-	DBG_INFO("start = 0x%x , write_len = 0x%x, max_count = %x", 
+	DBG("start = 0x%x , write_len = 0x%x, max_count = %x", 
 				start_addr, end_addr, core_firmware->max_count);
 
 	if (write_len > core_firmware->max_count)
@@ -297,39 +298,52 @@ out:
 #endif
 
 #ifdef FLASH_SECTOR
-static void calc_verify_data(uint32_t sa, uint32_t se, uint32_t *ck, uint32_t *crc)
+static void calc_verify_data(uint32_t sa, uint32_t se, uint32_t *check, bool isCRC)
 {
 	uint32_t i = 0;
 	uint32_t tmp_ck = 0, tmp_crc = 0;
 
-	if(ck != NULL)
+	if(isCRC)
 	{
-		for(i = sa; i < se; i++)
-		{
-			tmp_ck = tmp_ck + flash_fw[i];
-		}
-		*ck = tmp_ck;
-	}
-
-	if(crc != NULL) {
 		tmp_crc = calc_crc32(sa, se, flash_fw);
-		*crc = tmp_crc;
+		*check = tmp_crc;
 	}
+	else
+	{
+		for(i = sa; i < (sa + se); i++)
+			tmp_ck = tmp_ck + flash_fw[i];
+
+		*check = tmp_ck;	
+	}
+}
+
+static int do_check(uint32_t start, uint32_t len)
+{
+	int res = 0;
+	uint32_t vd = 0, lc = 0;
+
+	calc_verify_data(start, len, &lc, core_firmware->isCRC ? true : false);
+	vd = ili7807_check_data(start, len);
+	res = CHECK(vd, lc);
+
+	DBG_INFO("%s (%x) : (%x)", (res < 0 ? "Invalid !" : "Correct !"), vd, lc );
+
+	return res;	
 }
 
 static int verify_flash_data(void)
 {
-	int i = 0, res = 0;
-	uint32_t ss = 0x0, se = 0x0;
-	uint32_t vd = 0;
-	uint32_t sum_check = 0, sum_crc = 0;
-	int len = 0;
+	int i = 0, res = 0, len = 0;
 	int fps = flashtab->sector;
+	uint32_t ss = 0x0;
 
-	// update max count if chip type is different
+	// update max count and check type if chip type is different
 	if(core_config->chip_id == CHIP_TYPE_ILI7807 &&
 		core_config->chip_type == ILI7807_TYPE_H)
-		core_firmware->max_count = 0x1FFFF;
+	{
+			core_firmware->max_count = 0xFFFF;
+			core_firmware->isCRC = true;
+	}
 
 	for(i = 0; i < sec_length + 1; i++)
 	{
@@ -339,39 +353,14 @@ static int verify_flash_data(void)
 				ss = ffls[i].ss_addr;
 
 			len = len + ffls[i].dlength;
-			se = ffls[i].se_addr + 1;
-
-			calc_verify_data(ss, se, &sum_check, NULL);
 
 			if(len >= (core_firmware->max_count - fps))
-			{
-				// commit data if its length is over than max count
-				calc_verify_data(ss, se, NULL, &sum_crc);
-				vd = ili7807_check_data(ss, len);
-				if(core_firmware->isCRC)
-				{
-					res = CHECK(vd, sum_crc);
-					if(res < 0)
-					{
-						DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_crc);
-						res = -1;
-						break;						
-					}			
-				}
-				else
-				{
-					res = CHECK(vd, sum_check);
-					if(res < 0)
-					{
-						DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_check);
-						res = -1;
-						break;						
-					}
-				}
+			{				
+				res = do_check(ss, len);
+				if(res < 0)
+					goto out;
 
 				ss = ffls[i].ss_addr;
-				sum_check = 0;
-				sum_crc = 0;
 				len = 0;
 			}
 		}
@@ -380,60 +369,20 @@ static int verify_flash_data(void)
 			// split block and commit last data to check
 			if(len != 0)
 			{
-				calc_verify_data(ss, se, NULL, &sum_crc);
-				vd = ili7807_check_data(ss, len);
-				if(core_firmware->isCRC)
-				{
-					res = CHECK(vd, sum_crc);
-					if(res < 0)
-					{
-						DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_check);
-						res = -1;
-						break;						
-					}								
-				}
-				else
-				{
-					res = CHECK(vd, sum_check);
-					if(res < 0)
-					{
-						DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_check);
-						res = -1;
-						break;						
-					}
-				}
+				res = do_check(ss, len);
+				if(res < 0)
+					goto out;
+				
+				ss = ffls[i].ss_addr;
+				len = 0;
 			}
-
-			ss = ffls[i].ss_addr;
-			sum_check = 0;
-			sum_crc = 0;
-			len = 0;
 		}
 	}
 
 	if(len != 0 && res != -1)
-	{
-		calc_verify_data(ss, core_firmware->end_addr - ss, NULL, &sum_crc);
-		vd = ili7807_check_data(ss, core_firmware->end_addr - ss);
-		if(core_firmware->isCRC)
-		{
-			res = CHECK(vd, sum_crc);
-			if(res < 0)
-			{
-				DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_crc);
-				res = -1;
-			}					
-		}
-		else
-		{
-			res = CHECK(vd, sum_check);
-			if(res < 0)
-			{
-				DBG_ERR("Invalid ! (%x) : (%x)",vd,sum_check);
-			}
-		}
-	}
+		res = do_check(ss, core_firmware->end_addr - ss);
 
+out:		
 	return res;
 }
 #endif
