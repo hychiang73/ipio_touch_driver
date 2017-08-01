@@ -607,7 +607,7 @@ static uint16_t calc_packet_length(void)
 		}
 	}
 
-	DBG_INFO("rlen = %d", rlen);
+	DBG("rlen = %d", rlen);
 	return rlen;
 }
 
@@ -644,29 +644,29 @@ void core_fr_handler(void)
 
 	if(core_fr->isEnableFR)
 	{
-		DBG_INFO("mutex mem = %p", &ipd->MUTEX);
-		mutex_lock(&ipd->MUTEX);
 		rlen = calc_packet_length();
 		if(rlen > 0)
 		{
 			fr_data = (uint8_t *)kmalloc(sizeof(uint8_t) * rlen, GFP_KERNEL);
 			memset(fr_data, 0xFF, (int)sizeof(uint8_t) * rlen);
 
-			DBG_INFO("fr_data: mem = %p", fr_data);
-
 			while(i < ARRAY_SIZE(fr_t))
 			{
 				if(core_config->use_protocol == fr_t[i].protocol)
 				{
+					mutex_lock(&ipd->MUTEX);
 					fr_t[i].finger_report(fr_data, rlen);
+					mutex_unlock(&ipd->MUTEX);
 
 					if (core_fr->isEnableNetlink)
+					{
 						netlink_reply_msg(fr_data, again_read_len > 0 ? (again_read_len + rlen) : rlen);
+						break;
+					}
 				}
 				i++;
 			}
 		}
-		mutex_unlock(&ipd->MUTEX);
 	}
 	else
 		DBG_INFO("The figner report was disabled");

@@ -42,7 +42,7 @@
 			pr_err("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 #define DBG(fmt, arg...) \
-			pr_info( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
+			pr_debug( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 /*
  * Relative Firmware Upgrade
