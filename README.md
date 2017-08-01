@@ -2,10 +2,6 @@
 
 Ipio driver is a new touch driver used on the new products of ILITEK touch ICs. It has been verified on the firefly-rk3288 platform with Android 5.0.
 
-# Support Development Platforms
-
-* RK3288
-
 # Support ICs
 
 The following lists which of IC types supported by the driver.
@@ -80,7 +76,6 @@ To find a macro called *ON_BOARD_IC* in **chip.h** and chose one of them:
 
 ```
 // This macro defines what types of chip supported by the driver.
-//#define ON_BOARD_IC		0x2121
 #define ON_BOARD_IC		0x7807
 //#define ON_BOARD_IC		0x9881
 ```
@@ -153,10 +148,18 @@ static int ilitek_platform_gpio(void)
 }
 ```
 
-
 # Release Note
 
-& V1.0.0.4
+* V1.0.0.5
+  * Fix the error of checksum with finger report
+  * Add flash table in order to get flash information dynamatically.
+  * fix the error crc to calculate length instead of address.
+  * Optimise the calculation of fw upgrade 
+  * Remove ILI2121 from support list
+  * Remove the old method of fw upgrade
+  * Add the delay of 1ms after sending 0xF6 command
+
+* V1.0.0.4
   * Add 7807H in the support list
   * Support 7807 FW upgrade
   * Set 1920*1080 as fixed resolution

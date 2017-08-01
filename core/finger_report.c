@@ -651,7 +651,7 @@ void core_fr_handler(void)
 		if(rlen > 0)
 		{
 			fr_data = (uint8_t *)kmalloc(sizeof(uint8_t) * rlen, GFP_KERNEL);
-			memset(fr_data, 0xFF, sizeof(uint8_t) * rlen);
+			memset(fr_data, 0xFF, (int)sizeof(uint8_t) * rlen);
 
 			while(i < ARRAY_SIZE(fr_t))
 			{
