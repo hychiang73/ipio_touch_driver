@@ -241,7 +241,10 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 	check_sum = cal_fr_checksum(&fr_data[0], (rpl - 1));
 	DBG("fr_data = %x  ;  check_sum : %x ", fr_data[rpl - 1], check_sum);
 	if (fr_data[rpl - 1] != check_sum)
+	{
 		DBG_ERR("Wrong checksum");
+		return -1;
+	}
 
 	//TODO: parse packets for gesture/glove features if they're enabled
 
@@ -659,7 +662,10 @@ void core_fr_handler(void)
 					mutex_unlock(&ipd->MUTEX);
 
 					if (core_fr->isEnableNetlink)
+					{
 						netlink_reply_msg(fr_data, again_read_len > 0 ? (again_read_len + rlen) : rlen);
+						break;
+					}
 				}
 				i++;
 			}
