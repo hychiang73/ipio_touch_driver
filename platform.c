@@ -255,14 +255,14 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 {
 	unsigned long nIrqFlag;
 
-	DBG("IRQ enable = %d", ipd->isIrqEnable);
+	DBG_INFO("IRQ = %d", ipd->isIrqEnable);
+
+	core_fr_handler();
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
 	if (!ipd->isIrqEnable)
 	{
-		core_fr_handler();
-
 		enable_irq(ipd->isr_gpio);
 		ipd->isIrqEnable = true;
 	}
@@ -274,7 +274,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
 	unsigned long nIrqFlag;
 
-	DBG("Calling the function in work queue");
+	DBG("IRQ = %d", ipd->isIrqEnable);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 

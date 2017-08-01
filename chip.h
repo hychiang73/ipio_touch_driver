@@ -31,7 +31,7 @@
 #define ON_BOARD_IC		0x9881
 
 // Shows the version of driver
-#define DRIVER_VERSION	"1.0.0.5"
+#define DRIVER_VERSION	"1.0.0.6"
 
 // In kernel pr_debug is disabled as default, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
 // in terminal to enable it if you'd like to see more debug details. 
@@ -42,7 +42,7 @@
 			pr_err("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 #define DBG(fmt, arg...) \
-			pr_debug( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
+			pr_info( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 /*
  * Relative Firmware Upgrade
