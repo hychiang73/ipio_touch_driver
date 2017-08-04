@@ -80,7 +80,7 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 
 	len = sprintf(buff, "%02d", core_firmware->update_status);
 
-	DBG("update status = %d \n", core_firmware->update_status);
+	DBG_INFO("update status = %d \n", core_firmware->update_status);
 
 	res = copy_to_user((uint32_t *)buff, &core_firmware->update_status, len);
 	if (res < 0)
@@ -107,7 +107,7 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 
 	len = sprintf(buff, "%d", core_firmware->isUpgraded);
 
-	DBG("isUpgraded = %d \n", core_firmware->isUpgraded);
+	DBG_INFO("isUpgraded = %d \n", core_firmware->isUpgraded);
 
 	res = copy_to_user((uint32_t *)buff, &core_firmware->isUpgraded, len);
 	if (res < 0)

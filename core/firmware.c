@@ -42,6 +42,8 @@
 #include "firmware.h"
 #include "flash.h"
 
+#define CHECK(X,Y) ((X==Y) ? 0 : -1 )
+
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
 
@@ -64,9 +66,6 @@ struct flash_sector
 };
 
 struct flash_sector *ffls;
-
-#define CHECK(X,Y) ((X==Y) ? 0 : -1 )
-
 struct core_firmware_data *core_firmware;
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
@@ -294,7 +293,7 @@ out:
 	return res;
 }
 
-static int ili7807_polling_flash_busy(void)
+static int tddi_polling_flash_busy(void)
 {
 	int timer = 500;
 
@@ -322,7 +321,7 @@ static int ili7807_polling_flash_busy(void)
 	return -1;
 }
 
-static int ili7807_write_enable(void)
+static int flash_write_enable(void)
 {
 	if (core_config_ice_mode_write(0x041000, 0x0, 1) < 0)
 		goto out;
@@ -414,7 +413,7 @@ static int iram_upgrade(void)
 	return res;
 }
 
-static int ili7807_firmware_upgrade(bool isIRAM)
+static int tddi_fw_upgrade(bool isIRAM)
 {
 	int i, j, res = 0;
 	uint8_t buf[512] = {0};
@@ -466,7 +465,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 		if(!ffls[i].data_flag)
 			continue;
 
-		res = ili7807_write_enable();
+		res = flash_write_enable();
 		if (res < 0)
 		{
 			DBG_ERR("Failed to config write enable");
@@ -485,7 +484,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 
 		mdelay(1);
 
-		res = ili7807_polling_flash_busy();
+		res = tddi_polling_flash_busy();
 		if (res < 0)
 		{
 			DBG_ERR("TIME OUT");
@@ -524,7 +523,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 	
 		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= upl)
 		{
-			res = ili7807_write_enable();
+			res = flash_write_enable();
 			if (res < 0)
 			{
 				DBG_ERR("Failed to config write enable");
@@ -562,7 +561,7 @@ static int ili7807_firmware_upgrade(bool isIRAM)
 			// CS high
 			core_config_ice_mode_write(0x041000, 0x1, 1);
 
-			res = ili7807_polling_flash_busy();
+			res = tddi_polling_flash_busy();
 			if (res < 0)
 			{
 				DBG_ERR("TIME OUT");
@@ -874,14 +873,14 @@ int core_firmware_init(void)
 			{
 				core_firmware->max_count = 0xFFFF;
 				core_firmware->isCRC = false;
-				core_firmware->upgrade_func = ili7807_firmware_upgrade;
+				core_firmware->upgrade_func = tddi_fw_upgrade;
 				core_firmware->delay_after_upgrade = 100;
 			}
 			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 			{
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;
-				core_firmware->upgrade_func = ili7807_firmware_upgrade;
+				core_firmware->upgrade_func = tddi_fw_upgrade;
 				core_firmware->delay_after_upgrade = 200;
 			}
 		}
