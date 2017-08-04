@@ -150,6 +150,10 @@ static int ilitek_platform_gpio(void)
 
 # Release Note
 
+* V1.0.0.6
+  * Finger report won't send to user if checksum error occurs
+  * Fixed the error sometimer work queue couldn't be executed while interrupting
+
 * V1.0.0.5
   * Fix the error of checksum with finger report
   * Add flash table in order to get flash information dynamatically.
