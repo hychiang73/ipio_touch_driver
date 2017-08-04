@@ -791,7 +791,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 			hex_buffer = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
 			flash_fw = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
-			memset(flash_fw, 0xff, sizeof(flash_fw));
+			memset(flash_fw, 0xff, (int)sizeof(flash_fw));
 			Ssize = fsize / flashtab->sector;
 			ffls = kcalloc(Ssize, sizeof(uint32_t) * Ssize, GFP_KERNEL);
 

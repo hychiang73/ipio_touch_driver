@@ -192,6 +192,30 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 	return len;
 }
 
+// This node is used to debug without coding a user application.
+static ssize_t ilitek_proc_write_ioctl(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint8_t cmd[128] = {0};
+
+	DBG_INFO();
+
+	res = copy_from_user(cmd, buff, size - 1);
+	if(res < 0)
+	{
+		DBG_INFO("copy data from user space, failed");
+		return -1;
+	}
+
+	if(strcmp(cmd, "reset") == 0)
+	{
+		DBG_INFO("HW RESET");
+		ilitek_platform_tp_hw_reset(true);
+	}
+
+	return size;
+}
+
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int res = 0, length = 0;
@@ -458,6 +482,7 @@ struct proc_dir_entry *proc_iram_upgrade;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
+	.write = ilitek_proc_write_ioctl,
 };
 
 struct file_operations proc_fw_status_fops = {
