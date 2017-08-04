@@ -50,8 +50,16 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 
     if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
     {
-        res = -EIO;
-        DBG_ERR("I2C Write Error, res = %d", res);
+        if(core_config->do_ic_reset)
+        {
+            // ignore i2c error if doing ic reset
+            res = 0;
+        }
+        else
+        {
+            res = -EIO;
+            DBG_ERR("I2C Write Error, res = %d", res);
+        }
     }
 
     return res;
