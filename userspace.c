@@ -259,14 +259,14 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		res = core_i2c_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
 		if (res < 0)
 		{
-			DBG_INFO("Failed to read data via i2c");
+			DBG_ERR("Failed to read data via i2c");
 		}
 		else
 		{
 			res = copy_to_user((uint8_t *)arg, szBuf, i2c_rw_length);
 			if (res < 0)
 			{
-				DBG_INFO("Failed to copy data to user space");
+				DBG_ERR("Failed to copy data to user space");
 			}
 		}
 		break;
@@ -295,12 +295,12 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if (szBuf[0])
 			{
 				core_fr->isEnableFR = true;
-				DBG_INFO("Function of finger report was enabled");
+				DBG("Function of finger report was enabled");
 			}
 			else
 			{
 				core_fr->isEnableFR = false;
-				DBG_INFO("Function of finger report was disabled");
+				DBG("Function of finger report was disabled");
 			}
 		}
 		break;
@@ -391,7 +391,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			res = copy_to_user((uint8_t *)arg, szBuf, length);
 			if (res < 0)
 			{
-				DBG_INFO("Failed to copy driver ver to user space");
+				DBG_ERR("Failed to copy driver ver to user space");
 			}
 		}
 		break;

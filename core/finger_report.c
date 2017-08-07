@@ -267,13 +267,20 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			nX = (((fr_data[(4 * i) + 1] & 0xF0) << 4) | (fr_data[(4 * i) + 2]));
 			nY = (((fr_data[(4 * i) + 1] & 0x0F) << 8) | (fr_data[(4 * i) + 3]));
 
-			// FIXME:
-			// the axis reported from firmware has some problems so that we need to transfer them.
-			// if use MTK platform with the IC, we transfer them as well.
-			pInfo->mtp[pInfo->touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-			pInfo->mtp[pInfo->touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-			pInfo->mtp[pInfo->touch_num].pressure = fr_data[4 * (i + 1)];
-			pInfo->mtp[pInfo->touch_num].id = i;
+			if(!core_fr->isSetResolution)
+			{
+				pInfo->mtp[pInfo->touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+				pInfo->mtp[pInfo->touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+				pInfo->mtp[pInfo->touch_num].pressure = 1;
+				pInfo->mtp[pInfo->touch_num].id = i;
+			}
+			else
+			{
+				pInfo->mtp[pInfo->touch_num].x = nX;
+				pInfo->mtp[pInfo->touch_num].y = nY;
+				pInfo->mtp[pInfo->touch_num].pressure = 1;
+				pInfo->mtp[pInfo->touch_num].id = i;
+			}
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
@@ -308,13 +315,20 @@ static int parse_touch_package_v5_0(uint8_t *fr_data, struct mutual_touch_info *
 			nX = (((fr_data[(3 * i) + 5] & 0xF0) << 4) | (fr_data[(3 * i) + 6]));
 			nY = (((fr_data[(3 * i) + 5] & 0x0F) << 8) | (fr_data[(3 * i) + 7]));
 
-			// FIXME:
-			// the axis reported from firmware has some problems so that we need to transfer them.
-			// if use MTK platform with the IC, we transfer them as well.
-			pInfo->mtp[pInfo->touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-			pInfo->mtp[pInfo->touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-			pInfo->mtp[pInfo->touch_num].pressure = 1;
-			pInfo->mtp[pInfo->touch_num].id = i;
+			if(!core_fr->isSetResolution)
+			{
+				pInfo->mtp[pInfo->touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
+				pInfo->mtp[pInfo->touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
+				pInfo->mtp[pInfo->touch_num].pressure = 1;
+				pInfo->mtp[pInfo->touch_num].id = i;
+			}
+			else
+			{
+				pInfo->mtp[pInfo->touch_num].x = nX;
+				pInfo->mtp[pInfo->touch_num].y = nY;
+				pInfo->mtp[pInfo->touch_num].pressure = 1;
+				pInfo->mtp[pInfo->touch_num].id = i;
+			}
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
@@ -598,7 +612,6 @@ static uint16_t calc_packet_length(void)
 				rlen = P5_0_DEBUG_MODE_PACKET_LENGTH;
 			else
 			{
-
 				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + (8 * 2) + 1;
 				rlen += 35;
 			}
@@ -672,7 +685,7 @@ void core_fr_handler(void)
 		}
 	}
 	else
-		DBG_INFO("The figner report was disabled");
+		DBG("The figner report was disabled");
 
 	kfree(fr_data);
 	return;
@@ -694,22 +707,22 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	set_bit(BTN_TOOL_FINGER, core_fr->input_device->keybit);
 	set_bit(INPUT_PROP_DIRECT, core_fr->input_device->propbit);
 
-	// if (IS_ERR(core_config->tp_info))
-	// {
+	if (core_fr->isSetResolution)
+	{
+		max_x = core_config->tp_info->nMaxX;
+		max_y = core_config->tp_info->nMaxY;
+		min_x = core_config->tp_info->nMinX;
+		min_y = core_config->tp_info->nMinY;
+		max_tp = core_config->tp_info->nMaxTouchNum;
+	}
+	else
+	{
 		max_x = TOUCH_SCREEN_X_MAX;
 		max_y = TOUCH_SCREEN_Y_MAX;
 		min_x = TOUCH_SCREEN_X_MIN;
 		min_y = TOUCH_SCREEN_Y_MIN;
 		max_tp = MAX_TOUCH_NUM;
-	// }
-	// else
-	// {
-	// 	max_x = core_config->tp_info->nMaxX;
-	// 	max_y = core_config->tp_info->nMaxY;
-	// 	min_x = core_config->tp_info->nMinX;
-	// 	min_y = core_config->tp_info->nMinY;
-	// 	max_tp = core_config->tp_info->nMaxTouchNum;
-	// }
+	}
 
 	DBG("input resolution : max_x = %d, max_y = %d, min_x = %d, min_y = %d",
 		max_x, max_y, min_x, min_y);
@@ -775,30 +788,16 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->btype = true;
 			core_fr->isEnableGes = false;
 			core_fr->isEnablePressure = false;
+			core_fr->isSetResolution = false;
 
-			if (core_config->chip_id == CHIP_TYPE_ILI7807)
+			if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 			{
-				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
-				{
-					core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
-					core_fr->fw_demo_mode = P5_0_FIRMWARE_DEMO_MODE;
-					core_fr->fw_test_mode = P5_0_FIRMWARE_TEST_MODE;
-					core_fr->fw_debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
-					core_fr->fw_i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
-					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
-				}
-			}
-			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
-			{
-				if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
-				{
-					core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
-					core_fr->fw_demo_mode = P5_0_FIRMWARE_DEMO_MODE;
-					core_fr->fw_test_mode = P5_0_FIRMWARE_TEST_MODE;
-					core_fr->fw_debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
-					core_fr->fw_i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
-					core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
-				}
+				core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
+				core_fr->fw_demo_mode = P5_0_FIRMWARE_DEMO_MODE;
+				core_fr->fw_test_mode = P5_0_FIRMWARE_TEST_MODE;
+				core_fr->fw_debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
+				core_fr->fw_i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
+				core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 			}
 		}
 	}
