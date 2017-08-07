@@ -422,8 +422,6 @@ static int tddi_fw_upgrade(bool isIRAM)
 	uint32_t end_addr = core_firmware->end_addr;
 	int upl = flashtab->program_page;
 
-	core_firmware->update_status = 0;
-
 	if (isIRAM)
 	{
 		res = iram_upgrade();
@@ -567,6 +565,10 @@ static int tddi_fw_upgrade(bool isIRAM)
 				DBG_ERR("TIME OUT");
 				goto out;
 			}
+
+			// holding the status until finish this upgrade.
+			if(core_firmware->update_status > 90)
+				continue;
 
 			core_firmware->update_status = (j * 101) / end_addr;
 			printk("%cUpgrading firmware ... (0x%x...0x%x), %02d%c", 0x0D, ffls[i].ss_addr, ffls[i].se_addr, core_firmware->update_status, '%');
@@ -751,6 +753,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	loff_t pos = 0;
 
 	core_firmware->isUpgraded = false;
+	core_firmware->update_status = 0;
 
 	//TODO: to compare old/new version if upgraded.
 
@@ -824,6 +827,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 				}
 
 				core_firmware->isUpgraded = true;
+				core_firmware->update_status = 100;
 			}
 		}
 	}
