@@ -696,8 +696,8 @@ void core_fr_handler(void)
 						kfree(tdata);
 						kfree(fnode);
 						kfree(fuart);
-						break;
 					}
+					break;
 				}
 				i++;
 			}	
