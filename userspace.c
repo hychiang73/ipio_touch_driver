@@ -192,28 +192,98 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 	return len;
 }
 
-// This node is used to debug without coding a user application.
-static ssize_t ilitek_proc_write_ioctl(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+// for debug
+static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
-	uint8_t cmd[128] = {0};
+	uint32_t len = 0;
+	uint8_t cmd[2] = {0};
 
-	DBG_INFO();
-
-	res = copy_from_user(cmd, buff, size - 1);
-	if(res < 0)
+	if (*pPos != 0)
 	{
-		DBG_INFO("copy data from user space, failed");
-		return -1;
+		return 0;
 	}
 
-	if(strcmp(cmd, "reset") == 0)
+	if(size < 4095)
 	{
-		DBG_INFO("HW RESET");
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %d",size, cmd[0]);
+
+	// test
+	if(cmd[0] == 0x1)
+	{
+		DBG_INFO("HW Reset");
 		ilitek_platform_tp_hw_reset(true);
 	}
+	else if(cmd[0] == 0x02)
+	{
+		DBG_INFO("Disable IRQ");
+		ilitek_platform_disable_irq();
+	}
+	else if(cmd[0] == 0x03)
+	{
+		DBG_INFO("Enable IRQ");
+		ilitek_platform_enable_irq();
+	}
+	else if(cmd[0] == 0x04)
+	{
+		DBG_INFO("Get Chip id");
+		core_config_get_chip_id();
+	}
 
-	return size;
+	*pPos = len;
+
+	return len;
+}
+
+// for debug
+static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint8_t cmd[2] = {0};
+
+	if(size < 4095)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %d",size, cmd[0]);
+
+	// test
+	if(cmd[0] == 0x1)
+	{
+		DBG_INFO("HW Reset");
+		ilitek_platform_tp_hw_reset(true);
+	}
+	else if(cmd[0] == 0x02)
+	{
+		DBG_INFO("Disable IRQ");
+		ilitek_platform_disable_irq();
+	}
+	else if(cmd[0] == 0x03)
+	{
+		DBG_INFO("Enable IRQ");
+		ilitek_platform_enable_irq();
+	}
+	else if(cmd[0] == 0x04)
+	{
+		DBG_INFO("Get Chip id");
+		core_config_get_chip_id();
+	}
+
+	return size;	
 }
 
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -482,7 +552,8 @@ struct proc_dir_entry *proc_iram_upgrade;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
-	.write = ilitek_proc_write_ioctl,
+	.read = ilitek_proc_ioctl_read,
+	.write = ilitek_proc_ioctl_write,
 };
 
 struct file_operations proc_fw_status_fops = {
