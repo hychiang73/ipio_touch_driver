@@ -247,7 +247,7 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
-	uint8_t cmd[2] = {0};
+	uint8_t cmd[10] = {0};
 
 	if(size < 4095)
 	{
@@ -259,28 +259,39 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		}
 	}
 
-	DBG_INFO("size = %d, cmd = %d",size, cmd[0]);
+	DBG_INFO("size = %d, cmd = %s",size, cmd);
 
-	// test
-	if(cmd[0] == 0x1)
+	if(strcmp(cmd, "reset") == 0)
 	{
 		DBG_INFO("HW Reset");
 		ilitek_platform_tp_hw_reset(true);
 	}
-	else if(cmd[0] == 0x02)
+	else if(strcmp(cmd, "disirq") == 0)
 	{
 		DBG_INFO("Disable IRQ");
 		ilitek_platform_disable_irq();
 	}
-	else if(cmd[0] == 0x03)
+	else if(strcmp(cmd, "enairq") == 0)
 	{
 		DBG_INFO("Enable IRQ");
 		ilitek_platform_enable_irq();
 	}
-	else if(cmd[0] == 0x04)
+	else if(strcmp(cmd, "getchip") == 0)
 	{
 		DBG_INFO("Get Chip id");
 		core_config_get_chip_id();
+	}
+	else if(strcmp(cmd, "enapower") == 0)
+	{
+		DBG_INFO("Start the thread of check power status");
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		ipd->isEnablePollCheckPower = true;
+	}
+	else if(strcmp(cmd, "dispower") == 0)
+	{
+		DBG_INFO("Cancel the thread of check power status");
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		ipd->isEnablePollCheckPower = false;	
 	}
 
 	return size;	

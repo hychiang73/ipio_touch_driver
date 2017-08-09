@@ -38,6 +38,9 @@
 #include <linux/delay.h>
 #include <linux/version.h>
 #include <linux/regulator/consumer.h>
+#include <linux/power_supply.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
 
 #include "chip.h"
 #include "core/config.h"
@@ -85,7 +88,8 @@ struct ilitek_platform_data {
 	int delay_time_low;
 	int edge_delay;
 
-	bool isIrqEnable;
+	bool isEnableIRQ;
+	bool isEnablePollCheckPower;
 
 #ifdef CONFIG_FB
 	struct notifier_block notifier_fb;
@@ -93,6 +97,16 @@ struct ilitek_platform_data {
 	struct early_suspend early_suspend;
 #endif
 
+	/* obtain msg when battery status has changed */
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 0)
+	struct notifier_block vpower_nb;
+	struct power_supply *vpower_supply;
+#else
+	struct delayed_work check_power_status_work;
+	struct workqueue_struct *check_power_status_queue;
+	unsigned long work_delay;
+#endif
+	bool vpower_reg_nb;
 };
 
 extern struct ilitek_platform_data *ipd;

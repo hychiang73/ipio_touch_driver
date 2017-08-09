@@ -34,6 +34,7 @@
 #endif
 
 #define I2C_DEVICE_ID	"ILITEK_TP_ID"
+#define POWER_STATUS_PATH "/sys/class/power_supply/battery/status"
 
 struct ilitek_platform_data *ipd;
 
@@ -43,12 +44,12 @@ void ilitek_platform_disable_irq(void)
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
-	if (ipd->isIrqEnable == true)
+	if (ipd->isEnableIRQ == true)
 	{
 		if (ipd->isr_gpio)
 		{
 			disable_irq_nosync(ipd->isr_gpio);
-			ipd->isIrqEnable = false;
+			ipd->isEnableIRQ = false;
 			DBG_INFO("IRQ was disabled");
 		}
 		else
@@ -71,12 +72,12 @@ void ilitek_platform_enable_irq(void)
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
-	if (ipd->isIrqEnable == false)
+	if (ipd->isEnableIRQ == false)
 	{
 		if (ipd->isr_gpio)
 		{
 			enable_irq(ipd->isr_gpio);
-			ipd->isIrqEnable = true;
+			ipd->isEnableIRQ = true;
 			DBG_INFO("IRQ was enabled");
 		}
 		else
@@ -163,6 +164,64 @@ void ilitek_regulator_power_on(bool status)
 EXPORT_SYMBOL(ilitek_regulator_power_on);
 #endif
 
+static void read_power_status(uint8_t *buf)
+{
+	struct file *f = NULL;
+	mm_segment_t old_fs;
+	ssize_t byte = 0;
+
+	old_fs = get_fs();
+	set_fs(get_ds());
+
+	f = filp_open(POWER_STATUS_PATH, O_RDONLY, 0);
+	if(IS_ERR(f))
+	{
+		DBG_ERR("Failed to open %s", POWER_STATUS_PATH);
+		return;
+	}
+
+	f->f_op->llseek(f, 0, SEEK_SET);
+	byte = f->f_op->read(f, buf, 20, &f->f_pos);
+	
+	DBG_INFO("Read %d bytes", byte);
+
+	set_fs(old_fs);
+	filp_close(f, NULL);
+}
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 0)
+static int ilitek_platform_vpower_notify(struct notifier_block *self,
+									   unsigned long event, void *data)
+{
+	uint8_t charge_status[20] = {0};
+	
+	DBG_INFO("vpower notifier event : %ld", event);
+	
+	if(event == PSY_EVENT_PROP_CHANGED)
+	{
+		DBG_INFO("PSY's proerpty has changed");
+		read_power_status(charge_status);
+	}
+
+	DBG_INFO("Batter Status: %s", charge_status);
+	return NOTIFY_OK;
+}
+#else
+static void ilitek_platform_vpower_notify(struct work_struct *pWork)
+{
+	uint8_t charge_status[20] = {0};
+
+	DBG_INFO("Being called vpower notify %u jiffies", (unsigned)ipd->work_delay);
+	DBG_INFO("isEnableCheckPower = %d", ipd->isEnableCheckPower);
+
+	read_power_status(charge_status);
+	DBG_INFO("Batter Status: %s", charge_status);
+	if(ipd->isEnableCheckPower)
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+	return;
+}
+#endif
+
 #ifdef CONFIG_FB
 static int ilitek_platform_notifier_fb(struct notifier_block *self,
 									   unsigned long event, void *data)
@@ -193,7 +252,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 		}
 	}
 
-	return 0;
+	return NOTIFY_OK;
 }
 #else // CONFIG_HAS_EARLYSUSPEND
 static void ilitek_platform_late_resume(struct early_suspend *h)
@@ -225,6 +284,51 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 }
 #endif
 
+/**
+ * reg_power_check - register a thread or notifier function to check
+ * power/battery status.
+ *
+ * Here is two methods to check battery status; one checkes status after obtained
+ * notification from kernel, another uses a thread to inquery status at certain time. 
+ */
+static int ilitek_platform_reg_power_check(void)
+{
+	int res = 0;
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 0)
+	ipd->vpower_nb.notifier_call = ilitek_platform_vpower_notify;
+	res = power_supply_reg_notifier(&ipd->vpower_nb);
+	if(res < 0)
+	{
+		DBG_ERR("Failed to register power supply notifier");
+		ipd->vpower_reg_nb = false;
+	}
+	else
+	{
+		DBG_INFO("Succeed to register power supply notifier");
+		ipd->vpower_reg_nb = true;
+	}
+#else
+	INIT_DELAYED_WORK(&ipd->check_power_status_work, ilitek_platform_vpower_notify);
+	ipd->check_power_status_queue = create_workqueue("ilitek_check_power_status");
+	ipd->work_delay = msecs_to_jiffies(5000);
+	if(!ipd->check_power_status_queue)
+	{
+		DBG_ERR("Failed to create a work thread to check power status");
+		ipd->vpower_reg_nb = false;
+		res = -1;
+	}
+	else
+	{
+		DBG_INFO("Created a work thread to check power status at every %u jiffies", (unsigned)ipd->work_delay);
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		ipd->vpower_reg_nb = true;
+		res = 0;
+	}
+#endif
+	return res;
+}
+
 /*
  * Register a callback function when the event of suspend and resume occurs.
  *
@@ -245,7 +349,7 @@ static int ilitek_platform_reg_suspend(void)
 	ipd->early_suspend->suspend = ilitek_platform_early_suspend;
 	ipd->early_suspend->esume = ilitek_platform_late_resume;
 	ipd->early_suspend->level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	register_early_suspend(ipd->early_suspend);
+	res = register_early_suspend(ipd->early_suspend);
 #endif
 
 	return res;
@@ -255,16 +359,16 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 {
 	unsigned long nIrqFlag;
 
-	DBG("IRQ = %d", ipd->isIrqEnable);
+	DBG("IRQ = %d", ipd->isEnableIRQ);
 
 	core_fr_handler();
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
-	if (!ipd->isIrqEnable)
+	if (!ipd->isEnableIRQ)
 	{
 		enable_irq(ipd->isr_gpio);
-		ipd->isIrqEnable = true;
+		ipd->isEnableIRQ = true;
 	}
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
@@ -274,16 +378,16 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
 	unsigned long nIrqFlag;
 
-	DBG("IRQ = %d", ipd->isIrqEnable);
+	DBG("IRQ = %d", ipd->isEnableIRQ);
 
 	schedule_work(&ipd->report_work_queue);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
-	if (ipd->isIrqEnable)
+	if (ipd->isEnableIRQ)
 	{
 		disable_irq_nosync(ipd->isr_gpio);
-		ipd->isIrqEnable = false;
+		ipd->isEnableIRQ = false;
 	}
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
@@ -316,7 +420,7 @@ static int ilitek_platform_isr_register(void)
 		goto out;
 	}
 
-	ipd->isIrqEnable = true;
+	ipd->isEnableIRQ = true;
 
 out:
 	return res;
@@ -476,12 +580,12 @@ static int ilitek_platform_remove(struct i2c_client *client)
 {
 	DBG("Remove platform components");
 
-	if (ipd->isIrqEnable)
+	if(ipd->isEnableIRQ)
 	{
 		disable_irq_nosync(ipd->isr_gpio);
 	}
 
-	if (ipd->isr_gpio != 0 && ipd->int_gpio != 0 && ipd->reset_gpio != 0)
+	if(ipd->isr_gpio != 0 && ipd->int_gpio != 0 && ipd->reset_gpio != 0)
 	{
 		free_irq(ipd->isr_gpio, (void *)ipd->i2c_id);
 		gpio_free(ipd->int_gpio);
@@ -496,10 +600,19 @@ static int ilitek_platform_remove(struct i2c_client *client)
 
 	ilitek_platform_core_remove();
 
-	if (ipd->input_device != NULL)
+	if(ipd->input_device != NULL)
 	{
 		input_unregister_device(ipd->input_device);
 		input_free_device(ipd->input_device);
+	}
+
+	if(ipd->vpower_reg_nb)
+	{
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 0)
+		power_supply_unreg_notifier(&ipd->vpower_nb);
+#else
+		destroy_workqueue(ipd->check_power_status_queue);
+#endif
 	}
 
 	kfree(ipd);
@@ -534,7 +647,8 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ipd->client = client;
 	ipd->i2c_id = id;
 	ipd->chip_id = ON_BOARD_IC; // it must match the chip what you're using on board.
-	ipd->isIrqEnable = false;
+	ipd->isEnableIRQ = false;
+	ipd->isEnablePollCheckPower = false;
 
 	DBG_INFO("Driver version : %s", DRIVER_VERSION);
 	DBG_INFO("This driver now supports %x ", ON_BOARD_IC);
@@ -632,9 +746,11 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	res = ilitek_platform_reg_suspend();
 	if (res < 0)
-	{
 		DBG_ERR("Failed to register suspend/resume CB function");
-	}
+
+	res = ilitek_platform_reg_power_check();
+	if(res < 0)
+		DBG_ERR("Failed to register power check function");
 
 	return res;
 
