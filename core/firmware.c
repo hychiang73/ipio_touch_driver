@@ -65,7 +65,15 @@ struct flash_sector
 	bool data_flag;
 };
 
+struct flash_block_info
+{
+	char *block_name;
+	uint32_t start_addr;
+	uint32_t end_addr;
+};
+
 struct flash_sector *ffls;
+struct flash_block_info fbi[4];
 struct core_firmware_data *core_firmware;
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
@@ -293,7 +301,7 @@ out:
 	return res;
 }
 
-static int tddi_polling_flash_busy(void)
+static int flash_polling_busy(void)
 {
 	int timer = 500;
 
@@ -337,6 +345,154 @@ static int flash_write_enable(void)
 out:
 	DBG_ERR("Write enable failed !");
 	return -EIO;
+}
+
+static int flahs_program_sector(void)
+{
+	int i, j, res = 0;
+	uint32_t k;
+	uint8_t buf[512] = {0};
+
+	for(i = 0; i < sec_length + 1; i++)
+	{
+		if(!ffls[i].data_flag)
+				continue;
+	
+		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= flashtab->program_page)
+		{
+			res = flash_write_enable();
+			if (res < 0)
+				goto out;
+
+			// CS low
+			core_config_ice_mode_write(0x041000, 0x0, 1);
+			core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+			core_config_ice_mode_write(0x041008, 0x02, 1);
+
+			core_config_ice_mode_write(0x041008, (j & 0xFF0000) >> 16, 1); //Addr_H
+			core_config_ice_mode_write(0x041008, (j & 0x00FF00) >> 8, 1);  //Addr_M
+			core_config_ice_mode_write(0x041008, (j & 0x0000FF), 1);	   //Addr_L
+
+			buf[0] = 0x25;
+			buf[3] = 0x04;
+			buf[2] = 0x10;
+			buf[1] = 0x08;
+
+			for (k = 0; k < flashtab->program_page; k++)
+			{
+				if (j + k <= core_firmware->end_addr)
+					buf[4 + k] = flash_fw[j + k];
+			}
+
+			if (core_i2c_write(core_config->slave_i2c_addr, buf, flashtab->program_page + 4) < 0)
+			{
+				DBG_ERR("Failed to write data at j = 0x%X, k = 0x%X, addr = 0x%x", 
+							j, k, j+k);
+				res = -EIO;
+				goto out;
+			}
+
+			// CS high
+			core_config_ice_mode_write(0x041000, 0x1, 1);
+
+			res = flash_polling_busy();
+			if (res < 0)
+				goto out;
+
+			// holding the status until finish this upgrade.
+			if(core_firmware->update_status > 90)
+				continue;
+
+			core_firmware->update_status = (j * 101) / core_firmware->end_addr;
+			printk("%cUpgrading firmware ... (0x%x...0x%x), %02d%c", 0x0D, ffls[i].ss_addr, ffls[i].se_addr, core_firmware->update_status, '%');
+		}
+	}
+
+out:
+	return res;
+}
+
+static int flash_erase_sector(void)
+{
+	int i, j, res = 0;
+	uint32_t temp_buf = 0;
+
+	for(i = 0; i < sec_length + 1; i++)
+	{
+		if(!ffls[i].data_flag)
+		{
+			for(j = 0; j < 4; j++)
+			{
+				if(strcmp(fbi[j].block_name, "AP") == 0)
+				{
+					if(ffls[i].se_addr <= fbi[j].end_addr)
+					{
+						DBG_INFO("0x%x is still erased", ffls[i].ss_addr);
+						/* do nothing */
+					}
+					else
+					{
+						DBG_INFO("0x%x won't be erased", ffls[i].ss_addr);
+						continue;
+					}
+				}
+				else
+				{
+					DBG_INFO("This block info is not ready yet %s, not erased", fbi[j].block_name);
+					continue;
+				}
+			}
+		}
+
+		res = flash_write_enable();
+		if (res < 0)
+		{
+			DBG_ERR("Failed to config write enable");
+			goto out;
+		}
+
+		// CS low
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x20, 1);
+
+		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0xFF0000) >> 16, 1);//Addr_H
+		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0x00FF00) >> 8, 1); //Addr_M
+		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0x0000FF), 1); //Addr_L
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+
+		mdelay(1);
+
+		res = flash_polling_busy();
+		if (res < 0)
+		{
+			DBG_ERR("TIME OUT");
+			goto out;
+		}
+
+		// CS low
+		core_config_ice_mode_write(0x041000, 0x0, 1);
+		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+		core_config_ice_mode_write(0x041008, 0x3, 1);
+
+		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0xFF0000) >> 16, 1);//Addr_H
+		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0x00FF00) >> 8, 1); //Addr_M
+		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0x0000FF), 1); //Addr_L
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+
+		temp_buf = core_config_read_write_onebyte(0x041010);
+
+		if (temp_buf != 0xFF)
+			DBG_ERR("Failed to read data at 0x%x ", i);
+
+		// CS High
+		core_config_ice_mode_write(0x041000, 0x1, 1);
+
+		DBG_INFO("Earsing data at start addr: %x ", ffls[i].ss_addr );
+	}
+
+out:
+	return res;
 }
 
 static int iram_upgrade(void)
@@ -415,12 +571,7 @@ static int iram_upgrade(void)
 
 static int tddi_fw_upgrade(bool isIRAM)
 {
-	int i, j, res = 0;
-	uint8_t buf[512] = {0};
-	uint32_t temp_buf = 0, k;
-	uint32_t start_addr = core_firmware->start_addr;
-	uint32_t end_addr = core_firmware->end_addr;
-	int upl = flashtab->program_page;
+	int res = 0;
 
 	if (isIRAM)
 	{
@@ -457,122 +608,20 @@ static int tddi_fw_upgrade(bool isIRAM)
 	if (core_config->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
-	DBG_INFO("Erasing Flash data ...");
-	for(i = 0; i < sec_length + 1; i++)
+	res = flash_erase_sector();
+	if(res < 0)
 	{
-		if(!ffls[i].data_flag)
-			continue;
-
-		res = flash_write_enable();
-		if (res < 0)
-		{
-			DBG_ERR("Failed to config write enable");
-			goto out;
-		}
-
-		// CS low
-		core_config_ice_mode_write(0x041000, 0x0, 1);
-		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
-		core_config_ice_mode_write(0x041008, 0x20, 1);
-
-		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0xFF0000) >> 16, 1);//Addr_H
-		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0x00FF00) >> 8, 1); //Addr_M
-		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0x0000FF), 1); //Addr_L
-		core_config_ice_mode_write(0x041000, 0x1, 1);
-
-		mdelay(1);
-
-		res = tddi_polling_flash_busy();
-		if (res < 0)
-		{
-			DBG_ERR("TIME OUT");
-			goto out;
-		}
-
-		// CS low
-		core_config_ice_mode_write(0x041000, 0x0, 1);
-		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
-		core_config_ice_mode_write(0x041008, 0x3, 1);
-
-		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0xFF0000) >> 16, 1);//Addr_H
-		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0x00FF00) >> 8, 1); //Addr_M
-		core_config_ice_mode_write(0x041008, (ffls[i].ss_addr & 0x0000FF), 1); //Addr_L
-		core_config_ice_mode_write(0x041008, 0xFF, 1);
-
-		temp_buf = core_config_read_write_onebyte(0x041010);
-
-		if (temp_buf != 0xFF)
-			DBG_ERR("Failed to read data at 0x%x ", i);
-
-		// CS High
-		core_config_ice_mode_write(0x041000, 0x1, 1);
-
-		DBG_INFO("Earsing data at start addr: %x ", ffls[i].ss_addr );
+		DBG_ERR("Failed to erase flash");
+		goto out;
 	}
 
 	mdelay(1);
 
-	//write data into flash
-	DBG_INFO("Writing data into flash ...");
-	for(i = 0; i < sec_length + 1; i++)
+	res = flahs_program_sector();
+	if(res < 0)
 	{
-		if(!ffls[i].data_flag)
-			continue;
-	
-		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= upl)
-		{
-			res = flash_write_enable();
-			if (res < 0)
-			{
-				DBG_ERR("Failed to config write enable");
-				goto out;
-			}	
-
-			// CS low
-			core_config_ice_mode_write(0x041000, 0x0, 1);
-			core_config_ice_mode_write(0x041004, 0x66aa55, 3);
-			core_config_ice_mode_write(0x041008, 0x02, 1);
-
-			core_config_ice_mode_write(0x041008, (j & 0xFF0000) >> 16, 1); //Addr_H
-			core_config_ice_mode_write(0x041008, (j & 0x00FF00) >> 8, 1);  //Addr_M
-			core_config_ice_mode_write(0x041008, (j & 0x0000FF), 1);	   //Addr_L
-
-			buf[0] = 0x25;
-			buf[3] = 0x04;
-			buf[2] = 0x10;
-			buf[1] = 0x08;
-
-			for (k = 0; k < upl; k++)
-			{
-				if (j + k <= end_addr)
-					buf[4 + k] = flash_fw[j + k];
-			}
-
-			if (core_i2c_write(core_config->slave_i2c_addr, buf, upl + 4) < 0)
-			{
-				DBG_ERR("Failed to write data at address = 0x%X, start_addr = 0x%X, end_addr = 0x%X", 
-							(int)i, (int)start_addr, (int)end_addr);
-				res = -EIO;
-				goto out;
-			}
-
-			// CS high
-			core_config_ice_mode_write(0x041000, 0x1, 1);
-
-			res = tddi_polling_flash_busy();
-			if (res < 0)
-			{
-				DBG_ERR("TIME OUT");
-				goto out;
-			}
-
-			// holding the status until finish this upgrade.
-			if(core_firmware->update_status > 90)
-				continue;
-
-			core_firmware->update_status = (j * 101) / end_addr;
-			printk("%cUpgrading firmware ... (0x%x...0x%x), %02d%c", 0x0D, ffls[i].ss_addr, ffls[i].se_addr, core_firmware->update_status, '%');
-		}
+		DBG_ERR("Failed to program flash");
+		goto out;
 	}
 
 	// We do have to reset chip in order to move new code from flash to iram.
@@ -613,7 +662,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0,nExAddr = 0;
 	uint32_t CRC32 = 0;
 
-	int index = 0;
+	int index = 0, block = 0;
 	uint32_t fpz = flashtab->sector;
 	uint32_t max_flash_size = flashtab->mem_size;
 
@@ -648,6 +697,19 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		{
 			nExAddr = HexToDec(&pBuf[i + 9], 4);
 			nExAddr = nExAddr >> 12;
+		}
+
+		if (nType == 0xAE)
+		{
+			/* insert block info extracted from hex */
+			if(block < 4)
+			{
+				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
+				fbi[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
+				DBG_INFO("fbi[%d].name = %s, start_addr = %x, end = %x", 
+					block, fbi[block].block_name, fbi[block].start_addr, fbi[block].end_addr);
+			}
+			block++;
 		}
 
 		nAddr = nAddr + (nExAddr << 16);
@@ -819,7 +881,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			else
 			{
 				// calling that function defined at init depends on chips.
-				res = core_firmware->upgrade_func(isIRAM);				
+				res = core_firmware->upgrade_func(isIRAM);
 				if (res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
@@ -866,6 +928,21 @@ int core_firmware_init(void)
 		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
+
+			/* set default address in each block */
+			fbi[0].block_name = "AP";
+			fbi[0].start_addr = 0x0;
+			fbi[0].end_addr = 0xFFFF;
+			// the below are fakse addresses, just for test
+			fbi[1].block_name = "MP";
+			fbi[1].start_addr = 0x10000;
+			fbi[1].end_addr = 0x12000;
+			fbi[2].block_name = "Driver";
+			fbi[2].start_addr = 0x12000;
+			fbi[2].end_addr = 0x14000;
+			fbi[3].block_name = "Gesture";
+			fbi[3].start_addr = 0x14000;
+			fbi[3].end_addr = 0x16000;
 
 			for (j = 0; j < 4; j++)
 			{

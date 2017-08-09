@@ -212,11 +212,11 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 	uint8_t charge_status[20] = {0};
 
 	DBG_INFO("Being called vpower notify %u jiffies", (unsigned)ipd->work_delay);
-	DBG_INFO("isEnableCheckPower = %d", ipd->isEnableCheckPower);
+	DBG_INFO("isEnableCheckPower = %d", ipd->isEnablePollCheckPower);
 
 	read_power_status(charge_status);
 	DBG_INFO("Batter Status: %s", charge_status);
-	if(ipd->isEnableCheckPower)
+	if(ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	return;
 }
