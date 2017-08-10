@@ -321,7 +321,8 @@ static int ilitek_platform_reg_power_check(void)
 	else
 	{
 		DBG_INFO("Created a work thread to check power status at every %u jiffies", (unsigned)ipd->work_delay);
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		if(ipd->isEnablePollCheckPower)
+			queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 		ipd->vpower_reg_nb = true;
 		res = 0;
 	}
@@ -611,6 +612,7 @@ static int ilitek_platform_remove(struct i2c_client *client)
 #if LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 0)
 		power_supply_unreg_notifier(&ipd->vpower_nb);
 #else
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
 		destroy_workqueue(ipd->check_power_status_queue);
 #endif
 	}
