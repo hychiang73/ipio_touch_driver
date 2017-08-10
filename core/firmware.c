@@ -347,7 +347,7 @@ out:
 	return -EIO;
 }
 
-static int flahs_program_sector(void)
+static int flash_program_sector(void)
 {
 	int i, j, res = 0;
 	uint32_t k;
@@ -360,6 +360,9 @@ static int flahs_program_sector(void)
 	
 		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= flashtab->program_page)
 		{
+			if(j > core_firmware->end_addr)
+				goto out;
+
 			res = flash_write_enable();
 			if (res < 0)
 				goto out;
@@ -382,6 +385,8 @@ static int flahs_program_sector(void)
 			{
 				if (j + k <= core_firmware->end_addr)
 					buf[4 + k] = flash_fw[j + k];
+				else
+					buf[4 + k] = 0xFF;
 			}
 
 			if (core_i2c_write(core_config->slave_i2c_addr, buf, flashtab->program_page + 4) < 0)
@@ -414,35 +419,13 @@ out:
 
 static int flash_erase_sector(void)
 {
-	int i, j, res = 0;
+	int i, res = 0;
 	uint32_t temp_buf = 0;
 
 	for(i = 0; i < sec_length + 1; i++)
 	{
 		if(!ffls[i].data_flag)
-		{
-			for(j = 0; j < 4; j++)
-			{
-				if(strcmp(fbi[j].block_name, "AP") == 0)
-				{
-					if(ffls[i].se_addr <= fbi[j].end_addr)
-					{
-						DBG_INFO("0x%x is still erased", ffls[i].ss_addr);
-						/* do nothing */
-					}
-					else
-					{
-						DBG_INFO("0x%x won't be erased", ffls[i].ss_addr);
-						continue;
-					}
-				}
-				else
-				{
-					DBG_INFO("This block info is not ready yet %s, not erased", fbi[j].block_name);
-					continue;
-				}
-			}
-		}
+			continue;
 
 		res = flash_write_enable();
 		if (res < 0)
@@ -617,7 +600,7 @@ static int tddi_fw_upgrade(bool isIRAM)
 
 	mdelay(1);
 
-	res = flahs_program_sector();
+	res = flash_program_sector();
 	if(res < 0)
 	{
 		DBG_ERR("Failed to program flash");
@@ -854,9 +837,9 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			}
 
 			hex_buffer = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
-			flash_fw = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
+			flash_fw = kzalloc(sizeof(uint8_t) * flashtab->mem_size, GFP_KERNEL);
 			memset(flash_fw, 0xff, (int)sizeof(flash_fw));
-			Ssize = fsize / flashtab->sector;
+			Ssize = flashtab->mem_size / flashtab->sector;
 			ffls = kcalloc(Ssize, sizeof(uint32_t) * Ssize, GFP_KERNEL);
 
 			// store current userspace mem segment.
