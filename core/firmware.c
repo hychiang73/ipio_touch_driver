@@ -643,7 +643,6 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	uint32_t i = 0, j = 0, k = 0;
 	uint32_t nLength = 0, nAddr = 0, nType = 0;
 	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0,nExAddr = 0;
-	uint32_t CRC32 = 0;
 
 	int index = 0, block = 0;
 	uint32_t fpz = flashtab->sector;
@@ -764,11 +763,6 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	{
 		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d", 
 		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag );
-	}
-
-	if (core_firmware->isCRC == true && isIRAM == false)
-	{
-		CRC32 = calc_crc32(nStartAddr, nEndAddr-1, flash_fw);
 	}
 
 	core_firmware->start_addr = nStartAddr;
