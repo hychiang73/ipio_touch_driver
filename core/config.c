@@ -158,6 +158,7 @@ static uint32_t check_chip_id(uint32_t pid_data)
 	else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 	{
 		id = pid_data >> 16;
+		core_config->ic_reset_addr = 0x040050;
 	}
 	else
 	{
@@ -286,28 +287,33 @@ uint32_t vfIceRegRead(uint32_t addr)
 EXPORT_SYMBOL(vfIceRegRead);
 
 /*
- * Doing soft reset on a touch IC.
+ * Doing soft reset on ic.
  *
- * At the upgrade firmware stage, calling this function will move new code from flash to iram
- * and run it after touch ic been reseted.
+ * It resets ic's status, moves code and leave ice mode automatically if in
+ * that mode.
  */
-int core_config_ic_reset(void)
+void core_config_ic_reset(void)
 {
-	DBG_INFO("0x%x doing soft reset ", core_config->chip_id);
+	uint32_t key = 0;
 
 	if (core_config->chip_id == CHIP_TYPE_ILI7807)
 	{
 		if(core_config->chip_type == ILI7807_TYPE_H)
-			return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00117807, 4);
+			key = 0x00117807;
 		else
-			return core_config_ice_mode_write(core_config->ic_reset_addr, 0x00017807, 4);
+			key = 0x00017807;
 	}
-	else if (core_config->chip_id == CHIP_TYPE_ILI9881)
-		return core_config_ice_mode_write(0x40050, 0x00019881, 4);
-	else
+	if (core_config->chip_id == CHIP_TYPE_ILI9881)
 	{
-		DBG_ERR("This chip (0x%x) doesn't support the feature", core_config->chip_id);
-		return -1;
+		key = 0x00019881;
+	}
+
+	DBG_INFO("key = 0x%x", key);
+	if(key != 0)
+	{
+		core_config->do_ic_reset = true;
+		core_config_ice_mode_write(core_config->ic_reset_addr, key, 4);
+		core_config->do_ic_reset = false;
 	}
 }
 EXPORT_SYMBOL(core_config_ic_reset);
@@ -767,6 +773,7 @@ int core_config_init(void)
 
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0x0000;
+			core_config->do_ic_reset = false;
 
 			if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{

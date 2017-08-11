@@ -80,7 +80,7 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 
 	len = sprintf(buff, "%02d", core_firmware->update_status);
 
-	DBG("update status = %d \n", core_firmware->update_status);
+	DBG_INFO("update status = %d \n", core_firmware->update_status);
 
 	res = copy_to_user((uint32_t *)buff, &core_firmware->update_status, len);
 	if (res < 0)
@@ -107,7 +107,7 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 
 	len = sprintf(buff, "%d", core_firmware->isUpgraded);
 
-	DBG("isUpgraded = %d \n", core_firmware->isUpgraded);
+	DBG_INFO("isUpgraded = %d \n", core_firmware->isUpgraded);
 
 	res = copy_to_user((uint32_t *)buff, &core_firmware->isUpgraded, len);
 	if (res < 0)
@@ -192,28 +192,113 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 	return len;
 }
 
-// This node is used to debug without coding a user application.
-static ssize_t ilitek_proc_write_ioctl(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+// for debug
+static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
-	uint8_t cmd[128] = {0};
+	uint32_t len = 0;
+	uint8_t cmd[2] = {0};
 
-	DBG_INFO();
-
-	res = copy_from_user(cmd, buff, size - 1);
-	if(res < 0)
+	if (*pPos != 0)
 	{
-		DBG_INFO("copy data from user space, failed");
-		return -1;
+		return 0;
 	}
+
+	if(size < 4095)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %d", (int)size, cmd[0]);
+
+	// test
+	if(cmd[0] == 0x1)
+	{
+		DBG_INFO("HW Reset");
+		ilitek_platform_tp_hw_reset(true);
+	}
+	else if(cmd[0] == 0x02)
+	{
+		DBG_INFO("Disable IRQ");
+		ilitek_platform_disable_irq();
+	}
+	else if(cmd[0] == 0x03)
+	{
+		DBG_INFO("Enable IRQ");
+		ilitek_platform_enable_irq();
+	}
+	else if(cmd[0] == 0x04)
+	{
+		DBG_INFO("Get Chip id");
+		core_config_get_chip_id();
+	}
+
+	*pPos = len;
+
+	return len;
+}
+
+// for debug
+static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint8_t cmd[10] = {0};
+
+	if(size < 4095)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
 
 	if(strcmp(cmd, "reset") == 0)
 	{
-		DBG_INFO("HW RESET");
+		DBG_INFO("HW Reset");
 		ilitek_platform_tp_hw_reset(true);
 	}
+	else if(strcmp(cmd, "disirq") == 0)
+	{
+		DBG_INFO("Disable IRQ");
+		ilitek_platform_disable_irq();
+	}
+	else if(strcmp(cmd, "enairq") == 0)
+	{
+		DBG_INFO("Enable IRQ");
+		ilitek_platform_enable_irq();
+	}
+	else if(strcmp(cmd, "getchip") == 0)
+	{
+		DBG_INFO("Get Chip id");
+		core_config_get_chip_id();
+	}
+	else if(strcmp(cmd, "enapower") == 0)
+	{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)
+		DBG_INFO("Start the thread of check power status");
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		ipd->isEnablePollCheckPower = true;
+#endif
+	}
+	else if(strcmp(cmd, "dispower") == 0)
+	{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)
+		DBG_INFO("Cancel the thread of check power status");
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		ipd->isEnablePollCheckPower = false;
+#endif	
+	}
 
-	return size;
+	return size;	
 }
 
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -259,14 +344,14 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		res = core_i2c_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
 		if (res < 0)
 		{
-			DBG_INFO("Failed to read data via i2c");
+			DBG_ERR("Failed to read data via i2c");
 		}
 		else
 		{
 			res = copy_to_user((uint8_t *)arg, szBuf, i2c_rw_length);
 			if (res < 0)
 			{
-				DBG_INFO("Failed to copy data to user space");
+				DBG_ERR("Failed to copy data to user space");
 			}
 		}
 		break;
@@ -295,12 +380,12 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if (szBuf[0])
 			{
 				core_fr->isEnableFR = true;
-				DBG_INFO("Function of finger report was enabled");
+				DBG("Function of finger report was enabled");
 			}
 			else
 			{
 				core_fr->isEnableFR = false;
-				DBG_INFO("Function of finger report was disabled");
+				DBG("Function of finger report was disabled");
 			}
 		}
 		break;
@@ -391,7 +476,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			res = copy_to_user((uint8_t *)arg, szBuf, length);
 			if (res < 0)
 			{
-				DBG_INFO("Failed to copy driver ver to user space");
+				DBG_ERR("Failed to copy driver ver to user space");
 			}
 		}
 		break;
@@ -482,7 +567,8 @@ struct proc_dir_entry *proc_iram_upgrade;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
-	.write = ilitek_proc_write_ioctl,
+	.read = ilitek_proc_ioctl_read,
+	.write = ilitek_proc_ioctl_write,
 };
 
 struct file_operations proc_fw_status_fops = {

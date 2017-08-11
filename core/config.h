@@ -83,6 +83,8 @@ struct core_config_data
 
 	uint32_t ic_reset_addr;
 
+	bool	do_ic_reset;
+
 	TP_INFO *tp_info;
 };
 
@@ -100,7 +102,7 @@ extern uint32_t core_config_read_write_onebyte(uint32_t addr);
 extern int core_config_reset_watch_dog(void);
 extern void core_config_ic_suspend(void);
 extern void core_config_ic_resume(void);
-extern int core_config_ic_reset(void);
+extern void core_config_ic_reset(void);
 
 extern uint32_t core_config_ice_mode_read(uint32_t addr);
 extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);

@@ -31,7 +31,7 @@
 #define ON_BOARD_IC		0x9881
 
 // Shows the version of driver
-#define DRIVER_VERSION	"1.0.0.6"
+#define DRIVER_VERSION	"1.0.0.7"
 
 // In kernel pr_debug is disabled as default, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
 // in terminal to enable it if you'd like to see more debug details. 

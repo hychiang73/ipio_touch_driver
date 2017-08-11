@@ -30,15 +30,17 @@ struct core_fr_data
 	struct input_dev *input_device;
 
 	/* the default of finger report is enabled */
-	int isEnableFR;
+	bool isEnableFR;
 	/* used to send finger report packet to user psace */
-	int isEnableNetlink;
+	bool isEnableNetlink;
 	/* for Linux multi-touch protocol */
-	int btype;
+	bool btype;
 	/* enable Gesture with virtual keys */
-	int isEnableGes;
+	bool isEnableGes;
 	/* allow input dev to report the value of physical touch */
-	int isEnablePressure;
+	bool isEnablePressure;
+	/* get screen resloution from fw if it's true*/
+	bool isSetResolution;
 	/* used to change I2C Uart Mode when fw mode is in this mode */
 	uint8_t i2cuart_mode;
 
