@@ -150,6 +150,14 @@ static int ilitek_platform_gpio(void)
 
 # Release Note
 
+* V1.0.0.7
+  * Fixed issue of showing upgrade status while using APK
+  * Added a flag to enable if resolution is set by default or fw
+  * support the length of i2cuart and send to users with one package
+  * i2c error is no long showing up if doing ic reset
+  * Added a feature to check battery status 
+  * fixed the error while programming fw (garbage data left)
+
 * V1.0.0.6
   * Finger report won't send to user if checksum error occurs
   * Fixed the error sometimer work queue couldn't be executed while interrupting
