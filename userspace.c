@@ -214,7 +214,7 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 		}
 	}
 
-	DBG_INFO("size = %d, cmd = %d",size, cmd[0]);
+	DBG_INFO("size = %d, cmd = %d", (int)size, cmd[0]);
 
 	// test
 	if(cmd[0] == 0x1)
@@ -259,7 +259,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		}
 	}
 
-	DBG_INFO("size = %d, cmd = %s",size, cmd);
+	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
 
 	if(strcmp(cmd, "reset") == 0)
 	{
@@ -283,15 +283,19 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 	else if(strcmp(cmd, "enapower") == 0)
 	{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)
 		DBG_INFO("Start the thread of check power status");
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 		ipd->isEnablePollCheckPower = true;
+#endif
 	}
 	else if(strcmp(cmd, "dispower") == 0)
 	{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)
 		DBG_INFO("Cancel the thread of check power status");
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
-		ipd->isEnablePollCheckPower = false;	
+		ipd->isEnablePollCheckPower = false;
+#endif	
 	}
 
 	return size;	

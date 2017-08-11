@@ -183,7 +183,7 @@ static void read_power_status(uint8_t *buf)
 	f->f_op->llseek(f, 0, SEEK_SET);
 	byte = f->f_op->read(f, buf, 20, &f->f_pos);
 	
-	DBG_INFO("Read %d bytes", byte);
+	DBG_INFO("Read %d bytes", (int)byte);
 
 	set_fs(old_fs);
 	filp_close(f, NULL);
