@@ -414,7 +414,15 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_FUNC_MODE:
-		DBG_INFO("Not implemented yet");
+		res = copy_from_user(szBuf, (uint8_t *)arg, 2);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy data from user space");
+		}
+		else
+		{
+			core_config_func_ctrl(szBuf);
+		}
 		break;
 
 	case ILITEK_IOCTL_TP_FW_VER:

@@ -131,6 +131,58 @@ static void read_flash_info(uint8_t cmd, int len)
 	core_flash_init(flash_mid, flash_id);
 }
 
+static void tddi_sleep_ctrl(uint8_t *cmd)
+{
+	int timer = 50;
+	uint8_t sense_stop[2] = {0x1, 0x0};
+	uint8_t sense_start[2] = {0x1, 0x01};
+	uint8_t busy = 0, in_out = cmd[2];
+
+	DBG_INFO("cmd = %x, %x, %x", cmd[0],cmd[1],cmd[2]);
+ 	DBG_INFO("in_out = %x", in_out);
+
+	if(in_out)
+	{
+		/* sense stop for TP */
+		core_i2c_write(core_config->slave_i2c_addr, sense_stop, 2);
+
+		/* check system busy */
+		while(timer > 0)
+		{
+			mdelay(10);
+			busy = core_config_check_cdc_busy();
+			if(busy == 0x41)
+				break;
+			timer--;
+		}
+		/* waiting for DDI sleep in */
+		mdelay(100);
+
+		/* sleep in if system is ready */
+		core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
+	}
+	else
+	{
+		/* sleep out */
+		core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
+
+		/* check system busy */
+		while(timer > 0)
+		{
+			mdelay(10);
+			busy = core_config_check_cdc_busy();
+			if(busy == 0x41)
+				break;
+			timer--;
+		}
+		/* waiting for DDI sleep out */
+		mdelay(100);
+
+		/* sense start for TP */
+		core_i2c_write(core_config->slave_i2c_addr, sense_start, 2);
+	}
+}
+
 /*
  * It checks chip id shifting sepcific bits based on chip's requirement.
  *
@@ -320,27 +372,21 @@ EXPORT_SYMBOL(core_config_ic_reset);
 
 void core_config_ic_suspend(void)
 {
-	uint8_t cmd[2];
+	uint8_t cmd[2] = {0x02, 0x0};
 
 	DBG_INFO("Tell IC to suspend");
-
-	cmd[0] = pcmd[8];
-	cmd[1] = 0x00; // sleep in
-
-	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	
+	core_config_func_ctrl(cmd);
 }
 EXPORT_SYMBOL(core_config_ic_suspend);
 
 void core_config_ic_resume(void)
 {
-	uint8_t cmd[2];
+	uint8_t cmd[2] = {0x02, 0x01};
 
 	DBG_INFO("Tell IC to resume");
 
-	cmd[0] = pcmd[8];
-	cmd[1] = 0x01; // sleep out
-
-	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	core_config_func_ctrl(cmd);
 
 	// it's better to do reset after resuem.
 	core_config_ice_mode_enable();
@@ -382,6 +428,47 @@ int core_config_reset_watch_dog(void)
 	return 0;
 }
 EXPORT_SYMBOL(core_config_reset_watch_dog);
+
+uint8_t core_config_check_cdc_busy(void)
+{
+    uint8_t cmd[2] = {0};
+    uint8_t busy = 0;
+
+    cmd[0] = pcmd[0];
+    cmd[1] = pcmd[9];
+
+	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	mdelay(10);
+	core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
+
+	DBG_INFO("CDC busy state = 0x%x", busy);
+
+	return busy;
+}
+
+void core_config_func_ctrl(uint8_t *buf)
+{
+	int len = 3;
+	uint8_t cmd[3] = {0};
+
+	cmd[0] = 0x1;
+	cmd[1] = buf[0];
+	cmd[2] = buf[1];
+
+	DBG_INFO("func = %x , ctrl = %x", cmd[1], cmd[2]);
+
+	switch(cmd[1])
+	{
+		case 0x2:
+			tddi_sleep_ctrl(cmd);
+			break;
+		default:
+			core_i2c_write(core_config->slave_i2c_addr, cmd, len);
+			mdelay(1);
+			break;
+	}
+}
 
 int core_config_get_key_info(void)
 {

@@ -109,6 +109,9 @@ extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t siz
 extern int core_config_ice_mode_disable(void);
 extern int core_config_ice_mode_enable(void);
 
+extern uint8_t core_config_check_cdc_busy(void);
+extern void core_config_func_ctrl(uint8_t *buf);
+
 extern int core_config_get_core_ver(void);
 extern int core_config_get_key_info(void);
 extern int core_config_get_tp_info(void);
