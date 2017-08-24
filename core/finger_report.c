@@ -826,6 +826,8 @@ EXPORT_SYMBOL(core_fr_init);
 void core_fr_remove(void)
 {
 	DBG_INFO("Remove core-FingerReport members");
-	kfree(core_fr);
+
+	if(core_fr != NULL)
+		kfree(core_fr);
 }
 EXPORT_SYMBOL(core_fr_remove);

@@ -962,5 +962,6 @@ void core_firmware_remove(void)
 {
 	DBG_INFO("Remove core-firmware members");
 
-	kfree(core_firmware);
+	if(core_firmware != NULL)
+		kfree(core_firmware);
 }

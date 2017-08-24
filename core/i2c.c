@@ -57,6 +57,19 @@ static int dma_alloc(void)
 	core_i2c->client->ext_flag |= I2C_DMA_FLAG;
 	return 0;
 }
+
+static void dma_free(void)
+{
+    if (ilitek_dma_va != NULL)
+    {
+          dma_free_coherent(&g_InputDevice->dev, MAX_I2C_TRANSACTION_LENGTH_LIMIT, I2CDMABuf_va, I2CDMABuf_pa);
+
+	      ilitek_dma_va = NULL;
+	      ilitek_dma_pa = 0;
+
+        DBG_INFO("Succeed to free DMA buffer");
+    }
+}
 #endif
 
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
@@ -203,6 +216,10 @@ EXPORT_SYMBOL(core_i2c_init);
 void core_i2c_remove(void)
 {
     DBG_INFO("Remove core-i2c members");
+
+#ifdef ENABLE_DMA
+    dma_free(void);
+#endif
 
     if(core_i2c != NULL)
         kfree(core_i2c);

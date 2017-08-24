@@ -87,10 +87,7 @@ void core_flash_remove(void)
     DBG_INFO("Remove core-flash memebers");
 
     if(flashtab != NULL)
-    {
         kfree(flashtab);
-        flashtab = NULL;        
-    }
 }
 EXPORT_SYMBOL(core_flash_remove);
 
