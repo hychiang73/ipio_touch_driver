@@ -22,43 +22,8 @@
  *
  */
 
-#include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/init.h>
-#include <linux/slab.h>
-#include <linux/fs.h>
-#include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/errno.h>
-#include <linux/i2c.h>
-#include <linux/input.h>
-#include <linux/platform_device.h>
-#include <linux/kobject.h>
-#include <linux/interrupt.h>
-#include <linux/delay.h>
-#include <linux/version.h>
-#include <linux/regulator/consumer.h>
-#include <linux/power_supply.h>
-#include <linux/fs.h>
-#include <asm/uaccess.h>
-
-#include "chip.h"
-#include "core/config.h"
-#include "core/i2c.h"
-#include "core/firmware.h"
-#include "core/finger_report.h"
-
-#ifdef CONFIG_FB
-#include <linux/notifier.h>
-#include <linux/fb.h>
-#else 
-#include <linux/earlysuspend.h>
-#endif
-
-#ifndef __PLATFORM_H
-#define __PLATFORM_H
-
-#define ENABLE_REGULATOR_POWER_ON
+ #ifndef __PLATFORM_H
+ #define __PLATFORM_H
 
 struct ilitek_platform_data {
 
@@ -67,8 +32,6 @@ struct ilitek_platform_data {
 	struct input_dev *input_device;
 
 	const struct i2c_device_id *i2c_id;
-
-	struct work_struct report_work_queue;
 
 #ifdef ENABLE_REGULATOR_POWER_ON
 	struct regulator *vdd;
@@ -91,6 +54,14 @@ struct ilitek_platform_data {
 	bool isEnableIRQ;
 	bool isEnablePollCheckPower;
 
+#ifdef USE_KTHREAD
+	struct task_struct *irq_thread;
+	bool irq_trigger;
+	bool free_irq_thread;
+#else
+	struct work_struct report_work_queue;
+#endif
+
 #ifdef CONFIG_FB
 	struct notifier_block notifier_fb;
 #else
@@ -98,20 +69,15 @@ struct ilitek_platform_data {
 #endif
 
 	/* obtain msg when battery status has changed */
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 0)
-	struct notifier_block vpower_nb;
-	struct power_supply *vpower_supply;
-#else
 	struct delayed_work check_power_status_work;
 	struct workqueue_struct *check_power_status_queue;
 	unsigned long work_delay;
-#endif
 	bool vpower_reg_nb;
 };
 
 extern struct ilitek_platform_data *ipd;
 
-// exported from platform.c
+/* exported from platform.c */
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
 extern void ilitek_platform_tp_hw_reset(bool isEnable);
@@ -119,9 +85,9 @@ extern void ilitek_platform_tp_hw_reset(bool isEnable);
 extern void ilitek_regulator_power_on(bool status);
 #endif
 
-// exported from userspsace.c
+/* exported from userspsace.c */
 extern void netlink_reply_msg(void *raw, int size);
 extern int ilitek_proc_init(void);
 extern void ilitek_proc_remove(void);
 
-#endif
+#endif /* __PLATFORM_H */

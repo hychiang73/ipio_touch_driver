@@ -35,8 +35,6 @@ struct core_fr_data
 	bool isEnableNetlink;
 	/* for Linux multi-touch protocol */
 	bool btype;
-	/* enable Gesture with virtual keys */
-	bool isEnableGes;
 	/* allow input dev to report the value of physical touch */
 	bool isEnablePressure;
 	/* get screen resloution from fw if it's true*/
@@ -72,4 +70,4 @@ extern void core_fr_input_set_param(struct input_dev *input_device);
 extern int core_fr_init(struct i2c_client *);
 extern void core_fr_remove(void);
 
-#endif
+#endif /* __FINGER_REPORT_H */

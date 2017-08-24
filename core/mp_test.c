@@ -33,7 +33,7 @@
 #include <linux/version.h>
 #include <asm/uaccess.h>
 
-#include "../chip.h"
+#include "../common.h"
 #include "i2c.h"
 #include "config.h"
 #include "mp_test.h"

@@ -53,4 +53,4 @@ extern int core_firmware_upgrade(const char *, bool isIRAM);
 extern int core_firmware_init(void);
 extern void core_firmware_remove(void);
 
-#endif
+#endif /* __FIRMWARE_H */

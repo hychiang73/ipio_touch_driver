@@ -26,11 +26,38 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 
-#include "../chip.h"
+#include "../common.h"
 #include "config.h"
 #include "i2c.h"
 
+#define DMA_VA_BUFFER   4096
+
+#ifdef ENABLE_DMA
+static unsigned char *ilitek_dma_va = NULL;
+static dma_addr_t ilitek_dma_pa = 0;
+#endif
+
 struct core_i2c_data *core_i2c;
+
+#ifdef ENABLE_DMA
+static int dma_alloc(void)
+{
+    int res = 0;
+
+	core_i2c->client->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	ilitek_dma_va = (u8 *)dma_alloc_coherent(&core_i2c->client->dev, DMA_VA_BUFFER, &ilitek_dma_pa, GFP_KERNEL);
+	if(!ilitek_dma_va)
+	{
+		DBG_ERR("Allocate DMA I2C Buffer failed");
+		res = -ENODEV;
+		return res;
+    }
+    
+	memset(ilitek_dma_va, 0, DMA_VA_BUFFER);
+	core_i2c->client->ext_flag |= I2C_DMA_FLAG;
+	return 0;
+}
+#endif
 
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
@@ -40,13 +67,27 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     {
         {
             .addr = nSlaveId,
-            .flags = 0, // if read flag is undefined, then it means write flag.
+            .flags = 0, // write flag.
             .len = nSize,
             .buf = pBuf,
         },
     };
 
+#if defined(PLATFORM_MTK) 
+    msgs[0].timing = core_i2c->clk;
+#elif defined(PLATFORM_RK)
     msgs[0].scl_rate = core_i2c->clk;
+#endif
+
+#ifdef ENABLE_DMA
+    if (nSize > 8)
+    {
+        msgs[0].addr = (core_i2c->client->addr & I2C_MASK_FLAG);
+        msgs[0].ext_flag = (core_i2c->client->ext_flag | I2C_ENEXT_FLAG | I2C_DMA_FLAG);
+        memcpy(ilitek_dma_va, pBuf, nSize);
+        msgs[0].buf = (uint8_t *)ilitek_dma_pa;
+    }
+#endif
 
     if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
     {
@@ -59,9 +100,11 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         {
             res = -EIO;
             DBG_ERR("I2C Write Error, res = %d", res);
+            goto out;
         }
     }
 
+out:
     return res;
 }
 EXPORT_SYMBOL(core_i2c_write);
@@ -80,29 +123,62 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
+#if defined(PLATFORM_MTK) 
+    msgs[0].timing = core_i2c->clk;
+#elif defined(PLATFORM_RK)
     msgs[0].scl_rate = core_i2c->clk;
+#endif
+
+#ifdef ENABLE_DMA
+    if (nSize > 8)
+    {
+        msgs[0].addr = (core_i2c->client->addr & I2C_MASK_FLAG);
+        msgs[0].ext_flag = (core_i2c->client->ext_flag | I2C_ENEXT_FLAG | I2C_DMA_FLAG);
+        msgs[0].buf = (uint8_t *)ilitek_dma_pa;
+    }
+    else
+    {
+        msgs[0].buf = pBuf;
+    }
+#endif
 
     if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
     {
         res = -EIO;
         DBG_ERR("I2C Read Error, res = %d", res);
+        goto out;
     }
 
+#ifdef ENABLE_DMA
+    if (nSize > 8)
+    {
+        memcpy(pBuf, ilitek_dma_va, nSize);
+    }
+#endif
+
+out:
     return res;
 }
 EXPORT_SYMBOL(core_i2c_read);
 
 int core_i2c_init(struct i2c_client *client)
 {
+    int res = 0;
+
     core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
 
     if (IS_ERR(core_i2c))
     {
         DBG_ERR("init core-i2c failed !");
-        return -EINVAL;
+        res = -EINVAL;
+        goto out;
     }
 
     core_i2c->client = client;
+
+#ifdef ENABLE_DMA
+    dma_alloc();
+#endif
 
     if (ON_BOARD_IC == CHIP_TYPE_ILI7807)
     {
@@ -115,6 +191,11 @@ int core_i2c_init(struct i2c_client *client)
     else
         core_i2c->clk = 400000;
 
+#ifdef PLATFORM_MTK
+        core_i2c->clk = 400;
+#endif
+
+out:
     return 0;
 }
 EXPORT_SYMBOL(core_i2c_init);
@@ -123,6 +204,7 @@ void core_i2c_remove(void)
 {
     DBG_INFO("Remove core-i2c members");
 
-    kfree(core_i2c);
+    if(core_i2c != NULL)
+        kfree(core_i2c);
 }
 EXPORT_SYMBOL(core_i2c_remove);

@@ -33,7 +33,7 @@
 #include <linux/i2c.h>
 #include <linux/list.h>
 
-#include "../chip.h"
+#include "../common.h"
 #include "../platform.h"
 #include "config.h"
 #include "i2c.h"
@@ -85,7 +85,7 @@ struct mutual_touch_info mti;
 struct fr_data_node *fnode, *fuart;
 struct core_fr_data *core_fr;
 
-/*
+/**
  * Calculate the check sum of each packet reported by firmware 
  *
  * @pMsg: packet come from firmware
@@ -104,56 +104,52 @@ static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
 	return (uint8_t)((-nCheckSum) & 0xFF);
 }
 
-/*
+/**
  *  Receive data when fw mode stays at i2cuart mode.
  *
- *  the data has been received 43 btye before going in this function, where
- *  would check with ic if there remains the rest of data in its buffer.
+ *  the first is to receive N bytes depending on the mode that firmware stays 
+ *  before going in this function, and it would check with i2c buffer if it
+ *  remains the rest of data.
  */
 static void i2cuart_recv_packet(void)
 {
 	int res = 0, need_read_len = 0, one_data_bytes = 0;
+	int type = fnode->data[3] & 0x0F;
+	int actual_len = fnode->len - 5;
 
-	if (fnode->data[0] == 0x7A)
+	DBG("pid = %x, data[3] = %x, type = %x, actual_len = %d", 
+			fnode->data[0], fnode->data[3], type, actual_len);
+
+	need_read_len = fnode->data[1] * fnode->data[2];
+
+	if (type == 0 || type == 1 || type == 6)
 	{
-		if ((fnode->data[1] == 0x0) || (fnode->data[1] == 0xFF))
-		{
-			need_read_len = fnode->data[2];
-		}
-		else
-		{
-			need_read_len = fnode->data[1] * fnode->data[2];
-		}
+		one_data_bytes = 1;
+	}
+	else if (type == 2 || type == 3)
+	{
+		one_data_bytes = 2;
+	}
+	else if (type == 4 || type == 5)
+	{
+		one_data_bytes = 4;
+	}
 
-		if (fnode->data[3] == 0 || fnode->data[3] == 1 || fnode->data[3] == 6)
-		{
-			one_data_bytes = 1;
-		}
-		else if (fnode->data[3] == 2 || fnode->data[3] == 3)
-		{
-			one_data_bytes = 2;
-		}
-		else if (fnode->data[3] == 4 || fnode->data[3] == 5)
-		{
-			one_data_bytes = 4;
-		}
+	DBG("need_read_len = %d  one_data_bytes = %d", 
+			need_read_len, one_data_bytes);
+	
+	need_read_len = need_read_len * one_data_bytes;
 
-		DBG("need_read_len = %d  fr_data[1] = %d fr_data[2] = %d", 
-				need_read_len, fnode->data[1], fnode->data[2]);
+	if (need_read_len > actual_len)
+	{
+		fuart = kmalloc(sizeof(*fuart), GFP_KERNEL);
+		fuart->len = need_read_len - actual_len;
+		fuart->data = kzalloc(fuart->len, GFP_KERNEL);
+		tlen += fuart->len;
 
-		if (need_read_len > (38 / one_data_bytes))
-		{
-			fuart = kmalloc(sizeof(*fuart), GFP_KERNEL);
-			fuart->len = need_read_len * one_data_bytes - 38;
-			fuart->data = kzalloc(fuart->len, GFP_KERNEL);
-			tlen += fuart->len;
-
-			res = core_i2c_read(core_config->slave_i2c_addr, fuart->data, fuart->len);
-			if (res < 0)
-			{
-				DBG_ERR("Failed to read finger report packet");
-			}
-		}
+		res = core_i2c_read(core_config->slave_i2c_addr, fuart->data, fuart->len);
+		if (res < 0)
+			DBG_ERR("Failed to read finger report packet");
 	}
 }
 
@@ -240,11 +236,6 @@ static int finger_report_ver_3_2(void)
 
 /*
  * It mainly parses the packet assembled by protocol v5.0
- *
- * @fr_data: the packet of finger report come from firmware.
- * @mode: a mode on the current firmware. (demo or debug)
- * @pInfo: a struct of mutual touch information.
- * @rpl: the lenght of packet of finger report.
  */
 static int parse_touch_package_v5_0(void)
 {
@@ -252,20 +243,17 @@ static int parse_touch_package_v5_0(void)
 	uint8_t check_sum = 0;
 	uint32_t nX = 0, nY = 0;
 
-	for (i = 0; i < 9; i++)
-		DBG("data[%d] = %x", i, fnode->data[i]);
-
-	//TODO: calculate report rate
+	// for (i = 0; i < 9; i++)
+	// 	DBG("data[%d] = %x", i, fnode->data[i]);
 
 	check_sum = cal_fr_checksum(&fnode->data[0], (fnode->len - 1));
 	DBG("data = %x  ;  check_sum : %x ", fnode->data[fnode->len - 1], check_sum);
 	if (fnode->data[fnode->len - 1] != check_sum)
 	{
 		DBG_ERR("Wrong checksum");
-		return -1;
+		res = -1;
+		goto out;
 	}
-
-	//TODO: parse packets for gesture/glove features if they're enabled
 
 	// start to parsing the packet of finger report
 	if (fnode->data[0] == P5_0_DEMO_PACKET_ID)
@@ -290,16 +278,19 @@ static int parse_touch_package_v5_0(void)
 			{
 				mti.mtp[mti.touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
 				mti.mtp[mti.touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-				mti.mtp[mti.touch_num].pressure = 1;
 				mti.mtp[mti.touch_num].id = i;
 			}
 			else
 			{
 				mti.mtp[mti.touch_num].x = nX;
 				mti.mtp[mti.touch_num].y = nY;
-				mti.mtp[mti.touch_num].pressure = 1;
 				mti.mtp[mti.touch_num].id = i;
 			}
+
+			if(core_fr->isEnablePressure)
+				mti.mtp[mti.touch_num].pressure = fnode->data[(4 * i) + 4];
+			else
+				mti.mtp[mti.touch_num].pressure = 1;
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
@@ -338,16 +329,19 @@ static int parse_touch_package_v5_0(void)
 			{
 				mti.mtp[mti.touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
 				mti.mtp[mti.touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-				mti.mtp[mti.touch_num].pressure = 1;
 				mti.mtp[mti.touch_num].id = i;
 			}
 			else
 			{
 				mti.mtp[mti.touch_num].x = nX;
 				mti.mtp[mti.touch_num].y = nY;
-				mti.mtp[mti.touch_num].pressure = 1;
 				mti.mtp[mti.touch_num].id = i;
 			}
+
+			if(core_fr->isEnablePressure)
+				mti.mtp[mti.touch_num].pressure = fnode->data[(4 * i) + 4];
+			else
+				mti.mtp[mti.touch_num].pressure = 1;
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
 			DBG("point[%d] : (%d,%d) = %d\n",
@@ -364,7 +358,14 @@ static int parse_touch_package_v5_0(void)
 			}
 		}
 	}
+	else
+	{
+		DBG_ERR(" **** Unkown Packet ID ****");
+		res = -1;
+		goto out;
+	}
 
+out:
 	return res;
 }
 
@@ -377,45 +378,42 @@ static int finger_report_ver_5_0(void)
 	int i, res = 0;
 	static int last_touch = 0;
 
-	// initialise struct of mutual toucn info
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
 
-	//TODO: set packet length for gesture wake up
-
-	// read finger touch packet when an interrupt occurs
 	res = core_i2c_read(core_config->slave_i2c_addr, fnode->data, fnode->len);
 	if (res < 0)
 	{
 		DBG_ERR("Failed to read finger report packet");
-		return res;
+		goto out;
 	}
 	
 	if(fnode->data[0] == P5_0_I2CUART_PACKET_ID)
 	{
-		if (core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode && core_fr->i2cuart_mode == 1)
-			i2cuart_recv_packet();
-
 		DBG("Packet ID as I2CUART (%x), do nothing", fnode->data[0]);
-		return 0;
+		i2cuart_recv_packet();
+		goto out;
 	}
 
-	if(core_fr->actual_fw_mode == core_fr->fw_debug_mode)
+	if(fnode->data[0] == P5_0_GESTURE_PACKET_ID && core_config->isEnableGesture)
 	{
-		if(fnode->len != (fnode->data[1] << 8 | fnode->data[2]))
-			DBG_ERR("Length is different at Debug Mode: (local = %d) : ( fw = %d)", 
-					fnode->len, (fnode->data[1] << 8 | fnode->data[2]));
+		DBG_INFO("packet id = %x, code = %x", fnode->data[0], fnode->data[1]);
+		input_report_key(core_fr->input_device, KEY_POWER, 1);
+		input_sync(core_fr->input_device);
+		input_report_key(core_fr->input_device, KEY_POWER, 0);
+		input_sync(core_fr->input_device);
+		goto out;
 	}
 
 	res = parse_touch_package_v5_0();
 	if (res < 0)
 	{
 		DBG_ERR("Failed to parse packet of finger touch");
-		return -1;
+		goto out;
 	}
 
 	DBG("Touch Num = %d, LastTouch = %d\n", mti.touch_num, last_touch);
 
-	// interpret parsed packat and send input events to uplayer
+	/* interpret parsed packat and send input events to system */
 	if (mti.touch_num > 0)
 	{
 		if(core_fr->btype)
@@ -480,10 +478,12 @@ static int finger_report_ver_5_0(void)
 			last_touch = 0;
 		}
 	}
+
+out:
 	return res;
 }
 
-// commands according to the procotol used on a chip.
+/* commands according to the procotol used on a chip. */
 extern uint8_t pcmd[10];
 
 int core_fr_mode_control(uint8_t *from_user)
@@ -576,7 +576,7 @@ out:
 }
 EXPORT_SYMBOL(core_fr_mode_control);
 
-/*
+/**
  * Calculate the length with different modes according to the format of protocol 5.0
  *
  * We compute the length before receiving its packet. If the length is differnet between
@@ -600,8 +600,7 @@ static uint16_t calc_packet_length(void)
 			srx = core_config->tp_info->self_rx_channel_num;
 		}
 
-		if (core_fr->actual_fw_mode == core_fr->fw_demo_mode
-			 	|| core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode)
+		if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
 		{
 			rlen = P5_0_DEMO_MODE_PACKET_LENGTH;
 		}
@@ -636,7 +635,7 @@ static uint16_t calc_packet_length(void)
 	return rlen;
 }
 
-/*
+/**
  * The table is used to handle calling functions that deal with packets of finger report.
  * The callback function might be different of what a protocol is used on a chip.
  *
@@ -655,7 +654,7 @@ fr_hashtable fr_t[] = {
 	{ILITEK_PROTOCOL_V5_0, finger_report_ver_5_0},
 };
 
-/*
+/**
  * The function is an entry for the work queue registered by ISR activates.
  *
  * Here will allocate the size of packet depending on what the current protocol
@@ -717,7 +716,7 @@ void core_fr_input_set_param(struct input_dev *input_device)
 
 	core_fr->input_device = input_device;
 
-	// set the supported event type for input device
+	/* set the supported event type for input device */
 	set_bit(EV_ABS, core_fr->input_device->evbit);
 	set_bit(EV_SYN, core_fr->input_device->evbit);
 	set_bit(EV_KEY, core_fr->input_device->evbit);
@@ -746,11 +745,13 @@ void core_fr_input_set_param(struct input_dev *input_device)
 		max_x, max_y, min_x, min_y);
 	DBG("input touch number: max_tp = %d", max_tp);
 
+#ifndef PLATFORM_MTK
 	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, min_x, max_x - 1, 0, 0);
 	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, min_y, max_y - 1, 0, 0);
 
 	input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
+#endif
 
 	if(core_fr->isEnablePressure)
 		input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
@@ -768,24 +769,12 @@ void core_fr_input_set_param(struct input_dev *input_device)
 		input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
 	}
 
-	//TODO: set virtual keys if tp has key count
-
-	if(core_fr->isEnableGes)
-	{
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_W);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_Z);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_V);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_O);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_M);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_C);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_E);
-		input_set_capability(core_fr->input_device, EV_KEY, KEY_S);
-	}
+	/* Set up virtual key with gesture code */
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
+	input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
 
 	return;
 }
@@ -804,7 +793,6 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
 			core_fr->btype = true;
-			core_fr->isEnableGes = false;
 			core_fr->isEnablePressure = false;
 			core_fr->isSetResolution = false;
 

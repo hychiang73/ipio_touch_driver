@@ -28,7 +28,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 
-#include "../chip.h"
+#include "../common.h"
 #include "flash.h"
 
 /* 
@@ -52,6 +52,7 @@ void core_flash_init(uint16_t mid, uint16_t did)
     {
         if(mid == ft[i].mid && did == ft[i].dev_id)
         {
+            DBG_INFO("Find it in flash table");
             flashtab = kzalloc(sizeof(ft), GFP_KERNEL);
             flashtab->mid = mid;
             flashtab->dev_id = did;
@@ -59,19 +60,38 @@ void core_flash_init(uint16_t mid, uint16_t did)
             flashtab->program_page = ft[i].program_page;
             flashtab->sector = ft[i].sector;
             flashtab->block = ft[i].block;
-            DBG_INFO("Max Memory size = %d", flashtab->mem_size);
-            DBG_INFO("Per program page = %d", flashtab->program_page);
-            DBG_INFO("Sector size = %d", flashtab->sector);
-            DBG_INFO("Block size = %d", flashtab->block);
+            break;
         }
     }
+
+    if(i >= ARRAY_SIZE(ft))
+    {
+        DBG_ERR("Can't find it in flash table, apply default flash config");
+        flashtab->mid = mid;
+        flashtab->dev_id = did;
+        flashtab->mem_size = (256*1024);
+        flashtab->program_page = 256;
+        flashtab->sector = (4*1024);
+        flashtab->block = (64*1024);
+    }
+
+    DBG_INFO("Max Memory size = %d", flashtab->mem_size);
+    DBG_INFO("Per program page = %d", flashtab->program_page);
+    DBG_INFO("Sector size = %d", flashtab->sector);
+    DBG_INFO("Block size = %d", flashtab->block);
 }
+EXPORT_SYMBOL(core_flash_init);
 
 void core_flash_remove(void)
 {
     DBG_INFO("Remove core-flash memebers");
-    kfree(flashtab);
-}
 
+    if(flashtab != NULL)
+    {
+        kfree(flashtab);
+        flashtab = NULL;        
+    }
+}
+EXPORT_SYMBOL(core_flash_remove);
 
 

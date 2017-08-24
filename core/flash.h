@@ -22,6 +22,9 @@
  *
  */
 
+ #ifndef __FLASH_H
+ #define __FLASH_H
+
 struct flash_table
 {
     uint16_t mid;
@@ -34,5 +37,7 @@ struct flash_table
 
 extern struct flash_table *flashtab;
 
-void core_flash_init(uint16_t mid, uint16_t did);
+extern void core_flash_init(uint16_t mid, uint16_t did);
 extern void core_flash_remove(void);
+
+#endif /* __FLASH_H */

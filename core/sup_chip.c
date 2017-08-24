@@ -23,7 +23,7 @@
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include "../chip.h"
+#include "../common.h"
 
 /*
  * The two vars will be exported to all core modules identifying which of 

@@ -35,7 +35,7 @@
 #include <linux/version.h>
 #include <asm/uaccess.h>
 
-#include "../chip.h"
+#include "../common.h"
 #include "../platform.h"
 #include "config.h"
 #include "i2c.h"
