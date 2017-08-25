@@ -138,7 +138,7 @@ static void i2cuart_recv_packet(void)
 	DBG("need_read_len = %d  one_data_bytes = %d", 
 			need_read_len, one_data_bytes);
 	
-	need_read_len = need_read_len * one_data_bytes;
+	need_read_len = need_read_len * one_data_bytes + 1;
 
 	if (need_read_len > actual_len)
 	{
