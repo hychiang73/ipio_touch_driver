@@ -410,7 +410,6 @@ static int ilitek_platform_irq_kthread(void *arg)
 
 	DBG("irq_trigger = %d", ipd->irq_trigger);
 
-	// mainloop
 	while(!kthread_should_stop() && !ipd->free_irq_thread)
 	{
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -659,12 +658,12 @@ out:
 static void ilitek_platform_core_remove(void)
 {
 	DBG_INFO("Remove all core's compoenets");
-	core_config_remove();
-	core_i2c_remove();
+	ilitek_proc_remove();
+	core_flash_remove();
 	core_firmware_remove();
 	core_fr_remove();
-	core_flash_remove();
-	ilitek_proc_remove();
+	core_config_remove();
+	core_i2c_remove();
 }
 
 /**
@@ -680,7 +679,6 @@ static int ilitek_platform_core_init(void)
 		core_firmware_init() < 0 ||
 		core_fr_init(ipd->client) < 0)
 	{
-		ilitek_platform_core_remove();
 		DBG_ERR("Failed to initialise core components");
 		return -EINVAL;
 	}
@@ -690,7 +688,7 @@ static int ilitek_platform_core_init(void)
 
 static int ilitek_platform_remove(struct i2c_client *client)
 {
-	DBG("Remove platform components");
+	DBG_INFO("Remove platform components");
 
 	if(ipd->isEnableIRQ)
 	{

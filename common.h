@@ -176,7 +176,7 @@
  * Other settings
  */
 #define MAX_TOUCH_NUM	10
-//#define ENABLE_REGULATOR_POWER_ON 
+#define ENABLE_REGULATOR_POWER_ON 
 //#define ENABLE_DMA 
 #define USE_KTHREAD 
 

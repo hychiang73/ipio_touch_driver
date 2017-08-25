@@ -62,10 +62,10 @@ static void dma_free(void)
 {
     if (ilitek_dma_va != NULL)
     {
-          dma_free_coherent(&g_InputDevice->dev, MAX_I2C_TRANSACTION_LENGTH_LIMIT, I2CDMABuf_va, I2CDMABuf_pa);
+        dma_free_coherent(&core_i2c->client->dev, DMA_VA_BUFFER, ilitek_dma_va, ilitek_dma_pa);
 
-	      ilitek_dma_va = NULL;
-	      ilitek_dma_pa = 0;
+        ilitek_dma_va = NULL;
+        ilitek_dma_pa = 0;
 
         DBG_INFO("Succeed to free DMA buffer");
     }
@@ -218,7 +218,7 @@ void core_i2c_remove(void)
     DBG_INFO("Remove core-i2c members");
 
 #ifdef ENABLE_DMA
-    dma_free(void);
+    dma_free();
 #endif
 
     if(core_i2c != NULL)
