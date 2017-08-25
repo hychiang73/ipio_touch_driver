@@ -10,6 +10,55 @@ The following lists which of IC types supported by the driver.
 * ILI7807H
 * ILI9881F
 
+# Support platform
+
+* RK3288
+* MTK
+
+If you woule like to use this driver on the MTK platform, you must open the macros as below :
+
+**common.h**
+```
+#define PLATFORM_MTK
+```
+
+# Functions
+
+## Gesture
+
+To enable the support of this feature, you can either open it by its node under /proc :
+
+```
+echo on > /proc/ilitek/gesture
+echo off > /proc/ilitek/gesture
+```
+
+or change its var from the file **config.c** :
+```
+core_config->isEnableGesture = false;
+```
+
+## DMA
+
+If your platform needs to use DMA with I2C, you can open its macro from **common.h** :
+```
+#define ENABLE_DMA 
+```
+Note, it is disabled as default.
+
+## Glove/Proximity/Phone cover
+
+These features need to be opened by the node only.
+
+```
+echo enaglove > /proc/ilitek/ioctl  --> enale glove
+echo disglove > /proc/ilitek/ioctl  --> disable glove
+echo enaprox > /proc/ilitek/ioctl   --> enable proximity
+echo disprox > /proc/ilitek/ioctl   --> disable proximity
+echo enapcc > /proc/ilitek/ioctl    --> enable phone cover
+echo dispcc > /proc/ilitek/ioctl    --> disable phone cover
+```
+
 # Debugging
 
 In general case, the default debug level in kernel is set as 7, which number you will see all logs outputed by KERNEL_INFO and KERNEL_ERR. 
@@ -149,6 +198,14 @@ static int ilitek_platform_gpio(void)
 ```
 
 # Release Note
+
+* V1.0.0.8
+  * Add support of MTK and DMA with I2C.
+  * Add kthread to handle interrupt event.
+  * Add support of gesture wake up in suspend/resume.
+  * Remove power supply notifier at check battery status.
+  * Add the functions such as glove, proximity and phone cover.
+  * Support new calculation with i2cuart mode.
 
 * V1.0.0.7
   * Fixed issue of showing upgrade status while using APK
