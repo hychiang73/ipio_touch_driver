@@ -323,7 +323,7 @@ void core_config_sense_ctrl(bool start)
 	uint8_t sense_start[3] = {0x1, 0x1, 0x1};
 	uint8_t sense_stop[3] = {0x1, 0x1, 0x0};
 
-	DBG_INFO("start = %d", start);
+	DBG_INFO("sense start = %d", start);
 
 	if(start)
 	{
@@ -452,6 +452,7 @@ void core_config_func_ctrl(uint8_t *buf)
 					/* LPWG Ctrl */
 					cmd[1] = 0x0A;
 					cmd[2] = 0x01;
+					DBG_INFO("cmd = 0x%x, 0x%x, 0x%x", cmd[0], cmd[1], cmd[2]);
 					core_i2c_write(core_config->slave_i2c_addr, cmd, len);
 				}
 				else

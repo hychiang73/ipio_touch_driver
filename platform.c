@@ -288,6 +288,9 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 			if(!core_config->isEnableGesture)	
 				ilitek_platform_disable_irq();
 
+			if(ipd->isEnablePollCheckPower)
+				cancel_delayed_work_sync(&ipd->check_power_status_work);
+
 			core_config_ic_suspend();
 		}
 		else if (*blank == FB_BLANK_UNBLANK)
@@ -295,6 +298,9 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 			DBG_INFO("Touch Resuem");
 			core_config_ic_resume();
 			ilitek_platform_enable_irq();
+
+			if(ipd->isEnablePollCheckPower)
+				queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 		}
 	}
 
@@ -316,6 +322,9 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 	if(!core_config->isEnableGesture)		
 		ilitek_platform_disable_irq();
 
+	if(ipd->isEnablePollCheckPower)
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+
 	core_config_ic_suspend();
 }
 
@@ -326,6 +335,9 @@ static void ilitek_platform_late_resume(struct early_suspend *h)
 	core_fr->isEnableFR = true;
 	core_config_ic_resume();
 	ilitek_platform_enable_irq();
+
+	if(ipd->isEnablePollCheckPower)
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 }
 #endif
 #endif /* PLATFORM_MTK */
@@ -419,9 +431,7 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 	core_fr_handler();
 
 	if (!ipd->isEnableIRQ)
-	{
 		ilitek_platform_enable_irq();		
-	}
 }
 #endif
 
@@ -767,7 +777,6 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ipd->i2c_id = id;
 	ipd->chip_id = ON_BOARD_IC;
 	ipd->isEnableIRQ = false;
-	ipd->isEnablePollCheckPower = false;
 	ipd->isEnablePollCheckPower = false;
 
 	DBG_INFO("Driver version : %s", DRIVER_VERSION);

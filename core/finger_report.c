@@ -237,7 +237,7 @@ static int finger_report_ver_3_2(void)
 /*
  * It mainly parses the packet assembled by protocol v5.0
  */
-static int parse_touch_package_v5_0(void)
+static int parse_touch_package_v5_0(uint8_t pid)
 {
 	int i, res = 0;
 	uint8_t check_sum = 0;
@@ -256,9 +256,9 @@ static int parse_touch_package_v5_0(void)
 	}
 
 	// start to parsing the packet of finger report
-	if (fnode->data[0] == P5_0_DEMO_PACKET_ID)
+	if (pid == P5_0_DEMO_PACKET_ID)
 	{
-		DBG(" **** Parsing DEMO packets ****");
+		DBG(" **** Parsing DEMO packets : 0x%x ****", pid);
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -307,9 +307,10 @@ static int parse_touch_package_v5_0(void)
 			}
 		}
 	}
-	else if (fnode->data[0] == P5_0_DEBUG_PACKET_ID)
+	else if (pid == P5_0_DEBUG_PACKET_ID)
 	{
-		DBG(" **** Parsing DEBUG packets ****");
+		DBG(" **** Parsing DEBUG packets : 0x%x ****", pid);
+		DBG("Length = %d", (fnode->data[1] << 8 | fnode->data[2]));
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -360,7 +361,7 @@ static int parse_touch_package_v5_0(void)
 	}
 	else
 	{
-		DBG_ERR(" **** Unkown Packet ID ****");
+		DBG_ERR(" **** Unkown PID : 0x%x ****", pid);
 		res = -1;
 		goto out;
 	}
@@ -377,6 +378,7 @@ static int finger_report_ver_5_0(void)
 {
 	int i, res = 0;
 	static int last_touch = 0;
+	uint8_t pid = 0x0;
 
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
 
@@ -386,17 +388,20 @@ static int finger_report_ver_5_0(void)
 		DBG_ERR("Failed to read finger report packet");
 		goto out;
 	}
+
+	pid = fnode->data[0];
+	DBG("PID = 0x%x", pid);
 	
-	if(fnode->data[0] == P5_0_I2CUART_PACKET_ID)
+	if(pid == P5_0_I2CUART_PACKET_ID)
 	{
-		DBG("Packet ID as I2CUART (%x), do nothing", fnode->data[0]);
+		DBG("Packet ID as I2CUART (0x%x), do nothing", pid);
 		i2cuart_recv_packet();
 		goto out;
 	}
 
-	if(fnode->data[0] == P5_0_GESTURE_PACKET_ID && core_config->isEnableGesture)
+	if(pid == P5_0_GESTURE_PACKET_ID && core_config->isEnableGesture)
 	{
-		DBG_INFO("packet id = %x, code = %x", fnode->data[0], fnode->data[1]);
+		DBG_INFO("pid = 0x%x, code = %x", pid, fnode->data[1]);
 		input_report_key(core_fr->input_device, KEY_POWER, 1);
 		input_sync(core_fr->input_device);
 		input_report_key(core_fr->input_device, KEY_POWER, 0);
@@ -404,14 +409,14 @@ static int finger_report_ver_5_0(void)
 		goto out;
 	}
 
-	res = parse_touch_package_v5_0();
+	res = parse_touch_package_v5_0(pid);
 	if (res < 0)
 	{
 		DBG_ERR("Failed to parse packet of finger touch");
 		goto out;
 	}
 
-	DBG("Touch Num = %d, LastTouch = %d\n", mti.touch_num, last_touch);
+	//DBG("Touch Num = %d, LastTouch = %d\n", mti.touch_num, last_touch);
 
 	/* interpret parsed packat and send input events to system */
 	if (mti.touch_num > 0)
@@ -428,7 +433,7 @@ static int finger_report_ver_5_0(void)
 
 			for (i = 0; i < MAX_TOUCH_NUM; i++)
 			{
-				DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+				//DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
 
 				if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
 				{
@@ -457,7 +462,7 @@ static int finger_report_ver_5_0(void)
 			{
 				for (i = 0; i < MAX_TOUCH_NUM; i++)
 				{
-					DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+					//DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
 
 					if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
 					{
