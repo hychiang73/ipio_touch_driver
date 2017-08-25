@@ -22,19 +22,77 @@
  *
  */
 
+ #ifndef __COMMON_H
+ #define __COMMON_H
+
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/init.h>
+#include <linux/slab.h>
+#include <linux/fs.h>
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/errno.h>
+#include <linux/i2c.h>
+#include <linux/input.h>
+#include <linux/platform_device.h>
+#include <linux/kobject.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include <linux/version.h>
+#include <linux/regulator/consumer.h>
+#include <linux/power_supply.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
+
+#include <linux/sched.h>
+#include <linux/kthread.h>
+#include <linux/wait.h>
+#include <linux/time.h>
+
+#include <linux/namei.h>
+#include <linux/vmalloc.h>
+#include <linux/timer.h>
+#include <linux/jiffies.h>
+#include <linux/module.h>
+#include <linux/dma-mapping.h>
+
+#include <linux/gpio.h>
+
+#ifdef CONFIG_OF
+#include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/of_irq.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
+#endif
+
+#ifdef CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+#else 
+#include <linux/earlysuspend.h>
+#endif
+
 /*
  * Relative Driver with Touch IC
  */
 
-// This macro defines what types of chip supported by the driver.
+/* Touch IC */
 //#define ON_BOARD_IC		0x7807
 #define ON_BOARD_IC		0x9881
 
-// Shows the version of driver
-#define DRIVER_VERSION	"1.0.0.7"
+/* Platform */
+//#define PLATFORM_MTK 
+#define PLATFORM_RK 
 
-// In kernel pr_debug is disabled as default, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
-// in terminal to enable it if you'd like to see more debug details. 
+/* Driver version */
+#define DRIVER_VERSION	"1.0.0.8"
+
+/**
+ * pr_debug is disabled as default in kernel, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
+ * in terminal to enable it if you'd like to see more debug details.
+ */
 #define DBG_INFO(fmt, arg...) \
 			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
@@ -74,21 +132,21 @@
 #define PCMD_5_0_SLEEP_CONTROL			0x02
 #define PCMD_5_0_CDC_BUSY_STATE			0xF3
 
-// firmware mode
+/* firmware mode */
 #define P5_0_FIRMWARE_UNKNOWN_MODE		0xFF
 #define P5_0_FIRMWARE_DEMO_MODE			0x00
 #define P5_0_FIRMWARE_TEST_MODE			0x01
 #define P5_0_FIRMWARE_DEBUG_MODE		0x02
 #define P5_0_FIRMWARE_I2CUART_MODE		0x03 //defined by ourself 
 
-// Packet ID at the first byte of each finger touch packet
+/* Packet ID at the first byte of each finger touch packet */
 #define P5_0_DEMO_PACKET_ID		0x5A
 #define P5_0_DEBUG_PACKET_ID	0xA7
 #define P5_0_TEST_PACKET_ID		0xF2
 #define P5_0_GESTURE_PACKET_ID	0xAA
 #define P5_0_I2CUART_PACKET_ID	0x7A
 
-// length of finger touch packet
+/* length of finger touch packet */
 #define P5_0_DEMO_MODE_PACKET_LENGTH  	43
 #define P5_0_DEBUG_MODE_PACKET_LENGTH  	1280
 #define P5_0_TEST_MODE_PACKET_LENGTH  	1180
@@ -118,3 +176,8 @@
  * Other settings
  */
 #define MAX_TOUCH_NUM	10
+#define ENABLE_REGULATOR_POWER_ON 
+//#define ENABLE_DMA 
+#define USE_KTHREAD 
+
+#endif /* __COMMON_H */

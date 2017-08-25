@@ -63,27 +63,22 @@ typedef struct
 
 struct core_config_data
 {
-
 	uint32_t chip_id;
 	uint32_t chip_type;
 
-	uint8_t protocol_ver[4];
-
-	uint8_t firmware_ver[4];
-
-	uint8_t core_ver[5];
+	uint32_t slave_i2c_addr;
+	uint32_t ice_mode_addr;
+	uint32_t pid_addr;
+	uint32_t ic_reset_addr;
 
 	uint16_t use_protocol;
 
-	uint32_t slave_i2c_addr;
+	uint8_t protocol_ver[4];
+	uint8_t firmware_ver[4];
+	uint8_t core_ver[5];
 
-	uint32_t ice_mode_addr;
-
-	uint32_t pid_addr;
-
-	uint32_t ic_reset_addr;
-
-	bool	do_ic_reset;
+	bool do_ic_reset;
+	bool isEnableGesture;
 
 	TP_INFO *tp_info;
 };
@@ -109,6 +104,10 @@ extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t siz
 extern int core_config_ice_mode_disable(void);
 extern int core_config_ice_mode_enable(void);
 
+extern int core_config_check_cdc_busy(void);
+extern void core_config_sense_ctrl(bool start);
+extern void core_config_func_ctrl(uint8_t *buf);
+
 extern int core_config_get_core_ver(void);
 extern int core_config_get_key_info(void);
 extern int core_config_get_tp_info(void);
@@ -119,4 +118,4 @@ extern int core_config_get_chip_id(void);
 extern int core_config_init(void);
 extern void core_config_remove(void);
 
-#endif
+#endif /* __CONFIG_H */

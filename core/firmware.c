@@ -35,7 +35,7 @@
 #include <linux/version.h>
 #include <asm/uaccess.h>
 
-#include "../chip.h"
+#include "../common.h"
 #include "../platform.h"
 #include "config.h"
 #include "i2c.h"
@@ -962,5 +962,6 @@ void core_firmware_remove(void)
 {
 	DBG_INFO("Remove core-firmware members");
 
-	kfree(core_firmware);
+	if(core_firmware != NULL)
+		kfree(core_firmware);
 }

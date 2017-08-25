@@ -36,7 +36,7 @@
 #include <linux/gpio.h>
 #endif
 
-#include "../chip.h"
+#include "../common.h"
 #include "../platform.h"
 #include "config.h"
 #include "i2c.h"
@@ -318,29 +318,47 @@ void core_config_ic_reset(void)
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
+void core_config_sense_ctrl(bool start)
+{
+	uint8_t sense_start[3] = {0x1, 0x1, 0x1};
+	uint8_t sense_stop[3] = {0x1, 0x1, 0x0};
+
+	DBG_INFO("sense start = %d", start);
+
+	if(start)
+	{
+		/* sense start for TP */
+		core_i2c_write(core_config->slave_i2c_addr, sense_start, 3);
+	}
+	else
+	{
+		/* sense stop for TP */
+		core_i2c_write(core_config->slave_i2c_addr, sense_stop, 3);
+	}
+
+	/* check system busy */
+	if(core_config_check_cdc_busy() < 0)
+		DBG_ERR("Check busy is timout !");
+}
+EXPORT_SYMBOL(core_config_sense_ctrl);
+
 void core_config_ic_suspend(void)
 {
-	uint8_t cmd[2];
+	uint8_t cmd[2] = {0x02, 0x0};
 
 	DBG_INFO("Tell IC to suspend");
-
-	cmd[0] = pcmd[8];
-	cmd[1] = 0x00; // sleep in
-
-	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	
+	core_config_func_ctrl(cmd);
 }
 EXPORT_SYMBOL(core_config_ic_suspend);
 
 void core_config_ic_resume(void)
 {
-	uint8_t cmd[2];
+	uint8_t cmd[2] = {0x02, 0x01};
 
 	DBG_INFO("Tell IC to resume");
 
-	cmd[0] = pcmd[8];
-	cmd[1] = 0x01; // sleep out
-
-	core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	core_config_func_ctrl(cmd);
 
 	// it's better to do reset after resuem.
 	core_config_ice_mode_enable();
@@ -382,6 +400,89 @@ int core_config_reset_watch_dog(void)
 	return 0;
 }
 EXPORT_SYMBOL(core_config_reset_watch_dog);
+
+int core_config_check_cdc_busy(void)
+{
+	int timer = 50, res = -1;
+    uint8_t cmd[2] = {0};
+	uint8_t busy = 0;
+
+    cmd[0] = pcmd[0];
+    cmd[1] = pcmd[9];
+
+	while(timer > 0)
+	{
+		core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+		mdelay(1);
+		core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+		mdelay(10);
+		core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
+		DBG("CDC busy state = 0x%x", busy);
+		if(busy == 0x41)
+		{
+			res = 0;
+			break;
+		}
+		timer--;
+	}
+
+	return res;
+}
+EXPORT_SYMBOL(core_config_check_cdc_busy);
+
+void core_config_func_ctrl(uint8_t *buf)
+{
+	int len = 3;
+	uint8_t cmd[3] = {0};
+
+	cmd[0] = 0x1;
+	cmd[1] = buf[0];
+	cmd[2] = buf[1];
+
+	DBG_INFO("func = %x , ctrl = %x", cmd[1], cmd[2]);
+
+	switch(cmd[1])
+	{
+		case 0x2:
+			if(cmd[2] == 0x0)
+			{
+				DBG_INFO("Sleep IN ... Gesture = %d", core_config->isEnableGesture);
+				if(core_config->isEnableGesture)
+				{
+					/* LPWG Ctrl */
+					cmd[1] = 0x0A;
+					cmd[2] = 0x01;
+					DBG_INFO("cmd = 0x%x, 0x%x, 0x%x", cmd[0], cmd[1], cmd[2]);
+					core_i2c_write(core_config->slave_i2c_addr, cmd, len);
+				}
+				else
+				{
+					/* sense stop */
+					core_config_sense_ctrl(false);
+
+					/* sleep in */
+					core_i2c_write(core_config->slave_i2c_addr, cmd, len);
+				}
+			}
+			else
+			{
+				DBG_INFO("Sleep OUT ...");
+			
+				/* sleep out */
+				core_i2c_write(core_config->slave_i2c_addr, cmd, len);
+	
+				/* sense start for TP */
+				core_config_sense_ctrl(true);
+			}
+			break;
+
+		default:
+			core_i2c_write(core_config->slave_i2c_addr, cmd, len);
+			mdelay(1);
+			break;
+	}
+}
+EXPORT_SYMBOL(core_config_func_ctrl);
 
 int core_config_get_key_info(void)
 {
@@ -774,6 +875,7 @@ int core_config_init(void)
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0x0000;
 			core_config->do_ic_reset = false;
+			core_config->isEnableGesture = false;
 
 			if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
@@ -815,10 +917,10 @@ void core_config_remove(void)
 {
 	DBG_INFO("Remove core-config memebers");
 
-	kfree(core_config);
+	if(core_config->tp_info != NULL)
+		kfree(core_config->tp_info);
 
-	kfree(core_config->tp_info);
-
-	core_flash_remove();
+	if(core_config != NULL)
+		kfree(core_config);
 }
 EXPORT_SYMBOL(core_config_remove);

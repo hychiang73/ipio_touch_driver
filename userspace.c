@@ -27,14 +27,21 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/proc_fs.h>
+#include <linux/string.h>
+#include <linux/ctype.h>
 
 #include <linux/netlink.h>
 #include <linux/skbuff.h>
 #include <linux/socket.h>
 #include <net/sock.h>
 
-#include "chip.h"
+#include "common.h"
 #include "platform.h"
+#include "core/config.h"
+#include "core/firmware.h"
+#include "core/finger_report.h"
+#include "core/flash.h"
+#include "core/i2c.h"
 
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	18
@@ -66,23 +73,19 @@
 
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
 
-static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
 
-	// If file position is non-zero,  we assume the string has been read
-	// and indicates that there is no more data to be read.
 	if (*pPos != 0)
-	{
 		return 0;
-	}
 
-	len = sprintf(buff, "%02d", core_firmware->update_status);
+	len = sprintf(buff, "%d", core_config->isEnableGesture );
 
-	DBG_INFO("update status = %d \n", core_firmware->update_status);
+	DBG_INFO("isEnableGesture = %d", core_config->isEnableGesture);
 
-	res = copy_to_user((uint32_t *)buff, &core_firmware->update_status, len);
+	res = copy_to_user((uint32_t *)buff, &core_config->isEnableGesture, len);
 	if (res < 0)
 	{
 		DBG_ERR("Failed to copy data to user space");
@@ -93,7 +96,40 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 	return len;
 }
 
-static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	char cmd[10] = {0};
+
+	if(buff != NULL)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	if(strcmp(cmd, "on") == 0)
+	{
+		DBG_INFO("enable gesture mode");
+		core_config->isEnableGesture = true;		
+	}
+	else if(strcmp(cmd, "off") == 0)
+	{
+		DBG_INFO("disable gesture mode");
+		core_config->isEnableGesture = false;
+	}
+	else
+		DBG_ERR("Unknown command");
+
+	return size;
+}
+
+static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
@@ -101,15 +137,13 @@ static ssize_t ilitek_proc_fw_status_read(struct file *filp, char __user *buff, 
 	// If file position is non-zero,  we assume the string has been read
 	// and indicates that there is no more data to be read.
 	if (*pPos != 0)
-	{
 		return 0;
-	}
 
-	len = sprintf(buff, "%d", core_firmware->isUpgraded);
+	len = sprintf(buff, "%02d", core_firmware->update_status);
 
-	DBG_INFO("isUpgraded = %d \n", core_firmware->isUpgraded);
+	DBG_INFO("update status = %d", core_firmware->update_status);
 
-	res = copy_to_user((uint32_t *)buff, &core_firmware->isUpgraded, len);
+	res = copy_to_user((uint32_t *)buff, &core_firmware->update_status, len);
 	if (res < 0)
 	{
 		DBG_ERR("Failed to copy data to user space");
@@ -132,25 +166,27 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 	DBG_INFO("Preparing to upgarde firmware");
 
 	if (*pPos != 0)
-	{
 		return 0;
-	}
 
 	ilitek_platform_disable_irq();
+
+	if(ipd->isEnablePollCheckPower)
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
 
 	res = core_firmware_upgrade(UPDATE_FW_PATH, false);
 
 	ilitek_platform_enable_irq();
 
+	if(ipd->isEnablePollCheckPower)
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+
 	if (res < 0)
 	{
-		// return the status to user space even if any error occurs.
-		core_firmware->update_status = res;
-		DBG_ERR("Failed to upgrade firwmare, res = %d", res);
+		DBG_ERR("Failed to upgrade firwmare");		
 	}
 	else
 	{
-		DBG_INFO("Succeed to upgrade firmware");
+		DBG_INFO("Succeed to upgrade firmware");		
 	}
 
 	*pPos = len;
@@ -166,9 +202,7 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 	DBG_INFO("Preparing to upgarde firmware by IRAM");
 
 	if (*pPos != 0)
-	{
 		return 0;
-	}
 
 	ilitek_platform_disable_irq();
 
@@ -200,9 +234,7 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 	uint8_t cmd[2] = {0};
 
 	if (*pPos != 0)
-	{
 		return 0;
-	}
 
 	if(size < 4095)
 	{
@@ -248,8 +280,9 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 {
 	int res = 0;
 	uint8_t cmd[10] = {0};
+	uint8_t func[2] = {0};
 
-	if(size < 4095)
+	if(buff != NULL)
 	{
 		res = copy_from_user(cmd, buff, size - 1);
 		if(res < 0)
@@ -283,21 +316,94 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 	else if(strcmp(cmd, "enapower") == 0)
 	{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)
 		DBG_INFO("Start the thread of check power status");
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 		ipd->isEnablePollCheckPower = true;
-#endif
 	}
 	else if(strcmp(cmd, "dispower") == 0)
 	{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)
 		DBG_INFO("Cancel the thread of check power status");
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
 		ipd->isEnablePollCheckPower = false;
-#endif	
 	}
-
+	else if(strcmp(cmd, "disges") == 0)
+	{
+		DBG_INFO("disable gesture mode");
+		core_config->isEnableGesture = false;
+	}
+	else if(strcmp(cmd, "enages") == 0)
+	{
+		DBG_INFO("enable gesture mode");
+		core_config->isEnableGesture = true;
+	}
+	else if(strcmp(cmd, "dispcc") == 0)
+	{
+		DBG_INFO("disable phone cover control");
+		func[0] = 0x0C;
+		func[1] = 0x00;
+		core_config_func_ctrl(func);
+	}
+	else if(strcmp(cmd, "enapcc") == 0)
+	{
+		DBG_INFO("enable phone cover control");
+		func[0] = 0x0C;
+		func[1] = 0x01;
+		core_config_func_ctrl(func);
+	}
+	else if(strcmp(cmd, "disfsc") == 0)
+	{
+		DBG_INFO("disable finger sense control");
+		func[0] = 0x0F;
+		func[1] = 0x00;
+		core_config_func_ctrl(func);
+	}
+	else if(strcmp(cmd, "enafsc") == 0)
+	{
+		DBG_INFO("enable finger sense control");
+		func[0] = 0x0F;
+		func[1] = 0x01;
+		core_config_func_ctrl(func);
+	}
+	else if(strcmp(cmd, "disprox") == 0)
+	{
+		DBG_INFO("disable proximity function");
+		func[0] = 0x10;
+		func[1] = 0x00;
+		core_config_func_ctrl(func);
+	}
+	else if(strcmp(cmd, "enaprox") == 0)
+	{
+		DBG_INFO("enable proximity function");
+		func[0] = 0x10;
+		func[1] = 0x01;
+		core_config_func_ctrl(func);
+	}
+	else if(strcmp(cmd, "disglove") == 0)
+	{
+		DBG_INFO("disable glove function");
+		func[0] = 0x06;
+		func[1] = 0x00;
+		core_config_func_ctrl(func);
+	}
+	else if(strcmp(cmd, "enaglove") == 0)
+	{
+		DBG_INFO("enable glove function");
+		func[0] = 0x06;
+		func[1] = 0x01;
+		core_config_func_ctrl(func);
+	}
+	else if(strcmp(cmd, "glovesl") == 0)
+	{
+		DBG_INFO("set glove as seamless");
+		func[0] = 0x06;
+		func[1] = 0x02;
+		core_config_func_ctrl(func);
+	}
+	else
+	{
+		DBG_ERR("Unknown command");
+	}
+	
 	return size;	
 }
 
@@ -414,7 +520,15 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_FUNC_MODE:
-		DBG_INFO("Not implemented yet");
+		res = copy_from_user(szBuf, (uint8_t *)arg, 2);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy data from user space");
+		}
+		else
+		{
+			core_config_func_ctrl(szBuf);
+		}
 		break;
 
 	case ILITEK_IOCTL_TP_FW_VER:
@@ -560,19 +674,15 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 
 struct proc_dir_entry *proc_dir_ilitek;
 struct proc_dir_entry *proc_ioctl;
-struct proc_dir_entry *proc_fw_status;
 struct proc_dir_entry *proc_fw_process;
 struct proc_dir_entry *proc_fw_upgrade;
 struct proc_dir_entry *proc_iram_upgrade;
+struct proc_dir_entry *proc_gesture;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
 	.read = ilitek_proc_ioctl_read,
 	.write = ilitek_proc_ioctl_write,
-};
-
-struct file_operations proc_fw_status_fops = {
-	.read = ilitek_proc_fw_status_read,
 };
 
 struct file_operations proc_fw_process_fops = {
@@ -587,7 +697,12 @@ struct file_operations proc_iram_upgrade_fops = {
 	.read = ilitek_proc_iram_upgrade_read,
 };
 
-/*
+struct file_operations proc_gesture_fops = {
+	.write = ilitek_proc_gesture_write,
+	.read = ilitek_proc_gesture_read,
+};
+
+/**
  * This struct lists all file nodes will be created under /proc filesystem.
  *
  * Before creating a node that you want, declaring its file_operations structure
@@ -598,27 +713,18 @@ struct file_operations proc_iram_upgrade_fops = {
  */
 typedef struct
 {
-
-	// node's name.
 	char *name;
-
-	// point to a node created by proc_create.
 	struct proc_dir_entry *node;
-
-	// point to a fops declard the above already.
 	struct file_operations *fops;
-
-	// indicate if a node is created.
 	bool isCreated;
-
 } proc_node_t;
 
 proc_node_t proc_table[] = {
 	{"ioctl", NULL, &proc_ioctl_fops, false},
-	{"fw_status", NULL, &proc_fw_status_fops, false},
 	{"fw_process", NULL, &proc_fw_process_fops, false},
 	{"fw_upgrade", NULL, &proc_fw_upgrade_fops, false},
 	{"iram_upgrade", NULL, &proc_iram_upgrade_fops, false},
+	{"gesture", NULL, &proc_gesture_fops, false},
 };
 
 #define NETLINK_USER 21
@@ -635,9 +741,9 @@ void netlink_reply_msg(void *raw, int size)
 	int msg_size = size;
 	uint8_t *data = (uint8_t *)raw;
 
-	DBG_INFO("The size of data being sent to user = %d", msg_size);
-	DBG_INFO("pid = %d", pid);
-	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
+	DBG("The size of data being sent to user = %d", msg_size);
+	DBG("pid = %d", pid);
+	DBG("Netlink is enable = %d", core_fr->isEnableNetlink);
 
 	if (core_fr->isEnableNetlink)
 	{
