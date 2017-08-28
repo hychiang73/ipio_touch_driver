@@ -865,6 +865,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 				if (res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
+					core_firmware->update_status = res;
 					goto out;
 				}
 
