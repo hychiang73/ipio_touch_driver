@@ -157,7 +157,10 @@ static uint32_t ili7807_check_data(uint32_t start_addr, uint32_t end_addr)
 	core_config_ice_mode_write(0x041008, 0x3b, 1);
 
 	// Set start address
-	core_config_ice_mode_write(0x041008, start_addr, 3);
+	core_config_ice_mode_write(0x041008, (start_addr & 0xFF0000) >> 16, 1);
+	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
+	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
+
 	// Enable Dio_Rx_dual
 	core_config_ice_mode_write(0x041003, 0x01, 1);
 	// Dummy
