@@ -605,14 +605,28 @@ static uint16_t calc_packet_length(void)
 			srx = core_config->tp_info->self_rx_channel_num;
 		}
 
-		if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
+		if(core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode)
+		{
+			/* N+ communication with user */
+			if(tlen <= 0)
+			{
+				rlen = P5_0_DEMO_MODE_PACKET_LENGTH;
+			}
+			else
+			{
+				rlen = tlen;
+			}
+		}
+		else if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
 		{
 			rlen = P5_0_DEMO_MODE_PACKET_LENGTH;
 		}
 		else if (core_fr->actual_fw_mode == core_fr->fw_test_mode)
 		{
 			if(IS_ERR(core_config->tp_info))
+			{
 				rlen = P5_0_TEST_MODE_PACKET_LENGTH;
+			}
 			else
 			{
 				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + 1;
@@ -622,7 +636,9 @@ static uint16_t calc_packet_length(void)
 		else if (core_fr->actual_fw_mode == core_fr->fw_debug_mode)
 		{
 			if(IS_ERR(core_config->tp_info))
-				rlen = P5_0_DEBUG_MODE_PACKET_LENGTH;
+			{
+				rlen = P5_0_DEBUG_MODE_PACKET_LENGTH;	
+			}
 			else
 			{
 				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + (8 * 2) + 1;
@@ -697,9 +713,6 @@ void core_fr_handler(void)
 							memcpy(tdata+fnode->len, fuart->data, fuart->len);
 
 						netlink_reply_msg(tdata, tlen);
-						kfree(tdata);
-						kfree(fnode);
-						kfree(fuart);
 					}
 					break;
 				}
@@ -711,6 +724,35 @@ void core_fr_handler(void)
 	{
 		DBG("The figner report was disabled");
 	}
+
+out:
+	DBG_INFO("FREE DATA !!!!!!");
+	if(tdata != NULL)
+	{
+		kfree(tdata);
+		tdata = NULL;
+	}
+	if(fnode != NULL)
+	{
+		if(fnode->data != NULL)
+		{
+			kfree(fnode->data);
+			fnode->data = NULL;
+		}
+		kfree(fnode);
+		fnode = NULL;
+	}
+	if(fuart != NULL)
+	{
+		if(fuart->data != NULL)
+		{
+			kfree(fuart->data);
+			fuart->data = NULL;
+		}
+		kfree(fuart);
+		fuart = NULL;
+	}
+	return;
 }
 EXPORT_SYMBOL(core_fr_handler);
 
