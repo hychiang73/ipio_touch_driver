@@ -48,12 +48,14 @@ void core_flash_init(uint16_t mid, uint16_t did)
 
     DBG_INFO("M_ID = %x, DEV_ID = %x", mid, did);
 
+    flashtab = kzalloc(sizeof(ft), GFP_KERNEL);
+
     for(; i < ARRAY_SIZE(ft); i++)
     {
         if(mid == ft[i].mid && did == ft[i].dev_id)
         {
             DBG_INFO("Find it in flash table");
-            flashtab = kzalloc(sizeof(ft), GFP_KERNEL);
+
             flashtab->mid = mid;
             flashtab->dev_id = did;
             flashtab->mem_size = ft[i].mem_size;

@@ -47,12 +47,14 @@
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
 
-// the size of two arrays is different, depending on
-// which of methods to upgrade firmware you choose for.
+/* 
+ * the size of two arrays is different depending on
+ * which of methods to upgrade firmware you choose for.
+ */
 uint8_t *flash_fw = NULL;
 uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = {0};
 
-// the length of array in each sector
+/* the length of array in each sector */
 int sec_length = 0;
 
 struct flash_sector
@@ -133,7 +135,7 @@ static uint32_t calc_crc32(uint32_t start_addr, uint32_t end_addr, uint8_t *data
 	return ReturnCRC;
 }
 
-static uint32_t ili7807_check_data(uint32_t start_addr, uint32_t end_addr)
+static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 {
 	int timer = 500;
 	uint32_t write_len = 0;
@@ -151,27 +153,30 @@ static uint32_t ili7807_check_data(uint32_t start_addr, uint32_t end_addr)
 		goto out;
 	}
 
-	// CS low
+	/* CS low */
 	core_config_ice_mode_write(0x041000, 0x0, 1);
 	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
 	core_config_ice_mode_write(0x041008, 0x3b, 1);
 
-	// Set start address
-	core_config_ice_mode_write(0x041008, start_addr, 3);
-	// Enable Dio_Rx_dual
+	/* Set start address */
+	core_config_ice_mode_write(0x041008, (start_addr & 0xFF0000) >> 16, 1);
+	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
+	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
+
+	/* Enable Dio_Rx_dual */
 	core_config_ice_mode_write(0x041003, 0x01, 1);
-	// Dummy
+	/* Dummy */
 	core_config_ice_mode_write(0x041008, 0xFF, 1);
 
-	// Set Receive count
+	/* Set Receive count */
 	if(core_firmware->max_count == 0xFFFF)
 		core_config_ice_mode_write(0x04100C, write_len, 2);
 	else if(core_firmware->max_count == 0x1FFFF)
 		core_config_ice_mode_write(0x04100C, write_len, 3);
 
-	// Checksum enable
+	/* Checksum enable */
 	core_config_ice_mode_write(0x041014, 0x10000, 3);
-	// Start to receive
+	/* Start to receive */
 	core_config_ice_mode_write(0x041010, 0xFF, 1);
 
 	mdelay(1);
@@ -235,7 +240,7 @@ static int do_check(uint32_t start, uint32_t len)
 	uint32_t vd = 0, lc = 0;
 
 	calc_verify_data(start, len, &lc);
-	vd = ili7807_check_data(start, len);
+	vd = tddi_check_data(start, len);
 	res = CHECK(vd, lc);
 
 	DBG_INFO("%s (%x) : (%x)", (res < 0 ? "Invalid !" : "Correct !"), vd, lc );
@@ -249,7 +254,7 @@ static int verify_flash_data(void)
 	int fps = flashtab->sector;
 	uint32_t ss = 0x0;
 
-	// update max count and check type if chip type is different
+	/* check chip type with its max count */
 	if(core_config->chip_id == CHIP_TYPE_ILI7807 &&
 		core_config->chip_type == ILI7807_TYPE_H)
 	{
@@ -266,7 +271,7 @@ static int verify_flash_data(void)
 
 			len = len + ffls[i].dlength;
 
-			// if larger than max count, then committing data to check
+			/* if larger than max count, then committing data to check */
 			if(len >= (core_firmware->max_count - fps))
 			{				
 				res = do_check(ss, len);
@@ -279,8 +284,7 @@ static int verify_flash_data(void)
 		}
 		else
 		{
-			// split sector and commit last data to check
-			// if this sector doesn't have any data
+			/* split flash sector and commit the last data to fw */
 			if(len != 0)
 			{
 				res = do_check(ss, len);
@@ -293,7 +297,7 @@ static int verify_flash_data(void)
 		}
 	}
 
-	// it might be lower than the size of sector if calc the last array.
+	/* it might be lower than the size of sector if calc the last array. */
 	if(len != 0 && res != -1)
 		res = do_check(ss, core_firmware->end_addr - ss);
 
@@ -367,7 +371,7 @@ static int flash_program_sector(void)
 			if (res < 0)
 				goto out;
 
-			// CS low
+			/* CS low */
 			core_config_ice_mode_write(0x041000, 0x0, 1);
 			core_config_ice_mode_write(0x041004, 0x66aa55, 3);
 			core_config_ice_mode_write(0x041008, 0x02, 1);
@@ -397,18 +401,19 @@ static int flash_program_sector(void)
 				goto out;
 			}
 
-			// CS high
+			/* CS high */
 			core_config_ice_mode_write(0x041000, 0x1, 1);
 
 			res = flash_polling_busy();
 			if (res < 0)
 				goto out;
 
-			// holding the status until finish this upgrade.
-			if(core_firmware->update_status > 90)
-				continue;
-
 			core_firmware->update_status = (j * 101) / core_firmware->end_addr;
+
+			/* holding the status until finish this upgrade. */
+			if(core_firmware->update_status > 90)
+				core_firmware->update_status = 90;
+
 			printk("%cUpgrading firmware ... (0x%x...0x%x), %02d%c", 0x0D, ffls[i].ss_addr, ffls[i].se_addr, core_firmware->update_status, '%');
 		}
 	}
@@ -434,7 +439,7 @@ static int flash_erase_sector(void)
 			goto out;
 		}
 
-		// CS low
+		/* CS low */
 		core_config_ice_mode_write(0x041000, 0x0, 1);
 		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
 		core_config_ice_mode_write(0x041008, 0x20, 1);
@@ -453,7 +458,7 @@ static int flash_erase_sector(void)
 			goto out;
 		}
 
-		// CS low
+		/* CS low */
 		core_config_ice_mode_write(0x041000, 0x0, 1);
 		core_config_ice_mode_write(0x041004, 0x66aa55, 3);
 		core_config_ice_mode_write(0x041008, 0x3, 1);
@@ -468,7 +473,7 @@ static int flash_erase_sector(void)
 		if (temp_buf != 0xFF)
 			DBG_ERR("Failed to read data at 0x%x ", i);
 
-		// CS High
+		/* CS High */
 		core_config_ice_mode_write(0x041000, 0x1, 1);
 
 		DBG_INFO("Earsing data at start addr: %x ", ffls[i].ss_addr );
@@ -483,8 +488,6 @@ static int iram_upgrade(void)
 	int i, j, res = 0;
 	uint8_t buf[512];
 	int upl = flashtab->program_page;
-
-	core_firmware->update_status = 0;
 
 	// doing reset for erasing iram data before upgrade it.
 	ilitek_platform_tp_hw_reset(true);
@@ -862,6 +865,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 				if (res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
+					core_firmware->update_status = res;
 					goto out;
 				}
 

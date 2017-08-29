@@ -917,10 +917,12 @@ void core_config_remove(void)
 {
 	DBG_INFO("Remove core-config memebers");
 
-	if(core_config->tp_info != NULL)
-		kfree(core_config->tp_info);
-
 	if(core_config != NULL)
+	{
+		if(core_config->tp_info != NULL)
+			kfree(core_config->tp_info);
+		
 		kfree(core_config);
+	}
 }
 EXPORT_SYMBOL(core_config_remove);
