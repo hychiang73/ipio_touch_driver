@@ -83,8 +83,8 @@
 #define ON_BOARD_IC		0x9881
 
 /* Platform */
-//#define PLATFORM_MTK 
-#define PLATFORM_RK 
+#define PLATFORM_MTK 
+//#define PLATFORM_RK 
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.0.8"
@@ -177,7 +177,7 @@
  */
 #define MAX_TOUCH_NUM	10
 #define ENABLE_REGULATOR_POWER_ON 
-//#define ENABLE_DMA 
+#define ENABLE_DMA 
 #define USE_KTHREAD 
 
 #endif /* __COMMON_H */
