@@ -49,12 +49,17 @@ void core_flash_init(uint16_t mid, uint16_t did)
     DBG_INFO("M_ID = %x, DEV_ID = %x", mid, did);
 
     flashtab = kzalloc(sizeof(ft), GFP_KERNEL);
+    if(ERR_ALLOC_MEM(flashtab))
+    {
+        DBG_ERR("Failed to allocate flashtab memory, %ld", PTR_ERR(flashtab));
+        return;
+    }
 
     for(; i < ARRAY_SIZE(ft); i++)
     {
         if(mid == ft[i].mid && did == ft[i].dev_id)
         {
-            DBG_INFO("Find it in flash table");
+            DBG_INFO("Find them in flash table");
 
             flashtab->mid = mid;
             flashtab->dev_id = did;
@@ -68,7 +73,7 @@ void core_flash_init(uint16_t mid, uint16_t did)
 
     if(i >= ARRAY_SIZE(ft))
     {
-        DBG_ERR("Can't find it in flash table, apply default flash config");
+        DBG_ERR("Can't find them in flash table, apply default flash config");
         flashtab->mid = mid;
         flashtab->dev_id = did;
         flashtab->mem_size = (256*1024);

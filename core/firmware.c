@@ -42,7 +42,7 @@
 #include "firmware.h"
 #include "flash.h"
 
-#define CHECK(X,Y) ((X==Y) ? 0 : -1 )
+
 
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
@@ -74,9 +74,9 @@ struct flash_block_info
 	uint32_t end_addr;
 };
 
-struct flash_sector *ffls;
+struct flash_sector *ffls = NULL;
 struct flash_block_info fbi[4];
-struct core_firmware_data *core_firmware;
+struct core_firmware_data *core_firmware = NULL;
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -241,7 +241,7 @@ static int do_check(uint32_t start, uint32_t len)
 
 	calc_verify_data(start, len, &lc);
 	vd = tddi_check_data(start, len);
-	res = CHECK(vd, lc);
+	res = CHECK_EQUAL(vd, lc);
 
 	DBG_INFO("%s (%x) : (%x)", (res < 0 ? "Invalid !" : "Correct !"), vd, lc );
 
@@ -800,11 +800,11 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	//TODO: to compare old/new version if upgraded.
 
 	pfile = filp_open(pFilePath, O_RDONLY, 0);
-	if (IS_ERR(pfile))
+	if (ERR_ALLOC_MEM(pfile))
 	{
 		DBG_ERR("Failed to open the file at %s.", pFilePath);
 		res = -ENOENT;
-		goto fail;
+		return res;
 	}
 	else
 	{
@@ -834,10 +834,31 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			}
 
 			hex_buffer = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
+			if(ERR_ALLOC_MEM(hex_buffer))
+			{
+				DBG_ERR("Failed to allocate hex_buffer memory, %ld", PTR_ERR(hex_buffer));
+				res = -ENOMEM;
+				goto out;
+			}
+
 			flash_fw = kzalloc(sizeof(uint8_t) * flashtab->mem_size, GFP_KERNEL);
+			if(ERR_ALLOC_MEM(flash_fw))
+			{
+				DBG_ERR("Failed to allocate flash_fw memory, %ld", PTR_ERR(flash_fw));
+				res = -ENOMEM;
+				goto out;
+			}
+
 			memset(flash_fw, 0xff, (int)sizeof(flash_fw));
 			Ssize = flashtab->mem_size / flashtab->sector;
+
 			ffls = kcalloc(Ssize, sizeof(uint32_t) * Ssize, GFP_KERNEL);
+			if(ERR_ALLOC_MEM(ffls))
+			{
+				DBG_ERR("Failed to allocate ffls memory, %ld", PTR_ERR(ffls));
+				res = -ENOMEM;
+				goto out;
+			}
 
 			// store current userspace mem segment.
 			old_fs = get_fs();
@@ -852,7 +873,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			set_fs(old_fs);
 
 			res = convert_hex_file(hex_buffer, fsize, isIRAM);
-
 			if (res < 0)
 			{
 				DBG_ERR("Failed to covert firmware data, res = %d", res);
@@ -865,12 +885,9 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 				if (res < 0)
 				{
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
-					core_firmware->update_status = res;
 					goto out;
 				}
-
 				core_firmware->isUpgraded = true;
-				core_firmware->update_status = 100;
 			}
 		}
 	}
@@ -894,21 +911,39 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 out:
 	filp_close(pfile, NULL);
-fail:
-	kfree(hex_buffer);
-	kfree(flash_fw);
+	if(hex_buffer != NULL)
+	{
+		kfree(hex_buffer);
+		hex_buffer = NULL;		
+	}
+	if(flash_fw != NULL)
+	{
+		kfree(flash_fw);
+		flash_fw = NULL;		
+	}
+	if(ffls != NULL)
+	{
+		kfree(ffls);
+		ffls = NULL;		
+	}
 	return res;
 }
 
 int core_firmware_init(void)
 {
-	int i = 0, j = 0, res = 0;
+	int i = 0, j = 0, res = -1;
 
 	for (; i < nums_chip; i++)
 	{
 		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
+			if(ERR_ALLOC_MEM(core_firmware))
+			{
+				DBG_ERR("Failed to allocate core_firmware memory, %ld", PTR_ERR(core_firmware));
+				res = -ENOMEM;
+				goto out;
+			}
 
 			/* set default address in each block */
 			fbi[0].block_name = "AP";
@@ -945,18 +980,13 @@ int core_firmware_init(void)
 				core_firmware->upgrade_func = tddi_fw_upgrade;
 				core_firmware->delay_after_upgrade = 200;
 			}
+
+			res = 0;
+			return res;			
 		}
 	}
 
-	if (IS_ERR(core_firmware))
-	{
-		DBG_ERR("Can't find an id from the support list, init core_firmware failed");
-		res = -ENOMEM;
-		goto out;
-	}
-
-	return res;
-
+	DBG_ERR("Can't find this chip in support list");
 out:
 	core_firmware_remove();
 	return res;

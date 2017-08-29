@@ -145,14 +145,14 @@ static void i2cuart_recv_packet(void)
 	if (need_read_len > actual_len)
 	{
 		fuart = kmalloc(sizeof(*fuart), GFP_ATOMIC);
-		if(IS_ERR(fuart))
+		if(ERR_ALLOC_MEM(fuart))
 		{
 			DBG_ERR("Failed to allocate fuart memory %ld", PTR_ERR(fuart));
 			return;
 		}
 
 		fuart->data = kzalloc(fuart->len, GFP_ATOMIC);
-		if(IS_ERR(fuart->data))
+		if(ERR_ALLOC_MEM(fuart->data))
 		{
 			DBG_ERR("Failed to allocate fuart memory %ld", PTR_ERR(fuart->data));
 			return;
@@ -615,7 +615,7 @@ static uint16_t calc_packet_length(void)
 
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
-		if(!IS_ERR(core_config->tp_info))
+		if(!ERR_ALLOC_MEM(core_config->tp_info))
 		{
 			xch = core_config->tp_info->nXChannelNum;
 			ych = core_config->tp_info->nYChannelNum;
@@ -631,7 +631,7 @@ static uint16_t calc_packet_length(void)
 		}
 		else if (core_fr->actual_fw_mode == core_fr->fw_test_mode)
 		{
-			if(IS_ERR(core_config->tp_info))
+			if(ERR_ALLOC_MEM(core_config->tp_info))
 			{
 				rlen = P5_0_TEST_MODE_PACKET_LENGTH;
 			}
@@ -643,7 +643,7 @@ static uint16_t calc_packet_length(void)
 		}
 		else if (core_fr->actual_fw_mode == core_fr->fw_debug_mode)
 		{
-			if(IS_ERR(core_config->tp_info))
+			if(ERR_ALLOC_MEM(core_config->tp_info))
 			{
 				rlen = P5_0_DEBUG_MODE_PACKET_LENGTH;	
 			}
@@ -700,14 +700,14 @@ void core_fr_handler(void)
 		if(tlen)
 		{
 			fnode = kmalloc(sizeof(*fnode), GFP_ATOMIC);	
-			if(IS_ERR(fnode))
+			if(ERR_ALLOC_MEM(fnode))
 			{
 				DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(fnode));
 				goto out;
 			}
 
 			fnode->data = kmalloc(sizeof(uint8_t) * tlen, GFP_ATOMIC);
-			if(IS_ERR(fnode->data))
+			if(ERR_ALLOC_MEM(fnode->data))
 			{
 				DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(fnode->data));
 				goto out;
@@ -730,7 +730,7 @@ void core_fr_handler(void)
 						if(tlen < 2048)
 						{
 							tdata = kmalloc(tlen, GFP_ATOMIC);
-							if(IS_ERR(tdata))
+							if(ERR_ALLOC_MEM(tdata))
 							{
 								DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(tdata));
 								goto out;
@@ -865,13 +865,19 @@ EXPORT_SYMBOL(core_fr_input_set_param);
 
 int core_fr_init(struct i2c_client *pClient)
 {
-	int i = 0, res = 0;
+	int i = 0, res = -1;
 
 	for (; i < nums_chip; i++)
 	{
 		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(core_fr))
+			{
+				DBG_ERR("Failed to init core_fr, %ld", PTR_ERR(core_fr));
+				res = -ENOMEM;
+				goto out;
+			}
 
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
@@ -888,18 +894,13 @@ int core_fr_init(struct i2c_client *pClient)
 				core_fr->fw_i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
 				core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 			}
+
+			res = 0;
+			return res;			
 		}
 	}
 
-	if (IS_ERR(core_fr))
-	{
-		DBG_ERR("Failed to init core_fr, %ld", PTR_ERR(core_fr));
-		res = -ENOMEM;
-		goto out;
-	}
-
-	return res;
-
+	DBG_ERR("Can't find this chip in support list");
 out:
 	core_fr_remove();
 	return res;

@@ -30,16 +30,14 @@
 #include "config.h"
 #include "i2c.h"
 
-#define DMA_VA_BUFFER   4096
+struct core_i2c_data *core_i2c;
 
 #ifdef ENABLE_DMA
 static unsigned char *ilitek_dma_va = NULL;
 static dma_addr_t ilitek_dma_pa = 0;
-#endif
 
-struct core_i2c_data *core_i2c;
+#define DMA_VA_BUFFER   4096
 
-#ifdef ENABLE_DMA
 static int dma_alloc(void)
 {
     int res = 0;
@@ -179,7 +177,6 @@ int core_i2c_init(struct i2c_client *client)
     int res = 0;
 
     core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
-
     if (IS_ERR(core_i2c))
     {
         DBG_ERR("init core-i2c failed !");
@@ -190,7 +187,9 @@ int core_i2c_init(struct i2c_client *client)
     core_i2c->client = client;
 
 #ifdef ENABLE_DMA
-    dma_alloc();
+    res = dma_alloc();
+    if(res < 0)
+        goto out;
 #endif
 
     if (ON_BOARD_IC == CHIP_TYPE_ILI7807)
@@ -209,7 +208,7 @@ int core_i2c_init(struct i2c_client *client)
 #endif
 
 out:
-    return 0;
+    return res;
 }
 EXPORT_SYMBOL(core_i2c_init);
 
