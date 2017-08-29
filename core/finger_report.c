@@ -64,15 +64,17 @@ struct mutual_touch_info
 struct fr_data_node
 {
 	uint8_t *data;
-	int len;
+	uint16_t len;
 };
 
-// record the status of touch being pressed or released currently and previosuly.
+/* record the status of touch being pressed or released currently and previosuly */
 uint8_t CurrentTouch[MAX_TOUCH_NUM];
 uint8_t PreviousTouch[MAX_TOUCH_NUM];
-int tlen = 0;
 
-// set up width and heigth of a screen
+/* the total length of finger report packet */
+uint16_t tlen = 0;
+
+/* set up width and heigth of a screen */
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
 #define TOUCH_SCREEN_X_MAX 1080
@@ -82,8 +84,8 @@ int tlen = 0;
 #define TPD_WIDTH 2048
 
 struct mutual_touch_info mti;
-struct fr_data_node *fnode, *fuart;
-struct core_fr_data *core_fr;
+struct fr_data_node *fnode = NULL, *fuart = NULL;
+struct core_fr_data *core_fr = NULL;
 
 /**
  * Calculate the check sum of each packet reported by firmware 
@@ -142,14 +144,26 @@ static void i2cuart_recv_packet(void)
 
 	if (need_read_len > actual_len)
 	{
-		fuart = kmalloc(sizeof(*fuart), GFP_KERNEL);
-		fuart->len = need_read_len - actual_len;
-		fuart->data = kzalloc(fuart->len, GFP_KERNEL);
-		tlen += fuart->len;
+		fuart = kmalloc(sizeof(*fuart), GFP_ATOMIC);
+		if(IS_ERR(fuart))
+		{
+			DBG_ERR("Failed to allocate fuart memory %ld", PTR_ERR(fuart));
+			return;
+		}
 
+		fuart->data = kzalloc(fuart->len, GFP_ATOMIC);
+		if(IS_ERR(fuart->data))
+		{
+			DBG_ERR("Failed to allocate fuart memory %ld", PTR_ERR(fuart->data));
+			return;
+		}
+
+		fuart->len = need_read_len - actual_len;
+		tlen += fuart->len;
 		res = core_i2c_read(core_config->slave_i2c_addr, fuart->data, fuart->len);
 		if (res < 0)
 			DBG_ERR("Failed to read finger report packet");
+
 	}
 }
 
@@ -293,7 +307,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 				mti.mtp[mti.touch_num].pressure = 1;
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
-			DBG("point[%d] : (%d,%d) = %d\n",
+			DBG("point[%d] : (%d,%d) = %d",
 				mti.mtp[mti.touch_num].id,
 				mti.mtp[mti.touch_num].x,
 				mti.mtp[mti.touch_num].y,
@@ -345,7 +359,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 				mti.mtp[mti.touch_num].pressure = 1;
 
 			DBG("[x,y]=[%d,%d]", nX, nY);
-			DBG("point[%d] : (%d,%d) = %d\n",
+			DBG("point[%d] : (%d,%d) = %d",
 				mti.mtp[mti.touch_num].id,
 				mti.mtp[mti.touch_num].x,
 				mti.mtp[mti.touch_num].y,
@@ -563,13 +577,17 @@ int core_fr_mode_control(uint8_t *from_user)
 				if (res < 0)
 					goto out;
 			}
-			core_fr->actual_fw_mode = actual_mode[i];
+
+			/* Ignore i2cuart mode as real when it comes to parse length */
+			if(mode != P5_0_FIRMWARE_I2CUART_MODE)
+				core_fr->actual_fw_mode = actual_mode[i];
+
 			break;
 		}
 
 		if (i == (ARRAY_SIZE(actual_mode) - 1))
 		{
-			DBG_ERR("Unknown Mode");
+			DBG_ERR("Unknown firmware mode: %d", mode);
 			res = -1;
 			goto out;
 		}
@@ -605,19 +623,9 @@ static uint16_t calc_packet_length(void)
 			srx = core_config->tp_info->self_rx_channel_num;
 		}
 
-		if(core_fr->actual_fw_mode == core_fr->fw_i2cuart_mode)
-		{
-			/* N+ communication with user */
-			if(tlen <= 0)
-			{
-				rlen = P5_0_DEMO_MODE_PACKET_LENGTH;
-			}
-			else
-			{
-				rlen = tlen;
-			}
-		}
-		else if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
+		DBG("firmware mode : %d", core_fr->actual_fw_mode);
+
+		if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
 		{
 			rlen = P5_0_DEMO_MODE_PACKET_LENGTH;
 		}
@@ -648,7 +656,7 @@ static uint16_t calc_packet_length(void)
 		else
 		{
 			DBG_ERR("Unknow firmware mode : %d", core_fr->actual_fw_mode);
-			rlen = -1;
+			rlen = 0;
 		}
 	}
 
@@ -689,12 +697,24 @@ void core_fr_handler(void)
 	if(core_fr->isEnableFR)
 	{
 		tlen = calc_packet_length();
-		if(tlen > 0)
+		if(tlen)
 		{
-			fnode = kmalloc(sizeof(*fnode), GFP_KERNEL);
-			fnode->data = kmalloc(sizeof(uint8_t) * tlen, GFP_KERNEL);
+			fnode = kmalloc(sizeof(*fnode), GFP_ATOMIC);	
+			if(IS_ERR(fnode))
+			{
+				DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(fnode));
+				goto out;
+			}
+
+			fnode->data = kmalloc(sizeof(uint8_t) * tlen, GFP_ATOMIC);
+			if(IS_ERR(fnode->data))
+			{
+				DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(fnode->data));
+				goto out;
+			}
+
 			fnode->len = tlen;
-			memset(fnode->data, 0xFF, (int)sizeof(uint8_t) * tlen);
+			memset(fnode->data, 0xFF, (uint8_t)sizeof(uint8_t) * tlen);
 
 			while(i < ARRAY_SIZE(fr_t))
 			{
@@ -706,27 +726,43 @@ void core_fr_handler(void)
 
 					if (core_fr->isEnableNetlink)
 					{
-						tdata = kmalloc(tlen, GFP_KERNEL);
-						memcpy(tdata, fnode->data, fnode->len);
-						// merge data come from uart
-						if(fuart != NULL)
-							memcpy(tdata+fnode->len, fuart->data, fuart->len);
+						/* 2048 is referred to the defination by user */
+						if(tlen < 2048)
+						{
+							tdata = kmalloc(tlen, GFP_ATOMIC);
+							if(IS_ERR(tdata))
+							{
+								DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(tdata));
+								goto out;
+							}
+
+							memcpy(tdata, fnode->data, fnode->len);
+							/* merge uart data if it's at i2cuart mode */
+							if(fuart != NULL)
+								memcpy(tdata+fnode->len, fuart->data, fuart->len);
+						}
+						else
+						{
+							DBG_ERR("total lenght (%d) is too long than user can handle", tlen);
+							goto out;
+						}
 
 						netlink_reply_msg(tdata, tlen);
 					}
 					break;
 				}
 				i++;
-			}	
+			}
 		}
 	}
 	else
 	{
-		DBG("The figner report was disabled");
+		DBG_ERR("The figner report was disabled");
 	}
 
 out:
-	DBG_INFO("FREE DATA !!!!!!");
+	DBG("handle INT done \n");
+	tlen = 0;
 	if(tdata != NULL)
 	{
 		kfree(tdata);
@@ -857,7 +893,7 @@ int core_fr_init(struct i2c_client *pClient)
 
 	if (IS_ERR(core_fr))
 	{
-		DBG_ERR("Failed to init core_fr APIs");
+		DBG_ERR("Failed to init core_fr, %ld", PTR_ERR(core_fr));
 		res = -ENOMEM;
 		goto out;
 	}
