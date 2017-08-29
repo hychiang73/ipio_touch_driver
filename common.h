@@ -102,6 +102,10 @@
 #define DBG(fmt, arg...) \
 			pr_debug( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
+/* Macros */
+#define CHECK_EQUAL(X,Y) ((X==Y) ? 0 : -1 )
+#define ERR_ALLOC_MEM(X)	((IS_ERR(X) || X == NULL) ? 1 : 0)
+
 /*
  * Relative Firmware Upgrade
  */

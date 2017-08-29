@@ -190,7 +190,7 @@ static void read_power_status(uint8_t *buf)
 	set_fs(get_ds());
 
 	f = filp_open(POWER_STATUS_PATH, O_RDONLY, 0);
-	if(IS_ERR(f))
+	if(ERR_ALLOC_MEM(f))
 	{
 		DBG_ERR("Failed to open %s", POWER_STATUS_PATH);
 		return;
@@ -617,7 +617,7 @@ static int ilitek_platform_input_init(void)
 #else
 	ipd->input_device = input_allocate_device();
 
-	if (IS_ERR(ipd->input_device))
+	if (ERR_ALLOC_MEM(ipd->input_device))
 	{
 		DBG_ERR("Failed to allocate touch input device");
 		res = -ENOMEM;
@@ -760,17 +760,26 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if (client == NULL)
 	{
 		DBG_ERR("i2c client is NULL");
-		return -ENODEV;
+		res = -ENODEV;
+		goto out;
 	}
 
 	/* Set i2c slave addr if it's not configured */
-	if(client->addr != 0x41){
+	if(client->addr != 0x41)
+	{
 		client->addr = 0x41;
 		DBG_INFO(" I2C addr : 0x%x\n",client->addr);
 	}
 
 	/* initialise the struct of touch ic memebers. */
 	ipd = kzalloc(sizeof(*ipd), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(ipd))
+	{
+		DBG_ERR("Failed to allocate ipd memory, %ld", PTR_ERR(ipd));
+		res = -ENOMEM;
+		goto out;
+	}
+
 	ipd->client = client;
 	ipd->i2c_id = id;
 	ipd->chip_id = ON_BOARD_IC;
@@ -811,7 +820,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 #else
 	ipd->vdd = regulator_get(&ipd->client->dev, vdd_name);
 #endif
-	if (IS_ERR(ipd->vdd))
+	if (ERR_ALLOC_MEM(ipd->vdd))
 	{
 		DBG_ERR("regulator_get vdd fail");
 		ipd->vdd = NULL;
@@ -824,7 +833,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	}
 
 	ipd->vdd_i2c = regulator_get(&ipd->client->dev, vcc_i2c_name);
-	if (IS_ERR(ipd->vdd_i2c))
+	if (ERR_ALLOC_MEM(ipd->vdd_i2c))
 	{
 		DBG_ERR("regulator_get vdd_i2c fail.");
 		ipd->vdd_i2c = NULL;

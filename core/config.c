@@ -56,7 +56,7 @@ int core_cmd_len = 0;
 // it's able to store 10 commands as default.
 uint8_t pcmd[10] = {0};
 
-struct core_config_data *core_config;
+struct core_config_data *core_config = NULL;
 
 /*
  * assign i2c commands according to the version of protocol.
@@ -859,7 +859,7 @@ EXPORT_SYMBOL(core_config_get_chip_id);
 
 int core_config_init(void)
 {
-	int i = 0, res = 0;
+	int i = 0, res = -1;
 	int alloca_size = 0;
 
 	for (; i < nums_chip; i++)
@@ -868,9 +868,21 @@ int core_config_init(void)
 		{
 			alloca_size = sizeof(*core_config) * sizeof(uint8_t) * 6;
 			core_config = kzalloc(alloca_size, GFP_KERNEL);
+			if(ERR_ALLOC_MEM(core_config))
+			{
+				DBG_ERR("Failed to allocate core_config memory, %ld", PTR_ERR(core_config));
+				res = -ENOMEM;
+				goto out;
+			}
 
 			alloca_size = sizeof(*core_config->tp_info);
 			core_config->tp_info = kzalloc(alloca_size, GFP_KERNEL);
+			if(ERR_ALLOC_MEM(core_config->tp_info))
+			{
+				DBG_ERR("Failed to allocate core_config->tp_info memory, %ld", PTR_ERR(core_config->tp_info));
+				res = -ENOMEM;
+				goto out;
+			}
 
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0x0000;
@@ -891,22 +903,14 @@ int core_config_init(void)
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
 			}
+
+			set_protocol_cmd(core_config->use_protocol);
+			res = 0;
+			return res;
 		}
 	}
 
-	if (IS_ERR(core_config))
-	{
-		DBG_ERR("Can't find any chip IDs from the support list, init core-config failed ");
-		res = -ENOMEM;
-		goto out;
-	}
-	else
-	{
-		set_protocol_cmd(core_config->use_protocol);
-	}
-
-	return res;
-
+	DBG_ERR("Can't find this chip in support list");
 out:
 	core_config_remove();
 	return res;

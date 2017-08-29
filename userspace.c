@@ -182,10 +182,12 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	if (res < 0)
 	{
+		core_firmware->update_status = res;		
 		DBG_ERR("Failed to upgrade firwmare");		
 	}
 	else
 	{
+		core_firmware->update_status = 100;
 		DBG_INFO("Succeed to upgrade firmware");		
 	}
 
