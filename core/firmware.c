@@ -64,6 +64,7 @@ struct flash_sector
 	uint32_t crc32;
 	uint32_t dlength;
 	bool data_flag;
+	bool inside_block;
 };
 
 struct flash_block_info
@@ -491,34 +492,15 @@ out:
 static int flash_erase_sector(void)
 {
 	int i, res = 0;
-	uint32_t j = 0;
 
-	if(core_firmware->hasBlockInfo)
+	for(i = 0; i < total_sector; i++)
 	{
-		for(i = 0; i < ARRAY_SIZE(fbi); i++)
-		{
-			if(fbi[i].isErase)
-			{
-				for(j = fbi[i].start_addr; j < (fbi[i].end_addr + 1); j += flashtab->sector)
-				{
-					res = do_erase_flash(j);
-					if(res < 0)
-						goto out;
-				}
-			}
-		}
-	}
-	else
-	{
-		for(i = 0; i < sec_length + 1; i++)
-		{
-			if(!ffls[i].data_flag)
-				continue;
+		if(!ffls[i].data_flag && !ffls[i].inside_block)
+			continue;
 
-			res = do_erase_flash(ffls[i].ss_addr);
-			if(res < 0)
-				goto out;
-		}
+		res = do_erase_flash(ffls[i].ss_addr);
+		if(res < 0)
+			goto out;
 	}
 
 out:
@@ -819,33 +801,25 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			/* set erase flag in the block if the addr of sector is between it. */
 			for(j = 0; j < ARRAY_SIZE(fbi); j++)
 			{
-				if(!fbi[j].isErase)
+				if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
 				{
-					if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
+					if(ffls[i].data_flag)
 					{
-						if(ffls[i].data_flag)
-						{
-							fbi[j].isErase = true;
-						}
-						break;
+						fbi[j].isErase = true;
 					}
+					ffls[i].inside_block = true;
+					break;
 				}
 			}
 		}
 	}
 
 	/* DEBUG: for showing data with address that will write into fw */
-	// for(i = 0; i < total_sector; i++)
-	// {
-	// 	DBG("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d", 
-	// 	i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag);
-	// }
-
-	// for(i = 0; i < ARRAY_SIZE(fbi); i++)
-	// {
-	// 	DBG("Block[%d]: start_addr = 0x%x, end_addr = 0x%x, isErase = %d", 
-	// 	i, fbi[i].start_addr, fbi[i].end_addr, fbi[i].isErase);
-	// }
+	for(i = 0; i < total_sector; i++)
+	{
+		DBG("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d", 
+		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag, ffls[i].inside_block);
+	}
 
 	core_firmware->start_addr = nStartAddr;
 	core_firmware->end_addr = nEndAddr;
