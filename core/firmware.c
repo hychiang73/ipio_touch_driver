@@ -71,7 +71,6 @@ struct flash_block_info
 {
 	uint32_t start_addr;
 	uint32_t end_addr;
-	bool isErase;
 };
 
 struct flash_sector *ffls = NULL;
@@ -803,10 +802,6 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			{
 				if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
 				{
-					if(ffls[i].data_flag)
-					{
-						fbi[j].isErase = true;
-					}
 					ffls[i].inside_block = true;
 					break;
 				}
