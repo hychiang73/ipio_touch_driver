@@ -21,9 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-
-#define DEBUG
-
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -56,7 +53,7 @@ int core_cmd_len = 0;
 // it's able to store 10 commands as default.
 uint8_t pcmd[10] = {0};
 
-struct core_config_data *core_config;
+struct core_config_data *core_config = NULL;
 
 /*
  * assign i2c commands according to the version of protocol.
@@ -308,7 +305,7 @@ void core_config_ic_reset(void)
 		key = 0x00019881;
 	}
 
-	DBG_INFO("key = 0x%x", key);
+	DBG(DEBUG_CONFIG, "key = 0x%x", key);
 	if(key != 0)
 	{
 		core_config->do_ic_reset = true;
@@ -376,7 +373,7 @@ int core_config_ice_mode_disable(void)
 	cmd[2] = 0x10;
 	cmd[3] = 0x18;
 
-	DBG("ICE Mode disabled")
+	DBG_INFO("ICE Mode disabled")
 
 	return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
 }
@@ -384,7 +381,7 @@ EXPORT_SYMBOL(core_config_ice_mode_disable);
 
 int core_config_ice_mode_enable(void)
 {
-	DBG("ICE Mode enabled");
+	DBG_INFO("ICE Mode enabled");
 	return core_config_ice_mode_write(0x181062, 0x0, 0);
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
@@ -417,7 +414,7 @@ int core_config_check_cdc_busy(void)
 		core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		mdelay(10);
 		core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
-		DBG("CDC busy state = 0x%x", busy);
+		DBG(DEBUG_CONFIG, "CDC busy state = 0x%x", busy);
 		if(busy == 0x41)
 		{
 			res = 0;
@@ -439,7 +436,7 @@ void core_config_func_ctrl(uint8_t *buf)
 	cmd[1] = buf[0];
 	cmd[2] = buf[1];
 
-	DBG_INFO("func = %x , ctrl = %x", cmd[1], cmd[2]);
+	DBG(DEBUG_CONFIG, "func = %x , ctrl = %x", cmd[1], cmd[2]);
 
 	switch(cmd[1])
 	{
@@ -452,7 +449,7 @@ void core_config_func_ctrl(uint8_t *buf)
 					/* LPWG Ctrl */
 					cmd[1] = 0x0A;
 					cmd[2] = 0x01;
-					DBG_INFO("cmd = 0x%x, 0x%x, 0x%x", cmd[0], cmd[1], cmd[2]);
+					DBG(DEBUG_CONFIG, "cmd = 0x%x, 0x%x, 0x%x", cmd[0], cmd[1], cmd[2]);
 					core_i2c_write(core_config->slave_i2c_addr, cmd, len);
 				}
 				else
@@ -523,7 +520,7 @@ int core_config_get_key_info(void)
 		}
 
 		for (i = 0; i < key_info_len; i++)
-			DBG("key_info[%d] = %x", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "key_info[%d] = %x", i, szReadBuf[i]);
 
 		if (core_config->tp_info->nKeyCount)
 		{
@@ -589,7 +586,7 @@ int core_config_get_tp_info(void)
 		}
 
 		for (; i < tp_info_len; i++)
-			DBG("tp_info[%d] = %x", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "tp_info[%d] = %x", i, szReadBuf[i]);
 
 		// in protocol v5, ignore the first btye because of a header.
 		core_config->tp_info->nMinX = szReadBuf[1];
@@ -665,7 +662,7 @@ int core_config_get_protocol_ver(void)
 		for (; i < protocol_cmd_len; i++)
 		{
 			core_config->protocol_ver[i] = szReadBuf[i];
-			DBG("protocol_ver[%d] = %d", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "protocol_ver[%d] = %d", i, szReadBuf[i]);
 		}
 
 		// in protocol v5, ignore the first btye because of a header.
@@ -722,7 +719,7 @@ int core_config_get_core_ver(void)
 		for (; i < core_cmd_len; i++)
 		{
 			core_config->core_ver[i] = szReadBuf[i];
-			DBG("core_ver[%d] = %d", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "core_ver[%d] = %d", i, szReadBuf[i]);
 		}
 
 		// in protocol v5, ignore the first btye because of a header.
@@ -785,7 +782,7 @@ int core_config_get_fw_ver(void)
 		for (; i < fw_cmd_len; i++)
 		{
 			core_config->firmware_ver[i] = szReadBuf[i];
-			DBG("firmware_ver[%d] = %d", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "firmware_ver[%d] = %d", i, szReadBuf[i]);
 		}
 		// in protocol v5, ignore the first btye because of a header.
 		DBG_INFO("Firmware Version = %d.%d.%d",
@@ -859,7 +856,7 @@ EXPORT_SYMBOL(core_config_get_chip_id);
 
 int core_config_init(void)
 {
-	int i = 0, res = 0;
+	int i = 0, res = -1;
 	int alloca_size = 0;
 
 	for (; i < nums_chip; i++)
@@ -868,9 +865,21 @@ int core_config_init(void)
 		{
 			alloca_size = sizeof(*core_config) * sizeof(uint8_t) * 6;
 			core_config = kzalloc(alloca_size, GFP_KERNEL);
+			if(ERR_ALLOC_MEM(core_config))
+			{
+				DBG_ERR("Failed to allocate core_config memory, %ld", PTR_ERR(core_config));
+				res = -ENOMEM;
+				goto out;
+			}
 
 			alloca_size = sizeof(*core_config->tp_info);
 			core_config->tp_info = kzalloc(alloca_size, GFP_KERNEL);
+			if(ERR_ALLOC_MEM(core_config->tp_info))
+			{
+				DBG_ERR("Failed to allocate core_config->tp_info memory, %ld", PTR_ERR(core_config->tp_info));
+				res = -ENOMEM;
+				goto out;
+			}
 
 			core_config->chip_id = SUP_CHIP_LIST[i];
 			core_config->chip_type = 0x0000;
@@ -891,22 +900,14 @@ int core_config_init(void)
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
 			}
+
+			set_protocol_cmd(core_config->use_protocol);
+			res = 0;
+			return res;
 		}
 	}
 
-	if (IS_ERR(core_config))
-	{
-		DBG_ERR("Can't find any chip IDs from the support list, init core-config failed ");
-		res = -ENOMEM;
-		goto out;
-	}
-	else
-	{
-		set_protocol_cmd(core_config->use_protocol);
-	}
-
-	return res;
-
+	DBG_ERR("Can't find this chip in support list");
 out:
 	core_config_remove();
 	return res;
@@ -917,10 +918,12 @@ void core_config_remove(void)
 {
 	DBG_INFO("Remove core-config memebers");
 
-	if(core_config->tp_info != NULL)
-		kfree(core_config->tp_info);
-
 	if(core_config != NULL)
+	{
+		if(core_config->tp_info != NULL)
+			kfree(core_config->tp_info);
+		
 		kfree(core_config);
+	}
 }
 EXPORT_SYMBOL(core_config_remove);

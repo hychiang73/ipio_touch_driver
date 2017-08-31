@@ -21,9 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-
-#define DEBUG
-
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -64,15 +61,17 @@ struct mutual_touch_info
 struct fr_data_node
 {
 	uint8_t *data;
-	int len;
+	uint16_t len;
 };
 
-// record the status of touch being pressed or released currently and previosuly.
+/* record the status of touch being pressed or released currently and previosuly */
 uint8_t CurrentTouch[MAX_TOUCH_NUM];
 uint8_t PreviousTouch[MAX_TOUCH_NUM];
-int tlen = 0;
 
-// set up width and heigth of a screen
+/* the total length of finger report packet */
+uint16_t tlen = 0;
+
+/* set up width and heigth of a screen */
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
 #define TOUCH_SCREEN_X_MAX 1080
@@ -82,8 +81,8 @@ int tlen = 0;
 #define TPD_WIDTH 2048
 
 struct mutual_touch_info mti;
-struct fr_data_node *fnode, *fuart;
-struct core_fr_data *core_fr;
+struct fr_data_node *fnode = NULL, *fuart = NULL;
+struct core_fr_data *core_fr = NULL;
 
 /**
  * Calculate the check sum of each packet reported by firmware 
@@ -117,7 +116,7 @@ static void i2cuart_recv_packet(void)
 	int type = fnode->data[3] & 0x0F;
 	int actual_len = fnode->len - 5;
 
-	DBG("pid = %x, data[3] = %x, type = %x, actual_len = %d", 
+	DBG(DEBUG_FINGER_REPORT, "pid = %x, data[3] = %x, type = %x, actual_len = %d", 
 			fnode->data[0], fnode->data[3], type, actual_len);
 
 	need_read_len = fnode->data[1] * fnode->data[2];
@@ -135,21 +134,33 @@ static void i2cuart_recv_packet(void)
 		one_data_bytes = 4;
 	}
 
-	DBG("need_read_len = %d  one_data_bytes = %d", 
+	DBG(DEBUG_FINGER_REPORT, "need_read_len = %d  one_data_bytes = %d", 
 			need_read_len, one_data_bytes);
 	
 	need_read_len = need_read_len * one_data_bytes + 1;
 
 	if (need_read_len > actual_len)
 	{
-		fuart = kmalloc(sizeof(*fuart), GFP_KERNEL);
-		fuart->len = need_read_len - actual_len;
-		fuart->data = kzalloc(fuart->len, GFP_KERNEL);
-		tlen += fuart->len;
+		fuart = kmalloc(sizeof(*fuart), GFP_ATOMIC);
+		if(ERR_ALLOC_MEM(fuart))
+		{
+			DBG_ERR("Failed to allocate fuart memory %ld", PTR_ERR(fuart));
+			return;
+		}
 
+		fuart->data = kzalloc(fuart->len, GFP_ATOMIC);
+		if(ERR_ALLOC_MEM(fuart->data))
+		{
+			DBG_ERR("Failed to allocate fuart memory %ld", PTR_ERR(fuart->data));
+			return;
+		}
+
+		fuart->len = need_read_len - actual_len;
+		tlen += fuart->len;
 		res = core_i2c_read(core_config->slave_i2c_addr, fuart->data, fuart->len);
 		if (res < 0)
 			DBG_ERR("Failed to read finger report packet");
+
 	}
 }
 
@@ -164,7 +175,7 @@ static void i2cuart_recv_packet(void)
  */
 void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
-	DBG("btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
+	DBG(DEBUG_FINGER_REPORT, "btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
 
 	if(core_fr->btype)
 	{
@@ -206,7 +217,7 @@ EXPORT_SYMBOL(core_fr_touch_press);
  */
 void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
-	DBG("btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
+	DBG(DEBUG_FINGER_REPORT, "btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
 
 	if(core_fr->btype)
 	{
@@ -243,11 +254,11 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	uint8_t check_sum = 0;
 	uint32_t nX = 0, nY = 0;
 
-	// for (i = 0; i < 9; i++)
-	// 	DBG("data[%d] = %x", i, fnode->data[i]);
+	for (i = 0; i < 9; i++)
+	 	DBG(DEBUG_FINGER_REPORT, "data[%d] = %x", i, fnode->data[i]);
 
 	check_sum = cal_fr_checksum(&fnode->data[0], (fnode->len - 1));
-	DBG("data = %x  ;  check_sum : %x ", fnode->data[fnode->len - 1], check_sum);
+	DBG(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x ", fnode->data[fnode->len - 1], check_sum);
 	if (fnode->data[fnode->len - 1] != check_sum)
 	{
 		DBG_ERR("Wrong checksum");
@@ -258,7 +269,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	// start to parsing the packet of finger report
 	if (pid == P5_0_DEMO_PACKET_ID)
 	{
-		DBG(" **** Parsing DEMO packets : 0x%x ****", pid);
+		DBG(DEBUG_FINGER_REPORT, " **** Parsing DEMO packets : 0x%x ****", pid);
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -292,8 +303,8 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			else
 				mti.mtp[mti.touch_num].pressure = 1;
 
-			DBG("[x,y]=[%d,%d]", nX, nY);
-			DBG("point[%d] : (%d,%d) = %d\n",
+			DBG(DEBUG_FINGER_REPORT, "[x,y]=[%d,%d]", nX, nY);
+			DBG(DEBUG_FINGER_REPORT, "point[%d] : (%d,%d) = %d",
 				mti.mtp[mti.touch_num].id,
 				mti.mtp[mti.touch_num].x,
 				mti.mtp[mti.touch_num].y,
@@ -309,8 +320,8 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	}
 	else if (pid == P5_0_DEBUG_PACKET_ID)
 	{
-		DBG(" **** Parsing DEBUG packets : 0x%x ****", pid);
-		DBG("Length = %d", (fnode->data[1] << 8 | fnode->data[2]));
+		DBG(DEBUG_FINGER_REPORT, " **** Parsing DEBUG packets : 0x%x ****", pid);
+		DBG(DEBUG_FINGER_REPORT, "Length = %d", (fnode->data[1] << 8 | fnode->data[2]));
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++)
 		{
@@ -344,8 +355,8 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			else
 				mti.mtp[mti.touch_num].pressure = 1;
 
-			DBG("[x,y]=[%d,%d]", nX, nY);
-			DBG("point[%d] : (%d,%d) = %d\n",
+			DBG(DEBUG_FINGER_REPORT, "[x,y]=[%d,%d]", nX, nY);
+			DBG(DEBUG_FINGER_REPORT, "point[%d] : (%d,%d) = %d",
 				mti.mtp[mti.touch_num].id,
 				mti.mtp[mti.touch_num].x,
 				mti.mtp[mti.touch_num].y,
@@ -390,18 +401,18 @@ static int finger_report_ver_5_0(void)
 	}
 
 	pid = fnode->data[0];
-	DBG("PID = 0x%x", pid);
+	DBG(DEBUG_FINGER_REPORT, "PID = 0x%x", pid);
 	
 	if(pid == P5_0_I2CUART_PACKET_ID)
 	{
-		DBG("Packet ID as I2CUART (0x%x), do nothing", pid);
+		DBG(DEBUG_FINGER_REPORT, "Packet ID as I2CUART (0x%x), do nothing", pid);
 		i2cuart_recv_packet();
 		goto out;
 	}
 
 	if(pid == P5_0_GESTURE_PACKET_ID && core_config->isEnableGesture)
 	{
-		DBG_INFO("pid = 0x%x, code = %x", pid, fnode->data[1]);
+		DBG(DEBUG_FINGER_REPORT, "pid = 0x%x, code = %x", pid, fnode->data[1]);
 		input_report_key(core_fr->input_device, KEY_POWER, 1);
 		input_sync(core_fr->input_device);
 		input_report_key(core_fr->input_device, KEY_POWER, 0);
@@ -416,7 +427,7 @@ static int finger_report_ver_5_0(void)
 		goto out;
 	}
 
-	//DBG("Touch Num = %d, LastTouch = %d\n", mti.touch_num, last_touch);
+	DBG(DEBUG_FINGER_REPORT, "Touch Num = %d, LastTouch = %d", mti.touch_num, last_touch);
 
 	/* interpret parsed packat and send input events to system */
 	if (mti.touch_num > 0)
@@ -433,7 +444,7 @@ static int finger_report_ver_5_0(void)
 
 			for (i = 0; i < MAX_TOUCH_NUM; i++)
 			{
-				//DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+				DBG(DEBUG_FINGER_REPORT, "PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
 
 				if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
 				{
@@ -462,7 +473,7 @@ static int finger_report_ver_5_0(void)
 			{
 				for (i = 0; i < MAX_TOUCH_NUM; i++)
 				{
-					//DBG("PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
+					DBG(DEBUG_FINGER_REPORT, "PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
 
 					if (CurrentTouch[i] == 0 && PreviousTouch[i] == 1)
 					{
@@ -513,7 +524,7 @@ int core_fr_mode_control(uint8_t *from_user)
 		goto out;
 	}
 
-	DBG("size = %d, mode = %x, b1 = %x, b2 = %x, b3 = %x",
+	DBG(DEBUG_FINGER_REPORT, "size = %d, mode = %x, b1 = %x, b2 = %x, b3 = %x",
 		(int)ARRAY_SIZE(actual_mode), from_user[0], from_user[1], from_user[2], from_user[3]);
 
 	mode = from_user[0];
@@ -529,7 +540,7 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[2] = *(from_user + 2); // this bit must be set as 1 if want to enable i2cuart mode.
 				core_fr->i2cuart_mode = cmd[2];
 
-				DBG("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x",
+				DBG_INFO("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x",
 						 cmd[0], cmd[1], cmd[2]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
@@ -541,7 +552,7 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[0] = pcmd[6];
 				cmd[1] = mode;
 
-				DBG("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
+				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
 						 cmd[0], cmd[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
@@ -556,20 +567,24 @@ int core_fr_mode_control(uint8_t *from_user)
 				cmd[0] = pcmd[6];
 				cmd[1] = mode;
 
-				DBG("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
+				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
 						 cmd[0], cmd[1]);
 
 				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 				if (res < 0)
 					goto out;
 			}
-			core_fr->actual_fw_mode = actual_mode[i];
+
+			/* Ignore i2cuart mode as real when it comes to parse length */
+			if(mode != P5_0_FIRMWARE_I2CUART_MODE)
+				core_fr->actual_fw_mode = actual_mode[i];
+
 			break;
 		}
 
 		if (i == (ARRAY_SIZE(actual_mode) - 1))
 		{
-			DBG_ERR("Unknown Mode");
+			DBG_ERR("Unknown firmware mode: %d", mode);
 			res = -1;
 			goto out;
 		}
@@ -597,7 +612,7 @@ static uint16_t calc_packet_length(void)
 
 	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 	{
-		if(!IS_ERR(core_config->tp_info))
+		if(!ERR_ALLOC_MEM(core_config->tp_info))
 		{
 			xch = core_config->tp_info->nXChannelNum;
 			ych = core_config->tp_info->nYChannelNum;
@@ -605,14 +620,18 @@ static uint16_t calc_packet_length(void)
 			srx = core_config->tp_info->self_rx_channel_num;
 		}
 
+		DBG(DEBUG_FINGER_REPORT, "firmware mode : %d", core_fr->actual_fw_mode);
+
 		if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
 		{
 			rlen = P5_0_DEMO_MODE_PACKET_LENGTH;
 		}
 		else if (core_fr->actual_fw_mode == core_fr->fw_test_mode)
 		{
-			if(IS_ERR(core_config->tp_info))
+			if(ERR_ALLOC_MEM(core_config->tp_info))
+			{
 				rlen = P5_0_TEST_MODE_PACKET_LENGTH;
+			}
 			else
 			{
 				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + 1;
@@ -621,8 +640,10 @@ static uint16_t calc_packet_length(void)
 		}
 		else if (core_fr->actual_fw_mode == core_fr->fw_debug_mode)
 		{
-			if(IS_ERR(core_config->tp_info))
-				rlen = P5_0_DEBUG_MODE_PACKET_LENGTH;
+			if(ERR_ALLOC_MEM(core_config->tp_info))
+			{
+				rlen = P5_0_DEBUG_MODE_PACKET_LENGTH;	
+			}
 			else
 			{
 				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + (8 * 2) + 1;
@@ -632,11 +653,11 @@ static uint16_t calc_packet_length(void)
 		else
 		{
 			DBG_ERR("Unknow firmware mode : %d", core_fr->actual_fw_mode);
-			rlen = -1;
+			rlen = 0;
 		}
 	}
 
-	DBG("rlen = %d", rlen);
+	DBG(DEBUG_FINGER_REPORT, "rlen = %d", rlen);
 	return rlen;
 }
 
@@ -673,12 +694,24 @@ void core_fr_handler(void)
 	if(core_fr->isEnableFR)
 	{
 		tlen = calc_packet_length();
-		if(tlen > 0)
+		if(tlen)
 		{
-			fnode = kmalloc(sizeof(*fnode), GFP_KERNEL);
-			fnode->data = kmalloc(sizeof(uint8_t) * tlen, GFP_KERNEL);
+			fnode = kmalloc(sizeof(*fnode), GFP_ATOMIC);	
+			if(ERR_ALLOC_MEM(fnode))
+			{
+				DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(fnode));
+				goto out;
+			}
+
+			fnode->data = kmalloc(sizeof(uint8_t) * tlen, GFP_ATOMIC);
+			if(ERR_ALLOC_MEM(fnode->data))
+			{
+				DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(fnode->data));
+				goto out;
+			}
+
 			fnode->len = tlen;
-			memset(fnode->data, 0xFF, (int)sizeof(uint8_t) * tlen);
+			memset(fnode->data, 0xFF, (uint8_t)sizeof(uint8_t) * tlen);
 
 			while(i < ARRAY_SIZE(fr_t))
 			{
@@ -690,27 +723,69 @@ void core_fr_handler(void)
 
 					if (core_fr->isEnableNetlink)
 					{
-						tdata = kmalloc(tlen, GFP_KERNEL);
-						memcpy(tdata, fnode->data, fnode->len);
-						// merge data come from uart
-						if(fuart != NULL)
-							memcpy(tdata+fnode->len, fuart->data, fuart->len);
+						/* 2048 is referred to the defination by user */
+						if(tlen < 2048)
+						{
+							tdata = kmalloc(tlen, GFP_ATOMIC);
+							if(ERR_ALLOC_MEM(tdata))
+							{
+								DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(tdata));
+								goto out;
+							}
+
+							memcpy(tdata, fnode->data, fnode->len);
+							/* merge uart data if it's at i2cuart mode */
+							if(fuart != NULL)
+								memcpy(tdata+fnode->len, fuart->data, fuart->len);
+						}
+						else
+						{
+							DBG_ERR("total lenght (%d) is too long than user can handle", tlen);
+							goto out;
+						}
 
 						netlink_reply_msg(tdata, tlen);
-						kfree(tdata);
-						kfree(fnode);
-						kfree(fuart);
 					}
 					break;
 				}
 				i++;
-			}	
+			}
 		}
 	}
 	else
 	{
-		DBG("The figner report was disabled");
+		DBG_ERR("The figner report was disabled");
 	}
+
+out:
+	DBG(DEBUG_IRQ, "handle INT done \n");
+	tlen = 0;
+	if(tdata != NULL)
+	{
+		kfree(tdata);
+		tdata = NULL;
+	}
+	if(fnode != NULL)
+	{
+		if(fnode->data != NULL)
+		{
+			kfree(fnode->data);
+			fnode->data = NULL;
+		}
+		kfree(fnode);
+		fnode = NULL;
+	}
+	if(fuart != NULL)
+	{
+		if(fuart->data != NULL)
+		{
+			kfree(fuart->data);
+			fuart->data = NULL;
+		}
+		kfree(fuart);
+		fuart = NULL;
+	}
+	return;
 }
 EXPORT_SYMBOL(core_fr_handler);
 
@@ -746,9 +821,9 @@ void core_fr_input_set_param(struct input_dev *input_device)
 		max_tp = MAX_TOUCH_NUM;
 	}
 
-	DBG("input resolution : max_x = %d, max_y = %d, min_x = %d, min_y = %d",
+	DBG_INFO("input resolution : max_x = %d, max_y = %d, min_x = %d, min_y = %d",
 		max_x, max_y, min_x, min_y);
-	DBG("input touch number: max_tp = %d", max_tp);
+	DBG_INFO("input touch number: max_tp = %d", max_tp);
 
 #ifndef PLATFORM_MTK
 	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, min_x, max_x - 1, 0, 0);
@@ -787,13 +862,19 @@ EXPORT_SYMBOL(core_fr_input_set_param);
 
 int core_fr_init(struct i2c_client *pClient)
 {
-	int i = 0, res = 0;
+	int i = 0, res = -1;
 
 	for (; i < nums_chip; i++)
 	{
 		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
 		{
 			core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(core_fr))
+			{
+				DBG_ERR("Failed to init core_fr, %ld", PTR_ERR(core_fr));
+				res = -ENOMEM;
+				goto out;
+			}
 
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
@@ -810,18 +891,13 @@ int core_fr_init(struct i2c_client *pClient)
 				core_fr->fw_i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
 				core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 			}
+
+			res = 0;
+			return res;			
 		}
 	}
 
-	if (IS_ERR(core_fr))
-	{
-		DBG_ERR("Failed to init core_fr APIs");
-		res = -ENOMEM;
-		goto out;
-	}
-
-	return res;
-
+	DBG_ERR("Can't find this chip in support list");
 out:
 	core_fr_remove();
 	return res;
