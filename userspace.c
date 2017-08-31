@@ -217,6 +217,64 @@ static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, si
 	return size;
 }
 
+static ssize_t ilitek_proc_check_battery_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	len = sprintf(buff, "%d", ipd->isEnablePollCheckPower );
+
+	DBG_INFO("isEnablePollCheckPower = %d", ipd->isEnablePollCheckPower);
+
+	res = copy_to_user((uint32_t *)buff, &ipd->isEnablePollCheckPower, len);
+	if (res < 0)
+	{
+		DBG_ERR("Failed to copy data to user space");
+	}
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	char cmd[10] = {0};
+
+	if(buff != NULL)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	if(strcmp(cmd, "on") == 0)
+	{
+		DBG_INFO("Start the thread of check power status");
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		ipd->isEnablePollCheckPower = true;
+	}
+	else if(strcmp(cmd, "off") == 0)
+	{
+		DBG_INFO("Cancel the thread of check power status");
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		ipd->isEnablePollCheckPower = false;
+	}
+	else
+		DBG_ERR("Unknown command");
+
+	return size;
+}
+
 static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
@@ -403,28 +461,6 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	{
 		DBG_INFO("Get Chip id");
 		core_config_get_chip_id();
-	}
-	else if(strcmp(cmd, "enapower") == 0)
-	{
-		DBG_INFO("Start the thread of check power status");
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
-		ipd->isEnablePollCheckPower = true;
-	}
-	else if(strcmp(cmd, "dispower") == 0)
-	{
-		DBG_INFO("Cancel the thread of check power status");
-		cancel_delayed_work_sync(&ipd->check_power_status_work);
-		ipd->isEnablePollCheckPower = false;
-	}
-	else if(strcmp(cmd, "disges") == 0)
-	{
-		DBG_INFO("disable gesture mode");
-		core_config->isEnableGesture = false;
-	}
-	else if(strcmp(cmd, "enages") == 0)
-	{
-		DBG_INFO("enable gesture mode");
-		core_config->isEnableGesture = true;
 	}
 	else if(strcmp(cmd, "dispcc") == 0)
 	{
@@ -802,6 +838,11 @@ struct file_operations proc_gesture_fops = {
 	.read = ilitek_proc_gesture_read,
 };
 
+struct file_operations proc_check_battery_fops = {
+	.write = ilitek_proc_check_battery_write,
+	.read = ilitek_proc_check_battery_read,
+};
+
 struct file_operations proc_debug_level_fops = {
 	.write = ilitek_proc_debug_level_write,
 	.read = ilitek_proc_debug_level_read,
@@ -830,6 +871,7 @@ proc_node_t proc_table[] = {
 	{"fw_upgrade", NULL, &proc_fw_upgrade_fops, false},
 	{"iram_upgrade", NULL, &proc_iram_upgrade_fops, false},
 	{"gesture", NULL, &proc_gesture_fops, false},
+	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
 };
 
