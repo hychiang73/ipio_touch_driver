@@ -87,20 +87,42 @@
 //#define PLATFORM_RK 
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.0.8"
+#define DRIVER_VERSION	"1.0.0.9"
 
-/**
- * pr_debug is disabled as default in kernel, typeing "echo 8 4 1 7 > /proc/sys/kernel/printk"
- * in terminal to enable it if you'd like to see more debug details.
- */
+/* Normal debug messages */
 #define DBG_INFO(fmt, arg...) \
 			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
 #define DBG_ERR(fmt, arg...) \
 			pr_err("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
 
-#define DBG(fmt, arg...) \
-			pr_debug( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
+/* Detailed debug messages */
+#ifdef BIT
+#undef BIT
+#endif
+#define BIT(x)	(1 << (x))
+
+enum {
+	DEBUG_NONE = 0,
+	DEBUG_IRQ = BIT(0),
+	DEBUG_FINGER_REPORT = BIT(1),
+	DEBUG_FIRMWARE = BIT(2),
+	DEBUG_CONFIG = BIT(3),
+	DEBUG_I2C = BIT(4),
+	DEBUG_BATTERY = BIT(5),
+	DEBUG_MP_TEST = BIT(6),
+	DEBUG_IOCTL= BIT(7),
+	DEBUG_NETLINK = BIT(8),
+	DEBUG_ALL = ~0,
+};
+
+extern uint32_t ipio_debug_level;
+
+#define DBG(level, fmt, arg...) \
+			do { \
+				if (level & ipio_debug_level) \
+				pr_info( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg); \
+			} while (0)
 
 /* Macros */
 #define CHECK_EQUAL(X,Y) ((X==Y) ? 0 : -1 )

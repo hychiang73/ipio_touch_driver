@@ -21,9 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-
-#define DEBUG
-
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -64,13 +61,13 @@ struct flash_sector
 	uint32_t crc32;
 	uint32_t dlength;
 	bool data_flag;
+	bool inside_block;
 };
 
 struct flash_block_info
 {
 	uint32_t start_addr;
 	uint32_t end_addr;
-	bool isErase;
 };
 
 struct flash_sector *ffls = NULL;
@@ -142,7 +139,7 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 
 	write_len = end_addr;
 
-	DBG("start = 0x%x , write_len = 0x%x, max_count = %x", 
+	DBG(DEBUG_FIRMWARE, "start = 0x%x , write_len = 0x%x, max_count = %x", 
 				start_addr, end_addr, core_firmware->max_count);
 
 	if (write_len > core_firmware->max_count)
@@ -243,7 +240,7 @@ static int do_check(uint32_t start, uint32_t len)
 	res = CHECK_EQUAL(vd, lc);
 
 	DBG_INFO("%s (%x) : (%x)", (res < 0 ? "Invalid !" : "Correct !"), vd, lc );
-
+	
 	return res;	
 }
 
@@ -482,7 +479,7 @@ static int do_erase_flash(uint32_t start_addr)
 	/* CS High */
 	core_config_ice_mode_write(0x041000, 0x1, 1);
 
-	DBG("Earsing data at start addr: %x ", start_addr);
+	DBG(DEBUG_FIRMWARE, "Earsing data at start addr: %x ", start_addr);
 
 out:
 	return res;	
@@ -491,34 +488,15 @@ out:
 static int flash_erase_sector(void)
 {
 	int i, res = 0;
-	uint32_t j = 0;
 
-	if(core_firmware->hasBlockInfo)
+	for(i = 0; i < total_sector; i++)
 	{
-		for(i = 0; i < ARRAY_SIZE(fbi); i++)
-		{
-			if(fbi[i].isErase)
-			{
-				for(j = fbi[i].start_addr; j < (fbi[i].end_addr + 1); j += flashtab->sector)
-				{
-					res = do_erase_flash(j);
-					if(res < 0)
-						goto out;
-				}
-			}
-		}
-	}
-	else
-	{
-		for(i = 0; i < sec_length + 1; i++)
-		{
-			if(!ffls[i].data_flag)
-				continue;
+		if(!ffls[i].data_flag && !ffls[i].inside_block)
+			continue;
 
-			res = do_erase_flash(ffls[i].ss_addr);
-			if(res < 0)
-				goto out;
-		}
+		res = do_erase_flash(ffls[i].ss_addr);
+		if(res < 0)
+			goto out;
 	}
 
 out:
@@ -549,7 +527,7 @@ static int iram_upgrade(void)
 
 	core_config_reset_watch_dog();
 
-	DBG("nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
+	DBG(DEBUG_FIRMWARE, "nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X",
 		core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
 
 	// write hex to the addr of iram
@@ -571,7 +549,7 @@ static int iram_upgrade(void)
 
 		if (core_i2c_write(core_config->slave_i2c_addr, buf, upl + 4))
 		{
-			DBG_INFO("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X",
+			DBG_ERR("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X",
 					 (int)i, (int)core_firmware->start_addr, (int)core_firmware->end_addr);
 			res = -EIO;
 			return res;
@@ -735,7 +713,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			{
 				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
 				fbi[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
-				DBG_INFO("Block[%d]: start_addr = %x, end = %x", 
+				DBG(DEBUG_FIRMWARE, "Block[%d]: start_addr = %x, end = %x", 
 					block, fbi[block].start_addr, fbi[block].end_addr);
 			}
 			block++;
@@ -819,33 +797,21 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			/* set erase flag in the block if the addr of sector is between it. */
 			for(j = 0; j < ARRAY_SIZE(fbi); j++)
 			{
-				if(!fbi[j].isErase)
+				if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
 				{
-					if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
-					{
-						if(ffls[i].data_flag)
-						{
-							fbi[j].isErase = true;
-						}
-						break;
-					}
+					ffls[i].inside_block = true;
+					break;
 				}
 			}
 		}
 	}
 
 	/* DEBUG: for showing data with address that will write into fw */
-	// for(i = 0; i < total_sector; i++)
-	// {
-	// 	DBG("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d", 
-	// 	i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag);
-	// }
-
-	// for(i = 0; i < ARRAY_SIZE(fbi); i++)
-	// {
-	// 	DBG("Block[%d]: start_addr = 0x%x, end_addr = 0x%x, isErase = %d", 
-	// 	i, fbi[i].start_addr, fbi[i].end_addr, fbi[i].isErase);
-	// }
+	for(i = 0; i < total_sector; i++)
+	{
+		DBG(DEBUG_FIRMWARE, "ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d", 
+		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag, ffls[i].inside_block);
+	}
 
 	core_firmware->start_addr = nStartAddr;
 	core_firmware->end_addr = nEndAddr;
@@ -865,7 +831,7 @@ out:
  */
 int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 {
-	int res = 0, i = 0, fsize;
+	int res = 0, fsize;
 	uint8_t *hex_buffer = NULL;
 
 	struct file *pfile = NULL;
@@ -985,13 +951,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		core_config_get_core_ver();
 		core_config_get_tp_info();
 		//core_config_get_key_info();
-
-		/* FIXME */
-		for (i = 0; i < ARRAY_SIZE(core_config->firmware_ver); i++)
-		{
-			core_firmware->new_fw_ver[i] = core_config->firmware_ver[i];
-			DBG("new_fw_ver[%d] = %x : ", i, core_firmware->new_fw_ver[i])
-		}
 	}
 
 out:

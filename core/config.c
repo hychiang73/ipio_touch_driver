@@ -21,9 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-
-#define DEBUG
-
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -308,7 +305,7 @@ void core_config_ic_reset(void)
 		key = 0x00019881;
 	}
 
-	DBG_INFO("key = 0x%x", key);
+	DBG(DEBUG_CONFIG, "key = 0x%x", key);
 	if(key != 0)
 	{
 		core_config->do_ic_reset = true;
@@ -376,7 +373,7 @@ int core_config_ice_mode_disable(void)
 	cmd[2] = 0x10;
 	cmd[3] = 0x18;
 
-	DBG("ICE Mode disabled")
+	DBG_INFO("ICE Mode disabled")
 
 	return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
 }
@@ -384,7 +381,7 @@ EXPORT_SYMBOL(core_config_ice_mode_disable);
 
 int core_config_ice_mode_enable(void)
 {
-	DBG("ICE Mode enabled");
+	DBG_INFO("ICE Mode enabled");
 	return core_config_ice_mode_write(0x181062, 0x0, 0);
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
@@ -417,7 +414,7 @@ int core_config_check_cdc_busy(void)
 		core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		mdelay(10);
 		core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
-		DBG("CDC busy state = 0x%x", busy);
+		DBG(DEBUG_CONFIG, "CDC busy state = 0x%x", busy);
 		if(busy == 0x41)
 		{
 			res = 0;
@@ -439,7 +436,7 @@ void core_config_func_ctrl(uint8_t *buf)
 	cmd[1] = buf[0];
 	cmd[2] = buf[1];
 
-	DBG_INFO("func = %x , ctrl = %x", cmd[1], cmd[2]);
+	DBG(DEBUG_CONFIG, "func = %x , ctrl = %x", cmd[1], cmd[2]);
 
 	switch(cmd[1])
 	{
@@ -452,7 +449,7 @@ void core_config_func_ctrl(uint8_t *buf)
 					/* LPWG Ctrl */
 					cmd[1] = 0x0A;
 					cmd[2] = 0x01;
-					DBG_INFO("cmd = 0x%x, 0x%x, 0x%x", cmd[0], cmd[1], cmd[2]);
+					DBG(DEBUG_CONFIG, "cmd = 0x%x, 0x%x, 0x%x", cmd[0], cmd[1], cmd[2]);
 					core_i2c_write(core_config->slave_i2c_addr, cmd, len);
 				}
 				else
@@ -523,7 +520,7 @@ int core_config_get_key_info(void)
 		}
 
 		for (i = 0; i < key_info_len; i++)
-			DBG("key_info[%d] = %x", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "key_info[%d] = %x", i, szReadBuf[i]);
 
 		if (core_config->tp_info->nKeyCount)
 		{
@@ -589,7 +586,7 @@ int core_config_get_tp_info(void)
 		}
 
 		for (; i < tp_info_len; i++)
-			DBG("tp_info[%d] = %x", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "tp_info[%d] = %x", i, szReadBuf[i]);
 
 		// in protocol v5, ignore the first btye because of a header.
 		core_config->tp_info->nMinX = szReadBuf[1];
@@ -665,7 +662,7 @@ int core_config_get_protocol_ver(void)
 		for (; i < protocol_cmd_len; i++)
 		{
 			core_config->protocol_ver[i] = szReadBuf[i];
-			DBG("protocol_ver[%d] = %d", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "protocol_ver[%d] = %d", i, szReadBuf[i]);
 		}
 
 		// in protocol v5, ignore the first btye because of a header.
@@ -722,7 +719,7 @@ int core_config_get_core_ver(void)
 		for (; i < core_cmd_len; i++)
 		{
 			core_config->core_ver[i] = szReadBuf[i];
-			DBG("core_ver[%d] = %d", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "core_ver[%d] = %d", i, szReadBuf[i]);
 		}
 
 		// in protocol v5, ignore the first btye because of a header.
@@ -785,7 +782,7 @@ int core_config_get_fw_ver(void)
 		for (; i < fw_cmd_len; i++)
 		{
 			core_config->firmware_ver[i] = szReadBuf[i];
-			DBG("firmware_ver[%d] = %d", i, szReadBuf[i]);
+			DBG(DEBUG_CONFIG, "firmware_ver[%d] = %d", i, szReadBuf[i]);
 		}
 		// in protocol v5, ignore the first btye because of a header.
 		DBG_INFO("Firmware Version = %d.%d.%d",
