@@ -21,8 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#define DEBUG
-
 #include "common.h"
 #include "core/config.h"
 #include "core/i2c.h"
@@ -51,13 +49,16 @@ extern struct tpd_device *tpd;
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
 #endif
 
+uint32_t ipio_debug_level = DEBUG_NONE;
+EXPORT_SYMBOL(ipio_debug_level);
+
 struct ilitek_platform_data *ipd;
 
 void ilitek_platform_disable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG("IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -67,13 +68,13 @@ void ilitek_platform_disable_irq(void)
 		{
 			disable_irq_nosync(ipd->isr_gpio);
 			ipd->isEnableIRQ = false;
-			DBG("IRQ was disabled");
+			DBG(DEBUG_IRQ, "IRQ was disabled");
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
 	}
 	else
-		DBG("IRQ was already disabled");
+		DBG(DEBUG_IRQ, "IRQ was already disabled");
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 }
@@ -83,7 +84,7 @@ void ilitek_platform_enable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG("IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -93,13 +94,13 @@ void ilitek_platform_enable_irq(void)
 		{
 			enable_irq(ipd->isr_gpio);
 			ipd->isEnableIRQ = true;
-			DBG("IRQ was enabled");
+			DBG(DEBUG_IRQ, "IRQ was enabled");
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
 	}
 	else
-		DBG("IRQ was already enabled");
+		DBG(DEBUG_IRQ, "IRQ was already enabled");
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 }
@@ -107,7 +108,8 @@ EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
 void ilitek_platform_tp_hw_reset(bool isEnable)
 {
-	DBG("HW Reset: %d ", isEnable);
+	DBG_INFO("HW Reset: %d ", isEnable);
+
 	if (isEnable)
 	{
 #ifdef PLATFORM_MTK
@@ -199,7 +201,7 @@ static void read_power_status(uint8_t *buf)
 	f->f_op->llseek(f, 0, SEEK_SET);
 	byte = f->f_op->read(f, buf, 20, &f->f_pos);
 	
-	DBG_INFO("Read %d bytes", (int)byte);
+	DBG(DEBUG_BATTERY, "Read %d bytes", (int)byte);
 
 	set_fs(old_fs);
 	filp_close(f, NULL);
@@ -211,16 +213,16 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 	uint8_t plug_ctrl[2] = {0x11, 0x0};
 	static int charge_mode = 0;
 
-	DBG("isEnableCheckPower = %d", ipd->isEnablePollCheckPower);
+	DBG(DEBUG_BATTERY, "isEnableCheckPower = %d", ipd->isEnablePollCheckPower);
 	read_power_status(charge_status);
-	DBG("Batter Status: %s", charge_status);
+	DBG(DEBUG_BATTERY, "Batter Status: %s", charge_status);
 
 	if(strstr(charge_status, "Charging") != NULL || strstr(charge_status, "Full") != NULL 
 			|| strstr(charge_status, "Fully charged") != NULL)
 	{
 		if(charge_mode != 1)
 		{
-			DBG("Charging mode");
+			DBG(DEBUG_BATTERY, "Charging mode");
 			plug_ctrl[1] = 0x0; //plug in
 			core_config_func_ctrl(plug_ctrl);
 			charge_mode = 1;
@@ -230,7 +232,7 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 	{
 		if(charge_mode != 2)
 		{
-			DBG_INFO("Not charging mode");
+			DBG(DEBUG_BATTERY, "Not charging mode");
 			plug_ctrl[1] = 0x1; //plug out
 			core_config_func_ctrl(plug_ctrl);
 			charge_mode = 2;
@@ -276,7 +278,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 	int *blank;
 	struct fb_event *evdata = data;
 
-	DBG("Notifier's event = %ld", event);
+	DBG_INFO("Notifier's event = %ld", event);
 
 	if (event == FB_EVENT_BLANK)
 	{
@@ -309,7 +311,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 #else // CONFIG_HAS_EARLYSUSPEND
 static void ilitek_platform_early_suspend(struct early_suspend *h)
 {
-	DBG_INFO();
+	DBG_INFO("Touch Suspend");
 
 	//TODO: there is doing nothing if an upgrade firmware's processing.
 
@@ -330,7 +332,7 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 static void ilitek_platform_late_resume(struct early_suspend *h)
 {
-	DBG_INFO();
+	DBG_INFO("Touch Resuem");
 
 	core_fr->isEnableFR = true;
 	core_config_ic_resume();
@@ -408,7 +410,7 @@ static int ilitek_platform_irq_kthread(void *arg)
 	struct sched_param param = { .sched_priority = 4};
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	DBG("irq_trigger = %d", ipd->irq_trigger);
+	DBG(DEBUG_IRQ, "irq_trigger = %d", ipd->irq_trigger);
 
 	while(!kthread_should_stop() && !ipd->free_irq_thread)
 	{
@@ -425,7 +427,7 @@ static int ilitek_platform_irq_kthread(void *arg)
 #else
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
-	DBG("IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
 
 	core_fr_handler();
 
@@ -438,7 +440,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
 //	unsigned long nIrqFlag;
 
-	DBG("IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
 
 //	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -447,7 +449,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 		ilitek_platform_disable_irq();
 #ifdef USE_KTHREAD
 		ipd->irq_trigger = true;
-		DBG("irq_trigger = %d", ipd->irq_trigger);
+		DBG(DEBUG_IRQ, "irq_trigger = %d", ipd->irq_trigger);
 		wake_up_interruptible(&waiter);
 #else
 		schedule_work(&ipd->report_work_queue);
@@ -491,7 +493,7 @@ static int ilitek_platform_isr_register(void)
 	ipd->isr_gpio = gpio_to_irq(ipd->int_gpio);
 #endif
 
-	DBG("ipd->isr_gpio = %d", ipd->isr_gpio);
+	DBG_INFO("ipd->isr_gpio = %d", ipd->isr_gpio);
 
 	res = request_threaded_irq(
 		ipd->isr_gpio,
@@ -672,7 +674,7 @@ static void ilitek_platform_core_remove(void)
  */
 static int ilitek_platform_core_init(void)
 {
-	DBG("Initialise core's components ");
+	DBG_INFO("Initialise core's components ");
 
 	if (core_config_init() < 0 ||
 		core_i2c_init(ipd->client) < 0 ||
