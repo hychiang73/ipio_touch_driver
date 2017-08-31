@@ -126,6 +126,7 @@ static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff
 	DBG_INFO("DEBUG_BATTERY = %d", DEBUG_BATTERY);
 	DBG_INFO("DEBUG_MP_TEST = %d", DEBUG_MP_TEST);
 	DBG_INFO("DEBUG_IOCTL = %d", DEBUG_IOCTL);
+	DBG_INFO("DEBUG_NETLINK = %d", DEBUG_NETLINK);
 	DBG_INFO("DEBUG_ALL = %d", DEBUG_ALL);
 
 	res = copy_to_user((uint32_t *)buff, &ipio_debug_level, len);
@@ -889,9 +890,9 @@ void netlink_reply_msg(void *raw, int size)
 	int msg_size = size;
 	uint8_t *data = (uint8_t *)raw;
 
-	DBG(DEBUG_FINGER_REPORT, "The size of data being sent to user = %d", msg_size);
-	DBG(DEBUG_FINGER_REPORT, "pid = %d", pid);
-	DBG(DEBUG_FINGER_REPORT, "Netlink is enable = %d", core_fr->isEnableNetlink);
+	DBG(DEBUG_NETLINK, "The size of data being sent to user = %d", msg_size);
+	DBG(DEBUG_NETLINK, "pid = %d", pid);
+	DBG(DEBUG_NETLINK, "Netlink is enable = %d", core_fr->isEnableNetlink);
 
 	if (core_fr->isEnableNetlink)
 	{
@@ -899,7 +900,7 @@ void netlink_reply_msg(void *raw, int size)
 
 		if (!skb_out)
 		{
-			DBG_INFO("Failed to allocate new skb");
+			DBG_ERR("Failed to allocate new skb");
 			return;
 		}
 
@@ -920,19 +921,19 @@ static void netlink_recv_msg(struct sk_buff *skb)
 {
 	pid = 0;
 
-	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
+	DBG(DEBUG_NETLINK, "Netlink is enable = %d", core_fr->isEnableNetlink);
 
 	nlh = (struct nlmsghdr *)skb->data;
 
-	DBG_INFO("Received a request from client: %s, %d",
+	DBG(DEBUG_NETLINK, "Received a request from client: %s, %d",
 		(char *)NLMSG_DATA(nlh), (int)strlen((char *)NLMSG_DATA(nlh)));
 
-	// pid of sending process
+	/* pid of sending process */
 	pid = nlh->nlmsg_pid;
 
-	DBG_INFO("the pid of sending process = %d", pid);
+	DBG(DEBUG_NETLINK, "the pid of sending process = %d", pid);
 
-	// TODO: may do something if there's not receiving msg from user.
+	/* TODO: may do something if there's not receiving msg from user. */
 	if (pid != 0)
 	{
 		DBG_ERR("The channel of Netlink has been established successfully !");
