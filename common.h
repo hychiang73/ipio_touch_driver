@@ -87,7 +87,7 @@
 #define PLATFORM_RK 
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.0.8"
+#define DRIVER_VERSION	"1.0.0.9"
 
 /* Normal debug messages */
 #define DBG_INFO(fmt, arg...) \
