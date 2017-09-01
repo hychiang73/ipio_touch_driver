@@ -82,6 +82,8 @@
 //#define ON_BOARD_IC		0x7807
 #define ON_BOARD_IC		0x9881
 
+extern uint32_t ipio_chip_list[2];
+
 /* Platform */
 #define PLATFORM_MTK 
 //#define PLATFORM_RK 
@@ -205,5 +207,6 @@ extern uint32_t ipio_debug_level;
 #define ENABLE_REGULATOR_POWER_ON 
 #define ENABLE_DMA 
 #define USE_KTHREAD 
+//#define I2C_SEGMENTAL_METHOD
 
 #endif /* __COMMON_H */

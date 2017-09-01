@@ -37,9 +37,6 @@
 #include "finger_report.h"
 #include "mp_test.h"
 
-extern uint32_t SUP_CHIP_LIST[];
-extern int nums_chip;
-
 /* An id with position in each fingers */
 struct mutual_touch_point
 {
@@ -372,9 +369,17 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	}
 	else
 	{
-		DBG_ERR(" **** Unkown PID : 0x%x ****", pid);
-		res = -1;
-		goto out;
+		if(pid == 0)
+		{
+			/* ignore the pid with 0x0 after enable irq at once */
+			goto out;
+		}
+		else
+		{
+			DBG_ERR(" **** Unkown PID : 0x%x ****", pid);
+			res = -1;
+			goto out;
+		}
 	}
 
 out:
@@ -393,7 +398,11 @@ static int finger_report_ver_5_0(void)
 
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
 
+#ifdef I2C_SEGMENTAL_METHOD
+	res = core_i2c_segmental_read(core_config->slave_i2c_addr, fnode->data, fnode->len);
+#else
 	res = core_i2c_read(core_config->slave_i2c_addr, fnode->data, fnode->len);
+#endif
 	if (res < 0)
 	{
 		DBG_ERR("Failed to read finger report packet");
@@ -864,9 +873,9 @@ int core_fr_init(struct i2c_client *pClient)
 {
 	int i = 0, res = -1;
 
-	for (; i < nums_chip; i++)
+	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
-		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
+		if (ipio_chip_list[i] == ON_BOARD_IC)
 		{
 			core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_fr))
