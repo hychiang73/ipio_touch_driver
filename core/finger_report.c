@@ -369,9 +369,17 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	}
 	else
 	{
-		DBG_ERR(" **** Unkown PID : 0x%x ****", pid);
-		res = -1;
-		goto out;
+		if(pid == 0)
+		{
+			/* ignore the pid with 0x0 after enable irq at once */
+			goto out;
+		}
+		else
+		{
+			DBG_ERR(" **** Unkown PID : 0x%x ****", pid);
+			res = -1;
+			goto out;
+		}
 	}
 
 out:
