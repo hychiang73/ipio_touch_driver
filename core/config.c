@@ -39,19 +39,24 @@
 #include "i2c.h"
 #include "flash.h"
 
-extern uint32_t SUP_CHIP_LIST[];
-extern int nums_chip;
-
-// the length returned from touch ic after command.
+/* the length returned from touch ic after command. */
 int fw_cmd_len = 0;
 int protocol_cmd_len = 0;
 int tp_info_len = 0;
 int key_info_len = 0;
 int core_cmd_len = 0;
 
-// protocol commands defined on chip.h
-// it's able to store 10 commands as default.
+/*
+ * protocol commands defined on common.h
+ * it's able to store 10 commands as default.
+ */
 uint8_t pcmd[10] = {0};
+
+/* the list of support chip */
+uint32_t ipio_chip_list[] = {
+	CHIP_TYPE_ILI7807,
+	CHIP_TYPE_ILI9881,
+};
 
 struct core_config_data *core_config = NULL;
 
@@ -859,9 +864,9 @@ int core_config_init(void)
 	int i = 0, res = -1;
 	int alloca_size = 0;
 
-	for (; i < nums_chip; i++)
+	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
-		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
+		if (ipio_chip_list[i] == ON_BOARD_IC)
 		{
 			alloca_size = sizeof(*core_config) * sizeof(uint8_t) * 6;
 			core_config = kzalloc(alloca_size, GFP_KERNEL);
@@ -881,7 +886,7 @@ int core_config_init(void)
 				goto out;
 			}
 
-			core_config->chip_id = SUP_CHIP_LIST[i];
+			core_config->chip_id = ipio_chip_list[i];
 			core_config->chip_type = 0x0000;
 			core_config->do_ic_reset = false;
 			core_config->isEnableGesture = false;

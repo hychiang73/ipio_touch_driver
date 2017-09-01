@@ -39,9 +39,6 @@
 #include "firmware.h"
 #include "flash.h"
 
-extern uint32_t SUP_CHIP_LIST[];
-extern int nums_chip;
-
 /* 
  * the size of two arrays is different depending on
  * which of methods to upgrade firmware you choose for.
@@ -977,9 +974,9 @@ int core_firmware_init(void)
 {
 	int i = 0, j = 0, res = -1;
 
-	for (; i < nums_chip; i++)
+	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
-		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
+		if (ipio_chip_list[i] == ON_BOARD_IC)
 		{
 			core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
 			if(ERR_ALLOC_MEM(core_firmware))
@@ -997,14 +994,14 @@ int core_firmware_init(void)
 				core_firmware->new_fw_ver[i] = 0x0;
 			}
 
-			if (core_config->chip_id == CHIP_TYPE_ILI7807)
+			if (ipio_chip_list[i] == CHIP_TYPE_ILI7807)
 			{
 				core_firmware->max_count = 0xFFFF;
 				core_firmware->isCRC = false;
 				core_firmware->upgrade_func = tddi_fw_upgrade;
 				core_firmware->delay_after_upgrade = 100;
 			}
-			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
+			else if (ipio_chip_list[i] == CHIP_TYPE_ILI9881)
 			{
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;

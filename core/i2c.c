@@ -90,6 +90,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 #endif
 
 #ifdef ENABLE_DMA
+    DBG(DEBUG_I2C, "DMA: size = %d", nSize);
     if (nSize > 8)
     {
         msgs[0].addr = (core_i2c->client->addr & I2C_MASK_FLAG);
@@ -103,7 +104,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     {
         if(core_config->do_ic_reset)
         {
-            // ignore i2c error if doing ic reset
+            /* ignore i2c error if doing ic reset */
             res = 0;
         }
         else
@@ -140,6 +141,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 #endif
 
 #ifdef ENABLE_DMA
+    DBG(DEBUG_I2C, "DMA: size = %d", nSize);
     if (nSize > 8)
     {
         msgs[0].addr = (core_i2c->client->addr & I2C_MASK_FLAG);
@@ -218,53 +220,65 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         }
     }
     
-    DBG(DEBUG_I2C, "DONE !!!!!");
-
 out:
     return res;
 }
+EXPORT_SYMBOL(core_i2c_segmental_read);
 
 int core_i2c_init(struct i2c_client *client)
 {
-    int res = 0;
+    int i, res = -1;
 
-    core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
-    if (IS_ERR(core_i2c))
+    for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++)
     {
-        DBG_ERR("init core-i2c failed !");
-        res = -EINVAL;
-        goto out;
-    }
-
-    core_i2c->client = client;
-    core_i2c->seg_len = 256;
-
-#ifdef ENABLE_DMA
-    res = dma_alloc();
-    if(res < 0)
-        goto out;
-#endif
-
-    if (ON_BOARD_IC == CHIP_TYPE_ILI7807)
-    {
-        if(core_config->chip_type == ILI7807_TYPE_F_AA &&
-            core_config->chip_type == ILI7807_TYPE_F_AB)
-            core_i2c->clk = 100000;
-        else
+        if(ipio_chip_list[i] == ON_BOARD_IC)
         {
-            core_i2c->clk = 400000;            
+            core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
+            if (IS_ERR(core_i2c))
+            {
+                DBG_ERR("init core-i2c failed !");
+                res = -EINVAL;
+                goto out;
+            }
+
+            #ifdef ENABLE_DMA
+                res = dma_alloc();
+                if(res < 0)
+                    goto out;
+            #endif
+
+            core_i2c->client = client;
+            core_i2c->seg_len = 256;
+
+            if (ipio_chip_list[i] == CHIP_TYPE_ILI7807)
+            {
+                if(core_config->chip_type == ILI7807_TYPE_F_AA &&
+                    core_config->chip_type == ILI7807_TYPE_F_AB)
+                {
+                    core_i2c->clk = 100000;                   
+                }
+                else
+                {
+                    core_i2c->clk = 400000;            
+                }
+            }
+            else if (ipio_chip_list[i] == CHIP_TYPE_ILI9881)
+            {
+                core_i2c->clk = 400000;
+            }
+
+            #ifdef PLATFORM_MTK
+                core_i2c->clk = 400;
+            #endif
+
+            res = 0;
+			return res;	
         }
     }
-    else if (ON_BOARD_IC == CHIP_TYPE_ILI9881)
-    {
-        core_i2c->clk = 400000;
-    }
 
-#ifdef PLATFORM_MTK
-        core_i2c->clk = 400;
-#endif
-
+    DBG_ERR("Can't find this chip in support list");
 out:
+    core_i2c_remove();
     return res;
 }
 EXPORT_SYMBOL(core_i2c_init);
