@@ -171,6 +171,59 @@ out:
 }
 EXPORT_SYMBOL(core_i2c_read);
 
+int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
+{
+    int res = 0;
+    int offset = 0;
+
+    struct i2c_msg msgs[] =
+    {
+        {
+            .addr = nSlaveId,
+            .flags = I2C_M_RD,
+            .len = nSize,
+//            .buf = pBuf,
+        },
+    };
+
+#if defined(PLATFORM_MTK) 
+    msgs[0].timing = core_i2c->clk;
+#elif defined(PLATFORM_RK)
+    msgs[0].scl_rate = core_i2c->clk;
+#endif
+
+    while(nSize > 0)
+    {
+        msgs[0].buf = &pBuf[offset];
+
+        if(nSize > core_i2c->seg_len)
+        {
+            msgs[0].len = core_i2c->seg_len;
+            nSize -= core_i2c->seg_len;
+            offset += msgs[0].len;
+        }
+        else
+        {
+            msgs[0].len = nSize;
+            nSize = 0;
+        }
+
+        DBG(DEBUG_I2C, "Length = %d", msgs[0].len);
+
+        if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
+        {
+            res = -EIO;
+            DBG_ERR("I2C Read Error, res = %d", res);
+            goto out;
+        }
+    }
+    
+    DBG(DEBUG_I2C, "DONE !!!!!");
+
+out:
+    return res;
+}
+
 int core_i2c_init(struct i2c_client *client)
 {
     int res = 0;
@@ -184,6 +237,7 @@ int core_i2c_init(struct i2c_client *client)
     }
 
     core_i2c->client = client;
+    core_i2c->seg_len = 256;
 
 #ifdef ENABLE_DMA
     res = dma_alloc();
@@ -197,10 +251,14 @@ int core_i2c_init(struct i2c_client *client)
             core_config->chip_type == ILI7807_TYPE_F_AB)
             core_i2c->clk = 100000;
         else
-             core_i2c->clk = 400000;
+        {
+            core_i2c->clk = 400000;            
+        }
     }
-    else
+    else if (ON_BOARD_IC == CHIP_TYPE_ILI9881)
+    {
         core_i2c->clk = 400000;
+    }
 
 #ifdef PLATFORM_MTK
         core_i2c->clk = 400;

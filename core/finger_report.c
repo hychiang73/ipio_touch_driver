@@ -393,7 +393,8 @@ static int finger_report_ver_5_0(void)
 
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
 
-	res = core_i2c_read(core_config->slave_i2c_addr, fnode->data, fnode->len);
+	//res = core_i2c_read(core_config->slave_i2c_addr, fnode->data, fnode->len);
+	res = core_i2c_segmental_read(core_config->slave_i2c_addr, fnode->data, fnode->len);
 	if (res < 0)
 	{
 		DBG_ERR("Failed to read finger report packet");
