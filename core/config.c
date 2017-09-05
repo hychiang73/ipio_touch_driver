@@ -95,7 +95,7 @@ static void set_protocol_cmd(uint32_t protocol_ver)
 		pcmd[5] = PCMD_5_0_GET_CORE_VERSION;
 		pcmd[6] = PCMD_5_0_MODE_CONTROL;
 		pcmd[7] = PCMD_5_0_I2C_UART;
-		pcmd[8] = PCMD_5_0_SLEEP_CONTROL;
+	//	pcmd[8] = PCMD_5_0_SLEEP_CONTROL;
 		pcmd[9] = PCMD_5_0_CDC_BUSY_STATE;
 	}
 }
@@ -329,40 +329,250 @@ void core_config_sense_ctrl(bool start)
 
 	if(start)
 	{
-		/* sense start for TP */
 		core_i2c_write(core_config->slave_i2c_addr, sense_start, 3);
 	}
 	else
 	{
-		/* sense stop for TP */
 		core_i2c_write(core_config->slave_i2c_addr, sense_stop, 3);
 	}
 
-	/* check system busy */
-	if(core_config_check_cdc_busy() < 0)
-		DBG_ERR("Check busy is timout !");
 }
 EXPORT_SYMBOL(core_config_sense_ctrl);
 
+void core_config_sleep_ctrl(bool out)
+{
+	uint8_t sleep_in[3] = {0x1, 0x2, 0x0};
+	uint8_t sleep_out[3] = {0x1, 0x2, 0x1};
+
+	DBG_INFO("Sleep Out = %d", out);
+
+	if(out)
+	{
+		core_i2c_write(core_config->slave_i2c_addr, sleep_out, 3);
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, sleep_in, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_sleep_ctrl);
+
+void core_config_glove_ctrl(bool enable, bool seamless)
+{
+	uint8_t dis_glove[3] = {0x1, 0x6, 0x0};
+	uint8_t en_glove[3] = {0x1, 0x6, 0x1};
+	uint8_t sl_glove[3] = {0x1, 0x6, 0x2};
+
+	DBG_INFO("Glove = %d, seamless = %d", enable, seamless);
+
+	if(!seamless)
+	{
+		if(enable)
+		{
+			core_i2c_write(core_config->slave_i2c_addr, en_glove, 3);
+		}
+		else
+		{
+			core_i2c_write(core_config->slave_i2c_addr, dis_glove, 3);
+		}
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, sl_glove, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_glove_ctrl);
+
+void core_config_stylus_ctrl(bool enable, bool seamless)
+{
+	uint8_t dis_stylus[3] = {0x1, 0x7, 0x0};
+	uint8_t en_stylus[3] = {0x1, 0x7, 0x1};
+	uint8_t sl_stylus[3] = {0x1, 0x7, 0x2};
+
+	DBG_INFO("LPWG = %d", enable);
+
+	if(!seamless)
+	{
+		if(enable)
+		{
+			core_i2c_write(core_config->slave_i2c_addr, en_stylus, 3);
+		}
+		else
+		{
+			core_i2c_write(core_config->slave_i2c_addr, dis_stylus, 3);
+		}
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, sl_stylus, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_stylus_ctrl);
+
+void core_config_tp_scan_mode(bool mode)
+{
+	uint8_t modeAB[3] = {0x1, 0x8, 0x0};
+	uint8_t modeB[3] = {0x1, 0x8, 0x1};
+
+	DBG_INFO("TP Scan mode = %d", mode);
+
+	if(mode)
+	{
+		core_i2c_write(core_config->slave_i2c_addr, modeB, 3);
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, modeAB, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_tp_scan_mode);
+
+void core_config_lpwg_ctrl(bool enable)
+{
+	uint8_t en_lpwg[3] = {0x1, 0xA, 0x1};
+	uint8_t dis_lpgw[3] = {0x1, 0xA, 0x0};
+
+	DBG_INFO("LPWG = %d", enable);
+
+	if(enable)
+	{
+		core_i2c_write(core_config->slave_i2c_addr, en_lpwg, 3);
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, dis_lpgw, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_lpwg_ctrl);
+
+void core_config_gesture_ctrl(uint8_t func)
+{
+	uint8_t gc[3] = {0x1, 0xB, 0x3F};
+	uint8_t max_byte = 0x3F, min_byte = 0x20;
+
+	DBG_INFO("Gesture function = 0x%x", func);
+
+	if(func > max_byte || func < min_byte)
+	{
+		DBG_ERR("Gesture ctrl error, 0x%x", func);
+	}
+	else
+	{
+		gc[2] = func;
+		core_i2c_write(core_config->slave_i2c_addr, gc, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_gesture_ctrl);
+
+void core_config_phone_cover_ctrl(bool enable)
+{
+	uint8_t dis_pc[3] = {0x1, 0xC, 0x0};	
+	uint8_t en_pc[3] = {0x1, 0xC, 0x1};
+
+	DBG_INFO("Phone Cover = %d", enable);
+
+	if(enable)
+	{
+		core_i2c_write(core_config->slave_i2c_addr, en_pc, 3);
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, dis_pc, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_phone_cover_ctrl);
+
+void core_config_finger_sense_ctrl(bool enable)
+{
+	uint8_t dis_fs[3] = {0x1, 0xF, 0x0};	
+	uint8_t en_fs[3] = {0x1, 0xF, 0x1};
+
+	DBG_INFO("Finger sense = %d", enable);
+
+	if(enable)
+	{
+		core_i2c_write(core_config->slave_i2c_addr, en_fs, 3);
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, dis_fs, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_finger_sense_ctrl);
+
+void core_config_proximity_ctrl(bool enable)
+{
+	uint8_t dis_prox[3] = {0x1, 0x10, 0x0};	
+	uint8_t en_prox[3] = {0x1, 0x10, 0x1};
+
+	DBG_INFO("Proximity = %d", enable);
+
+	if(enable)
+	{
+		core_i2c_write(core_config->slave_i2c_addr, en_prox, 3);
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, dis_prox, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_proximity_ctrl);
+
+void core_config_plug_ctrl(bool out)
+{
+	uint8_t plug_in[3] = {0x1, 0x11, 0x0};	
+	uint8_t plug_out[3] = {0x1, 0x11, 0x1};
+
+	DBG_INFO("Plug Out = %d", out);
+
+	if(out)
+	{
+		core_i2c_write(core_config->slave_i2c_addr, plug_out, 3);
+	}
+	else
+	{
+		core_i2c_write(core_config->slave_i2c_addr, plug_in, 3);
+	}
+}
+EXPORT_SYMBOL(core_config_plug_ctrl);
+
 void core_config_ic_suspend(void)
 {
-	uint8_t cmd[2] = {0x02, 0x0};
-
 	DBG_INFO("Tell IC to suspend");
+
+	/* sense stop */
+	core_config_sense_ctrl(false);
+		
+	/* check system busy */
+	if(core_config_check_cdc_busy() < 0)
+		DBG_ERR("Check busy is timout !");
+
+	DBG_INFO("Is enabled gesture = %d", core_config->isEnableGesture);
 	
-	core_config_func_ctrl(cmd);
+	if(core_config->isEnableGesture)
+	{
+		/* Enable LPWG  */
+		core_config_lpwg_ctrl(true);
+	}
+	else
+	{
+		/* sleep in */
+		core_config_sleep_ctrl(false);
+	}
 }
 EXPORT_SYMBOL(core_config_ic_suspend);
 
 void core_config_ic_resume(void)
 {
-	uint8_t cmd[2] = {0x02, 0x01};
-
 	DBG_INFO("Tell IC to resume");
 
-	core_config_func_ctrl(cmd);
+	/* sleep out */
+	core_config_sleep_ctrl(true);
 
-	// it's better to do reset after resuem.
+	/* sense start for TP */
+	core_config_sense_ctrl(true);
+
+	/* Soft reset */
 	core_config_ice_mode_enable();
 	mdelay(10);
 	core_config_ic_reset();
@@ -431,60 +641,6 @@ int core_config_check_cdc_busy(void)
 	return res;
 }
 EXPORT_SYMBOL(core_config_check_cdc_busy);
-
-void core_config_func_ctrl(uint8_t *buf)
-{
-	int len = 3;
-	uint8_t cmd[3] = {0};
-
-	cmd[0] = 0x1;
-	cmd[1] = buf[0];
-	cmd[2] = buf[1];
-
-	DBG(DEBUG_CONFIG, "func = %x , ctrl = %x", cmd[1], cmd[2]);
-
-	switch(cmd[1])
-	{
-		case 0x2:
-			if(cmd[2] == 0x0)
-			{
-				DBG_INFO("Sleep IN ... Gesture = %d", core_config->isEnableGesture);
-				if(core_config->isEnableGesture)
-				{
-					/* LPWG Ctrl */
-					cmd[1] = 0x0A;
-					cmd[2] = 0x01;
-					DBG(DEBUG_CONFIG, "cmd = 0x%x, 0x%x, 0x%x", cmd[0], cmd[1], cmd[2]);
-					core_i2c_write(core_config->slave_i2c_addr, cmd, len);
-				}
-				else
-				{
-					/* sense stop */
-					core_config_sense_ctrl(false);
-
-					/* sleep in */
-					core_i2c_write(core_config->slave_i2c_addr, cmd, len);
-				}
-			}
-			else
-			{
-				DBG_INFO("Sleep OUT ...");
-			
-				/* sleep out */
-				core_i2c_write(core_config->slave_i2c_addr, cmd, len);
-	
-				/* sense start for TP */
-				core_config_sense_ctrl(true);
-			}
-			break;
-
-		default:
-			core_i2c_write(core_config->slave_i2c_addr, cmd, len);
-			mdelay(1);
-			break;
-	}
-}
-EXPORT_SYMBOL(core_config_func_ctrl);
 
 int core_config_get_key_info(void)
 {
@@ -843,7 +999,7 @@ int core_config_get_chip_id(void)
 
 	if(do_once == 0)
 	{
-		// reading flash id needs to let ic entry to ICE mode.
+		/* reading flash id needs to let ic entry to ICE mode */
 		read_flash_info(0x9F, 4);
 		do_once = 1;
 	}

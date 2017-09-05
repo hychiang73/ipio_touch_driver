@@ -210,7 +210,6 @@ static void read_power_status(uint8_t *buf)
 static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 {
 	uint8_t charge_status[20] = {0};
-	uint8_t plug_ctrl[2] = {0x11, 0x0};
 	static int charge_mode = 0;
 
 	DBG(DEBUG_BATTERY, "isEnableCheckPower = %d", ipd->isEnablePollCheckPower);
@@ -223,8 +222,7 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 		if(charge_mode != 1)
 		{
 			DBG(DEBUG_BATTERY, "Charging mode");
-			plug_ctrl[1] = 0x0; //plug in
-			core_config_func_ctrl(plug_ctrl);
+			core_config_plug_ctrl(false);
 			charge_mode = 1;
 		}
 	}
@@ -233,8 +231,7 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 		if(charge_mode != 2)
 		{
 			DBG(DEBUG_BATTERY, "Not charging mode");
-			plug_ctrl[1] = 0x1; //plug out
-			core_config_func_ctrl(plug_ctrl);
+			core_config_plug_ctrl(true);;
 			charge_mode = 2;
 		}
 	}

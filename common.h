@@ -156,9 +156,8 @@ extern uint32_t ipio_debug_level;
 #define PCMD_5_0_GET_PROTOCOL_VERSION	0x22
 #define PCMD_5_0_GET_CORE_VERSION		0x23
 #define PCMD_5_0_MODE_CONTROL			0xF0
-#define PCMD_5_0_I2C_UART				0x40
-#define PCMD_5_0_SLEEP_CONTROL			0x02
 #define PCMD_5_0_CDC_BUSY_STATE			0xF3
+#define PCMD_5_0_I2C_UART				0x40
 
 /* firmware mode */
 #define P5_0_FIRMWARE_UNKNOWN_MODE		0xFF

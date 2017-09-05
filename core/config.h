@@ -91,23 +91,36 @@ extern int tp_info_len;
 extern int key_info_len;
 extern int core_cmd_len;
 
+/* R/W with Touch ICs */
+extern uint32_t core_config_ice_mode_read(uint32_t addr);
+extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);
 extern uint32_t vfIceRegRead(uint32_t addr);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);
+extern int core_config_ice_mode_disable(void);
+extern int core_config_ice_mode_enable(void);
 
+/* Touch IC status */
 extern int core_config_reset_watch_dog(void);
+extern int core_config_check_cdc_busy(void);
 extern void core_config_ic_suspend(void);
 extern void core_config_ic_resume(void);
 extern void core_config_ic_reset(void);
 
-extern uint32_t core_config_ice_mode_read(uint32_t addr);
-extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);
-extern int core_config_ice_mode_disable(void);
-extern int core_config_ice_mode_enable(void);
-
-extern int core_config_check_cdc_busy(void);
+/* control features of Touch IC */
 extern void core_config_sense_ctrl(bool start);
-extern void core_config_func_ctrl(uint8_t *buf);
+extern void core_config_sleep_ctrl(bool out);
+extern void core_config_glove_ctrl(bool enable, bool seamless);
+extern void core_config_stylus_ctrl(bool enable, bool seamless);
+extern void core_config_tp_scan_mode(bool mode);
+extern void core_config_lpwg_ctrl(bool enable);
+extern void core_config_gesture_ctrl(uint8_t func);
+extern void core_config_phone_cover_ctrl(bool enable);
+extern void core_config_finger_sense_ctrl(bool enable);
+extern void core_config_proximity_ctrl(bool enable);
+extern void core_config_plug_ctrl(bool out);
+//extern void core_config_func_ctrl(uint8_t *buf);
 
+/* Touch IC information */
 extern int core_config_get_core_ver(void);
 extern int core_config_get_key_info(void);
 extern int core_config_get_tp_info(void);

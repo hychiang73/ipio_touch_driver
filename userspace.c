@@ -429,7 +429,6 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 {
 	int res = 0;
 	uint8_t cmd[10] = {0};
-	uint8_t func[2] = {0};
 
 	if(buff != NULL)
 	{
@@ -465,66 +464,48 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 	else if(strcmp(cmd, "dispcc") == 0)
 	{
-		DBG_INFO("disable phone cover control");
-		func[0] = 0x0C;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable phone cover");
+		core_config_phone_cover_ctrl(false);
 	}
 	else if(strcmp(cmd, "enapcc") == 0)
 	{
-		DBG_INFO("enable phone cover control");
-		func[0] = 0x0C;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable phone cover");
+		core_config_phone_cover_ctrl(true);
 	}
 	else if(strcmp(cmd, "disfsc") == 0)
 	{
-		DBG_INFO("disable finger sense control");
-		func[0] = 0x0F;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable finger sense")
+		core_config_finger_sense_ctrl(false);
 	}
 	else if(strcmp(cmd, "enafsc") == 0)
 	{
-		DBG_INFO("enable finger sense control");
-		func[0] = 0x0F;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable finger sense");
+		core_config_finger_sense_ctrl(true);
 	}
 	else if(strcmp(cmd, "disprox") == 0)
 	{
-		DBG_INFO("disable proximity function");
-		func[0] = 0x10;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable proximity");
+		core_config_proximity_ctrl(false);
 	}
 	else if(strcmp(cmd, "enaprox") == 0)
 	{
-		DBG_INFO("enable proximity function");
-		func[0] = 0x10;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable proximity");
+		core_config_proximity_ctrl(true);
 	}
 	else if(strcmp(cmd, "disglove") == 0)
 	{
 		DBG_INFO("disable glove function");
-		func[0] = 0x06;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(false, false);
 	}
 	else if(strcmp(cmd, "enaglove") == 0)
 	{
 		DBG_INFO("enable glove function");
-		func[0] = 0x06;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(true, false);
 	}
 	else if(strcmp(cmd, "glovesl") == 0)
 	{
 		DBG_INFO("set glove as seamless");
-		func[0] = 0x06;
-		func[1] = 0x02;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(true, true);
 	}
 	else
 	{
@@ -657,14 +638,14 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_FUNC_MODE:
-		res = copy_from_user(szBuf, (uint8_t *)arg, 2);
+		res = copy_from_user(szBuf, (uint8_t *)arg, 3);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to copy data from user space");
 		}
 		else
 		{
-			core_config_func_ctrl(szBuf);
+			core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], 3);
 		}
 		break;
 
