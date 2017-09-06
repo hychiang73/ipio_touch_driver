@@ -271,8 +271,6 @@ uint32_t vfIceRegRead(uint32_t addr)
 	core_config_ice_mode_write(0x41000, 0x3B | (addr << 8), 4);
 	core_config_ice_mode_write(0x041004, 0x66AA5500, 4);
 
-	// Check Flag
-	// Check Busy Flag
 	for (i = 0; i < nInTimeCount; i++)
 	{
 		szBuf[0] = core_config_read_write_onebyte(0x41011);
@@ -389,7 +387,7 @@ void core_config_stylus_ctrl(bool enable, bool seamless)
 	uint8_t en_stylus[3] = {0x1, 0x7, 0x1};
 	uint8_t sl_stylus[3] = {0x1, 0x7, 0x2};
 
-	DBG_INFO("LPWG = %d", enable);
+	DBG_INFO("stylus = %d, seamless = %d", enable, seamless);
 
 	if(!seamless)
 	{
@@ -542,7 +540,7 @@ void core_config_ic_suspend(void)
 
 	/* sense stop */
 	core_config_sense_ctrl(false);
-		
+
 	/* check system busy */
 	if(core_config_check_cdc_busy() < 0)
 		DBG_ERR("Check busy is timout !");
@@ -568,6 +566,10 @@ void core_config_ic_resume(void)
 
 	/* sleep out */
 	core_config_sleep_ctrl(true);
+
+	/* check system busy */
+	if(core_config_check_cdc_busy() < 0)
+		DBG_ERR("Check busy is timout !");
 
 	/* sense start for TP */
 	core_config_sense_ctrl(true);
@@ -685,10 +687,12 @@ int core_config_get_key_info(void)
 
 		if (core_config->tp_info->nKeyCount)
 		{
-			//TODO: Firmware not ready yet
-			#if 0
+			/* NOTE: Firmware not ready yet */
 			core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
 			core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
+
+			DBG_INFO("key: length of X area = %x", core_config->tp_info->nKeyAreaXLength);
+			DBG_INFO("key: length of Y area = %x", core_config->tp_info->nKeyAreaYLength);
 
 			for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
 			{
@@ -696,8 +700,10 @@ int core_config_get_key_info(void)
 				core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
 				core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
 				core_config->tp_info->virtual_key[i].nStatus = 0;
+
+				DBG_INFO("key: id = %d, X = %d, Y = %d", core_config->tp_info->virtual_key[i].nId,
+				core_config->tp_info->virtual_key[i].nX, core_config->tp_info->virtual_key[i].nY);
 			}
-			#endif
 		}
 	}
 

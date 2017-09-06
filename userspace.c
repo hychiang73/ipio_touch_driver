@@ -507,6 +507,31 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		DBG_INFO("set glove as seamless");
 		core_config_glove_ctrl(true, true);
 	}
+	else if(strcmp(cmd, "enastylus") == 0)
+	{
+		DBG_INFO("enable stylus");
+		core_config_stylus_ctrl(true, false);
+	}
+	else if(strcmp(cmd, "disstylus") == 0)
+	{
+		DBG_INFO("disable stylus");
+		core_config_stylus_ctrl(false, false);
+	}
+	else if(strcmp(cmd, "stylussl") == 0)
+	{
+		DBG_INFO("set stylus as seamless");
+		core_config_stylus_ctrl(true, true);
+	}
+	else if(strcmp(cmd, "tpscan_ab") == 0)
+	{
+		DBG_INFO("set TP scan as mode AB");
+		core_config_tp_scan_mode(true);
+	}
+	else if(strcmp(cmd, "tpscan_b") == 0)
+	{
+		DBG_INFO("set TP scan as mode B");
+		core_config_tp_scan_mode(false);
+	}
 	else
 	{
 		DBG_ERR("Unknown command");
