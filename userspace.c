@@ -105,6 +105,39 @@ static int katoi(char *string)
 		return result;
 }
 
+static int str2hex(char *str) 
+{
+	int strlen,result,intermed,intermedtop;
+	char *s;
+	s=str;
+	while(*s != 0x0) {s++;}
+	strlen=(int)(s-str);
+	s=str;
+	if(*s != 0x30) {
+	  return -1;
+	} else {
+	  s++;
+	  if(*s != 0x78 && *s != 0x58){
+		  return -1;
+	  }
+	  s++;
+	}
+	strlen = strlen-3;
+	result = 0;
+	while(*s != 0x0) {
+	  intermed = *s & 0x0f;
+	  intermedtop = *s & 0xf0;
+	  if(intermedtop == 0x60 || intermedtop == 0x40) {
+		  intermed += 0x09;
+	  }
+	  intermed = intermed << (strlen << 2);
+	  result = result | intermed;
+	  strlen -= 1;
+	  s++;
+	}
+	return result;
+}
+
 static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
@@ -427,8 +460,12 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 // for debug
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
-	int res = 0;
-	uint8_t cmd[10] = {0};
+	int res = 0, count = 0, i;
+	int w_len = 0, r_len = 0, i2c_delay = 0;
+	char cmd[512] = {0};
+	char *token = NULL, *cur = NULL;	
+	uint8_t i2c[256] = {0};	
+	uint8_t *data = NULL;
 
 	if(buff != NULL)
 	{
@@ -441,6 +478,20 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 
 	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	token = cur = cmd;
+
+	data = kmalloc(512 * sizeof(uint8_t), GFP_KERNEL);
+	memset(data, 0, 512);
+
+	while((token = strsep(&cur, ",")) != NULL)
+	{
+		data[count] = str2hex(token);
+		//DBG_INFO("data[%d] = %x",count, data[count]);	
+		count++;
+	}
+
+	DBG_INFO("cmd = %s", cmd);
 
 	if(strcmp(cmd, "reset") == 0)
 	{
@@ -532,11 +583,58 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		DBG_INFO("set TP scan as mode B");
 		core_config_tp_scan_mode(false);
 	}
+	else if(strcmp(cmd, "i2c_w") == 0)
+	{
+		w_len = data[1];
+		DBG_INFO("w_len = %d", w_len);
+
+		for(i = 0; i < w_len; i++)
+		{
+			i2c[i] = data[2+i];
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+		}
+		
+		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+	}
+	else if(strcmp(cmd, "i2c_r") == 0)
+	{
+		r_len = data[1];
+		DBG_INFO("r_len = %d", r_len);
+	
+		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+
+		for(i = 0; i < r_len; i++)
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+	}
+	else if(strcmp(cmd, "i2c_w_r") == 0)
+	{
+		w_len = data[1];
+		r_len = data[2];
+		i2c_delay = data[3];
+		DBG_INFO("w_len = %d, r_len = %d, delay = %d", w_len, r_len, i2c_delay);
+
+		for(i = 0; i < w_len; i++)
+		{
+			i2c[i] = data[4+i];
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+		}
+		
+		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+
+		memset(i2c, 0, sizeof(i2c));
+		mdelay(i2c_delay);
+
+		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+
+		for(i = 0; i < r_len; i++)
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+	}
 	else
 	{
 		DBG_ERR("Unknown command");
 	}
-	
+
+	kfree(data);
 	return size;	
 }
 

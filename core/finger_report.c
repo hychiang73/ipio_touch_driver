@@ -865,6 +865,9 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
 	input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
 
+	if(core_fr->isSetPhoneCover)
+		core_config_set_phone_cover(NULL);
+
 	return;
 }
 EXPORT_SYMBOL(core_fr_input_set_param);
@@ -890,6 +893,7 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->btype = true;
 			core_fr->isEnablePressure = false;
 			core_fr->isSetResolution = false;
+			core_fr->isSetPhoneCover = false;
 
 			if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
 			{

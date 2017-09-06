@@ -534,6 +534,49 @@ void core_config_plug_ctrl(bool out)
 }
 EXPORT_SYMBOL(core_config_plug_ctrl);
 
+void core_config_set_phone_cover(uint8_t *pattern)
+{
+	uint8_t ul_x_l = 0, ul_x_h = 100;
+	uint8_t ul_y_l = 0, ul_y_h = 100;
+	uint8_t br_x_l = 0, br_x_h = 100;
+	uint8_t br_y_l = 0, br_y_h = 100;
+	uint8_t windows[9]= {0};
+
+	DBG_INFO("pattern = 0x%x", *pattern);
+
+	if(*pattern < 0 || pattern == NULL)
+	{
+		DBG_ERR("Invaild width or height");
+		return;		
+	}
+
+	windows[0] = 0x31;
+
+	if(*pattern == 0)
+	{
+		windows[1] = ul_x_l;
+		windows[2] = ul_x_h;
+		windows[3] = ul_y_l;
+		windows[4] = ul_y_h;
+		windows[5] = br_x_l;
+		windows[6] = br_x_h;
+		windows[7] = br_y_l;
+		windows[8] = br_y_h;
+	}
+	else
+	{
+		/* TODO */
+	}
+
+	DBG_INFO("window: ul_x_l = 0x%x, ul_x_h = 0x%x", windows[1], windows[2]);
+	DBG_INFO("window: ul_y_l = 0x%x, ul_y_l = 0x%x", windows[3], windows[4]);
+	DBG_INFO("window: br_x_l = 0x%x, br_x_l = 0x%x", windows[5], windows[6]);
+	DBG_INFO("window: br_y_l = 0x%x, br_y_l = 0x%x", windows[7], windows[8]);
+
+	core_i2c_write(core_config->slave_i2c_addr, windows, 9);
+}
+EXPORT_SYMBOL(core_config_set_phone_cover);
+
 void core_config_ic_suspend(void)
 {
 	DBG_INFO("Tell IC to suspend");
