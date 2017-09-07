@@ -139,7 +139,7 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
 
-#ifdef ENABLE_REGULATOR_POWER_ON
+#ifdef REGULATOR_POWER_ON
 void ilitek_regulator_power_on(bool status)
 {
 	int res = 0;
@@ -747,7 +747,7 @@ static int ilitek_platform_remove(struct i2c_client *client)
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
-#ifdef ENABLE_REGULATOR_POWER_ON
+#ifdef REGULATOR_POWER_ON
 #ifdef PLATFORM_MTK
 	const char *vdd_name = "vtouch";
 #else
@@ -812,7 +812,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	mutex_init(&ipd->MUTEX);
 	spin_lock_init(&ipd->SPIN_LOCK);
 
-#ifdef ENABLE_REGULATOR_POWER_ON
+#ifdef REGULATOR_POWER_ON
 #ifdef PLATFORM_MTK
 	ipd->vdd = regulator_get(tpd->tpd_dev, vdd_name);
 	tpd->reg = ipd->vdd;

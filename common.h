@@ -202,10 +202,43 @@ extern uint32_t ipio_debug_level;
 /*
  * Other settings
  */
+
+ /* define the width and heigth of a screen. */
+#define TOUCH_SCREEN_X_MIN 0
+#define TOUCH_SCREEN_Y_MIN 0
+#define TOUCH_SCREEN_X_MAX 1080
+#define TOUCH_SCREEN_Y_MAX 1920
+
+/* define the range on panel */
+#define TPD_HEIGHT 2048
+#define TPD_WIDTH 2048
+
+/* define the size of window of phone cover */
+#define UL_X_LOW	0
+#define UL_X_HIGH	100
+#define UL_Y_LOW	0
+#define UL_Y_HIGH	100
+#define BR_X_LOW	0
+#define BR_X_HIGH	100
+#define BR_Y_LOW	0
+#define BR_Y_HIGH	100	
+ 
+/* How many numbers of touch are supported by IC. */
 #define MAX_TOUCH_NUM	10
-#define ENABLE_REGULATOR_POWER_ON 
-//#define ENABLE_DMA 
-#define USE_KTHREAD 
-//#define I2C_SEGMENTAL_METHOD
+
+/* Linux multiple touch protocol, either B type or A type. */
+#define MT_B_TYPE
+
+/* Enable the support of regulator power. */
+#define REGULATOR_POWER_ON 
+
+/* Either an interrupt event handled by kthread or work queue. */
+#define USE_KTHREAD
+
+/* Enable DMA with I2C. */
+//#define I2C_DMA
+
+/* Split the length written to or read from IC via I2C. */
+//#define I2C_SEGMENT
 
 #endif /* __COMMON_H */

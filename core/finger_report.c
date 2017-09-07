@@ -68,15 +68,6 @@ uint8_t PreviousTouch[MAX_TOUCH_NUM];
 /* the total length of finger report packet */
 uint16_t tlen = 0;
 
-/* set up width and heigth of a screen */
-#define TOUCH_SCREEN_X_MIN 0
-#define TOUCH_SCREEN_Y_MIN 0
-#define TOUCH_SCREEN_X_MAX 1080
-#define TOUCH_SCREEN_Y_MAX 1920
-
-#define TPD_HEIGHT 2048
-#define TPD_WIDTH 2048
-
 struct mutual_touch_info mti;
 struct fr_data_node *fnode = NULL, *fuart = NULL;
 struct core_fr_data *core_fr = NULL;
@@ -172,35 +163,30 @@ static void i2cuart_recv_packet(void)
  */
 void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 {
-	DBG(DEBUG_FINGER_REPORT, "btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
+	DBG(DEBUG_FINGER_REPORT, "DOWN: id = %d, x = %d, y = %d", id, x, y);
 
-	if(core_fr->btype)
-	{
-		input_mt_slot(core_fr->input_device, id);
-		input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, true);
-		input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
-		input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+#ifdef MT_B_TYPE
+	input_mt_slot(core_fr->input_device, id);
+	input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, true);
+	input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
+	input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
 
-		if(core_fr->isEnablePressure)
-			input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
-	}
-	else
-	{
-		input_report_key(core_fr->input_device, BTN_TOUCH, 1);
+	if(core_fr->isEnablePressure)
+		input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
+#else
+	input_report_key(core_fr->input_device, BTN_TOUCH, 1);
 
-		input_report_abs(core_fr->input_device, ABS_MT_TRACKING_ID, id);
-		input_report_abs(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 1);
-		input_report_abs(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 1);
-		input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
-		input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
+	input_report_abs(core_fr->input_device, ABS_MT_TRACKING_ID, id);
+	input_report_abs(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 1);
+	input_report_abs(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 1);
+	input_report_abs(core_fr->input_device, ABS_MT_POSITION_X, x);
+	input_report_abs(core_fr->input_device, ABS_MT_POSITION_Y, y);
 
-		if(core_fr->isEnablePressure)
-			input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
+	if(core_fr->isEnablePressure)
+		input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
 
-		input_mt_sync(core_fr->input_device);
-	}
-
-	return;
+	input_mt_sync(core_fr->input_device);
+#endif
 }
 EXPORT_SYMBOL(core_fr_touch_press);
 
@@ -214,18 +200,15 @@ EXPORT_SYMBOL(core_fr_touch_press);
  */
 void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 {
-	DBG(DEBUG_FINGER_REPORT, "btype:%d, id = %d, x = %d, y = %d", core_fr->btype, id, x, y);
+	DBG(DEBUG_FINGER_REPORT, "UP: id = %d, x = %d, y = %d", id, x, y);
 
-	if(core_fr->btype)
-	{
-		input_mt_slot(core_fr->input_device, id);
-		input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);	
-	}
-	else
-	{
-		input_report_key(core_fr->input_device, BTN_TOUCH, 0);
-		input_mt_sync(core_fr->input_device);	
-	}
+#ifdef MT_B_TYPE
+	input_mt_slot(core_fr->input_device, id);
+	input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);	
+#else
+	input_report_key(core_fr->input_device, BTN_TOUCH, 0);
+	input_mt_sync(core_fr->input_device);	
+#endif
 }
 EXPORT_SYMBOL(core_fr_touch_release);
 
@@ -256,6 +239,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 
 	check_sum = cal_fr_checksum(&fnode->data[0], (fnode->len - 1));
 	DBG(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x ", fnode->data[fnode->len - 1], check_sum);
+
 	if (fnode->data[fnode->len - 1] != check_sum)
 	{
 		DBG_ERR("Wrong checksum");
@@ -263,7 +247,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 		goto out;
 	}
 
-	// start to parsing the packet of finger report
+	/* start to parsing the packet of finger report */
 	if (pid == P5_0_DEMO_PACKET_ID)
 	{
 		DBG(DEBUG_FINGER_REPORT, " **** Parsing DEMO packets : 0x%x ****", pid);
@@ -272,10 +256,9 @@ static int parse_touch_package_v5_0(uint8_t pid)
 		{
 			if ((fnode->data[(4 * i) + 1] == 0xFF) && (fnode->data[(4 * i) + 2] && 0xFF) && (fnode->data[(4 * i) + 3] == 0xFF))
 			{
-				if(core_fr->btype)
-				{
+				#ifdef MT_B_TYPE
 					CurrentTouch[i] = 0;
-				}
+				#endif
 				continue;
 			}
 
@@ -309,10 +292,9 @@ static int parse_touch_package_v5_0(uint8_t pid)
 
 			mti.touch_num++;
 
-			if(core_fr->btype)
-			{
+			#ifdef MT_B_TYPE
 				CurrentTouch[i] = 1;
-			}
+			#endif
 		}
 	}
 	else if (pid == P5_0_DEBUG_PACKET_ID)
@@ -324,10 +306,9 @@ static int parse_touch_package_v5_0(uint8_t pid)
 		{
 			if ((fnode->data[(3 * i) + 5] == 0xFF) && (fnode->data[(3 * i) + 6] && 0xFF) && (fnode->data[(3 * i) + 7] == 0xFF))
 			{
-				if(core_fr->btype)
-				{
+				#ifdef MT_B_TYPE
 					CurrentTouch[i] = 0;
-				}
+				#endif
 				continue;
 			}
 
@@ -361,10 +342,9 @@ static int parse_touch_package_v5_0(uint8_t pid)
 
 			mti.touch_num++;
 
-			if(core_fr->btype)
-			{
+			#ifdef MT_B_TYPE
 				CurrentTouch[i] = 1;
-			}
+			#endif
 		}
 	}
 	else
@@ -398,7 +378,7 @@ static int finger_report_ver_5_0(void)
 
 	memset(&mti, 0x0, sizeof(struct mutual_touch_info));
 
-#ifdef I2C_SEGMENTAL_METHOD
+#ifdef I2C_SEGMENT
 	res = core_i2c_segmental_read(core_config->slave_i2c_addr, fnode->data, fnode->len);
 #else
 	res = core_i2c_read(core_config->slave_i2c_addr, fnode->data, fnode->len);
@@ -441,8 +421,7 @@ static int finger_report_ver_5_0(void)
 	/* interpret parsed packat and send input events to system */
 	if (mti.touch_num > 0)
 	{
-		if(core_fr->btype)
-		{
+		#ifdef MT_B_TYPE
 			for (i = 0; i < mti.touch_num; i++)
 			{
 				input_report_key(core_fr->input_device, BTN_TOUCH, 1);
@@ -462,14 +441,12 @@ static int finger_report_ver_5_0(void)
 
 				PreviousTouch[i] = CurrentTouch[i];
 			}
-		}
-		else
-		{
+		#else
 			for (i = 0; i < mti.touch_num; i++)
 			{
 				core_fr_touch_press(mti.mtp[i].x, mti.mtp[i].y, mti.mtp[i].pressure, mti.mtp[i].id);
 			}
-		}
+		#endif
 		input_sync(core_fr->input_device);
 
 		last_touch = mti.touch_num;
@@ -478,8 +455,7 @@ static int finger_report_ver_5_0(void)
 	{
 		if (last_touch > 0)
 		{
-			if(core_fr->btype)
-			{
+			#ifdef MT_B_TYPE
 				for (i = 0; i < MAX_TOUCH_NUM; i++)
 				{
 					DBG(DEBUG_FINGER_REPORT, "PreviousTouch[%d]=%d, CurrentTouch[%d]=%d", i, PreviousTouch[i], i, CurrentTouch[i]);
@@ -492,11 +468,9 @@ static int finger_report_ver_5_0(void)
 				}
 				input_report_key(core_fr->input_device, BTN_TOUCH, 0);
 				input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
-			}
-			else
-			{
+			#else
 				core_fr_touch_release(0, 0, 0);
-			}
+			#endif
 
 			input_sync(core_fr->input_device);
 
@@ -845,18 +819,15 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	if(core_fr->isEnablePressure)
 		input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
 
-	if(core_fr->btype)
-	{
+	#ifdef MT_B_TYPE
 		#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 			input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
 		#else
 			input_mt_init_slots(core_fr->input_device, max_tp);
 		#endif
-	}
-	else
-	{
+	#else
 		input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
-	}
+	#endif /* MT_B_TYPE */
 
 	/* Set up virtual key with gesture code */
 	input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
@@ -890,7 +861,6 @@ int core_fr_init(struct i2c_client *pClient)
 
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
-			core_fr->btype = true;
 			core_fr->isEnablePressure = false;
 			core_fr->isSetResolution = false;
 			core_fr->isSetPhoneCover = false;

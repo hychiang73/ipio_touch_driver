@@ -31,7 +31,7 @@
 
 struct core_i2c_data *core_i2c;
 
-#ifdef ENABLE_DMA
+#ifdef I2C_DMA
 static unsigned char *ilitek_dma_va = NULL;
 static dma_addr_t ilitek_dma_pa = 0;
 
@@ -89,7 +89,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     msgs[0].scl_rate = core_i2c->clk;
 #endif
 
-#ifdef ENABLE_DMA
+#ifdef I2C_DMA
     DBG(DEBUG_I2C, "DMA: size = %d", nSize);
     if (nSize > 8)
     {
@@ -140,7 +140,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     msgs[0].scl_rate = core_i2c->clk;
 #endif
 
-#ifdef ENABLE_DMA
+#ifdef I2C_DMA
     DBG(DEBUG_I2C, "DMA: size = %d", nSize);
     if (nSize > 8)
     {
@@ -161,7 +161,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         goto out;
     }
 
-#ifdef ENABLE_DMA
+#ifdef I2C_DMA
     if (nSize > 8)
     {
         memcpy(pBuf, ilitek_dma_va, nSize);
@@ -241,7 +241,7 @@ int core_i2c_init(struct i2c_client *client)
                 goto out;
             }
 
-            #ifdef ENABLE_DMA
+            #ifdef I2C_DMA
                 res = dma_alloc();
                 if(res < 0)
                     goto out;
@@ -287,7 +287,7 @@ void core_i2c_remove(void)
 {
     DBG_INFO("Remove core-i2c members");
 
-#ifdef ENABLE_DMA
+#ifdef I2C_DMA
     dma_free();
 #endif
 

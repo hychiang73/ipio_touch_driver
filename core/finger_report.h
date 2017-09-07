@@ -33,8 +33,6 @@ struct core_fr_data
 	bool isEnableFR;
 	/* used to send finger report packet to user psace */
 	bool isEnableNetlink;
-	/* for Linux multi-touch protocol */
-	bool btype;
 	/* allow input dev to report the value of physical touch */
 	bool isEnablePressure;
 	/* get screen resloution from fw if it's true*/
