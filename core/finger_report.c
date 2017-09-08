@@ -136,6 +136,7 @@ static void i2cuart_recv_packet(void)
 			return;
 		}
 
+		fuart->len = need_read_len - actual_len;
 		fuart->data = kzalloc(fuart->len, GFP_ATOMIC);
 		if(ERR_ALLOC_MEM(fuart->data))
 		{
@@ -143,7 +144,6 @@ static void i2cuart_recv_packet(void)
 			return;
 		}
 
-		fuart->len = need_read_len - actual_len;
 		tlen += fuart->len;
 		res = core_i2c_read(core_config->slave_i2c_addr, fuart->data, fuart->len);
 		if (res < 0)
