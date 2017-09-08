@@ -415,8 +415,8 @@ static int ilitek_platform_irq_kthread(void *arg)
 		ipd->irq_trigger = false;
 		set_current_state(TASK_RUNNING);
 		DBG(DEBUG_IRQ, "kthread: after->irq_trigger = %d", ipd->irq_trigger);
-		core_fr_handler();
 		ilitek_platform_enable_irq();
+		core_fr_handler();
 	}
 	return 0;
 }
@@ -425,10 +425,10 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 {
 	DBG(DEBUG_IRQ, "work_queue: Enable IRQ = %d", ipd->isEnableIRQ);
 
-	core_fr_handler();
-
 	if (!ipd->isEnableIRQ)
-		ilitek_platform_enable_irq();		
+		ilitek_platform_enable_irq();
+	
+	core_fr_handler();
 }
 #endif
 
