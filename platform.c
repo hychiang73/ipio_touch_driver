@@ -58,7 +58,7 @@ void ilitek_platform_disable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -68,7 +68,7 @@ void ilitek_platform_disable_irq(void)
 		{
 			disable_irq_nosync(ipd->isr_gpio);
 			ipd->isEnableIRQ = false;
-			DBG(DEBUG_IRQ, "IRQ was disabled");
+			DBG(DEBUG_IRQ, "Enable IRQ");
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
@@ -84,7 +84,7 @@ void ilitek_platform_enable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -94,7 +94,7 @@ void ilitek_platform_enable_irq(void)
 		{
 			enable_irq(ipd->isr_gpio);
 			ipd->isEnableIRQ = true;
-			DBG(DEBUG_IRQ, "IRQ was enabled");
+			DBG(DEBUG_IRQ, "Disable IRQ");
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
@@ -407,15 +407,13 @@ static int ilitek_platform_irq_kthread(void *arg)
 	struct sched_param param = { .sched_priority = 4};
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	DBG(DEBUG_IRQ, "irq_trigger = %d", ipd->irq_trigger);
-
 	while(!kthread_should_stop() && !ipd->free_irq_thread)
 	{
 		set_current_state(TASK_INTERRUPTIBLE);
 		wait_event_interruptible(waiter, ipd->irq_trigger);
 		ipd->irq_trigger = false;
 		set_current_state(TASK_RUNNING);
-
+		DBG(DEBUG_IRQ, "kthread: irq_trigger = %d", ipd->irq_trigger);
 		core_fr_handler();
 		ilitek_platform_enable_irq();
 	}
@@ -424,7 +422,7 @@ static int ilitek_platform_irq_kthread(void *arg)
 #else
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "work_queue: Enable IRQ = %d", ipd->isEnableIRQ);
 
 	core_fr_handler();
 
@@ -437,7 +435,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
 //	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
 
 //	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -446,7 +444,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 		ilitek_platform_disable_irq();
 #ifdef USE_KTHREAD
 		ipd->irq_trigger = true;
-		DBG(DEBUG_IRQ, "irq_trigger = %d", ipd->irq_trigger);
+		DBG(DEBUG_IRQ, "kthread: irq_trigger = %d", ipd->irq_trigger);
 		wake_up_interruptible(&waiter);
 #else
 		schedule_work(&ipd->report_work_queue);
