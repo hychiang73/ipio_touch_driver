@@ -68,7 +68,7 @@ void ilitek_platform_disable_irq(void)
 		{
 			disable_irq_nosync(ipd->isr_gpio);
 			ipd->isEnableIRQ = false;
-			DBG(DEBUG_IRQ, "Enable IRQ");
+			DBG(DEBUG_IRQ, "Disable IRQ");
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
@@ -94,7 +94,7 @@ void ilitek_platform_enable_irq(void)
 		{
 			enable_irq(ipd->isr_gpio);
 			ipd->isEnableIRQ = true;
-			DBG(DEBUG_IRQ, "Disable IRQ");
+			DBG(DEBUG_IRQ, "Enable IRQ");
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
@@ -409,11 +409,12 @@ static int ilitek_platform_irq_kthread(void *arg)
 
 	while(!kthread_should_stop() && !ipd->free_irq_thread)
 	{
+		DBG(DEBUG_IRQ, "kthread: before->irq_trigger = %d", ipd->irq_trigger);
 		set_current_state(TASK_INTERRUPTIBLE);
 		wait_event_interruptible(waiter, ipd->irq_trigger);
 		ipd->irq_trigger = false;
 		set_current_state(TASK_RUNNING);
-		DBG(DEBUG_IRQ, "kthread: irq_trigger = %d", ipd->irq_trigger);
+		DBG(DEBUG_IRQ, "kthread: after->irq_trigger = %d", ipd->irq_trigger);
 		core_fr_handler();
 		ilitek_platform_enable_irq();
 	}
