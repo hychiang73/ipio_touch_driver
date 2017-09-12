@@ -27,6 +27,7 @@
 #include "core/firmware.h"
 #include "core/finger_report.h"
 #include "core/flash.h"
+#include "core/protocol.h"
 #include "platform.h"
 
 #define DTS_INT_GPIO	"touch,irq-gpio"
@@ -578,23 +579,23 @@ out:
 static int ilitek_platform_read_tp_info(void)
 {
 	int res = -1;
+
+	if(core_config_get_chip_id() < 0)
+		goto out;
+	if(core_config_get_protocol_ver() < 0)
+		goto out;
+	if(core_config_get_fw_ver() < 0)
+		goto out;
+	if(core_config_get_core_ver() < 0)
+		goto out;
+	if(core_config_get_tp_info() < 0)
+		goto out;
+	if(core_config_get_key_info() < 0)
+		goto out;
 	
-		if(core_config_get_chip_id() < 0)
-			goto out;
-		if(core_config_get_fw_ver() < 0)
-			goto out;
-		if(core_config_get_core_ver() < 0)
-			goto out;
-		if(core_config_get_protocol_ver() < 0)
-			goto out;
-		if(core_config_get_tp_info() < 0)
-			goto out;
-		if(core_config_get_key_info() < 0)
-			goto out;
-	
-		res = 0;
-	out:
-		return res;
+	res = 0;
+out:
+	return res;
 }
 
 static int ilitek_platform_input_init(void)
@@ -662,6 +663,7 @@ static void ilitek_platform_core_remove(void)
 	core_fr_remove();
 	core_config_remove();
 	core_i2c_remove();
+	core_protocol_remove();	
 }
 
 /**
@@ -673,6 +675,7 @@ static int ilitek_platform_core_init(void)
 	DBG_INFO("Initialise core's components ");
 
 	if (core_config_init() < 0 ||
+		core_protocol_init(PROTOCOL_MAJOR, PROTOCOL_MINOR) < 0 ||
 		core_i2c_init(ipd->client) < 0 ||
 		core_firmware_init() < 0 ||
 		core_fr_init(ipd->client) < 0)

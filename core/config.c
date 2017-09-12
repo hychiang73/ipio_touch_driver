@@ -36,21 +36,9 @@
 #include "../common.h"
 #include "../platform.h"
 #include "config.h"
+#include "protocol.h"
 #include "i2c.h"
 #include "flash.h"
-
-/* the length returned from touch ic after command. */
-int fw_cmd_len = 0;
-int protocol_cmd_len = 0;
-int tp_info_len = 0;
-int key_info_len = 0;
-int core_cmd_len = 0;
-
-/*
- * protocol commands defined on common.h
- * it's able to store 10 commands as default.
- */
-uint8_t pcmd[10] = {0};
 
 /* the list of support chip */
 uint32_t ipio_chip_list[] = {
@@ -58,47 +46,9 @@ uint32_t ipio_chip_list[] = {
 	CHIP_TYPE_ILI9881,
 };
 
+uint8_t read_buf[128] = {0};
+
 struct core_config_data *core_config = NULL;
-
-/*
- * assign i2c commands according to the version of protocol.
- *
- * @protocol_ver: the version is currently using on firmware.
- */
-static void set_protocol_cmd(uint32_t protocol_ver)
-{
-	if (protocol_ver == ILITEK_PROTOCOL_V3_2)
-	{
-		fw_cmd_len = 4;
-		protocol_cmd_len = 4;
-		tp_info_len = 10;
-		key_info_len = 29;
-
-		pcmd[0] = PCMD_3_2_GET_TP_INFORMATION;
-		pcmd[1] = PCMD_3_2_GET_FIRMWARE_VERSION;
-		pcmd[2] = PCMD_3_2_GET_PROTOCOL_VERSION;
-		pcmd[3] = PCMD_3_2_GET_KEY_INFORMATION;
-	}
-	else if (protocol_ver == ILITEK_PROTOCOL_V5_0)
-	{
-		fw_cmd_len = 4;
-		protocol_cmd_len = 3;
-		tp_info_len = 14;
-		key_info_len = 30;
-		core_cmd_len = 5;
-
-		pcmd[0] = PCMD_5_0_READ_DATA_CTRL;
-		pcmd[1] = PCMD_5_0_GET_TP_INFORMATION;
-		pcmd[2] = PCMD_5_0_GET_FIRMWARE_VERSION;
-		pcmd[3] = PCMD_5_0_GET_PROTOCOL_VERSION;
-		pcmd[4] = PCMD_5_0_GET_KEY_INFORMATION;
-		pcmd[5] = PCMD_5_0_GET_CORE_VERSION;
-		pcmd[6] = PCMD_5_0_MODE_CONTROL;
-		pcmd[7] = PCMD_5_0_I2C_UART;
-	//	pcmd[8] = PCMD_5_0_SLEEP_CONTROL;
-		pcmd[9] = PCMD_5_0_CDC_BUSY_STATE;
-	}
-}
 
 static void read_flash_info(uint8_t cmd, int len)
 {
@@ -106,8 +56,10 @@ static void read_flash_info(uint8_t cmd, int len)
 	uint16_t flash_id = 0, flash_mid = 0;
 	uint8_t buf[4] = {0};
 
-	// This command is used to fix the bug of spi clk in 7807F-AB
-	// when operating with flash.
+	/*
+	 * This command is used to fix the bug of spi clk for 7807F-AB
+	 * when operating with its flash.
+	 */
 	if (core_config->chip_id == CHIP_TYPE_ILI7807 
 			&& core_config->chip_type == ILI7807_TYPE_F_AB)
 	{
@@ -320,216 +272,482 @@ EXPORT_SYMBOL(core_config_ic_reset);
 
 void core_config_sense_ctrl(bool start)
 {
-	uint8_t sense_start[3] = {0x1, 0x1, 0x1};
-	uint8_t sense_stop[3] = {0x1, 0x1, 0x0};
-
 	DBG_INFO("sense start = %d", start);
 
-	if(start)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, sense_start, 3);
+		if(protocol->minor == 0x0)
+		{
+			if(start)
+			{
+				protocol->sense_ctrl[1] = 0x1;
+			}
+			else
+			{
+				protocol->sense_ctrl[1] = 0x0;
+			}
+		}
+		else if(protocol->minor == 0x1)
+		{
+
+			if(start)
+			{
+				protocol->sense_ctrl[2] = 0x1;
+			}
+			else
+			{
+				protocol->sense_ctrl[2] = 0x0;
+			}
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->sense_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, sense_stop, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
-
 }
 EXPORT_SYMBOL(core_config_sense_ctrl);
 
 void core_config_sleep_ctrl(bool out)
 {
-	uint8_t sleep_in[3] = {0x1, 0x2, 0x0};
-	uint8_t sleep_out[3] = {0x1, 0x2, 0x1};
-
 	DBG_INFO("Sleep Out = %d", out);
 
-	if(out)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, sleep_out, 3);
+		if(protocol->minor == 0x0)
+		{
+			if(out)
+			{
+				protocol->sleep_ctrl[1] = 0x1;
+			}
+			else
+			{
+				protocol->sleep_ctrl[1] = 0x0;
+			}
+		}
+		else if(protocol->minor == 0x1)
+		{
+
+			if(out)
+			{
+				protocol->sleep_ctrl[2] = 0x1;
+			}
+			else
+			{
+				protocol->sleep_ctrl[2] = 0x0;
+			}
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->sleep_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, sleep_in, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_sleep_ctrl);
 
 void core_config_glove_ctrl(bool enable, bool seamless)
 {
-	uint8_t dis_glove[3] = {0x1, 0x6, 0x0};
-	uint8_t en_glove[3] = {0x1, 0x6, 0x1};
-	uint8_t sl_glove[3] = {0x1, 0x6, 0x2};
-
 	DBG_INFO("Glove = %d, seamless = %d", enable, seamless);
 
-	if(!seamless)
+	if(protocol->major == 0x5)
 	{
-		if(enable)
+		if(protocol->minor == 0x0)
 		{
-			core_i2c_write(core_config->slave_i2c_addr, en_glove, 3);
+			if(!seamless)
+			{
+				if(enable)
+				{
+					protocol->glove_ctrl[1] = 0x1;
+				}
+				else
+				{
+					protocol->glove_ctrl[1] = 0x0;
+				}
+			}
+			else
+			{
+				protocol->glove_ctrl[1] = 0x2;
+			}
+		}
+		else if(protocol->minor == 0x1)
+		{
+			if(!seamless)
+			{
+				if(enable)
+				{
+					protocol->glove_ctrl[2] = 0x1;
+				}
+				else
+				{
+					protocol->glove_ctrl[2] = 0x0;
+				}
+			}
+			else
+			{
+				protocol->glove_ctrl[2] = 0x2;
+			}
 		}
 		else
 		{
-			core_i2c_write(core_config->slave_i2c_addr, dis_glove, 3);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
 		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->glove_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, sl_glove, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_glove_ctrl);
 
 void core_config_stylus_ctrl(bool enable, bool seamless)
 {
-	uint8_t dis_stylus[3] = {0x1, 0x7, 0x0};
-	uint8_t en_stylus[3] = {0x1, 0x7, 0x1};
-	uint8_t sl_stylus[3] = {0x1, 0x7, 0x2};
-
 	DBG_INFO("stylus = %d, seamless = %d", enable, seamless);
 
-	if(!seamless)
+	if(protocol->major == 0x5)
 	{
-		if(enable)
+		if(protocol->minor == 0x0)
 		{
-			core_i2c_write(core_config->slave_i2c_addr, en_stylus, 3);
+			if(!seamless)
+			{
+				if(enable)
+				{
+					protocol->stylus_ctrl[1] = 0x1;
+				}
+				else
+				{
+					protocol->stylus_ctrl[1] = 0x0;
+				}
+			}
+			else
+			{
+				protocol->stylus_ctrl[1] = 0x2;
+			}
+		}
+		else if(protocol->minor == 0x1)
+		{
+			if(!seamless)
+			{
+				if(enable)
+				{
+					protocol->stylus_ctrl[2] = 0x1;
+				}
+				else
+				{
+					protocol->stylus_ctrl[2] = 0x0;
+				}
+			}
+			else
+			{
+				protocol->stylus_ctrl[2] = 0x2;
+			}
 		}
 		else
 		{
-			core_i2c_write(core_config->slave_i2c_addr, dis_stylus, 3);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
 		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->stylus_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, sl_stylus, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_stylus_ctrl);
 
 void core_config_tp_scan_mode(bool mode)
 {
-	uint8_t modeAB[3] = {0x1, 0x8, 0x0};
-	uint8_t modeB[3] = {0x1, 0x8, 0x1};
-
 	DBG_INFO("TP Scan mode = %d", mode);
 
-	if(mode)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, modeB, 3);
+		if(protocol->minor == 0x0)
+		{
+			if(mode)
+			{
+				protocol->tp_scan_mode[1] = 0x1;
+			}
+			else
+			{
+				protocol->tp_scan_mode[1] = 0x0;
+			}
+		}
+		else if(protocol->minor == 0x1)
+		{
+			if(mode)
+			{
+				protocol->tp_scan_mode[2] = 0x1;
+			}
+			else
+			{
+				protocol->tp_scan_mode[2] = 0x0;
+			}
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->tp_scan_mode, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, modeAB, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_tp_scan_mode);
 
 void core_config_lpwg_ctrl(bool enable)
 {
-	uint8_t en_lpwg[3] = {0x1, 0xA, 0x1};
-	uint8_t dis_lpgw[3] = {0x1, 0xA, 0x0};
-
 	DBG_INFO("LPWG = %d", enable);
 
-	if(enable)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, en_lpwg, 3);
+		if(protocol->minor == 0x0)
+		{
+			if(enable)
+			{
+				protocol->lpwg_ctrl[1] = 0x1;
+			}
+			else
+			{
+				protocol->lpwg_ctrl[1] = 0x0;
+			}
+		}
+		else if(protocol->minor == 0x1)
+		{
+
+			if(enable)
+			{
+				protocol->lpwg_ctrl[2] = 0x1;
+			}
+			else
+			{
+				protocol->lpwg_ctrl[2] = 0x0;
+			}
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->lpwg_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, dis_lpgw, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
+	core_i2c_write(core_config->slave_i2c_addr, protocol->lpwg_ctrl, protocol->func_ctrl_len);
 }
 EXPORT_SYMBOL(core_config_lpwg_ctrl);
 
 void core_config_gesture_ctrl(uint8_t func)
 {
-	uint8_t gc[3] = {0x1, 0xB, 0x3F};
-	uint8_t max_byte = 0x3F, min_byte = 0x20;
+	uint8_t max_byte = 0x0, min_byte = 0x0;
 
 	DBG_INFO("Gesture function = 0x%x", func);
 
-	if(func > max_byte || func < min_byte)
+	if(protocol->major == 0x5)
 	{
-		DBG_ERR("Gesture ctrl error, 0x%x", func);
+		max_byte = 0x3F;
+		min_byte = 0x20;
+
+		if(func > max_byte || func < min_byte)
+		{
+			DBG_ERR("Gesture ctrl error, 0x%x", func);
+			return;
+		}
+
+		if(protocol->minor == 0x0)
+		{
+			protocol->gesture_ctrl[1] = func;
+		}
+		else if(protocol->minor == 0x1)
+		{
+			protocol->gesture_ctrl[2] = func;;
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->gesture_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		gc[2] = func;
-		core_i2c_write(core_config->slave_i2c_addr, gc, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_gesture_ctrl);
 
 void core_config_phone_cover_ctrl(bool enable)
 {
-	uint8_t dis_pc[3] = {0x1, 0xC, 0x0};	
-	uint8_t en_pc[3] = {0x1, 0xC, 0x1};
-
 	DBG_INFO("Phone Cover = %d", enable);
 
-	if(enable)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, en_pc, 3);
+		if(protocol->minor == 0x0)
+		{
+			if(enable)
+			{
+				protocol->phone_cover_ctrl[1] = 0x1;
+			}
+			else
+			{
+				protocol->phone_cover_ctrl[1] = 0x0;
+			}
+		}
+		else if(protocol->minor == 0x1)
+		{
+			if(enable)
+			{
+				protocol->phone_cover_ctrl[2] = 0x1;
+			}
+			else
+			{
+				protocol->phone_cover_ctrl[2] = 0x0;
+			}
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->phone_cover_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, dis_pc, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_phone_cover_ctrl);
 
 void core_config_finger_sense_ctrl(bool enable)
 {
-	uint8_t dis_fs[3] = {0x1, 0xF, 0x0};	
-	uint8_t en_fs[3] = {0x1, 0xF, 0x1};
-
 	DBG_INFO("Finger sense = %d", enable);
 
-	if(enable)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, en_fs, 3);
+		if(protocol->minor == 0x0)
+		{
+			if(enable)
+			{
+				protocol->finger_sense_ctrl[1] = 0x1;
+			}
+			else
+			{
+				protocol->finger_sense_ctrl[1] = 0x0;
+			}
+		}
+		else if(protocol->minor == 0x1)
+		{
+			if(enable)
+			{
+				protocol->finger_sense_ctrl[2] = 0x1;
+			}
+			else
+			{
+				protocol->finger_sense_ctrl[2] = 0x0;
+			}
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->finger_sense_ctrl, protocol->func_ctrl_len);
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, dis_fs, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_finger_sense_ctrl);
 
 void core_config_proximity_ctrl(bool enable)
 {
-	uint8_t dis_prox[3] = {0x1, 0x10, 0x0};	
-	uint8_t en_prox[3] = {0x1, 0x10, 0x1};
-
 	DBG_INFO("Proximity = %d", enable);
 
-	if(enable)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, en_prox, 3);
+		/* Non support on v5.0 */
+		if(protocol->minor == 0x1)
+		{
+			if(enable)
+			{
+				protocol->proximity_ctrl[2] = 0x1;
+			}
+			else
+			{
+				protocol->proximity_ctrl[2] = 0x0;
+			}
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->proximity_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, dis_prox, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_proximity_ctrl);
 
 void core_config_plug_ctrl(bool out)
 {
-	uint8_t plug_in[3] = {0x1, 0x11, 0x0};	
-	uint8_t plug_out[3] = {0x1, 0x11, 0x1};
-
 	DBG_INFO("Plug Out = %d", out);
 
-	if(out)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, plug_out, 3);
+		/* Non support on v5.0 */
+		if(protocol->minor == 0x1)
+		{
+			if(out)
+			{
+				protocol->plug_ctrl[2] = 0x1;
+			}
+			else
+			{
+				protocol->plug_ctrl[2] = 0x0;
+			}
+		}
+		else
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			return;
+		}
+		core_i2c_write(core_config->slave_i2c_addr, protocol->plug_ctrl, protocol->func_ctrl_len);
 	}
 	else
 	{
-		core_i2c_write(core_config->slave_i2c_addr, plug_in, 3);
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
 }
 EXPORT_SYMBOL(core_config_plug_ctrl);
@@ -540,7 +758,6 @@ void core_config_set_phone_cover(uint8_t *pattern)
 	uint8_t ul_y_l = UL_Y_LOW, ul_y_h = UL_Y_HIGH;
 	uint8_t br_x_l = BR_X_LOW, br_x_h = BR_X_HIGH;
 	uint8_t br_y_l = BR_Y_LOW, br_y_h = BR_Y_HIGH;
-	uint8_t windows[9]= {0};
 
 	DBG_INFO("pattern = 0x%x", *pattern);
 
@@ -550,30 +767,37 @@ void core_config_set_phone_cover(uint8_t *pattern)
 		return;		
 	}
 
-	windows[0] = 0x31;
-
-	if(*pattern == 0)
+	if(protocol->major == 0x5)
 	{
-		windows[1] = ul_x_l;
-		windows[2] = ul_x_h;
-		windows[3] = ul_y_l;
-		windows[4] = ul_y_h;
-		windows[5] = br_x_l;
-		windows[6] = br_x_h;
-		windows[7] = br_y_l;
-		windows[8] = br_y_h;
+		if(*pattern == 0)
+		{
+			protocol->phone_cover_window[1] = ul_x_l;
+			protocol->phone_cover_window[2] = ul_x_h;
+			protocol->phone_cover_window[3] = ul_y_l;
+			protocol->phone_cover_window[4] = ul_y_h;
+			protocol->phone_cover_window[5] = br_x_l;
+			protocol->phone_cover_window[6] = br_x_h;
+			protocol->phone_cover_window[7] = br_y_l;
+			protocol->phone_cover_window[8] = br_y_h;
+		}
+		else
+		{
+			/* TODO */
+		}
+	
+		DBG_INFO("window: cmd = 0x%x", protocol->phone_cover_window[0]);
+		DBG_INFO("window: ul_x_l = 0x%x, ul_x_h = 0x%x", protocol->phone_cover_window[1], protocol->phone_cover_window[2]);
+		DBG_INFO("window: ul_y_l = 0x%x, ul_y_l = 0x%x", protocol->phone_cover_window[3], protocol->phone_cover_window[4]);
+		DBG_INFO("window: br_x_l = 0x%x, br_x_l = 0x%x", protocol->phone_cover_window[5], protocol->phone_cover_window[6]);
+		DBG_INFO("window: br_y_l = 0x%x, br_y_l = 0x%x", protocol->phone_cover_window[7], protocol->phone_cover_window[8]);
+
+		core_i2c_write(core_config->slave_i2c_addr, protocol->phone_cover_window, protocol->window_len);
 	}
 	else
 	{
-		/* TODO */
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return;
 	}
-
-	DBG_INFO("window: ul_x_l = 0x%x, ul_x_h = 0x%x", windows[1], windows[2]);
-	DBG_INFO("window: ul_y_l = 0x%x, ul_y_l = 0x%x", windows[3], windows[4]);
-	DBG_INFO("window: br_x_l = 0x%x, br_x_l = 0x%x", windows[5], windows[6]);
-	DBG_INFO("window: br_y_l = 0x%x, br_y_l = 0x%x", windows[7], windows[8]);
-
-	core_i2c_write(core_config->slave_i2c_addr, windows, 9);
 }
 EXPORT_SYMBOL(core_config_set_phone_cover);
 
@@ -664,23 +888,30 @@ int core_config_check_cdc_busy(void)
     uint8_t cmd[2] = {0};
 	uint8_t busy = 0;
 
-    cmd[0] = pcmd[0];
-    cmd[1] = pcmd[9];
-
-	while(timer > 0)
+	if(protocol->major == 0x5)
 	{
-		core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
-		mdelay(1);
-		core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
-		mdelay(10);
-		core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
-		DBG(DEBUG_CONFIG, "CDC busy state = 0x%x", busy);
-		if(busy == 0x41)
+		cmd[0] = protocol->cmd_read_ctrl;
+		cmd[1] = protocol->cmd_cdc_busy;
+
+		while(timer > 0)
 		{
-			res = 0;
-			break;
+			core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+			mdelay(1);
+			core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+			mdelay(10);
+			core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
+			DBG(DEBUG_CONFIG, "CDC busy state = 0x%x", busy);
+			if(busy == 0x41)
+			{
+				res = 0;
+				break;
+			}
+			timer--;
 		}
-		timer--;
+	}
+	else
+	{
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
 	}
 
 	return res;
@@ -691,14 +922,13 @@ int core_config_get_key_info(void)
 {
 	int res = 0, i;
 	uint8_t cmd[2] = {0};
-	uint8_t szReadBuf[key_info_len];
 
-	memset(szReadBuf, 0, sizeof(szReadBuf));
+	memset(read_buf, 0, sizeof(read_buf));
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	if(protocol->major == 0x5)
 	{
-		cmd[0] = pcmd[0];
-		cmd[1] = pcmd[4];
+		cmd[0] = protocol->cmd_read_ctrl;
+		cmd[1] = protocol->cmd_get_key_info;
 
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
@@ -718,30 +948,30 @@ int core_config_get_key_info(void)
 
 		mdelay(1);
 
-		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], key_info_len);
+		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->key_info_len);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to read data via I2C, %d", res);
 			goto out;
 		}
 
-		for (i = 0; i < key_info_len; i++)
-			DBG(DEBUG_CONFIG, "key_info[%d] = %x", i, szReadBuf[i]);
+		for (i = 0; i < protocol->key_info_len; i++)
+			DBG(DEBUG_CONFIG, "key_info[%d] = %x", i, read_buf[i]);
 
 		if (core_config->tp_info->nKeyCount)
 		{
 			/* NOTE: Firmware not ready yet */
-			core_config->tp_info->nKeyAreaXLength = (szReadBuf[0] << 8) + szReadBuf[1];
-			core_config->tp_info->nKeyAreaYLength = (szReadBuf[2] << 8) + szReadBuf[3];
+			core_config->tp_info->nKeyAreaXLength = (read_buf[0] << 8) + read_buf[1];
+			core_config->tp_info->nKeyAreaYLength = (read_buf[2] << 8) + read_buf[3];
 
 			DBG_INFO("key: length of X area = %x", core_config->tp_info->nKeyAreaXLength);
 			DBG_INFO("key: length of Y area = %x", core_config->tp_info->nKeyAreaYLength);
 
 			for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
 			{
-				core_config->tp_info->virtual_key[i].nId = szReadBuf[i*5+4];
-				core_config->tp_info->virtual_key[i].nX = (szReadBuf[i*5+5] << 8) + szReadBuf[i*5+6];
-				core_config->tp_info->virtual_key[i].nY = (szReadBuf[i*5+7] << 8) + szReadBuf[i*5+8];
+				core_config->tp_info->virtual_key[i].nId = read_buf[i*5+4];
+				core_config->tp_info->virtual_key[i].nX = (read_buf[i*5+5] << 8) + read_buf[i*5+6];
+				core_config->tp_info->virtual_key[i].nY = (read_buf[i*5+7] << 8) + read_buf[i*5+8];
 				core_config->tp_info->virtual_key[i].nStatus = 0;
 
 				DBG_INFO("key: id = %d, X = %d, Y = %d", core_config->tp_info->virtual_key[i].nId,
@@ -749,8 +979,11 @@ int core_config_get_key_info(void)
 			}
 		}
 	}
-
-	return res;
+	else
+	{
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		res = -1;
+	}
 
 out:
 	return res;
@@ -761,14 +994,13 @@ int core_config_get_tp_info(void)
 {
 	int res = 0, i = 0;
 	uint8_t cmd[2] = {0};
-	uint8_t szReadBuf[tp_info_len];
 
-	memset(szReadBuf, 0, sizeof(szReadBuf));
+	memset(read_buf, 0, sizeof(read_buf));
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	if(protocol->major == 0x5)
 	{
-		cmd[0] = pcmd[0];
-		cmd[1] = pcmd[1];
+		cmd[0] = protocol->cmd_read_ctrl;
+		cmd[1] = protocol->cmd_get_tp_info;
 	
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
@@ -788,28 +1020,28 @@ int core_config_get_tp_info(void)
 
 		mdelay(1);
 
-		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], tp_info_len);
+		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->tp_info_len);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to read data via I2C, %d", res);
 			goto out;
 		}
 
-		for (; i < tp_info_len; i++)
-			DBG(DEBUG_CONFIG, "tp_info[%d] = %x", i, szReadBuf[i]);
+		for (; i < protocol->tp_info_len; i++)
+			DBG(DEBUG_CONFIG, "tp_info[%d] = %x", i, read_buf[i]);
 
-		// in protocol v5, ignore the first btye because of a header.
-		core_config->tp_info->nMinX = szReadBuf[1];
-		core_config->tp_info->nMinY = szReadBuf[2];
-		core_config->tp_info->nMaxX = (szReadBuf[4] << 8) + szReadBuf[3];
-		core_config->tp_info->nMaxY = (szReadBuf[6] << 8) + szReadBuf[5];
-		core_config->tp_info->nXChannelNum = szReadBuf[7];
-		core_config->tp_info->nYChannelNum = szReadBuf[8];
-		core_config->tp_info->self_tx_channel_num = szReadBuf[11];
-		core_config->tp_info->self_rx_channel_num = szReadBuf[12];
-		core_config->tp_info->side_touch_type = szReadBuf[13];
-		core_config->tp_info->nMaxTouchNum = szReadBuf[9];
-		core_config->tp_info->nKeyCount = szReadBuf[10];
+		/* in protocol v5, ignore the first btye because of a header. */
+		core_config->tp_info->nMinX = read_buf[1];
+		core_config->tp_info->nMinY = read_buf[2];
+		core_config->tp_info->nMaxX = (read_buf[4] << 8) + read_buf[3];
+		core_config->tp_info->nMaxY = (read_buf[6] << 8) + read_buf[5];
+		core_config->tp_info->nXChannelNum = read_buf[7];
+		core_config->tp_info->nYChannelNum = read_buf[8];
+		core_config->tp_info->self_tx_channel_num = read_buf[11];
+		core_config->tp_info->self_rx_channel_num = read_buf[12];
+		core_config->tp_info->side_touch_type = read_buf[13];
+		core_config->tp_info->nMaxTouchNum = read_buf[9];
+		core_config->tp_info->nKeyCount = read_buf[10];
 
 		core_config->tp_info->nMaxKeyButtonNum = 5;
 
@@ -823,8 +1055,11 @@ int core_config_get_tp_info(void)
 				 core_config->tp_info->side_touch_type, core_config->tp_info->nMaxTouchNum,
 				 core_config->tp_info->nKeyCount, core_config->tp_info->nMaxKeyButtonNum);
 	}
-
-	return res;
+	else
+	{
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		res = -1;
+	}
 
 out:
 	return res;
@@ -835,14 +1070,13 @@ int core_config_get_protocol_ver(void)
 {
 	int res = 0, i = 0;
 	uint8_t cmd[2] = {0};
-	uint8_t szReadBuf[protocol_cmd_len];
 
-	memset(szReadBuf, 0, sizeof(szReadBuf));
+	memset(read_buf, 0, sizeof(read_buf));
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	if(protocol->major == 0x5)
 	{
-		cmd[0] = pcmd[0];
-		cmd[1] = pcmd[3];
+		cmd[0] = protocol->cmd_read_ctrl;
+		cmd[1] = protocol->cmd_get_pro_ver;
 	
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
@@ -862,26 +1096,34 @@ int core_config_get_protocol_ver(void)
 
 		mdelay(1);
 
-		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], protocol_cmd_len);
+		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->pro_ver_len);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to read data via I2C, %d", res);
 			goto out;
 		}
 
-		for (; i < protocol_cmd_len; i++)
+		for (; i < protocol->pro_ver_len; i++)
 		{
-			core_config->protocol_ver[i] = szReadBuf[i];
-			DBG(DEBUG_CONFIG, "protocol_ver[%d] = %d", i, szReadBuf[i]);
+			core_config->protocol_ver[i] = read_buf[i];
+			DBG(DEBUG_CONFIG, "protocol_ver[%d] = %d", i, read_buf[i]);
 		}
 
-		// in protocol v5, ignore the first btye because of a header.
+		/* in protocol v5, ignore the first btye because of a header. */
 		DBG_INFO("Procotol Version = %d.%d",
-				core_config->protocol_ver[1],
-				core_config->protocol_ver[2]);
+				core_config->protocol_ver[1],core_config->protocol_ver[2]);
+		
+		if(protocol->minor != core_config->protocol_ver[2])
+		{
+			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			res = -1;
+		}
 	}
-
-	return res;
+	else
+	{
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		res = -1;
+	}
 
 out:
 	return res;
@@ -892,14 +1134,13 @@ int core_config_get_core_ver(void)
 {
 	int res = 0, i = 0;
 	uint8_t cmd[2] = {0};
-	uint8_t szReadBuf[core_cmd_len];
 
-	memset(szReadBuf, 0, sizeof(szReadBuf));
+	memset(read_buf, 0, sizeof(read_buf));
 
-	if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	if (protocol->major == 0x5)
 	{
-		cmd[0] = pcmd[0];
-		cmd[1] = pcmd[5];
+		cmd[0] = protocol->cmd_read_ctrl;
+		cmd[1] = protocol->cmd_get_core_ver;
  
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
@@ -919,28 +1160,29 @@ int core_config_get_core_ver(void)
 
 		mdelay(1);
 
-		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], core_cmd_len);
+		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->core_ver_len);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to read data via I2C, %d", res);
 			goto out;
 		}
 
-		for (; i < core_cmd_len; i++)
+		for (; i < protocol->core_ver_len; i++)
 		{
-			core_config->core_ver[i] = szReadBuf[i];
-			DBG(DEBUG_CONFIG, "core_ver[%d] = %d", i, szReadBuf[i]);
+			core_config->core_ver[i] = read_buf[i];
+			DBG(DEBUG_CONFIG, "core_ver[%d] = %d", i, read_buf[i]);
 		}
 
-		// in protocol v5, ignore the first btye because of a header.
+		/* in protocol v5, ignore the first btye because of a header. */
 		DBG_INFO("Core Version = %d.%d.%d.%d",
-				core_config->core_ver[1],
-				core_config->core_ver[2],
-				core_config->core_ver[3],
-				core_config->core_ver[4]);
+				core_config->core_ver[1], core_config->core_ver[2],
+				core_config->core_ver[3], core_config->core_ver[4]);
 	}
-
-	return res;
+	else
+	{
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		res = -1;
+	}
 
 out:
 	return res;
@@ -955,14 +1197,13 @@ int core_config_get_fw_ver(void)
 {
 	int res = 0, i = 0;
 	uint8_t cmd[2] = {0};
-	uint8_t szReadBuf[fw_cmd_len];
 
-	memset(szReadBuf, 0, sizeof(szReadBuf));
+	memset(read_buf, 0, sizeof(read_buf));
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	if(protocol->major == 0x5)
 	{
-		cmd[0] = pcmd[0];
-		cmd[1] = pcmd[2];
+		cmd[0] = protocol->cmd_read_ctrl;
+		cmd[1] = protocol->cmd_get_fw_ver;
 
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
@@ -982,26 +1223,29 @@ int core_config_get_fw_ver(void)
 
 		mdelay(1);
 
-		res = core_i2c_read(core_config->slave_i2c_addr, &szReadBuf[0], fw_cmd_len);
+		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->fw_ver_len);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to read fw version %d", res);
 			goto out;
 		}
 
-		for (; i < fw_cmd_len; i++)
+		for (; i < protocol->fw_ver_len ; i++)
 		{
-			core_config->firmware_ver[i] = szReadBuf[i];
-			DBG(DEBUG_CONFIG, "firmware_ver[%d] = %d", i, szReadBuf[i]);
+			core_config->firmware_ver[i] = read_buf[i];
+			DBG(DEBUG_CONFIG, "firmware_ver[%d] = %d", i, read_buf[i]);
 		}
-		// in protocol v5, ignore the first btye because of a header.
+
+		/* in protocol v5, ignore the first btye because of a header. */
 		DBG_INFO("Firmware Version = %d.%d.%d",
-				 core_config->firmware_ver[1],
-				 core_config->firmware_ver[2],
+				 core_config->firmware_ver[1], core_config->firmware_ver[2],
 				 core_config->firmware_ver[3]);
 	}
-
-	return res;
+	else
+	{
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		res = -1;
+	}
 
 out:
 	return res;
@@ -1093,25 +1337,23 @@ int core_config_init(void)
 
 			core_config->chip_id = ipio_chip_list[i];
 			core_config->chip_type = 0x0000;
+
 			core_config->do_ic_reset = false;
 			core_config->isEnableGesture = false;
 
 			if (core_config->chip_id == CHIP_TYPE_ILI7807)
 			{
-				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI7807_PID_ADDR;
 			}
 			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
 			{
-				core_config->use_protocol = ILITEK_PROTOCOL_V5_0;
 				core_config->slave_i2c_addr = ILI9881_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
 			}
 
-			set_protocol_cmd(core_config->use_protocol);
 			res = 0;
 			return res;
 		}

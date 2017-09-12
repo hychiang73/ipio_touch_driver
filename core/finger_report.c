@@ -36,6 +36,7 @@
 #include "i2c.h"
 #include "finger_report.h"
 #include "mp_test.h"
+#include "protocol.h"
 
 /* An id with position in each fingers */
 struct mutual_touch_point
@@ -248,7 +249,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	}
 
 	/* start to parsing the packet of finger report */
-	if (pid == P5_0_DEMO_PACKET_ID)
+	if (pid == protocol->demo_pid)
 	{
 		DBG(DEBUG_FINGER_REPORT, " **** Parsing DEMO packets : 0x%x ****", pid);
 
@@ -297,7 +298,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			#endif
 		}
 	}
-	else if (pid == P5_0_DEBUG_PACKET_ID)
+	else if (pid == protocol->debug_pid)
 	{
 		DBG(DEBUG_FINGER_REPORT, " **** Parsing DEBUG packets : 0x%x ****", pid);
 		DBG(DEBUG_FINGER_REPORT, "Length = %d", (fnode->data[1] << 8 | fnode->data[2]));
@@ -392,14 +393,14 @@ static int finger_report_ver_5_0(void)
 	pid = fnode->data[0];
 	DBG(DEBUG_FINGER_REPORT, "PID = 0x%x", pid);
 	
-	if(pid == P5_0_I2CUART_PACKET_ID)
+	if(pid == protocol->i2cuart_pid)
 	{
-		DBG(DEBUG_FINGER_REPORT, "Packet ID as I2CUART (0x%x), do nothing", pid);
+		DBG(DEBUG_FINGER_REPORT, "I2CUART(0x%x): prepare to receive rest of data", pid);
 		i2cuart_recv_packet();
 		goto out;
 	}
 
-	if(pid == P5_0_GESTURE_PACKET_ID && core_config->isEnableGesture)
+	if(pid == protocol->ges_pid && core_config->isEnableGesture)
 	{
 		DBG(DEBUG_FINGER_REPORT, "pid = 0x%x, code = %x", pid, fnode->data[1]);
 		input_report_key(core_fr->input_device, KEY_POWER, 1);
@@ -482,22 +483,10 @@ out:
 	return res;
 }
 
-/* commands according to the procotol used on a chip. */
-extern uint8_t pcmd[10];
-
-int core_fr_mode_control(uint8_t *from_user)
+void core_fr_mode_control(uint8_t *from_user)
 {
-	int mode;
-	int i, res = 0;
+	int mode, res = 0;
 	uint8_t cmd[4] = {0};
-
-	uint8_t actual_mode[] =
-	{
-		P5_0_FIRMWARE_DEMO_MODE,
-		P5_0_FIRMWARE_TEST_MODE,
-		P5_0_FIRMWARE_DEBUG_MODE,
-		P5_0_FIRMWARE_I2CUART_MODE,
-	};
 
 	ilitek_platform_disable_irq();
 
@@ -507,75 +496,78 @@ int core_fr_mode_control(uint8_t *from_user)
 		goto out;
 	}
 
-	DBG(DEBUG_FINGER_REPORT, "size = %d, mode = %x, b1 = %x, b2 = %x, b3 = %x",
-		(int)ARRAY_SIZE(actual_mode), from_user[0], from_user[1], from_user[2], from_user[3]);
+	DBG(DEBUG_FINGER_REPORT, "mode = %x, b1 = %x, b2 = %x, b3 = %x",
+			from_user[0], from_user[1], from_user[2], from_user[3]);
 
 	mode = from_user[0];
 
-	for (i = 0; i < ARRAY_SIZE(actual_mode); i++)
+	if(protocol->major == 0x5)
 	{
-		if (actual_mode[i] == mode)
+		if(mode == protocol->i2cuart_mode)
 		{
-			if (mode == P5_0_FIRMWARE_I2CUART_MODE)
+			cmd[0] = protocol->cmd_i2cuart;
+			cmd[1] = *(from_user + 1);
+			cmd[2] = *(from_user + 2);
+
+			DBG_INFO("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x",
+					 cmd[0], cmd[1], cmd[2]);
+
+			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
+			if (res < 0)
+				DBG_ERR("Failed to switch I2CUART mode");
+		}
+		else if(mode == protocol->demo_mode || mode == protocol->debug_mode)
+		{
+			cmd[0] = protocol->cmd_mode_ctrl;
+			cmd[1] = mode;
+
+			DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x",
+					 cmd[0], cmd[1]);
+
+			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+			if (res < 0)
 			{
-				cmd[0] = pcmd[7];
-				cmd[1] = *(from_user + 1);
-				cmd[2] = *(from_user + 2); // this bit must be set as 1 if want to enable i2cuart mode.
-				core_fr->i2cuart_mode = cmd[2];
-
-				DBG_INFO("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x",
-						 cmd[0], cmd[1], cmd[2]);
-
-				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
-				if (res < 0)
-					goto out;
-			}
-			else if (mode == P5_0_FIRMWARE_TEST_MODE)
-			{
-				cmd[0] = pcmd[6];
-				cmd[1] = mode;
-
-				DBG_INFO("Switch to Test mode, cmd = 0x%x, byte 1 = 0x%x",
-						 cmd[0], cmd[1]);
-
-				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
-				if (res < 0)
-					goto out;
-
-				// doing sensor test
-				//core_mp_switch_mode();
+				DBG_ERR("Failed to switch Demo/Debug mode");
 			}
 			else
 			{
-				cmd[0] = pcmd[6];
-				cmd[1] = mode;
+				core_fr->actual_fw_mode = mode;				
+			}
+		}
+		else if(mode == protocol->test_mode)
+		{
+			cmd[0] = protocol->cmd_mode_ctrl;
+			cmd[1] = mode;
 
-				DBG_INFO("Switch to Demo/Debug mode, cmd = 0x%x, byte 1 = 0x%x",
-						 cmd[0], cmd[1]);
+			DBG_INFO("Switch to Test mode, cmd = 0x%x, b1 = 0x%x",
+					 cmd[0], cmd[1]);
 
-				res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
-				if (res < 0)
-					goto out;
+			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+			if (res < 0)
+			{
+				DBG_ERR("Failed to switch Test mode");
+			}
+			else
+			{
+				core_fr->actual_fw_mode = mode;				
 			}
 
-			/* Ignore i2cuart mode as real when it comes to parse length */
-			if(mode != P5_0_FIRMWARE_I2CUART_MODE)
-				core_fr->actual_fw_mode = actual_mode[i];
-
-			break;
+			// doing sensor test
+			//core_mp_switch_mode();
 		}
-
-		if (i == (ARRAY_SIZE(actual_mode) - 1))
+		else
 		{
 			DBG_ERR("Unknown firmware mode: %d", mode);
-			res = -1;
-			goto out;
 		}
+	}
+	else
+	{
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
 	}
 
 out:
 	ilitek_platform_enable_irq();
-	return res;
+	return;
 }
 EXPORT_SYMBOL(core_fr_mode_control);
 
@@ -593,7 +585,7 @@ static uint16_t calc_packet_length(void)
 	uint16_t self_key = 2;
 	uint16_t rlen = 0;
 
-	if(core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
+	if(protocol->major == 0x5)
 	{
 		if(!ERR_ALLOC_MEM(core_config->tp_info))
 		{
@@ -603,17 +595,17 @@ static uint16_t calc_packet_length(void)
 			srx = core_config->tp_info->self_rx_channel_num;
 		}
 
-		DBG(DEBUG_FINGER_REPORT, "firmware mode : %d", core_fr->actual_fw_mode);
+		DBG(DEBUG_FINGER_REPORT, "firmware mode : 0x%x", core_fr->actual_fw_mode);
 
-		if (core_fr->actual_fw_mode == core_fr->fw_demo_mode)
+		if (protocol->demo_mode == core_fr->actual_fw_mode)
 		{
-			rlen = P5_0_DEMO_MODE_PACKET_LENGTH;
+			rlen = protocol->demo_len;
 		}
-		else if (core_fr->actual_fw_mode == core_fr->fw_test_mode)
+		else if (protocol->test_mode == core_fr->actual_fw_mode)
 		{
 			if(ERR_ALLOC_MEM(core_config->tp_info))
 			{
-				rlen = P5_0_TEST_MODE_PACKET_LENGTH;
+				rlen = protocol->test_len;
 			}
 			else
 			{
@@ -621,11 +613,11 @@ static uint16_t calc_packet_length(void)
 				rlen += 1;
 			}
 		}
-		else if (core_fr->actual_fw_mode == core_fr->fw_debug_mode)
+		else if (protocol->debug_mode == core_fr->actual_fw_mode)
 		{
 			if(ERR_ALLOC_MEM(core_config->tp_info))
 			{
-				rlen = P5_0_DEBUG_MODE_PACKET_LENGTH;	
+				rlen = protocol->debug_len;	
 			}
 			else
 			{
@@ -638,6 +630,11 @@ static uint16_t calc_packet_length(void)
 			DBG_ERR("Unknow firmware mode : %d", core_fr->actual_fw_mode);
 			rlen = 0;
 		}
+	}
+	else
+	{
+		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		return -1;
 	}
 
 	DBG(DEBUG_FINGER_REPORT, "rlen = %d", rlen);
@@ -654,13 +651,15 @@ static uint16_t calc_packet_length(void)
  */
 typedef struct
 {
-	uint16_t protocol;
+	uint8_t protocol_marjor_ver;
+	uint8_t protocol_minor_ver;
 	int (*finger_report)(void);
 } fr_hashtable;
 
 fr_hashtable fr_t[] = {
-	{ILITEK_PROTOCOL_V3_2, finger_report_ver_3_2},
-	{ILITEK_PROTOCOL_V5_0, finger_report_ver_5_0},
+	{0x3, 0x2, finger_report_ver_3_2},
+	{0x5, 0x0, finger_report_ver_5_0},
+	{0x5, 0x1, finger_report_ver_5_0},
 };
 
 /**
@@ -698,7 +697,7 @@ void core_fr_handler(void)
 
 			while(i < ARRAY_SIZE(fr_t))
 			{
-				if(core_config->use_protocol == fr_t[i].protocol)
+				if(protocol->major == fr_t[i].protocol_marjor_ver)
 				{
 					mutex_lock(&ipd->MUTEX);
 					fr_t[i].finger_report();
@@ -733,6 +732,13 @@ void core_fr_handler(void)
 				}
 				i++;
 			}
+
+			if(i >= ARRAY_SIZE(fr_t))
+				DBG_ERR("Can't find any callback functions to handle INT event");
+		}
+		else
+		{
+			DBG_ERR("Wrong the length of packet");
 		}
 	}
 	else
@@ -864,16 +870,7 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnablePressure = false;
 			core_fr->isSetResolution = false;
 			core_fr->isSetPhoneCover = false;
-
-			if (core_config->use_protocol == ILITEK_PROTOCOL_V5_0)
-			{
-				core_fr->fw_unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
-				core_fr->fw_demo_mode = P5_0_FIRMWARE_DEMO_MODE;
-				core_fr->fw_test_mode = P5_0_FIRMWARE_TEST_MODE;
-				core_fr->fw_debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
-				core_fr->fw_i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
-				core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
-			}
+			core_fr->actual_fw_mode = protocol->demo_mode;
 
 			res = 0;
 			return res;			

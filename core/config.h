@@ -54,7 +54,7 @@ typedef struct
 
 	VIRTUAL_KEYS virtual_key[10];
 
-	//added for protocol v5
+	/* added for protocol v5 */
 	uint8_t self_tx_channel_num;
 	uint8_t self_rx_channel_num;
 	uint8_t side_touch_type;
@@ -70,8 +70,6 @@ struct core_config_data
 	uint32_t ice_mode_addr;
 	uint32_t pid_addr;
 	uint32_t ic_reset_addr;
-
-	uint16_t use_protocol;
 
 	uint8_t protocol_ver[4];
 	uint8_t firmware_ver[4];

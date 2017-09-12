@@ -39,6 +39,7 @@
 #include "core/finger_report.h"
 #include "core/flash.h"
 #include "core/i2c.h"
+#include "core/protocol.h"
 
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	18
@@ -780,7 +781,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->firmware_ver, fw_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->firmware_ver, protocol->fw_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy firmware version to user space");
@@ -796,7 +797,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->protocol_ver, protocol_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->protocol_ver, protocol->pro_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy protocol version to user space");
@@ -812,7 +813,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->core_ver, core_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->core_ver, protocol->core_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy core version to user space");
