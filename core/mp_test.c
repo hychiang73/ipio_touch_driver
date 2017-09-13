@@ -147,7 +147,7 @@ static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
         if(ERR_ALLOC_MEM(buf))
         {
             DBG_ERR("Invalid buffer");
-            return -1;
+            return -ENOMEM;
         }
 
         cmd[0] = protocol->cmd_read_ctrl;
@@ -212,7 +212,7 @@ int core_mp_rx_open_test(uint8_t value)
     cmd[0] = protocol->rx_open;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -245,7 +245,7 @@ int core_mp_rx_short_test(uint8_t value)
     cmd[0] = protocol->rx_short;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -278,7 +278,7 @@ int core_mp_key_open_test(uint8_t value)
     cmd[0] = protocol->key_open;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -311,7 +311,7 @@ int core_mp_key_short_test(uint8_t value)
     cmd[0] = protocol->key_short;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -344,7 +344,7 @@ int core_mp_key_has_bg_test(uint8_t value)
     cmd[0] = protocol->key_bg;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -377,7 +377,7 @@ int core_mp_key_no_bk_test(uint8_t value)
     cmd[0] = protocol->key_no_bk;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -410,7 +410,7 @@ int core_mp_key_has_bk_test(uint8_t value)
     cmd[0] = protocol->key_no_bk;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -476,7 +476,7 @@ int core_mp_self_signal_test(uint8_t value)
     cmd[0] = protocol->self_signal;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -509,7 +509,7 @@ int core_mp_self_no_bk_test(uint8_t value)
     cmd[0] = protocol->self_no_bk;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -542,7 +542,7 @@ int core_mp_self_has_bk_test(uint8_t value)
     cmd[0] = protocol->self_has_bk;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -575,7 +575,7 @@ int core_mp_self_dac_test(uint8_t value)
     cmd[0] = protocol->self_dac;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -608,7 +608,7 @@ int core_mp_cm_test(uint8_t value)
     cmd[0] = protocol->cm_data;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -641,7 +641,7 @@ int core_mp_mutual_signal_test(uint8_t value)
     cmd[0] = protocol->mutual_signal;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -674,7 +674,7 @@ int core_mp_mutual_no_bk_test(uint8_t value)
     cmd[0] = protocol->mutual_no_bk;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -707,7 +707,7 @@ int core_mp_mutual_has_bk_test(uint8_t value)
     cmd[0] = protocol->mutual_has_bk;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -740,7 +740,7 @@ int core_mp_mutual_dac_test(uint8_t value)
     cmd[0] = protocol->mutual_dac;
 	cmd[1] = value;
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 1, NULL);
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
         return res;        
@@ -802,11 +802,12 @@ int core_mp_run_test(const char *name, uint8_t value)
 		{
 			res = single_test[i].do_test(value);
 			DBG_INFO("Result = %d", res);
-			return;
+			return res;
 		}
 	}
 
-	DBG_ERR("The name can't be found in the list");
+    DBG_ERR("The name can't be found in the list");
+    return FAIL;
 }
 
 void core_mp_init(void)
