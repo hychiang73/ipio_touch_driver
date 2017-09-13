@@ -744,7 +744,6 @@ static int ilitek_platform_remove(struct i2c_client *client)
  * It will still return zero even if it couldn't get a touch ic info.
  * The reason for why we allow it passing the process is because users/developers
  * might want to have access to ICE mode to upgrade a firwmare forcelly.
- *
  */
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
@@ -790,8 +789,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	DBG_INFO("Driver version : %s", DRIVER_VERSION);
 	DBG_INFO("This driver now supports %x ", ON_BOARD_IC);
 
-	// Different ICs may require different delay time for the reset.
-	// They may also depend on what your platform need to.
+	/*
+	 * Different ICs may require different delay time for the reset.
+	 * They may also depend on what your platform need to.
+	 */
 	if (ipd->chip_id == CHIP_TYPE_ILI7807)
 	{
 		ipd->delay_time_high = 10;
@@ -861,7 +862,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	ilitek_platform_tp_hw_reset(true);
 
-	// get our tp ic information
+	/* get our tp ic information */
 	res = ilitek_platform_read_tp_info();
 	if(res < 0)
 	{
@@ -877,8 +878,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if (res < 0)
 		DBG_ERR("Failed to register ISR");
 
-	// To make sure our ic runing well before the work,
-	// pulling RESET pin as low/high once after read TP info.
+	/*
+	 * To make sure our ic runing well before the work,
+	 * pulling RESET pin as low/high once after read TP info.
+	 */
 	ilitek_platform_tp_hw_reset(true);
 
 	res = ilitek_platform_reg_suspend();

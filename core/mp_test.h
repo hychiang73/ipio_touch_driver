@@ -25,8 +25,33 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
-extern void core_mp_switch_mode(void);
+extern int core_mp_cm_test(uint8_t value);
+
+extern int core_mp_tx_short_test(uint8_t value);
+
+extern int core_mp_rx_open_test(uint8_t value);
+extern int core_mp_rx_short_test(uint8_t value);
+
+extern int core_mp_key_open_test(uint8_t value);
+extern int core_mp_key_short_test(uint8_t value);
+extern int core_mp_key_has_bg_test(uint8_t value);
+extern int core_mp_key_no_bk_test(uint8_t value);
+extern int core_mp_key_has_bk_test(uint8_t value);
+extern int core_mp_key_dac_test(uint8_t value);
+
+extern int core_mp_self_signal_test(uint8_t value);
+extern int core_mp_self_no_bk_test(uint8_t value);
+extern int core_mp_self_has_bk_test(uint8_t value);
+extern int core_mp_self_dac_test(uint8_t value);
+
+extern int core_mp_mutual_signal_test(uint8_t value);
+extern int core_mp_mutual_no_bk_test(uint8_t value);
+extern int core_mp_mutual_has_bk_test(uint8_t value);
+extern int core_mp_mutual_dac_test(uint8_t value);
+
+extern int core_mp_run_test(const char *name, uint8_t value);
+extern void core_mp_move_code(void);
 extern void core_mp_init(void);
 extern void core_mp_remove(void);
 
- #endif
+#endif

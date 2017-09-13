@@ -38,6 +38,8 @@
 #define P5_0_GET_PROTOCOL_VERSION	    0x22
 #define P5_0_GET_CORE_VERSION		    0x23
 #define P5_0_MODE_CONTROL			    0xF0
+#define P5_0_SET_CDC_INIT               0xF1
+#define P5_0_GET_CDC_DATA               0xF2
 #define P5_0_CDC_BUSY_STATE			    0xF3
 #define P5_0_I2C_UART				    0x40
 
@@ -71,6 +73,8 @@ struct protocol_cmd_list
     int core_ver_len;
     int func_ctrl_len;
     int window_len;
+    int cdc_len;
+    int cdc_raw_len;
 
     /* TP information */
     uint8_t cmd_read_ctrl;
@@ -115,6 +119,51 @@ struct protocol_cmd_list
     int demo_len;
     int debug_len;
     int test_len;
+
+    /* MP Test with cdc commands*/
+    uint8_t cmd_cdc;
+    uint8_t cmd_get_cdc;
+
+    uint8_t cm_data;
+    uint8_t cs_data;
+
+    uint8_t rx_short;
+    uint8_t rx_open;
+    uint8_t tx_short;
+
+    uint8_t mutual_dac;
+    uint8_t mutual_bg;
+    uint8_t mutual_signal;
+    uint8_t mutual_no_bk;
+    uint8_t mutual_bk_dac;
+    uint8_t mutual_has_bk; 
+    
+    uint8_t self_dac;
+    uint8_t self_bk_dac;
+    uint8_t self_has_bk;
+    uint8_t self_no_bk;
+    uint8_t self_signal;
+    uint8_t self_bg;
+    
+    uint8_t key_dac; 
+    uint8_t key_has_bk;
+    uint8_t key_bg;
+    uint8_t key_no_bk;
+    uint8_t key_open;
+    uint8_t key_short;
+
+    uint8_t st_no_bk;
+    uint8_t st_open;
+    uint8_t st_dac;
+    uint8_t st_has_bk;
+    uint8_t st_bg;
+
+    uint8_t trcrq_pin;
+    uint8_t resx2_pin;
+    uint8_t mutual_integra_time;
+    uint8_t self_integra_time;
+    uint8_t key_integra_time;
+    uint8_t st_integra_time;
 };
 
 extern struct protocol_cmd_list *protocol;

@@ -126,6 +126,7 @@ static void config_protocol_v5_cmd(void)
     protocol->core_ver_len = 5;
     protocol->window_len = 8;
 
+	/* The commadns about panel information */
     protocol->cmd_read_ctrl     = P5_0_READ_DATA_CTRL;
     protocol->cmd_get_tp_info   = P5_0_GET_TP_INFORMATION;
     protocol->cmd_get_key_info  = P5_0_GET_KEY_INFORMATION;
@@ -136,6 +137,7 @@ static void config_protocol_v5_cmd(void)
     protocol->cmd_cdc_busy      = P5_0_CDC_BUSY_STATE;
     protocol->cmd_i2cuart       = P5_0_I2C_UART;
 
+	/* The commands about the packets of finger report from FW */
     protocol->unknow_mode       = P5_0_FIRMWARE_UNKNOWN_MODE;
     protocol->demo_mode         = P5_0_FIRMWARE_DEMO_MODE;
     protocol->debug_mode        = P5_0_FIRMWARE_DEBUG_MODE;
@@ -151,6 +153,44 @@ static void config_protocol_v5_cmd(void)
     protocol->demo_len          = P5_0_DEMO_MODE_PACKET_LENGTH;
     protocol->debug_len         = P5_0_DEBUG_MODE_PACKET_LENGTH;
     protocol->test_len          = P5_0_TEST_MODE_PACKET_LENGTH;
+
+	/* The  commands about testing */
+    protocol->cmd_cdc           = P5_0_SET_CDC_INIT;
+    protocol->cmd_get_cdc       = P5_0_GET_CDC_DATA;
+    protocol->mutual_dac        = 0x1;
+    protocol->mutual_bg			= 0x2;
+    protocol->mutual_signal     = 0x3;
+    protocol->rx_short			= 0x4;
+    protocol->mutual_no_bk		= 0x5;
+    protocol->rx_open			= 0x6;
+    protocol->key_no_bk			= 0x7;
+    protocol->mutual_has_bk		= 0x8;
+    protocol->cm_data			= 0x9;
+    protocol->cs_data			= 0xA;
+    protocol->self_has_bk		= 0xB;
+    protocol->self_dac			= 0xC;
+    protocol->self_signal		= 0xD;
+    protocol->self_no_bk		= 0xE;
+    protocol->self_bg			= 0xF;
+    protocol->mutual_bk_dac		= 0x10;
+    protocol->self_bk_dac		= 0x11;
+    protocol->key_open			= 0x12;
+    protocol->key_short			= 0x13;
+    protocol->key_dac			= 0x14;
+    protocol->key_has_bk		= 0x15;
+    protocol->key_bg			= 0x16;
+    protocol->st_no_bk			= 0x17;
+    protocol->st_open			= 0x18;
+    protocol->tx_short			= 0x19;
+    protocol->st_dac			= 0x1A;
+    protocol->st_has_bk			= 0x1B;
+    protocol->st_bg				= 0x1C;
+    protocol->trcrq_pin			= 0x20;
+    protocol->resx2_pin			= 0x21;
+    protocol->mutual_integra_time	= 0x22;
+    protocol->self_integra_time		= 0x23;
+    protocol->key_integra_time		= 0x24;
+    protocol->st_integra_time		= 0x25;
 }
 
 int core_protocol_init(uint8_t major, uint8_t minor)

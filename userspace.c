@@ -40,6 +40,7 @@
 #include "core/flash.h"
 #include "core/i2c.h"
 #include "core/protocol.h"
+#include "core/mp_test.h"
 
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	18
@@ -137,6 +138,74 @@ static int str2hex(char *str)
 	  s++;
 	}
 	return result;
+}
+
+static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	/*
+	len = sprintf(buff, "%d", ipio_debug_level);
+
+
+	res = copy_to_user((uint32_t *)buff, &ipio_debug_level, len);
+	if (res < 0)
+	{
+		DBG_ERR("Failed to copy data to user space");
+	}
+*/	
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0, count = 0;
+	char cmd[64] = {0};
+	char *token = NULL, *cur = NULL;	
+	uint8_t *va = NULL;
+
+	if(buff != NULL)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	if(size > 64)
+	{
+		DBG_ERR("The size of string is too long");
+		return size;
+	}
+
+	token = cur = cmd;
+
+	va = kmalloc(64 * sizeof(uint8_t), GFP_KERNEL);
+	memset(va, 0, 64);
+
+	while((token = strsep(&cur, ",")) != NULL)
+	{
+		va[count] = str2hex(token);
+		//DBG_INFO("data[%d] = %x",count, va[count]);	
+		count++;
+
+		if(count > 2)
+			break;
+	}
+
+	core_mp_run_test(cmd, va[1]);
+
+	return size;
 }
 
 static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
@@ -920,6 +989,8 @@ struct proc_dir_entry *proc_fw_process;
 struct proc_dir_entry *proc_fw_upgrade;
 struct proc_dir_entry *proc_iram_upgrade;
 struct proc_dir_entry *proc_gesture;
+struct proc_dir_entry *proc_debug_level;
+struct proc_dir_entry *proc_mp_test;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
@@ -954,6 +1025,11 @@ struct file_operations proc_debug_level_fops = {
 	.read = ilitek_proc_debug_level_read,
 };
 
+struct file_operations proc_mp_test_fops = {
+	.write = ilitek_proc_mp_test_write,
+	.read = ilitek_proc_mp_test_read,
+};
+
 /**
  * This struct lists all file nodes will be created under /proc filesystem.
  *
@@ -979,6 +1055,7 @@ proc_node_t proc_table[] = {
 	{"gesture", NULL, &proc_gesture_fops, false},
 	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
+	{"mp_test", NULL, &proc_mp_test_fops, false},
 };
 
 #define NETLINK_USER 21
