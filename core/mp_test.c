@@ -47,6 +47,30 @@
 
 #define FAIL       -1
 
+static int cm_test(uint8_t value);
+
+static int tx_short_test(uint8_t value);
+
+static int rx_open_test(uint8_t value);
+static int rx_short_test(uint8_t value);
+
+static int key_open_test(uint8_t value);
+static int key_short_test(uint8_t value);
+static int key_has_bg_test(uint8_t value);
+static int key_no_bk_test(uint8_t value);
+static int key_has_bk_test(uint8_t value);
+static int key_dac_test(uint8_t value);
+
+static int self_signal_test(uint8_t value);
+static int self_no_bk_test(uint8_t value);
+static int self_has_bk_test(uint8_t value);
+static int self_dac_test(uint8_t value);
+
+static int mutual_signal_test(uint8_t value);
+static int mutual_no_bk_test(uint8_t value);
+static int mutual_has_bk_test(uint8_t value);
+static int mutual_dac_test(uint8_t value);
+
 struct mp_test_items
 {
 	char *name;
@@ -55,29 +79,29 @@ struct mp_test_items
 
 struct mp_test_items single_test[] = 
 {
-	{"cm_short",	core_mp_cm_test},
-	{"tx_short",	core_mp_tx_short_test},
+    {"cm_short",	cm_test},
 
-	{"rx_open",		core_mp_rx_open_test},
-	{"rx_short",	core_mp_rx_short_test},
+	{"tx_short",	tx_short_test},
 
-	{"key_open",	core_mp_key_open_test},
-	{"key_short",	core_mp_key_short_test},
-	{"key_has_bg",	core_mp_key_has_bg_test},
-	{"key_no_bk",	core_mp_key_no_bk_test},
-	{"key_has_bk",	core_mp_key_has_bk_test},
-	{"key_dac",		core_mp_key_dac_test},
+	{"rx_open",		rx_open_test},
+	{"rx_short",	rx_short_test},
 
-	{"self_signal",	core_mp_self_signal_test},
-	{"self_no_bk",	core_mp_self_no_bk_test},
-	{"self_has_bk",	core_mp_self_has_bk_test},
-	{"self_dac",	core_mp_self_dac_test},
+	{"key_open",	key_open_test},
+	{"key_short",	key_short_test},
+	{"key_has_bg",	key_has_bg_test},
+	{"key_no_bk",	key_no_bk_test},
+	{"key_has_bk",	key_has_bk_test},
+	{"key_dac",		key_dac_test},
 
-	{"mutual_signal",	core_mp_mutual_signal_test},
-	{"mutual_no_bk",	core_mp_mutual_no_bk_test},
-	{"mutual_has_bk",	core_mp_mutual_has_bk_test},
-	{"mutual_dac",		core_mp_mutual_dac_test},
+	{"self_signal",	self_signal_test},
+	{"self_no_bk",	self_no_bk_test},
+	{"self_has_bk",	self_has_bk_test},
+	{"self_dac",	self_dac_test},
 
+	{"mutual_signal",	mutual_signal_test},
+	{"mutual_no_bk",	mutual_no_bk_test},
+	{"mutual_has_bk",	mutual_has_bk_test},
+	{"mutual_dac",		mutual_dac_test},
 };
 
 static void cdc_free(void *d)
@@ -89,21 +113,28 @@ static void cdc_free(void *d)
 
 static void *cdc_alloc(int *return_len , bool type)
 {
-    int xch = 0, ych = 0;
+    int xch = core_config->tp_info->nXChannelNum;
+    int ych = core_config->tp_info->nYChannelNum;
+    int stx = core_config->tp_info->self_tx_channel_num;
+    int srx = core_config->tp_info->self_rx_channel_num;
+    int keycount = core_config->tp_info->nKeyCount;
+
     void *cdc = NULL;
 
     if(type == SET_KEY)
     {
         /* Key */
-        *return_len = core_config->tp_info->nKeyCount;
+        *return_len = keycount;
     }
-    else if(type == SET_MUTUAL || type == SET_SELF)
+    else if(type == SET_MUTUAL)
     {
-        /* Mutual & Self */
-        xch = core_config->tp_info->nXChannelNum;
-        ych = core_config->tp_info->nYChannelNum;
-        
+        /* Mutual */   
         *return_len = xch * ych * 2;
+    }
+    else if(type == SET_SELF)
+    {
+        /* Self */
+        *return_len = stx * srx * 2;
     }
     else
     {
@@ -170,7 +201,7 @@ static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
     return res;
 }
 
-int core_mp_tx_short_test(uint8_t value)
+static int tx_short_test(uint8_t value)
 {
     int res = 0, len;
 	uint8_t cmd[2] = {0};
@@ -201,9 +232,8 @@ int core_mp_tx_short_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_tx_short_test);
 
-int core_mp_rx_open_test(uint8_t value)
+static int rx_open_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -234,9 +264,8 @@ int core_mp_rx_open_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_rx_open_test);
 
-int core_mp_rx_short_test(uint8_t value)
+static int rx_short_test(uint8_t value)
 {
     int res = 0, len;
 	uint8_t cmd[2] = {0};
@@ -267,9 +296,8 @@ int core_mp_rx_short_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_rx_short_test);
 
-int core_mp_key_open_test(uint8_t value)
+static int key_open_test(uint8_t value)
 {
     int res = 0, len;
 	uint8_t cmd[2] = {0};
@@ -300,9 +328,8 @@ int core_mp_key_open_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_key_open_test);
 
-int core_mp_key_short_test(uint8_t value)
+static int key_short_test(uint8_t value)
 {
     int res = 0, len;
 	uint8_t cmd[2] = {0};
@@ -333,9 +360,8 @@ int core_mp_key_short_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_key_short_test);
 
-int core_mp_key_has_bg_test(uint8_t value)
+static int key_has_bg_test(uint8_t value)
 {
     int res = 0, len;
 	uint8_t cmd[2] = {0};
@@ -366,9 +392,8 @@ int core_mp_key_has_bg_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_key_has_bg_test);
 
-int core_mp_key_no_bk_test(uint8_t value)
+static int key_no_bk_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -399,9 +424,8 @@ int core_mp_key_no_bk_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_key_no_bk_test);
 
-int core_mp_key_has_bk_test(uint8_t value)
+static int key_has_bk_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -432,9 +456,8 @@ int core_mp_key_has_bk_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_key_has_bk_test);
 
-int core_mp_key_dac_test(uint8_t value)
+static int key_dac_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -465,9 +488,8 @@ int core_mp_key_dac_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_key_dac_test);
 
-int core_mp_self_signal_test(uint8_t value)
+static int self_signal_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -498,9 +520,8 @@ int core_mp_self_signal_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_self_signal_test);
 
-int core_mp_self_no_bk_test(uint8_t value)
+static int self_no_bk_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -531,9 +552,8 @@ int core_mp_self_no_bk_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_self_no_bk_test);
 
-int core_mp_self_has_bk_test(uint8_t value)
+static int self_has_bk_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -564,9 +584,8 @@ int core_mp_self_has_bk_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_self_has_bk_test);
 
-int core_mp_self_dac_test(uint8_t value)
+static int self_dac_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -597,9 +616,8 @@ int core_mp_self_dac_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_self_dac_test);
 
-int core_mp_cm_test(uint8_t value)
+static int cm_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -630,9 +648,8 @@ int core_mp_cm_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_cm_test);
 
-int core_mp_mutual_signal_test(uint8_t value)
+static int mutual_signal_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -663,9 +680,8 @@ int core_mp_mutual_signal_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_mutual_signal_test);
 
-int core_mp_mutual_no_bk_test(uint8_t value)
+static int mutual_no_bk_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -696,9 +712,8 @@ int core_mp_mutual_no_bk_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_mutual_no_bk_test);
 
-int core_mp_mutual_has_bk_test(uint8_t value)
+static int mutual_has_bk_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -729,9 +744,8 @@ int core_mp_mutual_has_bk_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_mutual_has_bk_test);
 
-int core_mp_mutual_dac_test(uint8_t value)
+static int mutual_dac_test(uint8_t value)
 {
     int res = 0, len;
     uint8_t cmd[2] = {0};
@@ -762,7 +776,6 @@ int core_mp_mutual_dac_test(uint8_t value)
 out:
     return res;
 }
-EXPORT_SYMBOL(core_mp_mutual_dac_test);
 
 void core_mp_move_code(void)
 {
@@ -806,9 +819,10 @@ int core_mp_run_test(const char *name, uint8_t value)
 		}
 	}
 
-    DBG_ERR("The name can't be found in the list");
+    DBG_ERR("The name can't be found in the list of test");
     return FAIL;
 }
+EXPORT_SYMBOL(core_mp_run_test);
 
 void core_mp_init(void)
 {
