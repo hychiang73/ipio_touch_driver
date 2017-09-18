@@ -123,7 +123,7 @@ struct protocol_cmd_list
     /* MP Test with cdc commands*/
     uint8_t cmd_cdc;
     uint8_t cmd_get_cdc;
-
+    
     uint8_t cm_data;
     uint8_t cs_data;
 

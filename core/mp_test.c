@@ -47,117 +47,151 @@
 
 #define FAIL       -1
 
-static int cm_test(uint8_t value);
-
-static int tx_short_test(uint8_t value);
-
-static int rx_open_test(uint8_t value);
-static int rx_short_test(uint8_t value);
-
-static int key_open_test(uint8_t value);
-static int key_short_test(uint8_t value);
-static int key_has_bg_test(uint8_t value);
-static int key_no_bk_test(uint8_t value);
-static int key_has_bk_test(uint8_t value);
-static int key_dac_test(uint8_t value);
-
-static int self_signal_test(uint8_t value);
-static int self_no_bk_test(uint8_t value);
-static int self_has_bk_test(uint8_t value);
-static int self_dac_test(uint8_t value);
-
-static int mutual_signal_test(uint8_t value);
-static int mutual_no_bk_test(uint8_t value);
-static int mutual_has_bk_test(uint8_t value);
-static int mutual_dac_test(uint8_t value);
-
-struct mp_test_items
+struct description
 {
-	char *name;
-	int (*do_test)(uint8_t value);
+	char *item;
+	char *des;
 };
 
-struct mp_test_items single_test[] = 
+struct description mp_des[] =
 {
-    {"cm_short",	cm_test},
+	{"mutual_dac", "Calibration Data(DAC,Mutual)"},
+	{"mutual_bg",  "Baseline Data(BG)"},
+	{"mutual_signal", "Signal Data(BG - RAW - 4096)"},
+	{"mutual_no_bk", "Raw Data(No BK)"},
+	{"mutual_has_bk", "Raw Data(Have BK"},
+	{"mutual_bk_dac", "Manual BK Data(Mutual)"},
+	
+	{"self_dac", "Calibration Data(DAC,Self_Tx,Self_Rx)"},
+	{"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)"},
+	{"self_signal", "Signal Data(Self_Tx,Self_Rx,RAW -4096,Have BK)"},
+	{"self_no_bk", "Raw Data(Self_Tx,Self_Rx, No BK)"},
+	{"self_has_bk", "Raw Data(Self_Tx,Self_Rx,Have BK)"},
+	{"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)"},
 
-	{"tx_short",	tx_short_test},
-
-	{"rx_open",		rx_open_test},
-	{"rx_short",	rx_short_test},
-
-	{"key_open",	key_open_test},
-	{"key_short",	key_short_test},
-	{"key_has_bg",	key_has_bg_test},
-	{"key_no_bk",	key_no_bk_test},
-	{"key_has_bk",	key_has_bk_test},
-	{"key_dac",		key_dac_test},
-
-	{"self_signal",	self_signal_test},
-	{"self_no_bk",	self_no_bk_test},
-	{"self_has_bk",	self_has_bk_test},
-	{"self_dac",	self_dac_test},
-
-	{"mutual_signal",	mutual_signal_test},
-	{"mutual_no_bk",	mutual_no_bk_test},
-	{"mutual_has_bk",	mutual_has_bk_test},
-	{"mutual_dac",		mutual_dac_test},
+	{"key_dac", "Calibration Data(DAC,ICON)"},
+	{"key_bg", "ICON Baselin Data(BG)"},
+	{"key_no_bk", "ICON Raw Data"},
+	{"key_has_bk", "ICON Raw Data(Have BK)"},
+	{"key_open", "ICON Open Data"},
+	{"key_short", "ICON Short Data"},
 };
+
+static void cdc_print_data(const char *name);
+static void cdc_free(void *d);
+static void cdc_revert_status(void);
+static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf);
+static int convert_key_cdc(uint8_t *buf);
+static int convert_mutual_cdc(uint8_t *buf);
+static int mutual_test(uint8_t val, uint8_t p);
+static int self_test(uint8_t val, uint8_t p);
+static int key_test(uint8_t val, uint8_t p);
+static int st_test(uint8_t val, uint8_t p);
+
+struct core_mp_test_data *core_mp = NULL;
+
+static void cdc_print_data(const char *name)
+{
+	int i, x, y;
+
+	for(i = 0; i < ARRAY_SIZE(mp_des); i++)
+	{
+		if(strcmp(mp_des[i].item, name) == 0)
+		{
+            DBG_INFO("==============================");	
+			DBG_INFO("%s ", mp_des[i].des);
+            DBG_INFO("==============================");	
+            if(core_mp->mutual_test)
+            {
+                for(y = 0; y < core_mp->ych_len; y++)
+                {
+                    for(x = 0; x < core_mp->xch_len; x++)
+                    {
+                        if(core_mp->m_raw_buf != NULL)
+                        {
+                            printk("%d, ",core_mp->m_raw_buf[x+y]);
+                        }
+                        else if(core_mp->m_sin_buf != NULL)
+                        {
+                            printk("%d, ",core_mp->m_sin_buf[x+y]);
+                        }
+                    }
+                    printk("\n");
+                }
+            }
+            else if(core_mp->self_test)
+            {
+                for(y = 0; y < core_mp->stx_len; y++)
+                {
+                    for(x = 0; x < core_mp->srx_len; x++)
+                    {
+                        if(core_mp->s_raw_buf != NULL)
+                        {
+                            printk("%d, ",core_mp->s_raw_buf[x+y]);
+                        }
+                        else if(core_mp->s_sin_buf != NULL)
+                        {
+                            printk("%d, ",core_mp->s_sin_buf[x+y]);
+                        }
+                    }
+                    printk("\n");
+                }                
+            }
+            else if(core_mp->key_test)
+            {
+                if(core_mp->key_raw_buf != NULL)
+                {
+                    for(x = 0; x < core_mp->key_len; x++)
+                    {
+                        printk("KEY_%d   ",x);                      
+                    }
+                    printk("\n");
+                    for(y = 0; y < core_mp->key_len; y++)
+                    {
+                        printk("%d       ",core_mp->key_raw_buf[y]);                        
+                    }
+                }    
+            }
+            // else if(core_mp->st_test)
+            // {
+            //     for(y = 0; y < core_mp->side_len; y++)
+            //     {
+            //         printk("%d, ",core_mp->st_raw_buf[y]);
+            //     }                
+            // }
+		}
+	}
+}
 
 static void cdc_free(void *d)
 {
-    kfree(d);
-    d = NULL;
-    return;
+	if(d != NULL)
+	{
+        DBG_INFO(" ***  d = %p ***", d);        
+		kfree(d);
+		d = NULL;
+	}
 }
 
-static void *cdc_alloc(int *return_len , bool type)
+static void cdc_revert_status(void)
 {
-    int xch = core_config->tp_info->nXChannelNum;
-    int ych = core_config->tp_info->nYChannelNum;
-    int stx = core_config->tp_info->self_tx_channel_num;
-    int srx = core_config->tp_info->self_rx_channel_num;
-    int keycount = core_config->tp_info->nKeyCount;
+    core_mp->mutual_test = false;
+	core_mp->self_test = false;
+	core_mp->key_test = false;
+	core_mp->st_test = false;
+    
+	core_mp->m_signal = false;
+	core_mp->m_dac = false;
+	core_mp->s_signal = false;
+	core_mp->s_dac = false;
+	core_mp->key_dac = false;
+	core_mp->st_dac = false;
 
-    void *cdc = NULL;
-
-    if(type == SET_KEY)
-    {
-        /* Key */
-        *return_len = keycount;
-    }
-    else if(type == SET_MUTUAL)
-    {
-        /* Mutual */   
-        *return_len = xch * ych * 2;
-    }
-    else if(type == SET_SELF)
-    {
-        /* Self */
-        *return_len = stx * srx * 2;
-    }
-    else
-    {
-        DBG_INFO("Unknow types , %d", type);
-        return NULL;
-    }
-
-    if(cdc != NULL)
-    {
-        cdc_free(cdc);
-        cdc = NULL;
-    }
-
-    DBG_INFO("return length = %d", *return_len);
-
-    cdc = kzalloc(*return_len, GFP_KERNEL);
-    if(ERR_ALLOC_MEM(cdc))
-    {
-        DBG_ERR("Failed to allocate CDC buffer");
-        cdc = NULL;
-    }
-
-    return cdc;
+	cdc_free(core_mp->m_raw_buf);
+	cdc_free(core_mp->s_raw_buf);
+	cdc_free(core_mp->key_raw_buf);
+	cdc_free(core_mp->m_sin_buf);
+    cdc_free(core_mp->s_sin_buf);
 }
 
 static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
@@ -172,610 +206,453 @@ static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
 		cmd[2] = item[1];
 		DBG_INFO("cmd[0] = %x, cmd[1] = %x, cmd[2] = %x",cmd[0],cmd[1],cmd[2]);
         res = core_i2c_write(core_config->slave_i2c_addr, cmd, 1 + length);
+        if(res < 0)
+            goto out;
     }
     else
     {
         if(ERR_ALLOC_MEM(buf))
         {
             DBG_ERR("Invalid buffer");
-            return -ENOMEM;
+            res = -ENOMEM;
+            goto out;
         }
 
         cmd[0] = protocol->cmd_read_ctrl;
         cmd[1] = protocol->cmd_get_cdc;
         res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+        if(res < 0)
+            goto out;
         
         mdelay(1);
 
         res = core_i2c_read(core_config->slave_i2c_addr, buf, length);
+        if(res < 0)
+            goto out;
+    }
 
+out:
+    return res;
+}
+
+static int convert_key_cdc(uint8_t *buf)
+{
+    int i, res = 0;
+    int inDACp = 0, inDACn = 0;
+    int FrameCount = 0;
+    uint8_t *ori = buf;
+
+    DBG_INFO("ori mem = %p", ori);
+
+    if(buf == NULL)
+    {
+        DBG_ERR("The data in buffer is null");
+        res = -ENOMEM;
+        goto out;
+    }
+
+    FrameCount = core_mp->key_len;
+
+	core_mp->key_raw_buf = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(core_mp->key_raw_buf))
+	{
+		DBG_ERR("Failed to allocate raw buffer, %ld", PTR_ERR(core_mp->key_raw_buf));
+		res = -ENOMEM;
+		goto out;
+    }
+    
+   // memset(core_mp->key_raw_buf, 0x0, FrameCount * sizeof(int32_t));
+
+    DBG_INFO("FrameCount = %d",FrameCount);
+
+    for(i = 0; i < FrameCount; i++)
+    {
+		if(core_mp->key_dac)
+		{
+            /* DAC - P */
+            if(((ori[2 * i] & 0x80) >> 7) == 1)
+            {
+                /* Negative */
+                inDACp = 0 - (int)(ori[2 * i] & 0x7F); 
+            }
+            else
+            {
+                inDACp = ori[2 * i] & 0x7F;
+            }
+
+            /* DAC - N */
+            if(((ori[1 + (2 * i)] & 0x80) >> 7) == 1)
+            {
+                /* Negative */
+                inDACn = 0 - (int)(ori[1 + (2 * i)] & 0x7F);
+            }
+            else
+            {
+                inDACn = ori[1 + (2 * i)] & 0x7F;
+            }
+
+			core_mp->key_raw_buf[i] = (inDACp + inDACn) / 2;
+		}
+    }
+
+    DBG_INFO("core_mp->key_raw_buf = %p", core_mp->key_raw_buf);
+
+out:
+	return res;
+}
+
+static int convert_mutual_cdc(uint8_t *buf)
+{
+    int i, res = 0;
+    int inDACp = 0, inDACn = 0;
+    int inCountX = 0, inCountY = 0;
+    int FrameCount = 0;
+    uint8_t *ori = buf;
+
+    DBG_INFO("ori mem = %p", ori);
+
+    if(buf == NULL)
+    {
+        DBG_ERR("The data in buffer is null");
+        res = -ENOMEM;
+        goto out;
+    }
+
+    FrameCount = core_mp->xch_len * core_mp->ych_len;
+
+	core_mp->m_raw_buf = kzalloc(FrameCount * sizeof(uint32_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(core_mp->m_raw_buf))
+	{
+		DBG_ERR("Failed to allocate raw buffer, %ld", PTR_ERR(core_mp->m_raw_buf));
+		res = -ENOMEM;
+		goto out;
+    }
+    
+   // memset(core_mp->m_raw_buf, 0x0, FrameCount * sizeof(uint32_t));
+
+	if(core_mp->m_signal)
+	{
+		core_mp->m_sin_buf = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(core_mp->m_sin_buf))
+		{
+			DBG_ERR("Failed to allocate signal buffer, %ld", PTR_ERR(core_mp->m_sin_buf));
+			res = -ENOMEM;
+			goto out;
+        }
+       // memset(core_mp->m_sin_buf, 0x0, FrameCount * sizeof(int32_t));
+	}
+
+
+    DBG_INFO("FrameCount = %d, DAC = %d, Signal = %d",
+        FrameCount, core_mp->m_dac, core_mp->m_signal);
+
+
+    /* Start to converting data */
+    for(i = 0; i < FrameCount; i++)
+    {
+        if(core_mp->m_dac)
         {
-            int i = 0;
-            for(i = 0; i < 10; i++)
-                printk("0x%x , ", buf[i]);
+            /* DAC - P */
+            if(((ori[2 * i] & 0x80) >> 7) == 1)
+            {
+                /* Negative */
+                inDACp = 0 - (int)(ori[2 * i] & 0x7F); 
+            }
+            else
+            {
+                inDACp = ori[2 * i] & 0x7F;
+            }
+
+            /* DAC - N */
+            if(((ori[1 + (2 * i)] & 0x80) >> 7) == 1)
+            {
+                /* Negative */
+                inDACn = 0 - (int)(ori[1 + (2 * i)] & 0x7F);
+            }
+            else
+            {
+                inDACn = ori[1 + (2 * i)] & 0x7F;
+            }
+
+            core_mp->m_raw_buf[i] = (inDACp + inDACn) / 2;
+        }
+        else
+        {
+            /* H byte + L byte */
+            core_mp->m_raw_buf[i] = (ori[2 * i] << 8) +  ori[1 + (2 * i)];
+
+            if(core_mp->m_signal)
+            {
+				if((core_mp->m_raw_buf[i] * 0x8000) == 0x8000)
+				{
+					core_mp->m_sin_buf[i] = core_mp->m_raw_buf[i] - 65536;
+
+				}
+				else
+				{
+					core_mp->m_sin_buf[i] = core_mp->m_raw_buf[i];
+				}
+            }
+        }
+
+        if(inCountX == (core_mp->xch_len - 1))
+        {
+            inCountY++;
+            inCountX = 0;
+        }
+        else
+        {
+            inCountX++;
+        }
+    }
+
+    DBG_INFO("core_mp->m_raw_buf = %p", core_mp->m_raw_buf);
+    DBG_INFO("core_mp->m_sin_buf = %p", core_mp->m_sin_buf);
+
+out:
+    return res;
+}
+
+static int mutual_test(uint8_t val, uint8_t p)
+{
+    int res = 0;
+    int len = 0;
+    uint8_t cmd[2] = {0};
+    uint8_t *mutual = NULL;
+
+    cmd[0] = p;
+    cmd[1] = val;
+
+    /* update X/Y channel length if they're changed */
+	core_mp->xch_len = core_config->tp_info->nXChannelNum;
+	core_mp->ych_len = core_config->tp_info->nYChannelNum;
+    
+    len = core_mp->xch_len * core_mp->ych_len * 2;
+
+    DBG_INFO("Read X/Y Channel length = %d", len);
+
+    /* set flag */
+    core_mp->mutual_test = true;
+    
+    if(cmd[0] == protocol->mutual_signal)
+        core_mp->m_signal = true;
+    
+    if(cmd[0] == protocol->mutual_dac)
+        core_mp->m_dac = true;
+
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
+    if(res < 0)
+    {
+        goto out;
+    }
+    else
+    {
+        mutual = kzalloc(len, GFP_KERNEL);
+        if(ERR_ALLOC_MEM(mutual))
+        {
+            res = FAIL;
+            goto out;
+        }
+        
+        //memset(mutual, 0x0, sizeof(*mutual));
+
+        res = exec_cdc_command(EXEC_READ, 0, len, mutual);
+		if(res < 0)
+            goto out;
             
-            printk("\n");
-        }
-    }
+        DBG_INFO("mutual = %p", mutual);
 
-    return res;
-}
-
-static int tx_short_test(uint8_t value)
-{
-    int res = 0, len;
-	uint8_t cmd[2] = {0};
-    uint8_t *tx_short;
-
-	cmd[0] = protocol->tx_short;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        tx_short = cdc_alloc(&len, SET_MUTUAL);
-        if(ERR_ALLOC_MEM(tx_short))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, tx_short);
-
-        cdc_free(tx_short);
+        res = convert_mutual_cdc(mutual);
+		if(res < 0)
+			goto out;
     }
 
 out:
-    return res;
+    cdc_free(mutual);
+    return res;    
 }
 
-static int rx_open_test(uint8_t value)
+static int self_test(uint8_t val, uint8_t p)
 {
-    int res = 0, len;
+    int res = 0;
+    int len = 0;
     uint8_t cmd[2] = {0};
-    uint8_t *rx_open;
+    uint8_t *self = NULL;
 
-    cmd[0] = protocol->rx_open;
-	cmd[1] = value;
+    cmd[0] = p;
+    cmd[1] = val;
+
+    /* update self tx/rx length if they're changed */
+    core_mp->stx_len = core_config->tp_info->self_tx_channel_num;
+    core_mp->srx_len = core_config->tp_info->self_rx_channel_num;
+
+    len = core_mp->stx_len * core_mp->srx_len * 2;
+
+    /* set flag */
+    core_mp->self_test = true;
+
+    DBG_INFO("Read self Tx/Rx length = %d", len);
+    
+    if(cmd[0] == protocol->self_signal)
+        core_mp->s_signal = true;
+    
+    if(cmd[0] == protocol->self_dac)
+        core_mp->s_dac = true;
 
     res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
-        return res;        
+        goto out;    
     }
     else
     {
-        rx_open = cdc_alloc(&len, SET_MUTUAL);
-        if(ERR_ALLOC_MEM(rx_open))
+        self = kzalloc(len, GFP_KERNEL);
+        if(ERR_ALLOC_MEM(self))
         {
             res = FAIL;
             goto out;
         }
 
-        exec_cdc_command(EXEC_READ, 0, len, rx_open);
+        res = exec_cdc_command(EXEC_READ, 0, len, self);
+		if(res < 0)
+			goto out;
 
-        cdc_free(rx_open);
+        //res = convert_mutual_cdc(self);
+		//if(res < 0)
+		//	goto out;
     }
 
 out:
+    cdc_free(self);
     return res;
 }
 
-static int rx_short_test(uint8_t value)
+static int key_test(uint8_t val, uint8_t p)
 {
-    int res = 0, len;
-	uint8_t cmd[2] = {0};
-    uint8_t *rx_short;
-
-    cmd[0] = protocol->rx_short;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        rx_short = cdc_alloc(&len, SET_MUTUAL);
-        if(ERR_ALLOC_MEM(rx_short))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, rx_short);
-
-        cdc_free(rx_short);
-    }
-
-out:
-    return res;
-}
-
-static int key_open_test(uint8_t value)
-{
-    int res = 0, len;
-	uint8_t cmd[2] = {0};
-    uint8_t *key_open;
-
-    cmd[0] = protocol->key_open;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        key_open = cdc_alloc(&len, SET_KEY);
-        if(ERR_ALLOC_MEM(key_open))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, key_open);
-
-        cdc_free(key_open);
-    }
-
-out:
-    return res;
-}
-
-static int key_short_test(uint8_t value)
-{
-    int res = 0, len;
-	uint8_t cmd[2] = {0};
-    uint8_t *key_short;
-
-    cmd[0] = protocol->key_short;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        key_short = cdc_alloc(&len, SET_KEY);
-        if(ERR_ALLOC_MEM(key_short))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, key_short);
-
-        cdc_free(key_short);
-    }
-
-out:
-    return res;
-}
-
-static int key_has_bg_test(uint8_t value)
-{
-    int res = 0, len;
-	uint8_t cmd[2] = {0};
-    uint8_t *key_bg;
-
-    cmd[0] = protocol->key_bg;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        key_bg = cdc_alloc(&len, SET_KEY);
-        if(ERR_ALLOC_MEM(key_bg))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, key_bg);
-
-        cdc_free(key_bg);
-    }
-
-out:
-    return res;
-}
-
-static int key_no_bk_test(uint8_t value)
-{
-    int res = 0, len;
+    int res = 0;
+    int len = 0;
     uint8_t cmd[2] = {0};
-    uint8_t *key_no_bk;
+    uint8_t *icon = NULL;
 
-    cmd[0] = protocol->key_no_bk;
-	cmd[1] = value;
+    cmd[0] = p;
+    cmd[1] = val;
+
+    /* update key's length if they're changed */
+    core_mp->key_len = core_config->tp_info->nKeyCount;
+    len = core_mp->key_len * 2;
+
+    /* set flag */
+    core_mp->key_test = true;
+
+    DBG_INFO("Read key's length = %d", len);
+    
+    if(cmd[0] == protocol->key_dac)
+        core_mp->key_dac = true;
 
     res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
-        return res;        
+        goto out;
     }
     else
     {
-        key_no_bk = cdc_alloc(&len, SET_KEY);
-        if(ERR_ALLOC_MEM(key_no_bk))
+        icon = kzalloc(len, GFP_KERNEL);
+        if(ERR_ALLOC_MEM(icon))
         {
             res = FAIL;
             goto out;
         }
 
-        exec_cdc_command(EXEC_READ, 0, len, key_no_bk);
+    //    memset(icon, 0x0, sizeof(*icon));
 
-        cdc_free(key_no_bk);
+        res = exec_cdc_command(EXEC_READ, 0, len, icon);
+		if(res < 0)
+            goto out;
+
+        DBG_INFO("icon = %p", icon);
+          
+        res = convert_key_cdc(icon);
+		if(res < 0)
+			goto out;
     }
 
 out:
-    return res;
+    cdc_free(icon);
+    return res;    
 }
 
-static int key_has_bk_test(uint8_t value)
+static int st_test(uint8_t val, uint8_t p)
 {
-    int res = 0, len;
+    int res = 0;
+    int len = 0;
     uint8_t cmd[2] = {0};
-    uint8_t *key_has_bk;
+    uint8_t *st = NULL;
 
-    cmd[0] = protocol->key_no_bk;
-	cmd[1] = value;
+    cmd[0] = p;
+    cmd[1] = val;
+
+    /* update side touch's length it they're changed */
+    core_mp->st_len = core_config->tp_info->side_touch_type;
+    len = core_mp->st_len * 2;
+
+    /* set flag */
+    core_mp->st_test = true;
+
+    DBG_INFO("Read st's length = %d", len);
+    
+    if(cmd[0] == protocol->st_dac)
+        core_mp->st_dac = true;
 
     res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
     if(res < 0)
     {
-        return res;        
+        goto out;      
     }
     else
     {
-        key_has_bk = cdc_alloc(&len, SET_KEY);
-        if(ERR_ALLOC_MEM(key_has_bk))
+        st = kzalloc(len, GFP_KERNEL);
+        if(ERR_ALLOC_MEM(st))
         {
             res = FAIL;
             goto out;
         }
 
-        exec_cdc_command(EXEC_READ, 0, len, key_has_bk);
+        res = exec_cdc_command(EXEC_READ, 0, len, st);
+		if(res < 0)
+			goto out;
 
-        cdc_free(key_has_bk);
+        res = convert_key_cdc(st);
+		if(res < 0)
+			goto out;
     }
 
 out:
-    return res;
+    cdc_free(st);
+    return res;  
 }
 
-static int key_dac_test(uint8_t value)
+int core_mp_run_test(const char *name, uint8_t val)
 {
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *key_dac;
+	int i = 0, res = 0;
 
-    cmd[0] = protocol->key_dac;
-	cmd[1] = value;
+	DBG_INFO("Test name = %s, size = %d", name, ARRAY_SIZE(core_mp->tItems));
 
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        key_dac = cdc_alloc(&len, SET_KEY);
-        if(ERR_ALLOC_MEM(key_dac))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, key_dac);
-
-        cdc_free(key_dac);
+	for(i = 0; i < ARRAY_SIZE(core_mp->tItems); i++)
+	{
+        if(strcmp(name, core_mp->tItems[i].name) == 0)
+		{
+			res = core_mp->tItems[i].do_test(val, core_mp->tItems[i].cmd);
+			DBG_INFO("Result = %d", res);
+			cdc_print_data(core_mp->tItems[i].name);
+			cdc_revert_status();
+			return res;
+		}
     }
 
-out:
-    return res;
+    DBG_ERR("The name can't be found in the list");
+    return FAIL;
 }
-
-static int self_signal_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *self_signal;
-
-    cmd[0] = protocol->self_signal;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        self_signal = cdc_alloc(&len, SET_SELF);
-        if(ERR_ALLOC_MEM(self_signal))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, self_signal);
-
-        cdc_free(self_signal);
-    }
-
-out:
-    return res;
-}
-
-static int self_no_bk_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *self_no_bk;
-
-    cmd[0] = protocol->self_no_bk;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        self_no_bk = cdc_alloc(&len, SET_SELF);
-        if(ERR_ALLOC_MEM(self_no_bk))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, self_no_bk);
-
-        cdc_free(self_no_bk);
-    }
-
-out:
-    return res;
-}
-
-static int self_has_bk_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *self_has_bk;
-
-    cmd[0] = protocol->self_has_bk;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        self_has_bk = cdc_alloc(&len, SET_SELF);
-        if(ERR_ALLOC_MEM(self_has_bk))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, self_has_bk);
-
-        cdc_free(self_has_bk);
-    }
-
-out:
-    return res;
-}
-
-static int self_dac_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *self_dac;
-
-    cmd[0] = protocol->self_dac;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        self_dac = cdc_alloc(&len, SET_SELF);
-        if(ERR_ALLOC_MEM(self_dac))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, self_dac);
-
-        cdc_free(self_dac);
-    }
-
-out:
-    return res;
-}
-
-static int cm_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *cm_data;
-
-    cmd[0] = protocol->cm_data;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        cm_data = cdc_alloc(&len, SET_MUTUAL);
-        if(ERR_ALLOC_MEM(cm_data))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, cm_data);
-
-        cdc_free(cm_data);
-    }
-
-out:
-    return res;
-}
-
-static int mutual_signal_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *mutual_signal;
-
-    cmd[0] = protocol->mutual_signal;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        mutual_signal = cdc_alloc(&len, SET_MUTUAL);
-        if(ERR_ALLOC_MEM(mutual_signal))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, mutual_signal);
-
-        cdc_free(mutual_signal);
-    }
-
-out:
-    return res;
-}
-
-static int mutual_no_bk_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *mutual_no_bk;
-
-    cmd[0] = protocol->mutual_no_bk;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        mutual_no_bk = cdc_alloc(&len, SET_MUTUAL);
-        if(ERR_ALLOC_MEM(mutual_no_bk))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, mutual_no_bk);
-
-        cdc_free(mutual_no_bk);
-    }
-
-out:
-    return res;
-}
-
-static int mutual_has_bk_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *mutual_has_bk;
-
-    cmd[0] = protocol->mutual_has_bk;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        mutual_has_bk = cdc_alloc(&len, SET_MUTUAL);
-        if(ERR_ALLOC_MEM(mutual_has_bk))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, mutual_has_bk);
-
-        cdc_free(mutual_has_bk);
-    }
-
-out:
-    return res;
-}
-
-static int mutual_dac_test(uint8_t value)
-{
-    int res = 0, len;
-    uint8_t cmd[2] = {0};
-    uint8_t *mutual_dac;
-
-    cmd[0] = protocol->mutual_dac;
-	cmd[1] = value;
-
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        return res;        
-    }
-    else
-    {
-        mutual_dac = cdc_alloc(&len, SET_MUTUAL);
-        if(ERR_ALLOC_MEM(mutual_dac))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        exec_cdc_command(EXEC_READ, 0, len, mutual_dac);
-
-        cdc_free(mutual_dac);
-    }
-
-out:
-    return res;
-}
+EXPORT_SYMBOL(core_mp_run_test);
 
 void core_mp_move_code(void)
 {
@@ -803,33 +680,164 @@ void core_mp_move_code(void)
 }
 EXPORT_SYMBOL(core_mp_move_code);
 
-int core_mp_run_test(const char *name, uint8_t value)
+int core_mp_init(void)
 {
-	int i = 0, res = 0;
-
-	DBG_INFO("Test name = %s", name);
-
-	for(i = 0; i < ARRAY_SIZE(single_test); i++)
-	{
-		if(strcmp(name, single_test[i].name) == 0)
-		{
-			res = single_test[i].do_test(value);
-			DBG_INFO("Result = %d", res);
-			return res;
-		}
-	}
-
-    DBG_ERR("The name can't be found in the list of test");
-    return FAIL;
-}
-EXPORT_SYMBOL(core_mp_run_test);
-
-void core_mp_init(void)
-{
+    int res = 0;
     
+    DBG_INFO();
+
+    if(!ERR_ALLOC_MEM(core_config->tp_info))
+    {
+        if(core_mp == NULL)
+        {
+            core_mp = kzalloc(sizeof(*core_mp), GFP_KERNEL);
+            if (ERR_ALLOC_MEM(core_mp))
+            {
+                DBG_ERR("Failed to init core_mp, %ld", PTR_ERR(core_mp));
+				res = -ENOMEM;
+				goto out;
+            }
+
+            core_mp->xch_len = core_config->tp_info->nXChannelNum;
+            core_mp->ych_len = core_config->tp_info->nYChannelNum;
+
+            core_mp->stx_len = core_config->tp_info->self_tx_channel_num;
+            core_mp->srx_len = core_config->tp_info->self_rx_channel_num;
+
+            core_mp->key_len = core_config->tp_info->nKeyCount;
+            core_mp->st_len = core_config->tp_info->side_touch_type;
+
+			/* Initialize MP test functions with its own command from protocol.c */
+			memset(core_mp->tItems, 0x0, sizeof(ARRAY_SIZE(core_mp->tItems)));
+
+            core_mp->tItems[0].name = "mutual_dac";
+            core_mp->tItems[0].cmd = protocol->mutual_dac;
+            core_mp->tItems[0].do_test = mutual_test;
+
+            core_mp->tItems[1].name = "mutual_bg";
+            core_mp->tItems[1].cmd = protocol->mutual_bg;
+            core_mp->tItems[1].do_test = mutual_test;
+
+            core_mp->tItems[2].name = "mutual_signal";
+            core_mp->tItems[2].cmd = protocol->mutual_signal;
+            core_mp->tItems[2].do_test = mutual_test;
+
+            core_mp->tItems[3].name = "mutual_no_bk";
+            core_mp->tItems[3].cmd = protocol->mutual_no_bk;
+            core_mp->tItems[3].do_test = mutual_test;
+
+            core_mp->tItems[4].name = "mutual_has_bk";
+            core_mp->tItems[4].cmd = protocol->mutual_has_bk;
+            core_mp->tItems[4].do_test = mutual_test;
+
+            core_mp->tItems[5].name = "mutual_bk_dac";
+            core_mp->tItems[5].cmd = protocol->mutual_bk_dac;
+            core_mp->tItems[5].do_test = mutual_test;
+			
+            core_mp->tItems[6].name = "self_dac";
+            core_mp->tItems[6].cmd = protocol->self_dac;
+            core_mp->tItems[6].do_test = self_test;
+			
+            core_mp->tItems[7].name = "self_bg";
+            core_mp->tItems[7].cmd = protocol->self_bg;
+            core_mp->tItems[7].do_test = self_test;
+
+            core_mp->tItems[8].name = "self_signal";
+            core_mp->tItems[8].cmd = protocol->self_signal;
+            core_mp->tItems[8].do_test = self_test;
+
+            core_mp->tItems[9].name = "self_no_bk";
+            core_mp->tItems[9].cmd = protocol->self_no_bk;
+            core_mp->tItems[9].do_test = self_test;
+
+            core_mp->tItems[10].name = "self_has_bk";
+            core_mp->tItems[10].cmd = protocol->self_has_bk;
+            core_mp->tItems[10].do_test = self_test;
+
+            core_mp->tItems[11].name = "self_bk_dac";
+            core_mp->tItems[11].cmd = protocol->self_bk_dac;
+            core_mp->tItems[11].do_test = self_test;
+
+            core_mp->tItems[12].name = "key_dac";
+            core_mp->tItems[12].cmd = protocol->key_dac;
+            core_mp->tItems[12].do_test = key_test;
+
+            core_mp->tItems[13].name = "key_bg";
+            core_mp->tItems[13].cmd = protocol->key_bg;
+            core_mp->tItems[13].do_test = key_test;
+
+            core_mp->tItems[14].name = "key_no_bk";
+            core_mp->tItems[14].cmd = protocol->key_no_bk;
+            core_mp->tItems[14].do_test = key_test;
+
+            core_mp->tItems[15].name = "key_has_bk";
+            core_mp->tItems[15].cmd = protocol->key_has_bk;
+            core_mp->tItems[15].do_test = key_test;
+
+            core_mp->tItems[16].name = "key_open";
+            core_mp->tItems[16].cmd = protocol->key_open;
+            core_mp->tItems[16].do_test = key_test;
+
+            core_mp->tItems[17].name = "key_short";
+            core_mp->tItems[17].cmd = protocol->key_short;
+            core_mp->tItems[17].do_test = key_test;
+
+            core_mp->tItems[18].name = "st_dac";
+            core_mp->tItems[18].cmd = protocol->st_dac;
+            core_mp->tItems[18].do_test = st_test;
+
+            core_mp->tItems[19].name = "st_bg";
+            core_mp->tItems[19].cmd = protocol->st_bg;
+            core_mp->tItems[19].do_test = st_test;
+
+            core_mp->tItems[20].name = "st_no_bk";
+            core_mp->tItems[20].cmd = protocol->st_no_bk;
+            core_mp->tItems[20].do_test = st_test;
+
+            core_mp->tItems[21].name = "st_has_bk";
+            core_mp->tItems[21].cmd = protocol->st_has_bk;
+            core_mp->tItems[21].do_test = st_test;
+
+            core_mp->tItems[22].name = "st_open";
+            core_mp->tItems[22].cmd = protocol->st_open;
+            core_mp->tItems[22].do_test = st_test;
+
+            core_mp->tItems[23].name = "tx_short";
+            core_mp->tItems[23].cmd = protocol->tx_short;
+            core_mp->tItems[23].do_test = mutual_test;
+
+            core_mp->tItems[24].name = "rx_short";
+            core_mp->tItems[24].cmd = protocol->rx_short;
+            core_mp->tItems[24].do_test = mutual_test;
+
+            core_mp->tItems[25].name = "rx_open";
+            core_mp->tItems[25].cmd = protocol->rx_open;
+            core_mp->tItems[25].do_test = mutual_test;
+
+            core_mp->tItems[26].name = "cm_data";
+            core_mp->tItems[26].cmd = protocol->cm_data;
+            core_mp->tItems[26].do_test = mutual_test;
+
+            core_mp->tItems[27].name = "cs_data";
+            core_mp->tItems[27].cmd = protocol->cs_data;
+            core_mp->tItems[27].do_test = mutual_test;
+        }
+    }
+    else
+    {
+        DBG_ERR("Failed to get TP information");
+		res = -EINVAL;
+    }
+
+out:
+	return res;
 }
+EXPORT_SYMBOL(core_mp_init);
 
 void core_mp_remove(void)
 {
-
+    DBG_INFO("Remove core-mp members");
+    cdc_revert_status();
+    cdc_free(core_mp);
 }
+EXPORT_SYMBOL(core_mp_remove);

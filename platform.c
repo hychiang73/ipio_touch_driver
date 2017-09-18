@@ -29,6 +29,7 @@
 #include "core/flash.h"
 #include "core/protocol.h"
 #include "platform.h"
+#include "core/mp_test.h"
 
 #define DTS_INT_GPIO	"touch,irq-gpio"
 #define DTS_RESET_GPIO	"touch,reset-gpio"
@@ -664,6 +665,7 @@ static void ilitek_platform_core_remove(void)
 	core_config_remove();
 	core_i2c_remove();
 	core_protocol_remove();	
+	core_mp_remove();
 }
 
 /**
@@ -683,6 +685,8 @@ static int ilitek_platform_core_init(void)
 		DBG_ERR("Failed to initialise core components");
 		return -EINVAL;
 	}
+
+	core_mp_init();
 
 	return 0;
 }

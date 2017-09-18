@@ -154,37 +154,45 @@ static void config_protocol_v5_cmd(void)
     protocol->debug_len         = P5_0_DEBUG_MODE_PACKET_LENGTH;
     protocol->test_len          = P5_0_TEST_MODE_PACKET_LENGTH;
 
-	/* The  commands about testing */
+	/* The commands about MP test */
     protocol->cmd_cdc           = P5_0_SET_CDC_INIT;
     protocol->cmd_get_cdc       = P5_0_GET_CDC_DATA;
+
     protocol->mutual_dac        = 0x1;
     protocol->mutual_bg			= 0x2;
     protocol->mutual_signal     = 0x3;
-    protocol->rx_short			= 0x4;
     protocol->mutual_no_bk		= 0x5;
-    protocol->rx_open			= 0x6;
-    protocol->key_no_bk			= 0x7;
     protocol->mutual_has_bk		= 0x8;
-    protocol->cm_data			= 0x9;
-    protocol->cs_data			= 0xA;
-    protocol->self_has_bk		= 0xB;
+    protocol->mutual_bk_dac		= 0x10;
+
     protocol->self_dac			= 0xC;
+    protocol->self_bg			= 0xF;
     protocol->self_signal		= 0xD;
     protocol->self_no_bk		= 0xE;
-    protocol->self_bg			= 0xF;
-    protocol->mutual_bk_dac		= 0x10;
+    protocol->self_has_bk		= 0xB;
     protocol->self_bk_dac		= 0x11;
+
+    protocol->key_dac			= 0x14;
+    protocol->key_bg			= 0x16;
+    protocol->key_no_bk			= 0x7;
+    protocol->key_has_bk		= 0x15;
     protocol->key_open			= 0x12;
     protocol->key_short			= 0x13;
-    protocol->key_dac			= 0x14;
-    protocol->key_has_bk		= 0x15;
-    protocol->key_bg			= 0x16;
-    protocol->st_no_bk			= 0x17;
-    protocol->st_open			= 0x18;
-    protocol->tx_short			= 0x19;
+
     protocol->st_dac			= 0x1A;
-    protocol->st_has_bk			= 0x1B;
     protocol->st_bg				= 0x1C;
+    protocol->st_no_bk			= 0x17;
+    protocol->st_has_bk			= 0x1B;
+    protocol->st_open			= 0x18;
+
+    protocol->tx_short			= 0x19;
+
+    protocol->rx_short			= 0x4;
+    protocol->rx_open			= 0x6;
+
+    protocol->cm_data			= 0x9;
+    protocol->cs_data			= 0xA;
+
     protocol->trcrq_pin			= 0x20;
     protocol->resx2_pin			= 0x21;
     protocol->mutual_integra_time	= 0x22;
