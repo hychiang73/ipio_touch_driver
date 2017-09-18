@@ -78,7 +78,6 @@ struct description mp_des[] =
 };
 
 static void cdc_print_data(const char *name);
-static void cdc_free(void *d);
 static void cdc_revert_status(void);
 static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf);
 static int convert_key_cdc(uint8_t *buf);
@@ -107,13 +106,20 @@ static void cdc_print_data(const char *name)
                 {
                     for(x = 0; x < core_mp->xch_len; x++)
                     {
-                        if(core_mp->m_raw_buf != NULL)
+                        if(core_mp->m_dac)
                         {
                             printk("%d, ",core_mp->m_raw_buf[x+y]);
                         }
-                        else if(core_mp->m_sin_buf != NULL)
+                        else
                         {
-                            printk("%d, ",core_mp->m_sin_buf[x+y]);
+                            if(core_mp->m_signal)
+                            {
+                                printk("%d, ",core_mp->m_sin_buf[x+y]);
+                            }
+                            else
+                            {
+                                printk("%d, ",core_mp->m_raw_buf[x+y]);
+                            }
                         }
                     }
                     printk("\n");
@@ -123,15 +129,22 @@ static void cdc_print_data(const char *name)
             {
                 for(y = 0; y < core_mp->stx_len; y++)
                 {
-                    for(x = 0; x < core_mp->srx_len; x++)
+                    for(x = 0; x < core_mp->xch_len; x++)
                     {
-                        if(core_mp->s_raw_buf != NULL)
+                        if(core_mp->s_dac)
                         {
                             printk("%d, ",core_mp->s_raw_buf[x+y]);
                         }
-                        else if(core_mp->s_sin_buf != NULL)
+                        else
                         {
-                            printk("%d, ",core_mp->s_sin_buf[x+y]);
+                            if(core_mp->s_signal)
+                            {
+                                printk("%d, ",core_mp->s_sin_buf[x+y]);
+                            }
+                            else
+                            {
+                                printk("%d, ",core_mp->s_raw_buf[x+y]);
+                            }
                         }
                     }
                     printk("\n");
@@ -139,18 +152,16 @@ static void cdc_print_data(const char *name)
             }
             else if(core_mp->key_test)
             {
-                if(core_mp->key_raw_buf != NULL)
+                for(x = 0; x < core_mp->key_len; x++)
                 {
-                    for(x = 0; x < core_mp->key_len; x++)
-                    {
-                        printk("KEY_%d   ",x);                      
-                    }
-                    printk("\n");
-                    for(y = 0; y < core_mp->key_len; y++)
-                    {
-                        printk("%d       ",core_mp->key_raw_buf[y]);                        
-                    }
-                }    
+                    printk("KEY_%d   ",x);                      
+                }
+                printk("\n");
+                for(y = 0; y < core_mp->key_len; y++)
+                {
+                    printk("%d    ",core_mp->key_raw_buf[y]);                        
+                }
+                printk("\n");
             }
             // else if(core_mp->st_test)
             // {
@@ -160,16 +171,6 @@ static void cdc_print_data(const char *name)
             //     }                
             // }
 		}
-	}
-}
-
-static void cdc_free(void *d)
-{
-	if(d != NULL)
-	{
-        DBG_INFO(" ***  d = %p ***", d);        
-		kfree(d);
-		d = NULL;
 	}
 }
 
@@ -187,11 +188,16 @@ static void cdc_revert_status(void)
 	core_mp->key_dac = false;
 	core_mp->st_dac = false;
 
-	cdc_free(core_mp->m_raw_buf);
-	cdc_free(core_mp->s_raw_buf);
-	cdc_free(core_mp->key_raw_buf);
-	cdc_free(core_mp->m_sin_buf);
-    cdc_free(core_mp->s_sin_buf);
+    kfree(core_mp->m_raw_buf);
+    core_mp->m_raw_buf = NULL;
+    kfree(core_mp->m_sin_buf);
+    core_mp->m_sin_buf = NULL;
+    kfree(core_mp->key_raw_buf);
+    core_mp->key_raw_buf = NULL;
+    kfree(core_mp->s_raw_buf);
+    core_mp->s_raw_buf = NULL;
+    kfree(core_mp->s_sin_buf);
+    core_mp->s_sin_buf = NULL;
 }
 
 static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
@@ -242,8 +248,6 @@ static int convert_key_cdc(uint8_t *buf)
     int FrameCount = 0;
     uint8_t *ori = buf;
 
-    DBG_INFO("ori mem = %p", ori);
-
     if(buf == NULL)
     {
         DBG_ERR("The data in buffer is null");
@@ -261,9 +265,8 @@ static int convert_key_cdc(uint8_t *buf)
 		goto out;
     }
     
-   // memset(core_mp->key_raw_buf, 0x0, FrameCount * sizeof(int32_t));
-
-    DBG_INFO("FrameCount = %d",FrameCount);
+    DBG_INFO("FrameCount = %d, key_dac = %d",FrameCount, core_mp->key_dac);
+    DBG_INFO("core_mp->key_raw_buf = %p", core_mp->key_raw_buf);   
 
     for(i = 0; i < FrameCount; i++)
     {
@@ -295,8 +298,6 @@ static int convert_key_cdc(uint8_t *buf)
 		}
     }
 
-    DBG_INFO("core_mp->key_raw_buf = %p", core_mp->key_raw_buf);
-
 out:
 	return res;
 }
@@ -309,8 +310,6 @@ static int convert_mutual_cdc(uint8_t *buf)
     int FrameCount = 0;
     uint8_t *ori = buf;
 
-    DBG_INFO("ori mem = %p", ori);
-
     if(buf == NULL)
     {
         DBG_ERR("The data in buffer is null");
@@ -320,7 +319,7 @@ static int convert_mutual_cdc(uint8_t *buf)
 
     FrameCount = core_mp->xch_len * core_mp->ych_len;
 
-	core_mp->m_raw_buf = kzalloc(FrameCount * sizeof(uint32_t), GFP_KERNEL);
+	core_mp->m_raw_buf = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_mp->m_raw_buf))
 	{
 		DBG_ERR("Failed to allocate raw buffer, %ld", PTR_ERR(core_mp->m_raw_buf));
@@ -328,8 +327,6 @@ static int convert_mutual_cdc(uint8_t *buf)
 		goto out;
     }
     
-   // memset(core_mp->m_raw_buf, 0x0, FrameCount * sizeof(uint32_t));
-
 	if(core_mp->m_signal)
 	{
 		core_mp->m_sin_buf = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
@@ -339,13 +336,13 @@ static int convert_mutual_cdc(uint8_t *buf)
 			res = -ENOMEM;
 			goto out;
         }
-       // memset(core_mp->m_sin_buf, 0x0, FrameCount * sizeof(int32_t));
 	}
-
 
     DBG_INFO("FrameCount = %d, DAC = %d, Signal = %d",
         FrameCount, core_mp->m_dac, core_mp->m_signal);
-
+    
+    DBG_INFO("core_mp->m_raw_buf = %p", core_mp->m_raw_buf);
+    DBG_INFO("core_mp->m_sin_buf = %p", core_mp->m_sin_buf);
 
     /* Start to converting data */
     for(i = 0; i < FrameCount; i++)
@@ -406,9 +403,6 @@ static int convert_mutual_cdc(uint8_t *buf)
         }
     }
 
-    DBG_INFO("core_mp->m_raw_buf = %p", core_mp->m_raw_buf);
-    DBG_INFO("core_mp->m_sin_buf = %p", core_mp->m_sin_buf);
-
 out:
     return res;
 }
@@ -453,8 +447,6 @@ static int mutual_test(uint8_t val, uint8_t p)
             res = FAIL;
             goto out;
         }
-        
-        //memset(mutual, 0x0, sizeof(*mutual));
 
         res = exec_cdc_command(EXEC_READ, 0, len, mutual);
 		if(res < 0)
@@ -468,7 +460,7 @@ static int mutual_test(uint8_t val, uint8_t p)
     }
 
 out:
-    cdc_free(mutual);
+    kfree(mutual);
     return res;    
 }
 
@@ -523,7 +515,7 @@ static int self_test(uint8_t val, uint8_t p)
     }
 
 out:
-    cdc_free(self);
+    kfree(self);
     return res;
 }
 
@@ -563,13 +555,9 @@ static int key_test(uint8_t val, uint8_t p)
             goto out;
         }
 
-    //    memset(icon, 0x0, sizeof(*icon));
-
         res = exec_cdc_command(EXEC_READ, 0, len, icon);
 		if(res < 0)
             goto out;
-
-        DBG_INFO("icon = %p", icon);
           
         res = convert_key_cdc(icon);
 		if(res < 0)
@@ -577,7 +565,7 @@ static int key_test(uint8_t val, uint8_t p)
     }
 
 out:
-    cdc_free(icon);
+    kfree(icon);
     return res;    
 }
 
@@ -627,7 +615,7 @@ static int st_test(uint8_t val, uint8_t p)
     }
 
 out:
-    cdc_free(st);
+    kfree(st);
     return res;  
 }
 
@@ -683,8 +671,6 @@ EXPORT_SYMBOL(core_mp_move_code);
 int core_mp_init(void)
 {
     int res = 0;
-    
-    DBG_INFO();
 
     if(!ERR_ALLOC_MEM(core_config->tp_info))
     {
@@ -837,7 +823,6 @@ EXPORT_SYMBOL(core_mp_init);
 void core_mp_remove(void)
 {
     DBG_INFO("Remove core-mp members");
-    cdc_revert_status();
-    cdc_free(core_mp);
+    kfree(core_mp);
 }
 EXPORT_SYMBOL(core_mp_remove);

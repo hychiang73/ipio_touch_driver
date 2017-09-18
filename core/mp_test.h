@@ -53,8 +53,8 @@ struct core_mp_test_data
     int key_len;
     int st_len;
 
-    uint32_t *m_raw_buf;
-	uint32_t *s_raw_buf;
+    int32_t *m_raw_buf;
+	int32_t *s_raw_buf;
 	int32_t *key_raw_buf;
 	int32_t *m_sin_buf;
 	int32_t *s_sin_buf;
