@@ -66,7 +66,9 @@ struct core_mp_test_data
 	int32_t *s_raw_buf;
 	int32_t *key_raw_buf;
 	int32_t *m_sin_buf;
-	int32_t *s_sin_buf;
+    int32_t *s_sin_buf;
+    int32_t *tx_delta_buf;
+    int32_t *rx_delta_buf;
 
     struct mp_test_items tItems[29];
 };

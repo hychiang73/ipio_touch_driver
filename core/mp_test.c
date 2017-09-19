@@ -123,17 +123,17 @@ static void cdc_print_data(const char *name)
                     {
                         if(core_mp->m_dac)
                         {
-                            printk("%d, ",core_mp->m_raw_buf[x+y]);
+                            printk(" %d ",core_mp->m_raw_buf[x+y]);
                         }
                         else
                         {
                             if(core_mp->m_signal)
                             {
-                                printk("%d, ",core_mp->m_sin_buf[x+y]);
+                                printk(" %d ",core_mp->m_sin_buf[x+y]);
                             }
                             else
                             {
-                                printk("%d, ",core_mp->m_raw_buf[x+y]);
+                                printk(" %d",core_mp->m_raw_buf[x+y]);
                             }
                         }
                     }
@@ -148,17 +148,17 @@ static void cdc_print_data(const char *name)
                     {
                         if(core_mp->s_dac)
                         {
-                            printk("%d, ",core_mp->s_raw_buf[x+y]);
+                            printk(" %d ",core_mp->s_raw_buf[x+y]);
                         }
                         else
                         {
                             if(core_mp->s_signal)
                             {
-                                printk("%d, ",core_mp->s_sin_buf[x+y]);
+                                printk(" %d ",core_mp->s_sin_buf[x+y]);
                             }
                             else
                             {
-                                printk("%d, ",core_mp->s_raw_buf[x+y]);
+                                printk(" %d ",core_mp->s_raw_buf[x+y]);
                             }
                         }
                     }
@@ -180,7 +180,48 @@ static void cdc_print_data(const char *name)
             }
             else if(core_mp->tx_rx_delta_test)
             {
-                DBG_INFO("tx_rx_delta_test TTTTTTTTTT");
+                for(y = 0; y < core_mp->ych_len; y++)
+                {
+                    for(x = 0; x < core_mp->xch_len; x++)
+                    {
+                        /* Threshold with RX delta */
+                        if(core_mp->rx_delta_buf[x+y] <= core_mp->RxDeltaMax &&
+                            core_mp->rx_delta_buf[x+y] >= core_mp->RxDeltaMin)
+                        {
+                            printk(" %d ",core_mp->rx_delta_buf[x+y]); 
+                        }
+                        else
+                        {
+                            if(core_mp->rx_delta_buf[x+y] > core_mp->RxDeltaMax)
+                            {
+                                printk(" *%d ",core_mp->rx_delta_buf[x+y]);
+                            }
+                            else
+                            {
+                                printk(" #%d ",core_mp->rx_delta_buf[x+y]);
+                            }
+                        }
+
+                        /* Threshold with TX delta */
+                        if(core_mp->tx_delta_buf[x+y] <= core_mp->TxDeltaMax &&
+                            core_mp->tx_delta_buf[x+y] >= core_mp->TxDeltaMin)
+                        {
+                            printk(" %d ",core_mp->tx_delta_buf[x+y]); 
+                        }
+                        else
+                        {
+                            if(core_mp->tx_delta_buf[x+y] > core_mp->TxDeltaMax)
+                            {
+                                printk(" *%d ",core_mp->tx_delta_buf[x+y]);
+                            }
+                            else
+                            {
+                                printk(" #%d ",core_mp->tx_delta_buf[x+y]);
+                            }
+                        }
+                    }
+                    printk("\n");
+                }
             }
 		}
 	}
@@ -211,6 +252,10 @@ static void cdc_revert_status(void)
     core_mp->s_raw_buf = NULL;
     kfree(core_mp->s_sin_buf);
     core_mp->s_sin_buf = NULL;
+    kfree(core_mp->tx_delta_buf);
+    core_mp->tx_delta_buf = NULL;
+    kfree(core_mp->rx_delta_buf);
+    core_mp->rx_delta_buf = NULL;
 }
 
 static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
@@ -257,98 +302,57 @@ out:
 static int convert_txrx_delta_cdc(uint8_t *buf)
 {
     int i,  x, y, res = 0;
-    int FrameCount = 0;
+    int FrameCount = 1;
     uint8_t *ori = buf;
-    int32_t **test = NULL;
 
-    test = (int **)kzalloc(core_mp->xch_len * sizeof(int32_t), GFP_KERNEL);
-    for(i = 0; i < core_mp->xch_len; i++)
-        test[i] = (int *)kzalloc(core_mp->ych_len * sizeof(int32_t), GFP_KERNEL);
-
-    for (i = 0; i < core_mp->xch_len; i++)
+    if(buf == NULL)
     {
-        memset(test[i], 0, core_mp->xch_len * sizeof(int32_t));
+        DBG_ERR("The data in buffer is null");
+        res = -ENOMEM;
+        goto out;
     }
 
-    FrameCount = 1;
+	core_mp->tx_delta_buf = kzalloc(core_mp->xch_len * core_mp->xch_len * sizeof(int32_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(core_mp->tx_delta_buf))
+	{
+		DBG_ERR("Failed to allocate raw buffer, %ld", PTR_ERR(core_mp->tx_delta_buf));
+		res = -ENOMEM;
+		goto out;
+    }
 
-    // for(i = 0; i < FrameCount; i++)
-    // {
-        for(x = 0; x < core_mp->xch_len; x++)
-        {
-            for(y = 0; y < core_mp->ych_len; y++)
-            {
-                test[x][y] = ori[x+y];
-                printk(" %d ", test[x][y]);
-            }
-            printk("\n");
-        }
-    //}
+	core_mp->rx_delta_buf = kzalloc(core_mp->xch_len * core_mp->xch_len * sizeof(int32_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(core_mp->rx_delta_buf))
+	{
+		DBG_ERR("Failed to allocate raw buffer, %ld", PTR_ERR(core_mp->rx_delta_buf));
+		res = -ENOMEM;
+		goto out;
+    }    
+
+    DBG_INFO("core_mp->tx_delta_buf = %p", core_mp->tx_delta_buf);
+    DBG_INFO("core_mp->rx_delta_buf = %p", core_mp->rx_delta_buf);
 
     for(i = 0; i < FrameCount; i++)
     {
-        for(x = 0; x < core_mp->xch_len; x++)
+        for(y = 0; y < core_mp->ych_len; y++)
         {
-            for(y = 0; y < core_mp->ych_len; y++)
+            for(x = 0; x < core_mp->xch_len; x++)
             {
                 /* Rx Delta */
                 if(x != (core_mp->xch_len - 1))
                 {
-                    //DBG_INFO("****** RX ******");
-                    //printk(" ori[%d+%d] = %d ", x, y, ori[x+y]);
-                    //printk("ori[(%d+1)+%d] = %d", x, y, ori[(x+1)+y]);
-                    printk(" %d ", (int)Mathabs(ori[x+y] - ori[(x+1)+y]) );
+                    core_mp->rx_delta_buf[x+y] = Mathabs(ori[x+y] - ori[(x+1)+y]);
                 }
 
                 /* Tx Delta */
                 if(y != (core_mp->ych_len - 1))
                 {
-                    //DBG_INFO("****** TX ******");
-                    // printk("ori[%d+%d] = %d\n", x, y, ori[x+y]);
-                    //printk(" ori[(%d+(%d+1)] = %d ", x,y, ori[x+(y+1)]);
-                    printk(" %d ", (int)Mathabs(ori[x+y] - ori[x+(y+1)]) );
+                    core_mp->tx_delta_buf[x+y] = Mathabs(ori[x+y] - ori[x+(y+1)]);
                 }
             }
-            printk("\n");
         }
     }
 
-    for(i = 0; i < core_mp->xch_len; ++i)
-    {
-        kfree(test[i]);
-    }
-    kfree(test);
-
-    // for(i = 0; i < FrameCount; i++)
-    // {
-    //     for(y = 0; y < core_mp->ych_len; y++)
-    //     {
-    //         for(x = 0; x < core_mp->xch_len; x++)
-    //         {
-    //             /* Rx Delta */
-    //             if(x != (core_mp->xch_len - 1))
-    //             {
-    //                 //DBG_INFO("****** RX ******");
-    //                 //printk(" ori[%d+%d] = %d ", x, y, ori[x+y]);
-    //                 //printk("ori[(%d+1)+%d] = %d", x, y, ori[(x+1)+y]);
-    //                 //printk(" %d ", (int)Mathabs(ori[x+y] - ori[(x+1)+y]) );
-    //             }
-
-    //             /* Tx Delta */
-    //             if(y != (core_mp->ych_len - 1))
-    //             {
-    //                 //DBG_INFO("****** TX ******");
-    //                 // printk("ori[%d+%d] = %d\n", x, y, ori[x+y]);
-    //                 //printk(" ori[(%d+(%d+1)] = %d ", x,y, ori[x+(y+1)]);
-    //                 //printk(" %d ", (int)Mathabs(ori[x+y] - ori[x+(y+1)]) );
-    //             }
-    //         }
-    //         printk("\n");
-    //     }
-    // }
-    
-
-
+out:
     return res;
 }
 

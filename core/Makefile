@@ -11,4 +11,5 @@ obj-y += config.o \
 		 firmware.o \
 		 finger_report.o \
 		 mp_test.o \
-		 flash.o
+		 flash.o \
+		 protocol.o 
