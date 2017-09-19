@@ -158,6 +158,8 @@ struct protocol_cmd_list
     uint8_t st_has_bk;
     uint8_t st_bg;
 
+    uint8_t tx_rx_delta;
+
     uint8_t trcrq_pin;
     uint8_t resx2_pin;
     uint8_t mutual_integra_time;

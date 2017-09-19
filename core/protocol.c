@@ -190,6 +190,8 @@ static void config_protocol_v5_cmd(void)
     protocol->rx_short			= 0x4;
     protocol->rx_open			= 0x6;
 
+    protocol->tx_rx_delta       = 0x1E;
+
     protocol->cm_data			= 0x9;
     protocol->cs_data			= 0xA;
 

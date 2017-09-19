@@ -47,6 +47,19 @@
 
 #define FAIL       -1
 
+#define Mathabs(x) ({					\
+    long ret;					        \
+    if (sizeof(x) == sizeof(long)) {	\
+        long __x = (x);				    \
+        ret = (__x < 0) ? -__x : __x;	\
+    } else {					        \
+        int __x = (x);				    \
+        ret = (__x < 0) ? -__x : __x;	\
+    }						            \
+    ret;						        \
+})
+
+
 struct description
 {
 	char *item;
@@ -74,7 +87,9 @@ struct description mp_des[] =
 	{"key_no_bk", "ICON Raw Data"},
 	{"key_has_bk", "ICON Raw Data(Have BK)"},
 	{"key_open", "ICON Open Data"},
-	{"key_short", "ICON Short Data"},
+    {"key_short", "ICON Short Data"},
+    
+    {"tx_rx_delta", "Tx/Rx Delta Data"},
 };
 
 static void cdc_print_data(const char *name);
@@ -163,13 +178,10 @@ static void cdc_print_data(const char *name)
                 }
                 printk("\n");
             }
-            // else if(core_mp->st_test)
-            // {
-            //     for(y = 0; y < core_mp->side_len; y++)
-            //     {
-            //         printk("%d, ",core_mp->st_raw_buf[y]);
-            //     }                
-            // }
+            else if(core_mp->tx_rx_delta_test)
+            {
+                DBG_INFO("tx_rx_delta_test TTTTTTTTTT");
+            }
 		}
 	}
 }
@@ -179,7 +191,8 @@ static void cdc_revert_status(void)
     core_mp->mutual_test = false;
 	core_mp->self_test = false;
 	core_mp->key_test = false;
-	core_mp->st_test = false;
+    core_mp->st_test = false;
+    core_mp->tx_rx_delta_test = false;
     
 	core_mp->m_signal = false;
 	core_mp->m_dac = false;
@@ -238,6 +251,104 @@ static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
     }
 
 out:
+    return res;
+}
+
+static int convert_txrx_delta_cdc(uint8_t *buf)
+{
+    int i,  x, y, res = 0;
+    int FrameCount = 0;
+    uint8_t *ori = buf;
+    int32_t **test = NULL;
+
+    test = (int **)kzalloc(core_mp->xch_len * sizeof(int32_t), GFP_KERNEL);
+    for(i = 0; i < core_mp->xch_len; i++)
+        test[i] = (int *)kzalloc(core_mp->ych_len * sizeof(int32_t), GFP_KERNEL);
+
+    for (i = 0; i < core_mp->xch_len; i++)
+    {
+        memset(test[i], 0, core_mp->xch_len * sizeof(int32_t));
+    }
+
+    FrameCount = 1;
+
+    // for(i = 0; i < FrameCount; i++)
+    // {
+        for(x = 0; x < core_mp->xch_len; x++)
+        {
+            for(y = 0; y < core_mp->ych_len; y++)
+            {
+                test[x][y] = ori[x+y];
+                printk(" %d ", test[x][y]);
+            }
+            printk("\n");
+        }
+    //}
+
+    for(i = 0; i < FrameCount; i++)
+    {
+        for(x = 0; x < core_mp->xch_len; x++)
+        {
+            for(y = 0; y < core_mp->ych_len; y++)
+            {
+                /* Rx Delta */
+                if(x != (core_mp->xch_len - 1))
+                {
+                    //DBG_INFO("****** RX ******");
+                    //printk(" ori[%d+%d] = %d ", x, y, ori[x+y]);
+                    //printk("ori[(%d+1)+%d] = %d", x, y, ori[(x+1)+y]);
+                    printk(" %d ", (int)Mathabs(ori[x+y] - ori[(x+1)+y]) );
+                }
+
+                /* Tx Delta */
+                if(y != (core_mp->ych_len - 1))
+                {
+                    //DBG_INFO("****** TX ******");
+                    // printk("ori[%d+%d] = %d\n", x, y, ori[x+y]);
+                    //printk(" ori[(%d+(%d+1)] = %d ", x,y, ori[x+(y+1)]);
+                    printk(" %d ", (int)Mathabs(ori[x+y] - ori[x+(y+1)]) );
+                }
+            }
+            printk("\n");
+        }
+    }
+
+    for(i = 0; i < core_mp->xch_len; ++i)
+    {
+        kfree(test[i]);
+    }
+    kfree(test);
+
+    // for(i = 0; i < FrameCount; i++)
+    // {
+    //     for(y = 0; y < core_mp->ych_len; y++)
+    //     {
+    //         for(x = 0; x < core_mp->xch_len; x++)
+    //         {
+    //             /* Rx Delta */
+    //             if(x != (core_mp->xch_len - 1))
+    //             {
+    //                 //DBG_INFO("****** RX ******");
+    //                 //printk(" ori[%d+%d] = %d ", x, y, ori[x+y]);
+    //                 //printk("ori[(%d+1)+%d] = %d", x, y, ori[(x+1)+y]);
+    //                 //printk(" %d ", (int)Mathabs(ori[x+y] - ori[(x+1)+y]) );
+    //             }
+
+    //             /* Tx Delta */
+    //             if(y != (core_mp->ych_len - 1))
+    //             {
+    //                 //DBG_INFO("****** TX ******");
+    //                 // printk("ori[%d+%d] = %d\n", x, y, ori[x+y]);
+    //                 //printk(" ori[(%d+(%d+1)] = %d ", x,y, ori[x+(y+1)]);
+    //                 //printk(" %d ", (int)Mathabs(ori[x+y] - ori[x+(y+1)]) );
+    //             }
+    //         }
+    //         printk("\n");
+    //     }
+    // }
+    
+
+
     return res;
 }
 
@@ -619,6 +730,55 @@ out:
     return res;  
 }
 
+static int tx_rx_delta_test(uint8_t val, uint8_t p)
+{
+    int res = 0;
+    int len = 0;
+    uint8_t cmd[2] = {0};
+    uint8_t *delta = NULL;
+
+    cmd[0] = p;
+    cmd[1] = val;
+
+    /* update X/Y channel length if they're changed */
+	core_mp->xch_len = core_config->tp_info->nXChannelNum;
+    core_mp->ych_len = core_config->tp_info->nYChannelNum;
+    
+    len = core_mp->xch_len * core_mp->ych_len;
+
+    /* set flag */
+    core_mp->tx_rx_delta_test = true;
+
+    DBG_INFO("Read Tx/Rx delta length = %d", len);
+    
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
+    if(res < 0)
+    {
+        goto out;      
+    }
+    else
+    {
+        delta = kzalloc(len, GFP_KERNEL);
+        if(ERR_ALLOC_MEM(delta))
+        {
+            res = FAIL;
+            goto out;
+        }
+
+        res = exec_cdc_command(EXEC_READ, 0, len, delta);
+		if(res < 0)
+            goto out;
+
+        res = convert_txrx_delta_cdc(delta);
+		if(res < 0)
+			goto out;
+    }
+
+out:
+    kfree(delta);
+    return res; 
+}
+
 int core_mp_run_test(const char *name, uint8_t val)
 {
 	int i = 0, res = 0;
@@ -692,6 +852,12 @@ int core_mp_init(void)
 
             core_mp->key_len = core_config->tp_info->nKeyCount;
             core_mp->st_len = core_config->tp_info->side_touch_type;
+
+            /* Set spec threshold as initial value */
+            core_mp->TxDeltaMax = 0;
+            core_mp->RxDeltaMax = 0;
+            core_mp->TxDeltaMin = 9999;
+            core_mp->RxDeltaMin = 9999;
 
 			/* Initialize MP test functions with its own command from protocol.c */
 			memset(core_mp->tItems, 0x0, sizeof(ARRAY_SIZE(core_mp->tItems)));
@@ -807,6 +973,10 @@ int core_mp_init(void)
             core_mp->tItems[27].name = "cs_data";
             core_mp->tItems[27].cmd = protocol->cs_data;
             core_mp->tItems[27].do_test = mutual_test;
+
+            core_mp->tItems[28].name = "tx_rx_delta";
+            core_mp->tItems[28].cmd = protocol->tx_rx_delta;
+            core_mp->tItems[28].do_test = tx_rx_delta_test;
         }
     }
     else

@@ -34,10 +34,12 @@ struct mp_test_items
 
 struct core_mp_test_data
 {
+    /* A flag indicates an item being tested */
     bool mutual_test;
     bool self_test;
     bool key_test;
     bool st_test;
+    bool tx_rx_delta_test;
 
     bool m_signal;
     bool m_dac;
@@ -53,13 +55,20 @@ struct core_mp_test_data
     int key_len;
     int st_len;
 
+    /* Spec threshold */
+    int TxDeltaMax;
+    int TxDeltaMin;
+    int RxDeltaMax;
+    int RxDeltaMin;
+
+    /* Raw data buffer */
     int32_t *m_raw_buf;
 	int32_t *s_raw_buf;
 	int32_t *key_raw_buf;
 	int32_t *m_sin_buf;
 	int32_t *s_sin_buf;
 
-    struct mp_test_items tItems[28];
+    struct mp_test_items tItems[29];
 };
 
 extern struct core_mp_test_data *core_mp;
