@@ -38,8 +38,8 @@
 #include "mp_test.h"
 #include "protocol.h"
 
-#define EXEC_WRITE 1
 #define EXEC_READ  0
+#define EXEC_WRITE 1
 
 #define SET_KEY    0
 #define SET_MUTUAL 1
@@ -92,19 +92,26 @@ struct description mp_des[] =
     {"tx_rx_delta", "Tx/Rx Delta Data"},
 };
 
-static void cdc_print_data(const char *name);
-static void cdc_revert_status(void);
-static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf);
+/* Convert raw data with the test item */
 static int convert_key_cdc(uint8_t *buf);
 static int convert_mutual_cdc(uint8_t *buf);
+static int convert_txrx_delta_cdc(uint8_t *buf);
+
+/* Handle its own test item */
 static int mutual_test(uint8_t val, uint8_t p);
 static int self_test(uint8_t val, uint8_t p);
 static int key_test(uint8_t val, uint8_t p);
 static int st_test(uint8_t val, uint8_t p);
+static int tx_rx_delta_test(uint8_t val, uint8_t p);
+
+static void cdc_print_result(const char *name, int result);
+static void cdc_revert_status(void);
+
+static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf);
 
 struct core_mp_test_data *core_mp = NULL;
 
-static void cdc_print_data(const char *name)
+static void cdc_print_result(const char *name, int result)
 {
 	int i, x, y;
 
@@ -113,7 +120,7 @@ static void cdc_print_data(const char *name)
 		if(strcmp(mp_des[i].item, name) == 0)
 		{
             DBG_INFO("==============================");	
-			DBG_INFO("%s ", mp_des[i].des);
+			DBG_INFO(" %s : %s ", mp_des[i].des, (result != 0 ? "FAIL" : "PASS"));
             DBG_INFO("==============================");	
             if(core_mp->mutual_test)
             {
@@ -223,7 +230,8 @@ static void cdc_print_data(const char *name)
                     printk("\n");
                 }
             }
-		}
+            break;
+        }
 	}
 }
 
@@ -794,8 +802,7 @@ int core_mp_run_test(const char *name, uint8_t val)
         if(strcmp(name, core_mp->tItems[i].name) == 0)
 		{
 			res = core_mp->tItems[i].do_test(val, core_mp->tItems[i].cmd);
-			DBG_INFO("Result = %d", res);
-			cdc_print_data(core_mp->tItems[i].name);
+            cdc_print_result(core_mp->tItems[i].name, res);         
 			cdc_revert_status();
 			return res;
 		}
