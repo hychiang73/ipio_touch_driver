@@ -18,7 +18,8 @@ obj-y += platform.o userspace.o
 			core/firmware.o \
 			core/flash.o \
 			core/i2c.o \
-			core/mp_test.o
+			core/mp_test.o \
+			core/protocol.o 
 
 #KERNEL_DIR= /home/likewise-open/ILI/1061279/workplace/rk3288_sdk/kernel
 #all:

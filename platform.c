@@ -27,7 +27,9 @@
 #include "core/firmware.h"
 #include "core/finger_report.h"
 #include "core/flash.h"
+#include "core/protocol.h"
 #include "platform.h"
+#include "core/mp_test.h"
 
 #define DTS_INT_GPIO	"touch,irq-gpio"
 #define DTS_RESET_GPIO	"touch,reset-gpio"
@@ -58,7 +60,7 @@ void ilitek_platform_disable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -68,7 +70,7 @@ void ilitek_platform_disable_irq(void)
 		{
 			disable_irq_nosync(ipd->isr_gpio);
 			ipd->isEnableIRQ = false;
-			DBG(DEBUG_IRQ, "IRQ was disabled");
+			DBG(DEBUG_IRQ, "Disable IRQ");
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
@@ -84,7 +86,7 @@ void ilitek_platform_enable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -94,7 +96,7 @@ void ilitek_platform_enable_irq(void)
 		{
 			enable_irq(ipd->isr_gpio);
 			ipd->isEnableIRQ = true;
-			DBG(DEBUG_IRQ, "IRQ was enabled");
+			DBG(DEBUG_IRQ, "Enable IRQ");
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
@@ -139,7 +141,7 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
 
-#ifdef ENABLE_REGULATOR_POWER_ON
+#ifdef REGULATOR_POWER_ON
 void ilitek_regulator_power_on(bool status)
 {
 	int res = 0;
@@ -210,7 +212,6 @@ static void read_power_status(uint8_t *buf)
 static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 {
 	uint8_t charge_status[20] = {0};
-	uint8_t plug_ctrl[2] = {0x11, 0x0};
 	static int charge_mode = 0;
 
 	DBG(DEBUG_BATTERY, "isEnableCheckPower = %d", ipd->isEnablePollCheckPower);
@@ -223,8 +224,7 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 		if(charge_mode != 1)
 		{
 			DBG(DEBUG_BATTERY, "Charging mode");
-			plug_ctrl[1] = 0x0; //plug in
-			core_config_func_ctrl(plug_ctrl);
+			core_config_plug_ctrl(false);
 			charge_mode = 1;
 		}
 	}
@@ -233,8 +233,7 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 		if(charge_mode != 2)
 		{
 			DBG(DEBUG_BATTERY, "Not charging mode");
-			plug_ctrl[1] = 0x1; //plug out
-			core_config_func_ctrl(plug_ctrl);
+			core_config_plug_ctrl(true);;
 			charge_mode = 2;
 		}
 	}
@@ -410,29 +409,28 @@ static int ilitek_platform_irq_kthread(void *arg)
 	struct sched_param param = { .sched_priority = 4};
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	DBG(DEBUG_IRQ, "irq_trigger = %d", ipd->irq_trigger);
-
 	while(!kthread_should_stop() && !ipd->free_irq_thread)
 	{
+		DBG(DEBUG_IRQ, "kthread: before->irq_trigger = %d", ipd->irq_trigger);
 		set_current_state(TASK_INTERRUPTIBLE);
 		wait_event_interruptible(waiter, ipd->irq_trigger);
 		ipd->irq_trigger = false;
 		set_current_state(TASK_RUNNING);
-
-		core_fr_handler();
+		DBG(DEBUG_IRQ, "kthread: after->irq_trigger = %d", ipd->irq_trigger);
 		ilitek_platform_enable_irq();
+		core_fr_handler();
 	}
 	return 0;
 }
 #else
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
-
-	core_fr_handler();
+	DBG(DEBUG_IRQ, "work_queue: Enable IRQ = %d", ipd->isEnableIRQ);
 
 	if (!ipd->isEnableIRQ)
-		ilitek_platform_enable_irq();		
+		ilitek_platform_enable_irq();
+	
+	core_fr_handler();
 }
 #endif
 
@@ -440,7 +438,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
 //	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
 
 //	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -449,7 +447,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 		ilitek_platform_disable_irq();
 #ifdef USE_KTHREAD
 		ipd->irq_trigger = true;
-		DBG(DEBUG_IRQ, "irq_trigger = %d", ipd->irq_trigger);
+		DBG(DEBUG_IRQ, "kthread: irq_trigger = %d", ipd->irq_trigger);
 		wake_up_interruptible(&waiter);
 #else
 		schedule_work(&ipd->report_work_queue);
@@ -582,23 +580,23 @@ out:
 static int ilitek_platform_read_tp_info(void)
 {
 	int res = -1;
+
+	if(core_config_get_chip_id() < 0)
+		goto out;
+	if(core_config_get_protocol_ver() < 0)
+		goto out;
+	if(core_config_get_fw_ver() < 0)
+		goto out;
+	if(core_config_get_core_ver() < 0)
+		goto out;
+	if(core_config_get_tp_info() < 0)
+		goto out;
+	if(core_config_get_key_info() < 0)
+		goto out;
 	
-		if(core_config_get_chip_id() < 0)
-			goto out;
-		if(core_config_get_fw_ver() < 0)
-			goto out;
-		if(core_config_get_core_ver() < 0)
-			goto out;
-		if(core_config_get_protocol_ver() < 0)
-			goto out;
-		if(core_config_get_tp_info() < 0)
-			goto out;
-		if(core_config_get_key_info() < 0)
-			goto out;
-	
-		res = 0;
-	out:
-		return res;
+	res = 0;
+out:
+	return res;
 }
 
 static int ilitek_platform_input_init(void)
@@ -666,6 +664,8 @@ static void ilitek_platform_core_remove(void)
 	core_fr_remove();
 	core_config_remove();
 	core_i2c_remove();
+	core_protocol_remove();	
+	core_mp_remove();
 }
 
 /**
@@ -677,6 +677,7 @@ static int ilitek_platform_core_init(void)
 	DBG_INFO("Initialise core's components ");
 
 	if (core_config_init() < 0 ||
+		core_protocol_init(PROTOCOL_MAJOR, PROTOCOL_MINOR) < 0 ||
 		core_i2c_init(ipd->client) < 0 ||
 		core_firmware_init() < 0 ||
 		core_fr_init(ipd->client) < 0)
@@ -684,6 +685,8 @@ static int ilitek_platform_core_init(void)
 		DBG_ERR("Failed to initialise core components");
 		return -EINVAL;
 	}
+
+	core_mp_init();
 
 	return 0;
 }
@@ -745,12 +748,11 @@ static int ilitek_platform_remove(struct i2c_client *client)
  * It will still return zero even if it couldn't get a touch ic info.
  * The reason for why we allow it passing the process is because users/developers
  * might want to have access to ICE mode to upgrade a firwmare forcelly.
- *
  */
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
-#ifdef ENABLE_REGULATOR_POWER_ON
+#ifdef REGULATOR_POWER_ON
 #ifdef PLATFORM_MTK
 	const char *vdd_name = "vtouch";
 #else
@@ -791,8 +793,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	DBG_INFO("Driver version : %s", DRIVER_VERSION);
 	DBG_INFO("This driver now supports %x ", ON_BOARD_IC);
 
-	// Different ICs may require different delay time for the reset.
-	// They may also depend on what your platform need to.
+	/*
+	 * Different ICs may require different delay time for the reset.
+	 * They may also depend on what your platform need to.
+	 */
 	if (ipd->chip_id == CHIP_TYPE_ILI7807)
 	{
 		ipd->delay_time_high = 10;
@@ -815,7 +819,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	mutex_init(&ipd->MUTEX);
 	spin_lock_init(&ipd->SPIN_LOCK);
 
-#ifdef ENABLE_REGULATOR_POWER_ON
+#ifdef REGULATOR_POWER_ON
 #ifdef PLATFORM_MTK
 	ipd->vdd = regulator_get(tpd->tpd_dev, vdd_name);
 	tpd->reg = ipd->vdd;
@@ -862,7 +866,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	ilitek_platform_tp_hw_reset(true);
 
-	// get our tp ic information
+	/* get our tp ic information */
 	res = ilitek_platform_read_tp_info();
 	if(res < 0)
 	{
@@ -878,8 +882,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if (res < 0)
 		DBG_ERR("Failed to register ISR");
 
-	// To make sure our ic runing well before the work,
-	// pulling RESET pin as low/high once after read TP info.
+	/*
+	 * To make sure our ic runing well before the work,
+	 * pulling RESET pin as low/high once after read TP info.
+	 */
 	ilitek_platform_tp_hw_reset(true);
 
 	res = ilitek_platform_reg_suspend();
