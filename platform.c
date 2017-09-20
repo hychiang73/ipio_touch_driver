@@ -249,8 +249,14 @@ static void tpd_resume(struct device *h)
 {
 	DBG_INFO("TPD wake up");
 
-	core_config_ic_resume();
-	ilitek_platform_enable_irq();
+	if(!core_firmware->isUpgrading)
+	{
+		core_config_ic_resume();
+		ilitek_platform_enable_irq();
+
+		if(ipd->isEnablePollCheckPower)
+			queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+	}
 
 	DBG_INFO("TPD wake up done");
 }
@@ -259,13 +265,19 @@ static void tpd_suspend(struct device *h)
 {
     DBG_INFO("TPD enter sleep");
 
-    if(!core_config->isEnableGesture)
-    {
-	    DBG_INFO("gesture not enabled");
-	    ilitek_platform_disable_irq();
-    }
+	if(!core_firmware->isUpgrading)
+	{
+		if(!core_config->isEnableGesture)
+		{
+			DBG_INFO("gesture not enabled");
+			ilitek_platform_disable_irq();
+		}
 
-    core_config_ic_suspend();
+		if(ipd->isEnablePollCheckPower)
+			cancel_delayed_work_sync(&ipd->check_power_status_work);
+	
+		core_config_ic_suspend();		
+	}
 
     DBG_INFO("TPD enter sleep done");
 }
@@ -286,22 +298,29 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 		{
 			DBG_INFO("Touch Suspend");
 
-			if(!core_config->isEnableGesture)	
+			if(!core_firmware->isUpgrading)
+			{
+				if(!core_config->isEnableGesture)	
 				ilitek_platform_disable_irq();
 
-			if(ipd->isEnablePollCheckPower)
-				cancel_delayed_work_sync(&ipd->check_power_status_work);
+				if(ipd->isEnablePollCheckPower)
+					cancel_delayed_work_sync(&ipd->check_power_status_work);
 
-			core_config_ic_suspend();
+				core_config_ic_suspend();
+			}
 		}
 		else if (*blank == FB_BLANK_UNBLANK)
 		{
 			DBG_INFO("Touch Resuem");
-			core_config_ic_resume();
-			ilitek_platform_enable_irq();
 
-			if(ipd->isEnablePollCheckPower)
-				queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+			if(!core_firmware->isUpgrading)
+			{
+				core_config_ic_resume();
+				ilitek_platform_enable_irq();
+	
+				if(ipd->isEnablePollCheckPower)
+					queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+			}
 		}
 	}
 
@@ -652,6 +671,25 @@ out:
 #endif
 }
 
+#ifdef BOOT_FW_UPGRADE
+static int ilitek_platform_boot_fw_upgrade(void *arg)
+{
+	int res = 0;
+
+	ilitek_platform_disable_irq();
+
+	res = core_firmware_boot_upgrade();
+	if(res < 0)
+		DBG_ERR("Failed to upgrade FW at boot stage ");
+	
+	ilitek_platform_enable_irq();
+
+	ilitek_platform_input_init();
+
+	return res;
+}
+#endif
+
 /**
  * Remove Core APIs memeory being allocated.
  */
@@ -901,6 +939,15 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		
 #ifdef PLATFORM_MTK
 		tpd_load_status = 1;
+#endif
+
+#ifdef BOOT_FW_UPGRADE
+	ipd->update_thread = kthread_run(ilitek_platform_boot_fw_upgrade, NULL, "ilitek_platform_boot_fw_upgrade");
+	if (ipd->update_thread == (struct task_struct*)ERR_PTR)
+	{
+		ipd->update_thread = NULL;
+		DBG_ERR("Failed to create fw upgrade thread");
+	}
 #endif
 
 out:

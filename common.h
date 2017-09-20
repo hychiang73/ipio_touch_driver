@@ -199,4 +199,7 @@ extern uint32_t ipio_debug_level;
 /* Split the length written to or read from IC via I2C. */
 //#define I2C_SEGMENT
 
+/* Be able to upgrade fw at boot stage */
+#define BOOT_FW_UPGRADE
+
 #endif /* __COMMON_H */
