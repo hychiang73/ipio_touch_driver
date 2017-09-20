@@ -232,6 +232,13 @@ static int ilitek_platform_gpio(void)
 
 # Release Note
 
+* V1.0.0.10
+
+ * Fixed the issue of I2CUart when its length of next buffer is larger
+   than previous one.
+ * Add FW upgrade at boot stage. It will be actiaved when the version of FW that is going to
+   upgrade is different the previous version, otherwise it will deny to upgrade.
+
 * V1.0.0.9
   * Add a new way to program firmware if the hex file includes block information.
   * Define the rule to show up detailed debug messages.
