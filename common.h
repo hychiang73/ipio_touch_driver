@@ -87,7 +87,7 @@
 #define PLATFORM_RK 
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.0.10"
+#define DRIVER_VERSION	"1.0.1.0"
 
 /* Normal debug messages */
 #define DBG_INFO(fmt, arg...) \
@@ -205,6 +205,6 @@ extern uint32_t ipio_debug_level;
 #define ENABLE_REGULATOR_POWER_ON 
 //#define ENABLE_DMA 
 #define USE_KTHREAD 
-#define BOOT_FW_UPGRADE
+//#define BOOT_FW_UPGRADE
 
 #endif /* __COMMON_H */
