@@ -675,6 +675,14 @@ static int convert_hex_array(void)
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
 
+	DBG(DEBUG_FIRMWARE, "CTPM_FW = %d", ARRAY_SIZE(CTPM_FW));
+
+	if(ARRAY_SIZE(CTPM_FW) <= 0)
+	{
+		DBG_ERR("The size of CTPM_FW is invaild (%d)", ARRAY_SIZE(CTPM_FW));
+		goto out;
+	}
+
 	/* Get new version from ILI array */
 	core_firmware->new_fw_ver[0] = CTPM_FW[19];
 	core_firmware->new_fw_ver[1] = CTPM_FW[20];
@@ -696,7 +704,7 @@ static int convert_hex_array(void)
 	}
 
 	/* Fill data into buffer */
-	for(i = 0; i < ARRAY_SIZE(CTPM_FW); i++)
+	for(i = 0; i < ARRAY_SIZE(CTPM_FW) - 32; i++)
 	{
 		flash_fw[i] = CTPM_FW[i+32];
 		index = i / flashtab->sector; 

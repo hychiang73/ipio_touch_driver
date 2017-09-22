@@ -232,6 +232,11 @@ static int ilitek_platform_gpio(void)
 
 # Release Note
 
+* V1.0.1.0 (Offical Release)
+
+ * Fixed the size of CTPM_FW isn't subtracted by 32 before filling data into buffer.
+ * FW upgrade at boot stage is disable as default.
+
 * V1.0.0.10
 
  * Fixed the issue of I2CUart when its length of next buffer is larger
