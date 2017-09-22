@@ -39,6 +39,13 @@
 #include "firmware.h"
 #include "flash.h"
 
+#ifdef BOOT_FW_UPGRADE
+#include "ilitek_fw.h"
+#endif
+
+extern uint32_t SUP_CHIP_LIST[];
+extern int nums_chip;
+
 /* 
  * the size of two arrays is different depending on
  * which of methods to upgrade firmware you choose for.
@@ -658,6 +665,183 @@ out:
 	return res;
 }
 
+#ifdef BOOT_FW_UPGRADE
+static int convert_hex_array(void)
+{
+	int i, index = 0;
+
+	core_firmware->start_addr = 0;
+	core_firmware->end_addr = 0;	
+	core_firmware->checksum = 0;
+	core_firmware->crc32 = 0;
+
+	DBG(DEBUG_FIRMWARE, "CTPM_FW = %d", ARRAY_SIZE(CTPM_FW));
+
+	if(ARRAY_SIZE(CTPM_FW) <= 0)
+	{
+		DBG_ERR("The size of CTPM_FW is invaild (%d)", ARRAY_SIZE(CTPM_FW));
+		goto out;
+	}
+
+	/* Get new version from ILI array */
+	core_firmware->new_fw_ver[0] = CTPM_FW[19];
+	core_firmware->new_fw_ver[1] = CTPM_FW[20];
+	core_firmware->new_fw_ver[2] = CTPM_FW[21];
+
+	for(i = 0; i < ARRAY_SIZE(core_firmware->old_fw_ver); i++)
+	{
+		if(core_firmware->old_fw_ver[i] != core_firmware->new_fw_ver[i])
+		{
+			DBG_INFO("FW version is different, preparing to upgrade FW");
+			break;
+		}
+	}
+
+	if(i == ARRAY_SIZE(core_firmware->old_fw_ver))
+	{
+		DBG_ERR("FW version is the same as previous version");
+		goto out;
+	}
+
+	/* Fill data into buffer */
+	for(i = 0; i < ARRAY_SIZE(CTPM_FW) - 32; i++)
+	{
+		flash_fw[i] = CTPM_FW[i+32];
+		index = i / flashtab->sector; 
+		if(!ffls[index].data_flag)
+		{
+			ffls[index].ss_addr = index * flashtab->sector;
+			ffls[index].se_addr = (index + 1) * flashtab->sector - 1;
+			ffls[index].dlength = (ffls[index].se_addr - ffls[index].ss_addr) + 1;
+			ffls[index].data_flag = true;
+		}
+	}
+
+	sec_length = index;
+
+	if(ffls[sec_length].se_addr > flashtab->mem_size)
+	{
+		DBG_ERR("The size written to flash is larger than it required (%x) (%x)", 
+					ffls[sec_length].se_addr, flashtab->mem_size);
+		goto out;
+	}
+		
+	/* DEBUG: for showing data with address that will write into fw */
+	for(i = 0; i < total_sector; i++)
+	{
+		DBG(DEBUG_FIRMWARE, "ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d", 
+		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag, ffls[i].inside_block);
+	}
+
+	core_firmware->start_addr = 0x0;
+	core_firmware->end_addr = ffls[sec_length].se_addr;
+	DBG_INFO("start_addr = 0x%06X, end_addr = 0x%06X", core_firmware->start_addr, core_firmware->end_addr);
+	return 0;
+
+out:
+	DBG_ERR("Failed to convert ILI FW array");
+	return -1;
+}
+
+int core_firmware_boot_upgrade(void)
+{
+	int res = 0;
+	bool power = false;
+
+	DBG_INFO("FW upgrade at boot stage");
+
+	core_firmware->isUpgrading = true;
+	core_firmware->update_status = 0;
+
+	if(ipd->isEnablePollCheckPower)
+	{
+		ipd->isEnablePollCheckPower = false;
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		power = true;		
+	}
+
+	/* store old version before upgrade fw */
+	core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
+	core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
+	core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
+
+	if(flashtab == NULL)
+	{
+		DBG_ERR("Flash table isn't created");
+		res = -ENOMEM;
+		goto out;
+	}
+
+	flash_fw = kzalloc(sizeof(uint8_t) * flashtab->mem_size, GFP_KERNEL);
+	if(ERR_ALLOC_MEM(flash_fw))
+	{
+		DBG_ERR("Failed to allocate flash_fw memory, %ld", PTR_ERR(flash_fw));
+		res = -ENOMEM;
+		goto out;
+	}
+	memset(flash_fw, 0xff, (int)sizeof(uint8_t) * flashtab->mem_size);
+
+	total_sector = flashtab->mem_size / flashtab->sector;
+	if(total_sector <= 0)
+	{
+		DBG_ERR("Flash configure is wrong");
+		res = -1;
+		goto out;
+	}
+
+	ffls = kcalloc(total_sector, sizeof(uint32_t) * total_sector, GFP_KERNEL);
+	if(ERR_ALLOC_MEM(ffls))
+	{
+		DBG_ERR("Failed to allocate ffls memory, %ld", PTR_ERR(ffls));
+		res = -ENOMEM;
+		goto out;
+	}
+
+	res = convert_hex_array();
+	if (res < 0)
+	{
+		DBG_ERR("Failed to covert firmware data, res = %d", res);
+		goto out;
+	}
+	else
+	{
+		/* calling that function defined at init depends on chips. */
+		res = core_firmware->upgrade_func(false);
+		if (res < 0)
+		{
+			core_firmware->update_status = -1;
+			DBG_ERR("Failed to upgrade firmware, res = %d", res);
+			goto out;
+		}
+		else
+		{
+			core_firmware->update_status = 100;			
+			DBG_INFO("Update firmware information...");
+			core_config_get_fw_ver();
+			core_config_get_protocol_ver();
+			core_config_get_core_ver();
+			core_config_get_tp_info();
+			core_config_get_key_info();
+		}
+	}
+
+out:
+	if(power)
+	{
+		ipd->isEnablePollCheckPower = true;
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+	}
+
+	kfree(flash_fw);
+	flash_fw = NULL;		
+	kfree(ffls);
+	ffls = NULL;
+
+	core_firmware->isUpgrading = false;
+	return res;
+}
+#endif
+
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t i = 0, j = 0, k = 0;
@@ -830,16 +1014,22 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 {
 	int res = 0, fsize;
 	uint8_t *hex_buffer = NULL;
+	bool power = false;
 
 	struct file *pfile = NULL;
 	struct inode *inode;
 	mm_segment_t old_fs;
 	loff_t pos = 0;
 
-	core_firmware->isUpgraded = false;
+	core_firmware->isUpgrading = true;
 	core_firmware->update_status = 0;
 
-	//TODO: to compare old/new version if upgraded.
+	if(ipd->isEnablePollCheckPower)
+	{
+		ipd->isEnablePollCheckPower = false;
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		power = true;		
+	}
 
 	pfile = filp_open(pFilePath, O_RDONLY, 0);
 	if (ERR_ALLOC_MEM(pfile))
@@ -890,7 +1080,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 				res = -ENOMEM;
 				goto out;
 			}
-			memset(flash_fw, 0xff, (int)sizeof(flash_fw));
+			memset(flash_fw, 0xff, sizeof(uint8_t) * flashtab->mem_size);
 
 			total_sector = flashtab->mem_size / flashtab->sector;
 			if(total_sector <= 0)
@@ -935,38 +1125,35 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 					DBG_ERR("Failed to upgrade firmware, res = %d", res);
 					goto out;
 				}
-				core_firmware->isUpgraded = true;
+				else
+				{
+					DBG_INFO("Update firmware information...");
+					core_config_get_fw_ver();
+					core_config_get_protocol_ver();
+					core_config_get_core_ver();
+					core_config_get_tp_info();
+					core_config_get_key_info();
+				}
 			}
 		}
 	}
 
-	if (core_firmware->isUpgraded)
+out:
+	if(power)
 	{
-		DBG_INFO("Update firmware information...");
-		core_config_get_protocol_ver();		
-		core_config_get_fw_ver();
-		core_config_get_core_ver();
-		core_config_get_tp_info();
-		core_config_get_key_info();
+		ipd->isEnablePollCheckPower = true;
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
 
-out:
 	filp_close(pfile, NULL);
-	if(hex_buffer != NULL)
-	{
-		kfree(hex_buffer);
-		hex_buffer = NULL;		
-	}
-	if(flash_fw != NULL)
-	{
-		kfree(flash_fw);
-		flash_fw = NULL;		
-	}
-	if(ffls != NULL)
-	{
-		kfree(ffls);
-		ffls = NULL;		
-	}
+	kfree(hex_buffer);
+	hex_buffer = NULL;		
+	kfree(flash_fw);
+	flash_fw = NULL;		
+	kfree(ffls);
+	ffls = NULL;		
+
+	core_firmware->isUpgrading = false;
 	return res;
 }
 

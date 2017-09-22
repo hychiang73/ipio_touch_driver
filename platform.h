@@ -68,6 +68,10 @@ struct ilitek_platform_data {
 	struct early_suspend early_suspend;
 #endif
 
+#ifdef BOOT_FW_UPGRADE
+	struct task_struct * update_thread;
+#endif
+
 	/* obtain msg when battery status has changed */
 	struct delayed_work check_power_status_work;
 	struct workqueue_struct *check_power_status_queue;

@@ -89,7 +89,7 @@ extern uint32_t ipio_chip_list[2];
 //#define PLATFORM_RK 
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.0.10"
+#define DRIVER_VERSION	"1.0.1.0"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
@@ -198,5 +198,8 @@ extern uint32_t ipio_debug_level;
 
 /* Split the length written to or read from IC via I2C. */
 //#define I2C_SEGMENT
+
+/* Be able to upgrade fw at boot stage */
+//#define BOOT_FW_UPGRADE
 
 #endif /* __COMMON_H */

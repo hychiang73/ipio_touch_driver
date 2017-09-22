@@ -40,7 +40,7 @@ struct core_firmware_data
 
 	int delay_after_upgrade;
 
-	bool isUpgraded;
+	bool isUpgrading;
 	bool isCRC;
 	bool hasBlockInfo;
 
@@ -49,6 +49,9 @@ struct core_firmware_data
 
 extern struct core_firmware_data *core_firmware;
 
+#ifdef BOOT_FW_UPGRADE
+extern int core_firmware_boot_upgrade(void);
+#endif
 //extern int core_firmware_iram_upgrade(const char* fpath);
 extern int core_firmware_upgrade(const char *, bool isIRAM);
 extern int core_firmware_init(void);
