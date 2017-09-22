@@ -21,9 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-
-#define DEBUG
-
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/proc_fs.h>
@@ -42,6 +39,8 @@
 #include "core/finger_report.h"
 #include "core/flash.h"
 #include "core/i2c.h"
+#include "core/protocol.h"
+#include "core/mp_test.h"
 
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	18
@@ -72,6 +71,199 @@
 #define ILITEK_IOCTL_TP_MODE_STATUS			_IOWR(ILITEK_IOCTL_MAGIC, 18, int*)
 
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
+
+static int katoi(char *string)
+{
+	int result = 0;
+    unsigned int digit;
+	int sign;
+
+	if (*string == '-')
+	{
+		sign = 1;
+		string += 1;
+	} 
+	else
+	{
+		sign = 0;
+		if (*string == '+') 
+		{
+			string += 1;
+		}
+	}
+	
+	for ( ; ; string += 1)
+	{
+		digit = *string - '0';
+		if (digit > 9)
+			break;
+		result = (10*result) + digit;
+	}
+	
+	if (sign) 
+	{
+		return -result;
+	}
+		return result;
+}
+
+static int str2hex(char *str) 
+{
+	int strlen,result,intermed,intermedtop;
+	char *s;
+	s=str;
+	while(*s != 0x0) {s++;}
+	strlen=(int)(s-str);
+	s=str;
+	if(*s != 0x30) {
+	  return -1;
+	} else {
+	  s++;
+	  if(*s != 0x78 && *s != 0x58){
+		  return -1;
+	  }
+	  s++;
+	}
+	strlen = strlen-3;
+	result = 0;
+	while(*s != 0x0) {
+	  intermed = *s & 0x0f;
+	  intermedtop = *s & 0xf0;
+	  if(intermedtop == 0x60 || intermedtop == 0x40) {
+		  intermed += 0x09;
+	  }
+	  intermed = intermed << (strlen << 2);
+	  result = result | intermed;
+	  strlen -= 1;
+	  s++;
+	}
+	return result;
+}
+
+static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	/*
+	len = sprintf(buff, "%d", ipio_debug_level);
+
+
+	res = copy_to_user((uint32_t *)buff, &ipio_debug_level, len);
+	if (res < 0)
+	{
+		DBG_ERR("Failed to copy data to user space");
+	}
+*/	
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0, count = 0;
+	char cmd[64] = {0};
+	char *token = NULL, *cur = NULL;	
+	uint8_t *va = NULL;
+
+	if(buff != NULL)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	if(size > 64)
+	{
+		DBG_ERR("The size of string is too long");
+		return size;
+	}
+
+	token = cur = cmd;
+
+	va = kmalloc(64 * sizeof(uint8_t), GFP_KERNEL);
+	memset(va, 0, 64);
+
+	while((token = strsep(&cur, ",")) != NULL)
+	{
+		va[count] = str2hex(token);
+		//DBG_INFO("data[%d] = %x",count, va[count]);	
+		count++;
+
+		if(count > 2)
+			break;
+	}
+
+	core_mp_run_test(cmd, va[1]);
+
+	return size;
+}
+
+static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	len = sprintf(buff, "%d", ipio_debug_level);
+
+	DBG_INFO("Current DEBUG Level = %d\n", ipio_debug_level);
+	DBG_INFO("You can set one of levels for debug as below:");
+	DBG_INFO("DEBUG_NONE = %d", DEBUG_NONE);
+	DBG_INFO("DEBUG_IRQ = %d", DEBUG_IRQ);
+	DBG_INFO("DEBUG_FINGER_REPORT = %d", DEBUG_FINGER_REPORT);
+	DBG_INFO("DEBUG_FIRMWARE = %d", DEBUG_FIRMWARE);
+	DBG_INFO("DEBUG_CONFIG = %d", DEBUG_CONFIG);
+	DBG_INFO("DEBUG_I2C = %d", DEBUG_I2C);
+	DBG_INFO("DEBUG_BATTERY = %d", DEBUG_BATTERY);
+	DBG_INFO("DEBUG_MP_TEST = %d", DEBUG_MP_TEST);
+	DBG_INFO("DEBUG_IOCTL = %d", DEBUG_IOCTL);
+	DBG_INFO("DEBUG_NETLINK = %d", DEBUG_NETLINK);
+	DBG_INFO("DEBUG_ALL = %d", DEBUG_ALL);
+
+	res = copy_to_user((uint32_t *)buff, &ipio_debug_level, len);
+	if (res < 0)
+	{
+		DBG_ERR("Failed to copy data to user space");
+	}
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_debug_level_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	char cmd[10] = {0};
+
+	if(buff != NULL)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	ipio_debug_level = katoi(cmd);
+
+	DBG_INFO("ipio_debug_level = %d", ipio_debug_level);
+
+	return size;
+}
 
 static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -122,6 +314,64 @@ static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, si
 	{
 		DBG_INFO("disable gesture mode");
 		core_config->isEnableGesture = false;
+	}
+	else
+		DBG_ERR("Unknown command");
+
+	return size;
+}
+
+static ssize_t ilitek_proc_check_battery_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	len = sprintf(buff, "%d", ipd->isEnablePollCheckPower );
+
+	DBG_INFO("isEnablePollCheckPower = %d", ipd->isEnablePollCheckPower);
+
+	res = copy_to_user((uint32_t *)buff, &ipd->isEnablePollCheckPower, len);
+	if (res < 0)
+	{
+		DBG_ERR("Failed to copy data to user space");
+	}
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	char cmd[10] = {0};
+
+	if(buff != NULL)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	if(strcmp(cmd, "on") == 0)
+	{
+		DBG_INFO("Start the thread of check power status");
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		ipd->isEnablePollCheckPower = true;
+	}
+	else if(strcmp(cmd, "off") == 0)
+	{
+		DBG_INFO("Cancel the thread of check power status");
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		ipd->isEnablePollCheckPower = false;
 	}
 	else
 		DBG_ERR("Unknown command");
@@ -280,9 +530,12 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 // for debug
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
-	int res = 0;
-	uint8_t cmd[10] = {0};
-	uint8_t func[2] = {0};
+	int res = 0, count = 0, i;
+	int w_len = 0, r_len = 0, i2c_delay = 0;
+	char cmd[512] = {0};
+	char *token = NULL, *cur = NULL;	
+	uint8_t i2c[256] = {0};	
+	uint8_t *data = NULL;
 
 	if(buff != NULL)
 	{
@@ -295,6 +548,20 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 
 	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	token = cur = cmd;
+
+	data = kmalloc(512 * sizeof(uint8_t), GFP_KERNEL);
+	memset(data, 0, 512);
+
+	while((token = strsep(&cur, ",")) != NULL)
+	{
+		data[count] = str2hex(token);
+		//DBG_INFO("data[%d] = %x",count, data[count]);	
+		count++;
+	}
+
+	DBG_INFO("cmd = %s", cmd);
 
 	if(strcmp(cmd, "reset") == 0)
 	{
@@ -316,96 +583,128 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		DBG_INFO("Get Chip id");
 		core_config_get_chip_id();
 	}
-	else if(strcmp(cmd, "enapower") == 0)
-	{
-		DBG_INFO("Start the thread of check power status");
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
-		ipd->isEnablePollCheckPower = true;
-	}
-	else if(strcmp(cmd, "dispower") == 0)
-	{
-		DBG_INFO("Cancel the thread of check power status");
-		cancel_delayed_work_sync(&ipd->check_power_status_work);
-		ipd->isEnablePollCheckPower = false;
-	}
-	else if(strcmp(cmd, "disges") == 0)
-	{
-		DBG_INFO("disable gesture mode");
-		core_config->isEnableGesture = false;
-	}
-	else if(strcmp(cmd, "enages") == 0)
-	{
-		DBG_INFO("enable gesture mode");
-		core_config->isEnableGesture = true;
-	}
 	else if(strcmp(cmd, "dispcc") == 0)
 	{
-		DBG_INFO("disable phone cover control");
-		func[0] = 0x0C;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable phone cover");
+		core_config_phone_cover_ctrl(false);
 	}
 	else if(strcmp(cmd, "enapcc") == 0)
 	{
-		DBG_INFO("enable phone cover control");
-		func[0] = 0x0C;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable phone cover");
+		core_config_phone_cover_ctrl(true);
 	}
 	else if(strcmp(cmd, "disfsc") == 0)
 	{
-		DBG_INFO("disable finger sense control");
-		func[0] = 0x0F;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable finger sense")
+		core_config_finger_sense_ctrl(false);
 	}
 	else if(strcmp(cmd, "enafsc") == 0)
 	{
-		DBG_INFO("enable finger sense control");
-		func[0] = 0x0F;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable finger sense");
+		core_config_finger_sense_ctrl(true);
 	}
 	else if(strcmp(cmd, "disprox") == 0)
 	{
-		DBG_INFO("disable proximity function");
-		func[0] = 0x10;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable proximity");
+		core_config_proximity_ctrl(false);
 	}
 	else if(strcmp(cmd, "enaprox") == 0)
 	{
-		DBG_INFO("enable proximity function");
-		func[0] = 0x10;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable proximity");
+		core_config_proximity_ctrl(true);
 	}
 	else if(strcmp(cmd, "disglove") == 0)
 	{
 		DBG_INFO("disable glove function");
-		func[0] = 0x06;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(false, false);
 	}
 	else if(strcmp(cmd, "enaglove") == 0)
 	{
 		DBG_INFO("enable glove function");
-		func[0] = 0x06;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(true, false);
 	}
 	else if(strcmp(cmd, "glovesl") == 0)
 	{
 		DBG_INFO("set glove as seamless");
-		func[0] = 0x06;
-		func[1] = 0x02;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(true, true);
+	}
+	else if(strcmp(cmd, "enastylus") == 0)
+	{
+		DBG_INFO("enable stylus");
+		core_config_stylus_ctrl(true, false);
+	}
+	else if(strcmp(cmd, "disstylus") == 0)
+	{
+		DBG_INFO("disable stylus");
+		core_config_stylus_ctrl(false, false);
+	}
+	else if(strcmp(cmd, "stylussl") == 0)
+	{
+		DBG_INFO("set stylus as seamless");
+		core_config_stylus_ctrl(true, true);
+	}
+	else if(strcmp(cmd, "tpscan_ab") == 0)
+	{
+		DBG_INFO("set TP scan as mode AB");
+		core_config_tp_scan_mode(true);
+	}
+	else if(strcmp(cmd, "tpscan_b") == 0)
+	{
+		DBG_INFO("set TP scan as mode B");
+		core_config_tp_scan_mode(false);
+	}
+	else if(strcmp(cmd, "i2c_w") == 0)
+	{
+		w_len = data[1];
+		DBG_INFO("w_len = %d", w_len);
+
+		for(i = 0; i < w_len; i++)
+		{
+			i2c[i] = data[2+i];
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+		}
+		
+		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+	}
+	else if(strcmp(cmd, "i2c_r") == 0)
+	{
+		r_len = data[1];
+		DBG_INFO("r_len = %d", r_len);
+	
+		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+
+		for(i = 0; i < r_len; i++)
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+	}
+	else if(strcmp(cmd, "i2c_w_r") == 0)
+	{
+		w_len = data[1];
+		r_len = data[2];
+		i2c_delay = data[3];
+		DBG_INFO("w_len = %d, r_len = %d, delay = %d", w_len, r_len, i2c_delay);
+
+		for(i = 0; i < w_len; i++)
+		{
+			i2c[i] = data[4+i];
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+		}
+		
+		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+
+		memset(i2c, 0, sizeof(i2c));
+		mdelay(i2c_delay);
+
+		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+
+		for(i = 0; i < r_len; i++)
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
 	}
 	else
 	{
 		DBG_ERR("Unknown command");
 	}
-	
+
+	kfree(data);
 	return size;	
 }
 
@@ -415,8 +714,9 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	uint8_t szBuf[512] = {0};
 	static uint16_t i2c_rw_length = 0;
 	uint32_t id_to_user = 0x0;
+	char dbg[10] = {0};
 
-	DBG("cmd = %d", _IOC_NR(cmd));
+	DBG(DEBUG_IOCTL, "cmd = %d", _IOC_NR(cmd));
 
 	if (_IOC_TYPE(cmd) != ILITEK_IOCTL_MAGIC)
 	{
@@ -488,12 +788,12 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if (szBuf[0])
 			{
 				core_fr->isEnableFR = true;
-				DBG("Function of finger report was enabled");
+				DBG(DEBUG_IOCTL, "Function of finger report was enabled");
 			}
 			else
 			{
 				core_fr->isEnableFR = false;
-				DBG("Function of finger report was disabled");
+				DBG(DEBUG_IOCTL, "Function of finger report was disabled");
 			}
 		}
 		break;
@@ -518,18 +818,27 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_DEBUG_LEVEL:
-		DBG_INFO("Not implemented yet");
-		break;
-
-	case ILITEK_IOCTL_TP_FUNC_MODE:
-		res = copy_from_user(szBuf, (uint8_t *)arg, 2);
+		res = copy_from_user(dbg, (uint32_t *)arg, sizeof(uint32_t));
 		if (res < 0)
 		{
 			DBG_ERR("Failed to copy data from user space");
 		}
 		else
 		{
-			core_config_func_ctrl(szBuf);
+			ipio_debug_level = katoi(dbg);
+			DBG_INFO("ipio_debug_level = %d", ipio_debug_level);
+		}
+		break;
+
+	case ILITEK_IOCTL_TP_FUNC_MODE:
+		res = copy_from_user(szBuf, (uint8_t *)arg, 3);
+		if (res < 0)
+		{
+			DBG_ERR("Failed to copy data from user space");
+		}
+		else
+		{
+			core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], 3);
 		}
 		break;
 
@@ -541,7 +850,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->firmware_ver, fw_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->firmware_ver, protocol->fw_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy firmware version to user space");
@@ -557,7 +866,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->protocol_ver, protocol_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->protocol_ver, protocol->pro_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy protocol version to user space");
@@ -573,7 +882,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->core_ver, core_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->core_ver, protocol->core_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy core version to user space");
@@ -626,18 +935,18 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			if (szBuf[0])
 			{
 				core_fr->isEnableNetlink = true;
-				DBG_INFO("Netlink has been enabled");
+				DBG(DEBUG_IOCTL, "Netlink has been enabled");
 			}
 			else
 			{
 				core_fr->isEnableNetlink = false;
-				DBG_INFO("Netlink has been disabled");
+				DBG(DEBUG_IOCTL, "Netlink has been disabled");
 			}
 		}
 		break;
 
 	case ILITEK_IOCTL_TP_NETLINK_STATUS:
-		DBG("Check if Netlink is enabled : %d", core_fr->isEnableNetlink);
+		DBG(DEBUG_IOCTL, "Netlink is enabled : %d", core_fr->isEnableNetlink);
 		res = copy_to_user((int *)arg, &core_fr->isEnableNetlink, sizeof(int));
 		if (res < 0)
 		{
@@ -658,7 +967,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_MODE_STATUS:
-		DBG("Current firmware mode : %d", core_fr->actual_fw_mode);
+		DBG(DEBUG_IOCTL, "Current firmware mode : %d", core_fr->actual_fw_mode);
 		res = copy_to_user((int *)arg, &core_fr->actual_fw_mode, sizeof(int));
 		if (res < 0)
 		{
@@ -680,6 +989,8 @@ struct proc_dir_entry *proc_fw_process;
 struct proc_dir_entry *proc_fw_upgrade;
 struct proc_dir_entry *proc_iram_upgrade;
 struct proc_dir_entry *proc_gesture;
+struct proc_dir_entry *proc_debug_level;
+struct proc_dir_entry *proc_mp_test;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
@@ -702,6 +1013,21 @@ struct file_operations proc_iram_upgrade_fops = {
 struct file_operations proc_gesture_fops = {
 	.write = ilitek_proc_gesture_write,
 	.read = ilitek_proc_gesture_read,
+};
+
+struct file_operations proc_check_battery_fops = {
+	.write = ilitek_proc_check_battery_write,
+	.read = ilitek_proc_check_battery_read,
+};
+
+struct file_operations proc_debug_level_fops = {
+	.write = ilitek_proc_debug_level_write,
+	.read = ilitek_proc_debug_level_read,
+};
+
+struct file_operations proc_mp_test_fops = {
+	.write = ilitek_proc_mp_test_write,
+	.read = ilitek_proc_mp_test_read,
 };
 
 /**
@@ -727,6 +1053,9 @@ proc_node_t proc_table[] = {
 	{"fw_upgrade", NULL, &proc_fw_upgrade_fops, false},
 	{"iram_upgrade", NULL, &proc_iram_upgrade_fops, false},
 	{"gesture", NULL, &proc_gesture_fops, false},
+	{"check_battery", NULL, &proc_check_battery_fops, false},
+	{"debug_level", NULL, &proc_debug_level_fops, false},
+	{"mp_test", NULL, &proc_mp_test_fops, false},
 };
 
 #define NETLINK_USER 21
@@ -743,9 +1072,9 @@ void netlink_reply_msg(void *raw, int size)
 	int msg_size = size;
 	uint8_t *data = (uint8_t *)raw;
 
-	DBG("The size of data being sent to user = %d", msg_size);
-	DBG("pid = %d", pid);
-	DBG("Netlink is enable = %d", core_fr->isEnableNetlink);
+	DBG(DEBUG_NETLINK, "The size of data being sent to user = %d", msg_size);
+	DBG(DEBUG_NETLINK, "pid = %d", pid);
+	DBG(DEBUG_NETLINK, "Netlink is enable = %d", core_fr->isEnableNetlink);
 
 	if (core_fr->isEnableNetlink)
 	{
@@ -753,7 +1082,7 @@ void netlink_reply_msg(void *raw, int size)
 
 		if (!skb_out)
 		{
-			DBG_INFO("Failed to allocate new skb");
+			DBG_ERR("Failed to allocate new skb");
 			return;
 		}
 
@@ -774,19 +1103,19 @@ static void netlink_recv_msg(struct sk_buff *skb)
 {
 	pid = 0;
 
-	DBG_INFO("Netlink is enable = %d", core_fr->isEnableNetlink);
+	DBG(DEBUG_NETLINK, "Netlink is enable = %d", core_fr->isEnableNetlink);
 
 	nlh = (struct nlmsghdr *)skb->data;
 
-	DBG("Received a request from client: %s, %d",
+	DBG(DEBUG_NETLINK, "Received a request from client: %s, %d",
 		(char *)NLMSG_DATA(nlh), (int)strlen((char *)NLMSG_DATA(nlh)));
 
-	// pid of sending process
+	/* pid of sending process */
 	pid = nlh->nlmsg_pid;
 
-	DBG_INFO("the pid of sending process = %d", pid);
+	DBG(DEBUG_NETLINK, "the pid of sending process = %d", pid);
 
-	// TODO: may do something if there's not receiving msg from user.
+	/* TODO: may do something if there's not receiving msg from user. */
 	if (pid != 0)
 	{
 		DBG_ERR("The channel of Netlink has been established successfully !");

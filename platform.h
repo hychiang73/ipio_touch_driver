@@ -33,7 +33,7 @@ struct ilitek_platform_data {
 
 	const struct i2c_device_id *i2c_id;
 
-#ifdef ENABLE_REGULATOR_POWER_ON
+#ifdef REGULATOR_POWER_ON
 	struct regulator *vdd;
 	struct regulator *vdd_i2c;
 #endif
@@ -66,6 +66,10 @@ struct ilitek_platform_data {
 	struct notifier_block notifier_fb;
 #else
 	struct early_suspend early_suspend;
+#endif
+
+#ifdef BOOT_FW_UPGRADE
+	struct task_struct * update_thread;
 #endif
 
 	/* obtain msg when battery status has changed */

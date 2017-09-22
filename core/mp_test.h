@@ -25,8 +25,59 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
-extern void core_mp_switch_mode(void);
-extern void core_mp_init(void);
+struct mp_test_items
+{
+    char *name;
+    uint8_t cmd;
+	int (*do_test)(uint8_t, uint8_t);
+};
+
+struct core_mp_test_data
+{
+    /* A flag indicates an item being tested */
+    bool mutual_test;
+    bool self_test;
+    bool key_test;
+    bool st_test;
+    bool tx_rx_delta_test;
+
+    bool m_signal;
+    bool m_dac;
+	bool s_signal;
+	bool s_dac;
+	bool key_dac;
+	bool st_dac;
+
+    int xch_len;
+    int ych_len;
+    int stx_len;
+    int srx_len;
+    int key_len;
+    int st_len;
+
+    /* Spec threshold */
+    int TxDeltaMax;
+    int TxDeltaMin;
+    int RxDeltaMax;
+    int RxDeltaMin;
+
+    /* Raw data buffer */
+    int32_t *m_raw_buf;
+	int32_t *s_raw_buf;
+	int32_t *key_raw_buf;
+	int32_t *m_sin_buf;
+    int32_t *s_sin_buf;
+    int32_t *tx_delta_buf;
+    int32_t *rx_delta_buf;
+
+    struct mp_test_items tItems[29];
+};
+
+extern struct core_mp_test_data *core_mp;
+
+extern int core_mp_run_test(const char *name, uint8_t value);
+extern void core_mp_move_code(void);
+extern int core_mp_init(void);
 extern void core_mp_remove(void);
 
- #endif
+#endif

@@ -1,10 +1,10 @@
 # Introduce
 
-Ipio driver is a new touch driver used on the new products of ILITEK touch ICs. It has been verified on the firefly-rk3288 platform with Android 5.0.
+Ipio touch driver is implemented by ILI Technology Corp, which is mainly used on its new generation touch ICs, TDDI.
 
 # Support ICs
 
-The following lists which of IC types supported by the driver.
+The following lists which of TDDI IC types supported by the driver.
 
 * ILI7807F
 * ILI7807H
@@ -15,13 +15,14 @@ The following lists which of IC types supported by the driver.
 * RK3288
 * MTK
 
-If you woule like to use this driver on the MTK platform, you must open the macros as below :
+The default in this driver works on RK3288.
+
+If you woule like to port it on MTK platforms, you must open the macro which shows on below:
 
 **common.h**
 ```
 #define PLATFORM_MTK
 ```
-
 # Functions
 
 ## Gesture
@@ -33,9 +34,24 @@ echo on > /proc/ilitek/gesture
 echo off > /proc/ilitek/gesture
 ```
 
-or change its var from the file **config.c** :
+or change its variable from the file **config.c** :
 ```
 core_config->isEnableGesture = false;
+```
+
+## Check battery status
+
+Some specific cases with power charge may affect on our TDDI IC so that we need to protect it if the event is occuring.
+
+To enable the thread, you can also open it by its node or change its variable from the file **platform.c** to enable it at very first.
+
+```
+echo on > /proc/ilitek/check_battery
+echo off > /procilitek/check_battery
+```
+
+```
+ipd->isEnablePollCheckPower = false;
 ```
 
 ## DMA
@@ -59,49 +75,66 @@ echo enapcc > /proc/ilitek/ioctl    --> enable phone cover
 echo dispcc > /proc/ilitek/ioctl    --> disable phone cover
 ```
 
-# Debugging
+# Debug message
 
-In general case, the default debug level in kernel is set as 7, which number you will see all logs outputed by KERNEL_INFO and KERNEL_ERR. 
+It is important to see more details with debug messages if an error happends somehow. To look up them, you can set up debug level via a node called debug_level under /proc.
 
-You can check your kernel level by this command:
-
-```
-# cat /proc/sys/kernel/printk
-```
-
-If you'd like to see more details (like finger report packet), you can also dynamically adjust the level by echo without modifying driver code:
+At the begining, you should read its node by cat to see what the levels you can choose for.
 
 ```
-# echo "8 4 1 7" > /proc/sys/kernel/printk
+cat /proc/ilitek/debug_level
+
+DEBUG_NONE = 0
+DEBUG_IRQ = 1
+DEBUG_FINGER_REPORT = 2
+DEBUG_FIRMWARE = 4
+DEBUG_CONFIG = 8
+DEBUG_I2C = 16
+DEBUG_BATTERY = 32
+DEBUG_MP_TEST = 64
+DEBUG_IOCTL = 128
+DEBUG_NETLINK = 256
+DEBUG_ALL = -1
 ```
-then will out logs with pr_debug. The debug defines at local directory **chip.h**
+
+The default level is zero once you get the driver at the first time. Let's say that we want to check out what is going on when the driver is upgrading firmware.
 
 ```
-#define DBG_INFO(fmt, arg...) \
-			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
-
-#define DBG_ERR(fmt, arg...) \
-			pr_err("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
-
-#define DBG(fmt, arg...) \
-			pr_debug( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
+echo 4 > /proc/ilitek/debug_level
 ```
 
+The result will only print the debug message with the process of firmware. Futhermore, you can also add two or three numbers to see multiple debug levels.
+
+```
+echo 7 > /proc/ilitek/debug_level
+```
+
+In this case the debusg message prints the status of IRQ, FINGER_REPORT and FIRMWARE. Finally, you can definitly see all of them without any thoughts.
+
+```
+echo -1 > /proc/ilitek/debug_level
+```
 # File sturcture
 
 ```
-├── chip.h                 
-├── core                   
+├── common.h
+├── core
 │   ├── config.c
 │   ├── config.h
 │   ├── finger_report.c
 │   ├── finger_report.h
 │   ├── firmware.c
 │   ├── firmware.h
+│   ├── flash.c
+│   ├── flash.h
 │   ├── i2c.c
 │   ├── i2c.h
+│   ├── Makefile
+│   ├── mp_test.c
+│   ├── mp_test.h
 │   └── sup_chip.c
 ├── Makefile
+├── m.sh
 ├── platform.c
 ├── platform.h
 ├── README.md
@@ -113,7 +146,7 @@ to write your own platform c file (like copy it to platform_mtk.c and modify gpi
 
 * If you want to create more nodes on the device driver for user space, just refer to **userspace.c**.
 
-* In **chip.h* there have a lots of definations about IC's addres and protocol commands on firmware.
+* In **common.h** file where has a lots of definations about IC's addres and protocol commands on firmware.
 
 * The directory **Core** includes our touch ic settings, functions and other features.
 
@@ -198,6 +231,19 @@ static int ilitek_platform_gpio(void)
 ```
 
 # Release Note
+
+* V1.0.0.10
+
+ * Fixed the issue of I2CUart when its length of next buffer is larger
+   than previous one.
+ * Add FW upgrade at boot stage. It will be actiaved when the version of FW that is going to
+   upgrade is different the previous version, otherwise it will deny to upgrade.
+
+* V1.0.0.9
+  * Add a new way to program firmware if the hex file includes block information.
+  * Define the rule to show up detailed debug messages.
+  * Add a node to enable the thread to check battery status.
+  * Fix some bugs.
 
 * V1.0.0.8
   * Add support of MTK and DMA with I2C.
