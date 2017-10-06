@@ -89,11 +89,12 @@ extern uint32_t ipio_chip_list[2];
 //#define PLATFORM_RK 
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.1.0"
+#define DRIVER_VERSION	"1.0.1.1"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
-#define PROTOCOL_MINOR		0x1
+#define PROTOCOL_MID		0x1
+#define PROTOCOL_MINOR		0x0
 
 /* Normal debug messages */
 #define DBG_INFO(fmt, arg...) \
@@ -164,8 +165,8 @@ extern uint32_t ipio_debug_level;
  /* define the width and heigth of a screen. */
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
-#define TOUCH_SCREEN_X_MAX 1080
-#define TOUCH_SCREEN_Y_MAX 1920
+#define TOUCH_SCREEN_X_MAX 720
+#define TOUCH_SCREEN_Y_MAX 1280
 
 /* define the range on panel */
 #define TPD_HEIGHT 2048

@@ -24,11 +24,22 @@
 #include "../common.h"
 #include "protocol.h"
 
+struct protocol_version
+{
+    uint8_t major;
+    uint8_t mid;
+    uint8_t minor;
+} pver[] = {
+    {0x5, 0x0, 0x0},
+    {0x5, 0x1, 0x0},
+    {0x5, 0x2, 0x0},
+};
+
 struct protocol_cmd_list *protocol = NULL;
 
 static void config_protocol_v5_cmd(void)
 {
-    if(protocol->minor == 0x0)
+    if(protocol->mid == 0x0)
     {
         protocol->func_ctrl_len = 2;
         
@@ -68,7 +79,7 @@ static void config_protocol_v5_cmd(void)
         // protocol->plug_ctrl[0] = 0x11;
         // protocol->plug_ctrl[1] = 0x0;
     }
-    else if(protocol->minor == 0x1)
+    else
     {
         protocol->func_ctrl_len = 3;
         
@@ -120,7 +131,12 @@ static void config_protocol_v5_cmd(void)
     }
 
     protocol->fw_ver_len = 4;
-    protocol->pro_ver_len = 3;
+    
+    if(protocol->mid >= 0x2)
+        protocol->pro_ver_len = 4;
+    else
+        protocol->pro_ver_len = 3;
+
     protocol->tp_info_len = 14;
     protocol->key_info_len = 30;
     protocol->core_ver_len = 5;
@@ -203,8 +219,10 @@ static void config_protocol_v5_cmd(void)
     protocol->st_integra_time		= 0x25;
 }
 
-int core_protocol_init(uint8_t major, uint8_t minor)
+int core_protocol_init(uint8_t major, uint8_t mid, uint8_t minor)
 {
+    int i;
+
     if(protocol == NULL)
     {
         protocol = kzalloc(sizeof(*protocol), GFP_KERNEL);
@@ -215,22 +233,25 @@ int core_protocol_init(uint8_t major, uint8_t minor)
         }
     }
 
-    protocol->major = major;
-    protocol->minor = minor;
-
-    DBG_INFO("major = %d, minor = %d", protocol->major, protocol->minor);
-
-    if(protocol->major == 0x5)
+    for(i = 0; i < ARRAY_SIZE(pver); i++)
     {
-        config_protocol_v5_cmd(); 
-    }
-    else
-    {
-        DBG_ERR("Doesn't support this verions of protocol");
-        return -1;
+        if(pver[i].major == major && pver[i].mid == mid && pver[i].minor == minor)
+        {
+            protocol->major = major;
+            protocol->mid = mid;
+            protocol->minor = minor;
+            DBG_INFO("protocol: major = %d, mid = %d, minor = %d", 
+                protocol->major, protocol->mid, protocol->minor);
+
+            if(protocol->major == 0x5)
+                config_protocol_v5_cmd(); 
+
+            return 0;
+        }
     }
 
-    return 0;
+    DBG_ERR("Doesn't support this verions of protocol");
+    return -1;
 }
 
 void core_protocol_remove(void)

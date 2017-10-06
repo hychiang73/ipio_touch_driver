@@ -1072,6 +1072,7 @@ int core_config_get_protocol_ver(void)
 	uint8_t cmd[2] = {0};
 
 	memset(read_buf, 0, sizeof(read_buf));
+	memset(core_config->protocol_ver, 0x0, sizeof(core_config->protocol_ver));
 
 	if(protocol->major == 0x5)
 	{
@@ -1103,20 +1104,22 @@ int core_config_get_protocol_ver(void)
 			goto out;
 		}
 
+		/* ignore the first btye because of a header. */
 		for (; i < protocol->pro_ver_len; i++)
 		{
-			core_config->protocol_ver[i] = read_buf[i];
-			DBG(DEBUG_CONFIG, "protocol_ver[%d] = %d", i, read_buf[i]);
+			core_config->protocol_ver[i] = read_buf[i+1];
+			DBG(DEBUG_CONFIG, "protocol_ver[%d] = %d", i, core_config->protocol_ver[i]);
 		}
-
-		/* in protocol v5, ignore the first btye because of a header. */
-		DBG_INFO("Procotol Version = %d.%d",
-				core_config->protocol_ver[1],core_config->protocol_ver[2]);
 		
-		if(protocol->minor != core_config->protocol_ver[2])
+		DBG_INFO("Procotol Version = %d.%d.%d",
+				core_config->protocol_ver[0],core_config->protocol_ver[1],core_config->protocol_ver[2]);
+
+		/* update protocol */
+		res = core_protocol_init(core_config->protocol_ver[0], core_config->protocol_ver[1], core_config->protocol_ver[2]);
+		if(res < 0)
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
-			res = -1;
+			DBG_ERR("Protocol version is invalid");
+			goto out;
 		}
 	}
 	else
