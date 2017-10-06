@@ -676,6 +676,8 @@ static int ilitek_platform_boot_fw_upgrade(void *arg)
 {
 	int res = 0;
 
+	core_firmware->isboot = true;
+
 	ilitek_platform_disable_irq();
 
 	res = core_firmware_boot_upgrade();
@@ -685,6 +687,8 @@ static int ilitek_platform_boot_fw_upgrade(void *arg)
 	ilitek_platform_enable_irq();
 
 	ilitek_platform_input_init();
+
+	core_firmware->isboot = false;
 
 	return res;
 }
