@@ -42,6 +42,7 @@ struct core_firmware_data
 
 	bool isUpgrading;
 	bool isCRC;
+	bool isboot;
 	bool hasBlockInfo;
 
 	int (*upgrade_func)(bool isIRAM);

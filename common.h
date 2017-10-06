@@ -201,6 +201,6 @@ extern uint32_t ipio_debug_level;
 //#define I2C_SEGMENT
 
 /* Be able to upgrade fw at boot stage */
-//#define BOOT_FW_UPGRADE
+#define BOOT_FW_UPGRADE
 
 #endif /* __COMMON_H */
