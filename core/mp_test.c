@@ -795,7 +795,7 @@ int core_mp_run_test(const char *name, uint8_t val)
 {
 	int i = 0, res = 0;
 
-	DBG_INFO("Test name = %s, size = %d", name, ARRAY_SIZE(core_mp->tItems));
+	DBG_INFO("Test name = %s, size = %d", name, (int)ARRAY_SIZE(core_mp->tItems));
 
 	for(i = 0; i < ARRAY_SIZE(core_mp->tItems); i++)
 	{

@@ -38,8 +38,8 @@
 #define DTS_OF_NAME		"mediatek,cap_touch"
 #include "tpd.h"
 extern struct tpd_device *tpd;
-#define MTK_RST_GPIO 2
-#define MTK_INT_GPIO 1
+#define MTK_RST_GPIO GTP_RST_PORT
+#define MTK_INT_GPIO GTP_INT_PORT
 #else
 #define DTS_OF_NAME		"tchip,ilitek"
 #endif
@@ -60,7 +60,7 @@ void ilitek_platform_disable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -70,7 +70,7 @@ void ilitek_platform_disable_irq(void)
 		{
 			disable_irq_nosync(ipd->isr_gpio);
 			ipd->isEnableIRQ = false;
-			DBG(DEBUG_IRQ, "Disable IRQ");
+			DBG(DEBUG_IRQ, "Disable IRQ: %d", ipd->isEnableIRQ);
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
@@ -86,7 +86,7 @@ void ilitek_platform_enable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -96,7 +96,7 @@ void ilitek_platform_enable_irq(void)
 		{
 			enable_irq(ipd->isr_gpio);
 			ipd->isEnableIRQ = true;
-			DBG(DEBUG_IRQ, "Enable IRQ");
+			DBG(DEBUG_IRQ, "Enable IRQ: %d", ipd->isEnableIRQ);
 		}
 		else
 			DBG_ERR("The number of gpio to irq is incorrect");
@@ -444,7 +444,7 @@ static int ilitek_platform_irq_kthread(void *arg)
 #else
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
-	DBG(DEBUG_IRQ, "work_queue: Enable IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "work_queue: IRQ = %d", ipd->isEnableIRQ);
 
 	if (!ipd->isEnableIRQ)
 		ilitek_platform_enable_irq();
@@ -457,7 +457,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
 //	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "Enable IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
 
 //	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -715,7 +715,7 @@ static int ilitek_platform_core_init(void)
 	DBG_INFO("Initialise core's components ");
 
 	if (core_config_init() < 0 ||
-		core_protocol_init(PROTOCOL_MAJOR, PROTOCOL_MINOR) < 0 ||
+		core_protocol_init(PROTOCOL_MAJOR, PROTOCOL_MID, PROTOCOL_MINOR) < 0 ||
 		core_i2c_init(ipd->client) < 0 ||
 		core_firmware_init() < 0 ||
 		core_fr_init(ipd->client) < 0)
