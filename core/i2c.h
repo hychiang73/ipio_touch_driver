@@ -29,12 +29,16 @@ struct core_i2c_data
 {
 	struct i2c_client *client;
 	int clk;
+	int seg_len;
 };
 
 extern struct core_i2c_data *core_i2c;
 
 extern int core_i2c_write(uint8_t, uint8_t *, uint16_t);
 extern int core_i2c_read(uint8_t, uint8_t *, uint16_t);
+
+extern int core_i2c_segmental_read(uint8_t, uint8_t *, uint16_t);
+
 extern int core_i2c_init(struct i2c_client *);
 extern void core_i2c_remove(void);
 

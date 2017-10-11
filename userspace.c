@@ -39,6 +39,8 @@
 #include "core/finger_report.h"
 #include "core/flash.h"
 #include "core/i2c.h"
+#include "core/protocol.h"
+#include "core/mp_test.h"
 
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	18
@@ -103,6 +105,128 @@ static int katoi(char *string)
 		return -result;
 	}
 		return result;
+}
+
+static int str2hex(char *str) 
+{
+	int strlen,result,intermed,intermedtop;
+	char *s;
+	s=str;
+	while(*s != 0x0) {s++;}
+	strlen=(int)(s-str);
+	s=str;
+	if(*s != 0x30) {
+	  return -1;
+	} else {
+	  s++;
+	  if(*s != 0x78 && *s != 0x58){
+		  return -1;
+	  }
+	  s++;
+	}
+	strlen = strlen-3;
+	result = 0;
+	while(*s != 0x0) {
+	  intermed = *s & 0x0f;
+	  intermedtop = *s & 0xf0;
+	  if(intermedtop == 0x60 || intermedtop == 0x40) {
+		  intermed += 0x09;
+	  }
+	  intermed = intermed << (strlen << 2);
+	  result = result | intermed;
+	  strlen -= 1;
+	  s++;
+	}
+	return result;
+}
+
+static ssize_t ilitek_proc_report_data_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	if(core_fr->isPrint)
+		core_fr->isPrint = false;
+	else
+		core_fr->isPrint = true;
+
+	len = sprintf(buff, "%d", core_fr->isPrint);
+
+	DBG_INFO("Print report data = %d", core_fr->isPrint);
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	/*
+	len = sprintf(buff, "%d", ipio_debug_level);
+
+
+	res = copy_to_user((uint32_t *)buff, &ipio_debug_level, len);
+	if (res < 0)
+	{
+		DBG_ERR("Failed to copy data to user space");
+	}
+*/	
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0, count = 0;
+	char cmd[64] = {0};
+	char *token = NULL, *cur = NULL;	
+	uint8_t *va = NULL;
+
+	if(buff != NULL)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	if(size > 64)
+	{
+		DBG_ERR("The size of string is too long");
+		return size;
+	}
+
+	token = cur = cmd;
+
+	va = kmalloc(64 * sizeof(uint8_t), GFP_KERNEL);
+	memset(va, 0, 64);
+
+	while((token = strsep(&cur, ",")) != NULL)
+	{
+		va[count] = str2hex(token);
+		//DBG_INFO("data[%d] = %x",count, va[count]);	
+		count++;
+
+		if(count > 2)
+			break;
+	}
+
+	core_mp_run_test(cmd, va[1]);
+
+	return size;
 }
 
 static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
@@ -427,9 +551,12 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 // for debug
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
-	int res = 0;
-	uint8_t cmd[10] = {0};
-	uint8_t func[2] = {0};
+	int res = 0, count = 0, i;
+	int w_len = 0, r_len = 0, i2c_delay = 0;
+	char cmd[512] = {0};
+	char *token = NULL, *cur = NULL;	
+	uint8_t i2c[256] = {0};	
+	uint8_t *data = NULL;
 
 	if(buff != NULL)
 	{
@@ -442,6 +569,20 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 
 	DBG_INFO("size = %d, cmd = %s", (int)size, cmd);
+
+	token = cur = cmd;
+
+	data = kmalloc(512 * sizeof(uint8_t), GFP_KERNEL);
+	memset(data, 0, 512);
+
+	while((token = strsep(&cur, ",")) != NULL)
+	{
+		data[count] = str2hex(token);
+		//DBG_INFO("data[%d] = %x",count, data[count]);	
+		count++;
+	}
+
+	DBG_INFO("cmd = %s", cmd);
 
 	if(strcmp(cmd, "reset") == 0)
 	{
@@ -465,72 +606,126 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 	else if(strcmp(cmd, "dispcc") == 0)
 	{
-		DBG_INFO("disable phone cover control");
-		func[0] = 0x0C;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable phone cover");
+		core_config_phone_cover_ctrl(false);
 	}
 	else if(strcmp(cmd, "enapcc") == 0)
 	{
-		DBG_INFO("enable phone cover control");
-		func[0] = 0x0C;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable phone cover");
+		core_config_phone_cover_ctrl(true);
 	}
 	else if(strcmp(cmd, "disfsc") == 0)
 	{
-		DBG_INFO("disable finger sense control");
-		func[0] = 0x0F;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable finger sense")
+		core_config_finger_sense_ctrl(false);
 	}
 	else if(strcmp(cmd, "enafsc") == 0)
 	{
-		DBG_INFO("enable finger sense control");
-		func[0] = 0x0F;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable finger sense");
+		core_config_finger_sense_ctrl(true);
 	}
 	else if(strcmp(cmd, "disprox") == 0)
 	{
-		DBG_INFO("disable proximity function");
-		func[0] = 0x10;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		DBG_INFO("disable proximity");
+		core_config_proximity_ctrl(false);
 	}
 	else if(strcmp(cmd, "enaprox") == 0)
 	{
-		DBG_INFO("enable proximity function");
-		func[0] = 0x10;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		DBG_INFO("enable proximity");
+		core_config_proximity_ctrl(true);
 	}
 	else if(strcmp(cmd, "disglove") == 0)
 	{
 		DBG_INFO("disable glove function");
-		func[0] = 0x06;
-		func[1] = 0x00;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(false, false);
 	}
 	else if(strcmp(cmd, "enaglove") == 0)
 	{
 		DBG_INFO("enable glove function");
-		func[0] = 0x06;
-		func[1] = 0x01;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(true, false);
 	}
 	else if(strcmp(cmd, "glovesl") == 0)
 	{
 		DBG_INFO("set glove as seamless");
-		func[0] = 0x06;
-		func[1] = 0x02;
-		core_config_func_ctrl(func);
+		core_config_glove_ctrl(true, true);
+	}
+	else if(strcmp(cmd, "enastylus") == 0)
+	{
+		DBG_INFO("enable stylus");
+		core_config_stylus_ctrl(true, false);
+	}
+	else if(strcmp(cmd, "disstylus") == 0)
+	{
+		DBG_INFO("disable stylus");
+		core_config_stylus_ctrl(false, false);
+	}
+	else if(strcmp(cmd, "stylussl") == 0)
+	{
+		DBG_INFO("set stylus as seamless");
+		core_config_stylus_ctrl(true, true);
+	}
+	else if(strcmp(cmd, "tpscan_ab") == 0)
+	{
+		DBG_INFO("set TP scan as mode AB");
+		core_config_tp_scan_mode(true);
+	}
+	else if(strcmp(cmd, "tpscan_b") == 0)
+	{
+		DBG_INFO("set TP scan as mode B");
+		core_config_tp_scan_mode(false);
+	}
+	else if(strcmp(cmd, "i2c_w") == 0)
+	{
+		w_len = data[1];
+		DBG_INFO("w_len = %d", w_len);
+
+		for(i = 0; i < w_len; i++)
+		{
+			i2c[i] = data[2+i];
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+		}
+		
+		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+	}
+	else if(strcmp(cmd, "i2c_r") == 0)
+	{
+		r_len = data[1];
+		DBG_INFO("r_len = %d", r_len);
+	
+		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+
+		for(i = 0; i < r_len; i++)
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+	}
+	else if(strcmp(cmd, "i2c_w_r") == 0)
+	{
+		w_len = data[1];
+		r_len = data[2];
+		i2c_delay = data[3];
+		DBG_INFO("w_len = %d, r_len = %d, delay = %d", w_len, r_len, i2c_delay);
+
+		for(i = 0; i < w_len; i++)
+		{
+			i2c[i] = data[4+i];
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
+		}
+		
+		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+
+		memset(i2c, 0, sizeof(i2c));
+		mdelay(i2c_delay);
+
+		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+
+		for(i = 0; i < r_len; i++)
+			DBG_INFO("i2c[%d] = %x",i , i2c[i]);
 	}
 	else
 	{
 		DBG_ERR("Unknown command");
 	}
-	
+
+	kfree(data);
 	return size;	
 }
 
@@ -657,14 +852,14 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_FUNC_MODE:
-		res = copy_from_user(szBuf, (uint8_t *)arg, 2);
+		res = copy_from_user(szBuf, (uint8_t *)arg, 3);
 		if (res < 0)
 		{
 			DBG_ERR("Failed to copy data from user space");
 		}
 		else
 		{
-			core_config_func_ctrl(szBuf);
+			core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], 3);
 		}
 		break;
 
@@ -676,7 +871,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->firmware_ver, fw_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->firmware_ver, protocol->fw_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy firmware version to user space");
@@ -692,7 +887,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->protocol_ver, protocol_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->protocol_ver, protocol->pro_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy protocol version to user space");
@@ -708,7 +903,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		}
 		else
 		{
-			res = copy_to_user((uint8_t *)arg, core_config->core_ver, core_cmd_len);
+			res = copy_to_user((uint8_t *)arg, core_config->core_ver, protocol->core_ver_len);
 			if (res < 0)
 			{
 				DBG_ERR("Failed to copy core version to user space");
@@ -815,6 +1010,9 @@ struct proc_dir_entry *proc_fw_process;
 struct proc_dir_entry *proc_fw_upgrade;
 struct proc_dir_entry *proc_iram_upgrade;
 struct proc_dir_entry *proc_gesture;
+struct proc_dir_entry *proc_debug_level;
+struct proc_dir_entry *proc_report_data;
+struct proc_dir_entry *proc_mp_test;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
@@ -849,6 +1047,15 @@ struct file_operations proc_debug_level_fops = {
 	.read = ilitek_proc_debug_level_read,
 };
 
+struct file_operations proc_report_data_fops = {
+	.read = ilitek_proc_report_data_read,
+};
+
+struct file_operations proc_mp_test_fops = {
+	.write = ilitek_proc_mp_test_write,
+	.read = ilitek_proc_mp_test_read,
+};
+
 /**
  * This struct lists all file nodes will be created under /proc filesystem.
  *
@@ -874,6 +1081,8 @@ proc_node_t proc_table[] = {
 	{"gesture", NULL, &proc_gesture_fops, false},
 	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
+	{"report_data", NULL, &proc_report_data_fops, false},
+	{"mp_test", NULL, &proc_mp_test_fops, false},
 };
 
 #define NETLINK_USER 21

@@ -82,12 +82,19 @@
 //#define ON_BOARD_IC		0x7807
 #define ON_BOARD_IC		0x9881
 
+extern uint32_t ipio_chip_list[2];
+
 /* Platform */
 //#define PLATFORM_MTK 
 #define PLATFORM_RK 
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.1.0"
+#define DRIVER_VERSION	"1.0.1.1"
+
+/* Protocol version */
+#define PROTOCOL_MAJOR		0x5
+#define PROTOCOL_MID		0x1
+#define PROTOCOL_MINOR		0x0
 
 /* Normal debug messages */
 #define DBG_INFO(fmt, arg...) \
@@ -128,59 +135,14 @@ extern uint32_t ipio_debug_level;
 #define CHECK_EQUAL(X,Y) ((X==Y) ? 0 : -1 )
 #define ERR_ALLOC_MEM(X)	((IS_ERR(X) || X == NULL) ? 1 : 0)
 
-/*
- * Relative Firmware Upgrade
- */
+/* The size of firmware upgrade */
 #define MAX_HEX_FILE_SIZE			(160*1024)
 #define MAX_FLASH_FIRMWARE_SIZE		(256*1024)
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
 
-/*
- * Protocol commands 
- */
-/* V3.2 */
-#define ILITEK_PROTOCOL_V3_2			0x302
-#define PCMD_3_2_GET_TP_INFORMATION		0x20
-#define PCMD_3_2_GET_KEY_INFORMATION	0x22
-#define PCMD_3_2_GET_FIRMWARE_VERSION	0x40
-#define PCMD_3_2_GET_PROTOCOL_VERSION	0x42
-
-/* V5.0 */
-#define ILITEK_PROTOCOL_V5_0			0x50
-#define PCMD_5_0_READ_DATA_CTRL			0xF6
-#define PCMD_5_0_GET_TP_INFORMATION		0x20
-#define PCMD_5_0_GET_KEY_INFORMATION	0x27
-#define PCMD_5_0_GET_FIRMWARE_VERSION	0x21
-#define PCMD_5_0_GET_PROTOCOL_VERSION	0x22
-#define PCMD_5_0_GET_CORE_VERSION		0x23
-#define PCMD_5_0_MODE_CONTROL			0xF0
-#define PCMD_5_0_I2C_UART				0x40
-#define PCMD_5_0_SLEEP_CONTROL			0x02
-#define PCMD_5_0_CDC_BUSY_STATE			0xF3
-
-/* firmware mode */
-#define P5_0_FIRMWARE_UNKNOWN_MODE		0xFF
-#define P5_0_FIRMWARE_DEMO_MODE			0x00
-#define P5_0_FIRMWARE_TEST_MODE			0x01
-#define P5_0_FIRMWARE_DEBUG_MODE		0x02
-#define P5_0_FIRMWARE_I2CUART_MODE		0x03 //defined by ourself 
-
-/* Packet ID at the first byte of each finger touch packet */
-#define P5_0_DEMO_PACKET_ID		0x5A
-#define P5_0_DEBUG_PACKET_ID	0xA7
-#define P5_0_TEST_PACKET_ID		0xF2
-#define P5_0_GESTURE_PACKET_ID	0xAA
-#define P5_0_I2CUART_PACKET_ID	0x7A
-
-/* length of finger touch packet */
-#define P5_0_DEMO_MODE_PACKET_LENGTH  	43
-#define P5_0_DEBUG_MODE_PACKET_LENGTH  	1280
-#define P5_0_TEST_MODE_PACKET_LENGTH  	1180
-
-/*
- * ILI7807 Series
- */
+/* ILI7807 Series */
 #define CHIP_TYPE_ILI7807		0x7807
+
 #define ILI7807_TYPE_F_AA		0x0000
 #define ILI7807_TYPE_F_AB		0x0001
 #define ILI7807_TYPE_H			0x1100
@@ -189,9 +151,7 @@ extern uint32_t ipio_debug_level;
 #define ILI7807_ICE_MODE_ADDR	0x181062
 #define ILI7807_PID_ADDR		0x4009C
 
-/*
- * ILI9881 Series
- */
+/* ILI9881 Series */
 #define CHIP_TYPE_ILI9881		0x9881
 
 #define ILI9881_SLAVE_ADDR		0x41
@@ -201,10 +161,46 @@ extern uint32_t ipio_debug_level;
 /*
  * Other settings
  */
+
+ /* define the width and heigth of a screen. */
+#define TOUCH_SCREEN_X_MIN 0
+#define TOUCH_SCREEN_Y_MIN 0
+#define TOUCH_SCREEN_X_MAX 720
+#define TOUCH_SCREEN_Y_MAX 1280
+
+/* define the range on panel */
+#define TPD_HEIGHT 2048
+#define TPD_WIDTH 2048
+
+/* define the size of window of phone cover */
+#define UL_X_LOW	0
+#define UL_X_HIGH	100
+#define UL_Y_LOW	0
+#define UL_Y_HIGH	100
+#define BR_X_LOW	0
+#define BR_X_HIGH	100
+#define BR_Y_LOW	0
+#define BR_Y_HIGH	100	
+ 
+/* How many numbers of touch are supported by IC. */
 #define MAX_TOUCH_NUM	10
-#define ENABLE_REGULATOR_POWER_ON 
-//#define ENABLE_DMA 
-#define USE_KTHREAD 
+
+/* Linux multiple touch protocol, either B type or A type. */
+#define MT_B_TYPE
+
+/* Enable the support of regulator power. */
+#define REGULATOR_POWER_ON 
+
+/* Either an interrupt event handled by kthread or work queue. */
+#define USE_KTHREAD
+
+/* Enable DMA with I2C. */
+//#define I2C_DMA
+
+/* Split the length written to or read from IC via I2C. */
+//#define I2C_SEGMENT
+
+/* Be able to upgrade fw at boot stage */
 //#define BOOT_FW_UPGRADE
 
 #endif /* __COMMON_H */

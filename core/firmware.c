@@ -57,6 +57,12 @@ uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = {0};
 int sec_length = 0;
 int total_sector = 0;
 
+#ifdef BOOT_FW_UPGRADE
+/* The addr of block reserved for customers */
+int start_reserve = 0x1C000;
+int end_reserve = 0x1CFFF;
+#endif
+
 struct flash_sector
 {
 	uint32_t ss_addr;
@@ -416,9 +422,18 @@ static int flash_program_sector(void)
 
 	for(i = 0; i < sec_length + 1; i++)
 	{
-		if(!ffls[i].data_flag)
-			continue;
-		
+		if(core_firmware->isboot)
+		{
+			if(!ffls[i].inside_block)
+				continue;
+		}
+		else
+		{
+			if(!ffls[i].data_flag)
+				continue;
+		}
+
+		/* programming flash by its page size */
 		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= flashtab->program_page)
 		{
 			if(j > core_firmware->end_addr)
@@ -495,8 +510,16 @@ static int flash_erase_sector(void)
 
 	for(i = 0; i < total_sector; i++)
 	{
-		if(!ffls[i].data_flag && !ffls[i].inside_block)
-			continue;
+		if(core_firmware->isboot)
+		{
+			if(!ffls[i].inside_block)
+				continue;
+		}
+		else
+		{
+			if(!ffls[i].data_flag && !ffls[i].inside_block)
+				continue;
+		}
 
 		res = do_erase_flash(ffls[i].ss_addr);
 		if(res < 0)
@@ -668,18 +691,21 @@ out:
 #ifdef BOOT_FW_UPGRADE
 static int convert_hex_array(void)
 {
-	int i, index = 0;
+	int i, j, index = 0;
+	int block = 0, blen = 0, bindex = 0;
+	uint32_t tmp_addr = 0x0;
 
 	core_firmware->start_addr = 0;
 	core_firmware->end_addr = 0;	
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
+	core_firmware->hasBlockInfo = false;
 
-	DBG(DEBUG_FIRMWARE, "CTPM_FW = %d", ARRAY_SIZE(CTPM_FW));
+	DBG_INFO("CTPM_FW = %d", (int)ARRAY_SIZE(CTPM_FW));
 
 	if(ARRAY_SIZE(CTPM_FW) <= 0)
 	{
-		DBG_ERR("The size of CTPM_FW is invaild (%d)", ARRAY_SIZE(CTPM_FW));
+		DBG_ERR("The size of CTPM_FW is invaild (%d)", (int)ARRAY_SIZE(CTPM_FW));
 		goto out;
 	}
 
@@ -688,6 +714,7 @@ static int convert_hex_array(void)
 	core_firmware->new_fw_ver[1] = CTPM_FW[20];
 	core_firmware->new_fw_ver[2] = CTPM_FW[21];
 
+	/* The process will be executed if the comparison is different with origin ver */
 	for(i = 0; i < ARRAY_SIZE(core_firmware->old_fw_ver); i++)
 	{
 		if(core_firmware->old_fw_ver[i] != core_firmware->new_fw_ver[i])
@@ -703,10 +730,35 @@ static int convert_hex_array(void)
 		goto out;
 	}
 
-	/* Fill data into buffer */
-	for(i = 0; i < ARRAY_SIZE(CTPM_FW) - 32; i++)
+	/* Extract block info */
+	block = CTPM_FW[33];
+
+	if(block > 0)
 	{
-		flash_fw[i] = CTPM_FW[i+32];
+		core_firmware->hasBlockInfo = true;
+		
+		/* Initialize block's index and length */
+		blen = 6;
+		bindex = 34;
+
+		for(i = 0; i < block; i++)
+		{
+			for(j = 0; j < blen; j++)
+			{
+				if(j < 3)
+					fbi[i].start_addr = (fbi[i].start_addr << 8) | CTPM_FW[bindex+j];
+				else
+					fbi[i].end_addr = (fbi[i].end_addr << 8) | CTPM_FW[bindex+j];
+			}
+
+			bindex += blen;
+		}
+	}
+
+	/* Fill data into buffer */
+	for(i = 0; i < ARRAY_SIZE(CTPM_FW) - 64; i++)
+	{
+		flash_fw[i] = CTPM_FW[i+64];
 		index = i / flashtab->sector; 
 		if(!ffls[index].data_flag)
 		{
@@ -725,17 +777,51 @@ static int convert_hex_array(void)
 					ffls[sec_length].se_addr, flashtab->mem_size);
 		goto out;
 	}
-		
-	/* DEBUG: for showing data with address that will write into fw */
+
 	for(i = 0; i < total_sector; i++)
 	{
-		DBG(DEBUG_FIRMWARE, "ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d", 
+		/* fill meaing address in an array where is empty */
+		if(ffls[i].ss_addr == 0x0 && ffls[i].se_addr == 0x0)
+		{
+			ffls[i].ss_addr = tmp_addr;
+			ffls[i].se_addr = (i + 1) * flashtab->sector - 1;
+		}
+	
+		tmp_addr += flashtab->sector;
+
+		/* set erase flag in the block if the addr of sectors is between them. */
+		if(core_firmware->hasBlockInfo)
+		{
+			for(j = 0; j < ARRAY_SIZE(fbi); j++)
+			{
+				if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
+				{
+					ffls[i].inside_block = true;
+					break;
+				}
+			}			
+		}
+
+		/* 
+		 * protects the reserved address been written and erased.
+		 * This feature only applies on the boot upgrade. The addr is progrmmable in normal case. 
+		 */
+		if(ffls[i].ss_addr == start_reserve && ffls[i].se_addr == end_reserve)
+		{
+			ffls[i].inside_block = false;
+		}
+	}
+		
+	/* DEBUG: for showing data with address that will write into fw or be erased */
+	for(i = 0; i < total_sector; i++)
+	{
+		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d", 
 		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag, ffls[i].inside_block);
 	}
 
 	core_firmware->start_addr = 0x0;
 	core_firmware->end_addr = ffls[sec_length].se_addr;
-	DBG_INFO("start_addr = 0x%06X, end_addr = 0x%06X", core_firmware->start_addr, core_firmware->end_addr);
+	DBG_INFO("start_addr = 0x%06X, end_addr = 0x%06X", core_firmware->start_addr, core_firmware->end_addr);	
 	return 0;
 
 out:
@@ -846,7 +932,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t i = 0, j = 0, k = 0;
 	uint32_t nLength = 0, nAddr = 0, nType = 0;
-	uint32_t nStartAddr = 0xFFF, nEndAddr = 0x0, nChecksum = 0x0,nExAddr = 0;
+	uint32_t nStartAddr = 0x0, nEndAddr = 0x0, nChecksum = 0x0,nExAddr = 0;
 	uint32_t tmp_addr = 0x0;
 	int index = 0, block = 0;
 
@@ -962,20 +1048,20 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		goto out;
 	}
 	
-	if(core_firmware->hasBlockInfo)
+	for(i = 0; i < total_sector; i++)
 	{
-		for(i = 0; i < total_sector; i++)
+		/* fill meaing address in an array where is empty*/
+		if(ffls[i].ss_addr == 0x0 && ffls[i].se_addr == 0x0)
 		{
-			/* fill meaing address in an array where is empty*/
-			if(ffls[i].ss_addr == 0x0 && ffls[i].se_addr == 0x0)
-			{
-				ffls[i].ss_addr = tmp_addr;
-				ffls[i].se_addr = (i + 1) * flashtab->sector - 1;
-			}
-		
-			tmp_addr += flashtab->sector;
+			ffls[i].ss_addr = tmp_addr;
+			ffls[i].se_addr = (i + 1) * flashtab->sector - 1;
+		}
+	
+		tmp_addr += flashtab->sector;
 
-			/* set erase flag in the block if the addr of sector is between it. */
+		/* set erase flag in the block if the addr of sectors is between them. */
+		if(core_firmware->hasBlockInfo)
+		{
 			for(j = 0; j < ARRAY_SIZE(fbi); j++)
 			{
 				if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
@@ -983,11 +1069,11 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 					ffls[i].inside_block = true;
 					break;
 				}
-			}
+			}			
 		}
 	}
 
-	/* DEBUG: for showing data with address that will write into fw */
+	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for(i = 0; i < total_sector; i++)
 	{
 		DBG(DEBUG_FIRMWARE, "ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d", 
@@ -1161,9 +1247,9 @@ int core_firmware_init(void)
 {
 	int i = 0, j = 0, res = -1;
 
-	for (; i < nums_chip; i++)
+	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
-		if (SUP_CHIP_LIST[i] == ON_BOARD_IC)
+		if (ipio_chip_list[i] == ON_BOARD_IC)
 		{
 			core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
 			if(ERR_ALLOC_MEM(core_firmware))
@@ -1174,6 +1260,7 @@ int core_firmware_init(void)
 			}
 
 			core_firmware->hasBlockInfo = false;
+			core_firmware->isboot = false;
 
 			for (j = 0; j < 4; j++)
 			{
@@ -1181,14 +1268,14 @@ int core_firmware_init(void)
 				core_firmware->new_fw_ver[i] = 0x0;
 			}
 
-			if (core_config->chip_id == CHIP_TYPE_ILI7807)
+			if (ipio_chip_list[i] == CHIP_TYPE_ILI7807)
 			{
 				core_firmware->max_count = 0xFFFF;
 				core_firmware->isCRC = false;
 				core_firmware->upgrade_func = tddi_fw_upgrade;
 				core_firmware->delay_after_upgrade = 100;
 			}
-			else if (core_config->chip_id == CHIP_TYPE_ILI9881)
+			else if (ipio_chip_list[i] == CHIP_TYPE_ILI9881)
 			{
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;

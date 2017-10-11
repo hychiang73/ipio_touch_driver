@@ -33,7 +33,7 @@ struct ilitek_platform_data {
 
 	const struct i2c_device_id *i2c_id;
 
-#ifdef ENABLE_REGULATOR_POWER_ON
+#ifdef REGULATOR_POWER_ON
 	struct regulator *vdd;
 	struct regulator *vdd_i2c;
 #endif
