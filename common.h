@@ -85,8 +85,8 @@
 extern uint32_t ipio_chip_list[2];
 
 /* Platform */
-#define PLATFORM_MTK 
-//#define PLATFORM_RK 
+//#define PLATFORM_MTK 
+#define PLATFORM_RK 
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.1.1"
