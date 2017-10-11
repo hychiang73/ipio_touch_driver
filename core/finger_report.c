@@ -670,7 +670,7 @@ fr_hashtable fr_t[] = {
  */
 void core_fr_handler(void)
 {
-	int i = 0;
+	int i = 0, j;
 	uint8_t *tdata = NULL;
 
 	if(core_fr->isEnableFR)
@@ -703,30 +703,51 @@ void core_fr_handler(void)
 					fr_t[i].finger_report();
 					mutex_unlock(&ipd->MUTEX);
 
-					if (core_fr->isEnableNetlink)
+					/* 2048 is referred to the defination by user */
+					if(tlen < 2048)
 					{
-						/* 2048 is referred to the defination by user */
-						if(tlen < 2048)
+						tdata = kmalloc(tlen, GFP_ATOMIC);
+						if(ERR_ALLOC_MEM(tdata))
 						{
-							tdata = kmalloc(tlen, GFP_ATOMIC);
-							if(ERR_ALLOC_MEM(tdata))
-							{
-								DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(tdata));
-								goto out;
-							}
-
-							memcpy(tdata, fnode->data, fnode->len);
-							/* merge uart data if it's at i2cuart mode */
-							if(fuart != NULL)
-								memcpy(tdata+fnode->len, fuart->data, fuart->len);
-						}
-						else
-						{
-							DBG_ERR("total lenght (%d) is too long than user can handle", tlen);
+							DBG_ERR("Failed to allocate fnode memory %ld", PTR_ERR(tdata));
 							goto out;
 						}
 
+						memcpy(tdata, fnode->data, fnode->len);
+						/* merge uart data if it's at i2cuart mode */
+						if(fuart != NULL)
+							memcpy(tdata+fnode->len, fuart->data, fuart->len);
+					}
+					else
+					{
+						DBG_ERR("total lenght (%d) is too long than user can handle", tlen);
+						goto out;
+					}
+
+					if (core_fr->isEnableNetlink)
 						netlink_reply_msg(tdata, tlen);
+
+					/* printing report data at terminal for the use of debug */
+					if (core_fr->isPrint)
+					{
+						bool st = false;
+						for(j = 0; j < tlen; j++)
+						{
+							if(j == 0 || st)
+							{
+								st = false;
+								printk("ILI_DATA: ");
+							}
+
+							printk(" 0x%02x ", tdata[j]);
+
+							if((j % 16) == 0)
+							{
+								st = true;
+								printk("\n");
+							}
+						}
+						printk("\nILI_DATA: ---------------------- \n");
 					}
 					break;
 				}
@@ -870,6 +891,7 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnablePressure = false;
 			core_fr->isSetResolution = false;
 			core_fr->isSetPhoneCover = false;
+			core_fr->isPrint = false;
 			core_fr->actual_fw_mode = protocol->demo_mode;
 
 			res = 0;

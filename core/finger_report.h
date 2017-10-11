@@ -41,6 +41,8 @@ struct core_fr_data
 	uint8_t i2cuart_mode;
 	/* used to set phone cover window size by default */
 	bool isSetPhoneCover;
+	/* Terminal shows report data */
+	bool isPrint;
 
 	/* current firmware mode in driver */
 	uint16_t actual_fw_mode;

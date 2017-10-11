@@ -140,6 +140,27 @@ static int str2hex(char *str)
 	return result;
 }
 
+static ssize_t ilitek_proc_report_data_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	if(core_fr->isPrint)
+		core_fr->isPrint = false;
+	else
+		core_fr->isPrint = true;
+
+	len = sprintf(buff, "%d", core_fr->isPrint);
+
+	DBG_INFO("Print report data = %d", core_fr->isPrint);
+
+	*pPos = len;
+
+	return len;
+}
+
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	uint32_t len = 0;
@@ -990,6 +1011,7 @@ struct proc_dir_entry *proc_fw_upgrade;
 struct proc_dir_entry *proc_iram_upgrade;
 struct proc_dir_entry *proc_gesture;
 struct proc_dir_entry *proc_debug_level;
+struct proc_dir_entry *proc_report_data;
 struct proc_dir_entry *proc_mp_test;
 
 struct file_operations proc_ioctl_fops = {
@@ -1025,6 +1047,10 @@ struct file_operations proc_debug_level_fops = {
 	.read = ilitek_proc_debug_level_read,
 };
 
+struct file_operations proc_report_data_fops = {
+	.read = ilitek_proc_report_data_read,
+};
+
 struct file_operations proc_mp_test_fops = {
 	.write = ilitek_proc_mp_test_write,
 	.read = ilitek_proc_mp_test_read,
@@ -1055,6 +1081,7 @@ proc_node_t proc_table[] = {
 	{"gesture", NULL, &proc_gesture_fops, false},
 	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
+	{"report_data", NULL, &proc_report_data_fops, false},
 	{"mp_test", NULL, &proc_mp_test_fops, false},
 };
 
