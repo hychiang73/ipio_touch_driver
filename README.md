@@ -220,7 +220,7 @@ To find a macro called *ON_BOARD_IC* in **chip.h** and chose one of them:
 #define ON_BOARD_IC		0x7807
 //#define ON_BOARD_IC		0x9881
 ```
- In this case the driver now support ILI7807.
+ In this case the driver now supports ILI7807.
  
 ## Check your DTS file and i2c bus number
 
