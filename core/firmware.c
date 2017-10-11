@@ -780,7 +780,7 @@ static int convert_hex_array(void)
 
 	for(i = 0; i < total_sector; i++)
 	{
-		/* fill meaing address in an array where is empty*/
+		/* fill meaing address in an array where is empty */
 		if(ffls[i].ss_addr == 0x0 && ffls[i].se_addr == 0x0)
 		{
 			ffls[i].ss_addr = tmp_addr;
@@ -802,15 +802,17 @@ static int convert_hex_array(void)
 			}			
 		}
 
-		/* protecting the reserved address won't be written */
+		/* 
+		 * protects the reserved address been written and erased.
+		 * This feature only applies on the boot upgrade. The addr is progrmmable in normal case. 
+		 */
 		if(ffls[i].ss_addr == start_reserve && ffls[i].se_addr == end_reserve)
 		{
-			ffls[i].data_flag = false;
 			ffls[i].inside_block = false;
 		}
 	}
 		
-	/* DEBUG: for showing data with address that will write into fw */
+	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for(i = 0; i < total_sector; i++)
 	{
 		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d", 
@@ -1071,7 +1073,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		}
 	}
 
-	/* DEBUG: for showing data with address that will write into fw */
+	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for(i = 0; i < total_sector; i++)
 	{
 		DBG(DEBUG_FIRMWARE, "ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d", 
