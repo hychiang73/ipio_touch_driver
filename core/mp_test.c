@@ -90,6 +90,7 @@ struct description mp_des[] =
     {"key_short", "ICON Short Data"},
     
     {"tx_rx_delta", "Tx/Rx Delta Data"},
+    {"p2p", "Untounch Peak to Peak"}
 };
 
 /* Convert raw data with the test item */
@@ -230,6 +231,33 @@ static void cdc_print_result(const char *name, int result)
                     printk("\n");
                 }
             }
+            else if(core_mp->p2p_test)
+            {
+                for(y = 0; y < core_mp->ych_len; y++)
+                {
+                    for(x = 0; x < core_mp->xch_len; x++)
+                    {
+                        /* Threshold with TX delta */
+                        if(core_mp->p2p_raw_buf[x+y] <= core_mp->P2PMax &&
+                            core_mp->p2p_raw_buf[x+y] >= core_mp->P2PMin)
+                        {
+                            printk(" %d ",core_mp->p2p_raw_buf[x+y]); 
+                        }
+                        else
+                        {
+                            if(core_mp->p2p_raw_buf[x+y] > core_mp->P2PMax)
+                            {
+                                printk(" *%d ",core_mp->p2p_raw_buf[x+y]);
+                            }
+                            else
+                            {
+                                printk(" #%d ",core_mp->p2p_raw_buf[x+y]);
+                            }
+                        }
+                    }
+                    printk("\n");
+                }
+            }
             break;
         }
 	}
@@ -242,6 +270,7 @@ static void cdc_revert_status(void)
 	core_mp->key_test = false;
     core_mp->st_test = false;
     core_mp->tx_rx_delta_test = false;
+    core_mp->p2p_test = false;
     
 	core_mp->m_signal = false;
 	core_mp->m_dac = false;
@@ -264,6 +293,12 @@ static void cdc_revert_status(void)
     core_mp->tx_delta_buf = NULL;
     kfree(core_mp->rx_delta_buf);
     core_mp->rx_delta_buf = NULL;
+    kfree(core_mp->p2p_raw_buf);
+    core_mp->p2p_raw_buf = NULL;
+    kfree(core_mp->p2p_max_buf);
+    core_mp->p2p_max_buf = NULL;
+    kfree(core_mp->p2p_min_buf);
+    core_mp->p2p_min_buf = NULL;
 }
 
 static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
@@ -307,9 +342,71 @@ out:
     return res;
 }
 
+static int convert_p2p_cdc(uint8_t *buf)
+{
+    int x, y, res = 0;
+    uint8_t *ori = buf;
+
+    if(buf == NULL)
+    {
+        DBG_ERR("The data in buffer is null");
+        res = -ENOMEM;
+        goto out;
+    }
+    
+    if(core_mp->p2p_max_buf == NULL && core_mp->p2p_min_buf == NULL)
+    {
+        core_mp->p2p_max_buf = kmalloc(core_mp->xch_len * core_mp->ych_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(core_mp->p2p_max_buf))
+        {
+            DBG_ERR("Failed to allocate raw buffer, %ld", PTR_ERR(core_mp->p2p_max_buf));
+            res = -ENOMEM;
+            goto out;
+        }
+
+        core_mp->p2p_min_buf = kmalloc(core_mp->xch_len * core_mp->ych_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(core_mp->p2p_min_buf))
+        {
+            DBG_ERR("Failed to allocate signal buffer, %ld", PTR_ERR(core_mp->p2p_min_buf));
+            res = -ENOMEM;
+            goto out;
+        }
+
+        /* init values only once */
+        for(y = 0; y < core_mp->ych_len; y++)
+        {
+            for(x = 0; x < core_mp->xch_len; x++)
+            {
+                core_mp->p2p_max_buf[x+y] = -65535;
+                core_mp->p2p_min_buf[x+y] = 65535;
+            }
+        }
+    }
+
+    /* Start to comparing data with each frame */
+    for(y = 0; y < core_mp->ych_len; y++)
+    {
+        for(x = 0; x < core_mp->xch_len; x++)
+        {
+            if(ori[x+y] > core_mp->p2p_max_buf[x+y])
+            {
+                core_mp->p2p_max_buf[x+y] = ori[x+y];
+            }
+
+            if(ori[x+y] < core_mp->p2p_min_buf[+y])
+            {
+                core_mp->p2p_min_buf[x+y] = ori[x+y];
+            }
+        }
+    }
+
+out:
+    return res;
+}
+
 static int convert_txrx_delta_cdc(uint8_t *buf)
 {
-    int i,  x, y, res = 0;
+    int i, x, y, res = 0;
     int FrameCount = 1;
     uint8_t *ori = buf;
 
@@ -320,7 +417,7 @@ static int convert_txrx_delta_cdc(uint8_t *buf)
         goto out;
     }
 
-	core_mp->tx_delta_buf = kzalloc(core_mp->xch_len * core_mp->xch_len * sizeof(int32_t), GFP_KERNEL);
+	core_mp->tx_delta_buf = kzalloc(core_mp->xch_len * core_mp->ych_len * sizeof(int32_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_mp->tx_delta_buf))
 	{
 		DBG_ERR("Failed to allocate raw buffer, %ld", PTR_ERR(core_mp->tx_delta_buf));
@@ -328,7 +425,7 @@ static int convert_txrx_delta_cdc(uint8_t *buf)
 		goto out;
     }
 
-	core_mp->rx_delta_buf = kzalloc(core_mp->xch_len * core_mp->xch_len * sizeof(int32_t), GFP_KERNEL);
+	core_mp->rx_delta_buf = kzalloc(core_mp->xch_len * core_mp->ych_len * sizeof(int32_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_mp->rx_delta_buf))
 	{
 		DBG_ERR("Failed to allocate raw buffer, %ld", PTR_ERR(core_mp->rx_delta_buf));
@@ -506,7 +603,6 @@ static int convert_mutual_cdc(uint8_t *buf)
 				if((core_mp->m_raw_buf[i] * 0x8000) == 0x8000)
 				{
 					core_mp->m_sin_buf[i] = core_mp->m_raw_buf[i] - 65536;
-
 				}
 				else
 				{
@@ -791,6 +887,88 @@ out:
     return res; 
 }
 
+static int untouch_p2p_test(uint8_t val, uint8_t p)
+{
+    int x, y;
+    int res = 0;
+    int len = 0;
+    uint8_t cmd[2] = {0};
+    uint8_t *p2p = NULL;
+
+    cmd[0] = p;
+    cmd[1] = 0x0;
+
+    /* update X/Y channel length if they're changed */
+	core_mp->xch_len = core_config->tp_info->nXChannelNum;
+    core_mp->ych_len = core_config->tp_info->nYChannelNum;
+    
+    len = core_mp->xch_len * core_mp->ych_len;
+
+    DBG_INFO("Read length of one frame = %d", len);
+
+    core_mp->p2p_raw_buf = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
+    if(ERR_ALLOC_MEM(core_mp->p2p_raw_buf))
+    {
+        res = FAIL;
+        goto out;
+    }
+
+    /* set flag */
+    core_mp->p2p_test = true;
+
+    if(val <= 0)
+    {
+        DBG_ERR("The frame is equal or less than 0");
+        res = -EINVAL;
+        goto out;
+    }
+
+    while(val > 0)
+    {
+        res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
+        if(res < 0)
+        {
+            goto out;      
+        }
+        else
+        {
+            if(p2p == NULL)
+            {
+                p2p = kzalloc(len, GFP_KERNEL);
+                if(ERR_ALLOC_MEM(p2p))
+                {
+                    res = FAIL;
+                    goto out;
+                }
+            }
+    
+            res = exec_cdc_command(EXEC_READ, 0, len, p2p);
+            if(res < 0)
+                goto out;
+    
+            res = convert_p2p_cdc(p2p);
+            if(res < 0)
+                goto out;
+
+            memset(p2p, 0x0, len * sizeof(uint8_t));
+        }
+        val--;
+    }
+
+    /* Get final result */
+    for(y = 0; y < core_mp->ych_len; y++)
+    {
+        for(x = 0; x < core_mp->xch_len; x++)
+        {
+            core_mp->p2p_raw_buf[x+y] = core_mp->p2p_max_buf[x+y] - core_mp->p2p_min_buf[x+y];
+        }
+    }
+
+out:
+    kfree(p2p);
+    return res; 
+}
+
 int core_mp_run_test(const char *name, uint8_t val)
 {
 	int i = 0, res = 0;
@@ -869,6 +1047,8 @@ int core_mp_init(void)
             core_mp->RxDeltaMax = 0;
             core_mp->TxDeltaMin = 9999;
             core_mp->RxDeltaMin = 9999;
+            core_mp->P2PMax = 0;
+            core_mp->P2PMin = 9999;
 
 			/* Initialize MP test functions with its own command from protocol.c */
 			memset(core_mp->tItems, 0x0, sizeof(ARRAY_SIZE(core_mp->tItems)));
@@ -988,6 +1168,10 @@ int core_mp_init(void)
             core_mp->tItems[28].name = "tx_rx_delta";
             core_mp->tItems[28].cmd = protocol->tx_rx_delta;
             core_mp->tItems[28].do_test = tx_rx_delta_test;
+
+            core_mp->tItems[28].name = "p2p";
+            core_mp->tItems[28].cmd = protocol->mutual_signal;
+            core_mp->tItems[28].do_test = untouch_p2p_test;
         }
     }
     else

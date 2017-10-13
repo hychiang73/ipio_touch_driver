@@ -40,7 +40,9 @@ struct core_mp_test_data
     bool key_test;
     bool st_test;
     bool tx_rx_delta_test;
+    bool p2p_test;
 
+    /* A flag shows a test run in particular */
     bool m_signal;
     bool m_dac;
 	bool s_signal;
@@ -60,6 +62,8 @@ struct core_mp_test_data
     int TxDeltaMin;
     int RxDeltaMax;
     int RxDeltaMin;
+    int P2PMax;
+    int P2PMin;
 
     /* Raw data buffer */
     int32_t *m_raw_buf;
@@ -69,8 +73,11 @@ struct core_mp_test_data
     int32_t *s_sin_buf;
     int32_t *tx_delta_buf;
     int32_t *rx_delta_buf;
+    int32_t *p2p_raw_buf;
+    int32_t *p2p_max_buf;
+    int32_t *p2p_min_buf;
 
-    struct mp_test_items tItems[29];
+    struct mp_test_items tItems[30];
 };
 
 extern struct core_mp_test_data *core_mp;
