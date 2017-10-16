@@ -59,6 +59,7 @@
     ret;						        \
 })
 
+#define CSV_PATH    "/sdcard/ilitek_mp_test.csv"
 
 struct description
 {
@@ -68,21 +69,21 @@ struct description
 
 struct description mp_des[] =
 {
-	{"mutual_dac", "Calibration Data(DAC,Mutual)"},
+	{"mutual_dac", "Calibration Data(DAC/Mutual)"},
 	{"mutual_bg",  "Baseline Data(BG)"},
 	{"mutual_signal", "Signal Data(BG - RAW - 4096)"},
 	{"mutual_no_bk", "Raw Data(No BK)"},
 	{"mutual_has_bk", "Raw Data(Have BK"},
 	{"mutual_bk_dac", "Manual BK Data(Mutual)"},
 	
-	{"self_dac", "Calibration Data(DAC,Self_Tx,Self_Rx)"},
+	{"self_dac", "Calibration Data(DAC/Self_Tx/Self_Rx)"},
 	{"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)"},
-	{"self_signal", "Signal Data(Self_Tx,Self_Rx,RAW -4096,Have BK)"},
-	{"self_no_bk", "Raw Data(Self_Tx,Self_Rx, No BK)"},
-	{"self_has_bk", "Raw Data(Self_Tx,Self_Rx,Have BK)"},
+	{"self_signal", "Signal Data(Self_Tx,Self_Rx/RAW -4096/Have BK)"},
+	{"self_no_bk", "Raw Data(Self_Tx/Self_Rx/No BK)"},
+	{"self_has_bk", "Raw Data(Self_Tx/Self_Rx/Have BK)"},
 	{"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)"},
 
-	{"key_dac", "Calibration Data(DAC,ICON)"},
+	{"key_dac", "Calibration Data(DAC/ICON)"},
 	{"key_bg", "ICON Baselin Data(BG)"},
 	{"key_no_bk", "ICON Raw Data"},
 	{"key_has_bk", "ICON Raw Data(Have BK)"},
@@ -90,7 +91,7 @@ struct description mp_des[] =
     {"key_short", "ICON Short Data"},
     
     {"tx_rx_delta", "Tx/Rx Delta Data"},
-    {"p2p", "Untounch Peak to Peak"}
+    {"p2p", "Untounch Peak to Peak"},
 };
 
 /* Convert raw data with the test item */
@@ -114,7 +115,26 @@ struct core_mp_test_data *core_mp = NULL;
 
 static void cdc_print_result(const char *name, int result)
 {
-	int i, x, y;
+    int i, x, y;
+    char *csv = NULL;
+    struct file *f = NULL;
+    mm_segment_t fs;
+
+    fs = get_fs();
+    set_fs(KERNEL_DS);
+
+    csv = kmalloc(1024, GFP_KERNEL);
+
+    DBG_INFO("Open CSV: %s ", CSV_PATH);
+
+    if(f == NULL)
+        f = filp_open(CSV_PATH, O_CREAT | O_RDWR , 0644);
+
+    if(ERR_ALLOC_MEM(f))
+    {
+        DBG_ERR("Failed to open CSV file %s", CSV_PATH);
+        goto fail_open;
+    }
 
 	for(i = 0; i < ARRAY_SIZE(mp_des); i++)
 	{
@@ -123,144 +143,318 @@ static void cdc_print_result(const char *name, int result)
             DBG_INFO("==============================");	
 			DBG_INFO(" %s : %s ", mp_des[i].des, (result != 0 ? "FAIL" : "PASS"));
             DBG_INFO("==============================");	
+
+            sprintf(csv,  " %s : %s ", mp_des[i].des, (result != 0 ? "FAIL" : "PASS"));
+            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
+            sprintf(csv, "\n");
+            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
             if(core_mp->mutual_test)
             {
+                /* print X raw */
+                for(x = 0; x < core_mp->xch_len; x++)
+                {
+                    if(x == 0)
+                    {
+                        printk("           ");
+                        sprintf(csv, ",");
+                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
+                    }
+
+                    printk("X%02d      ", x);
+                    sprintf(csv, "X%02d, ", x);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
                 for(y = 0; y < core_mp->ych_len; y++)
                 {
+                    printk(" Y%02d ", y);
+                    sprintf(csv, "Y%02d, ", y);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
                     for(x = 0; x < core_mp->xch_len; x++)
                     {
                         if(core_mp->m_dac)
                         {
-                            printk(" %d ",core_mp->m_raw_buf[x+y]);
+                            printk(" %7d ",core_mp->m_raw_buf[x+y]);
+                            sprintf(csv, "%7d,", core_mp->m_raw_buf[x+y]);
+                            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                         }
                         else
                         {
                             if(core_mp->m_signal)
                             {
-                                printk(" %d ",core_mp->m_sin_buf[x+y]);
+                                printk(" %7d ",core_mp->m_sin_buf[x+y]);
+                                sprintf(csv, "%7d,", core_mp->m_sin_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                             else
                             {
-                                printk(" %d",core_mp->m_raw_buf[x+y]);
+                                printk(" %7d ",core_mp->m_raw_buf[x+y]);
+                                sprintf(csv, "%7d,", core_mp->m_raw_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                         }
                     }
                     printk("\n");
+                    sprintf(csv, "\n");
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                 }
             }
             else if(core_mp->self_test)
             {
+                /* print X raw */
+                for(x = 0; x < core_mp->xch_len; x++)
+                {
+                    if(x == 0)
+                    {
+                        printk("           ");
+                        sprintf(csv, ",");
+                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
+                    }
+
+                    printk("X%02d      ", x);
+                    sprintf(csv, "X%02d, ", x);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                
                 for(y = 0; y < core_mp->stx_len; y++)
                 {
+                    printk(" Y%02d ", y);
+                    sprintf(csv, "Y%2d, ", y);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
                     for(x = 0; x < core_mp->xch_len; x++)
                     {
                         if(core_mp->s_dac)
                         {
-                            printk(" %d ",core_mp->s_raw_buf[x+y]);
+                            printk(" %7d ",core_mp->s_raw_buf[x+y]);
+                            sprintf(csv, "%7d,", core_mp->s_raw_buf[x+y]);
+                            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                         }
                         else
                         {
                             if(core_mp->s_signal)
                             {
-                                printk(" %d ",core_mp->s_sin_buf[x+y]);
+                                printk(" %7d ",core_mp->s_sin_buf[x+y]);
+                                sprintf(csv, "%7d,", core_mp->s_sin_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                             else
                             {
-                                printk(" %d ",core_mp->s_raw_buf[x+y]);
+                                printk(" %7d ",core_mp->s_raw_buf[x+y]);
+                                sprintf(csv, "%7d,", core_mp->s_raw_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                         }
                     }
                     printk("\n");
+                    sprintf(csv, "\n");
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                 }                
             }
             else if(core_mp->key_test)
             {
                 for(x = 0; x < core_mp->key_len; x++)
                 {
-                    printk("KEY_%d   ",x);                      
+                    printk("KEY_%02d ",x);     
+                    sprintf(csv, "KEY_%02d,", x);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                     
                 }
+
                 printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
                 for(y = 0; y < core_mp->key_len; y++)
                 {
-                    printk("%d    ",core_mp->key_raw_buf[y]);                        
+                    printk(" %3d   ",core_mp->key_raw_buf[y]);     
+                    sprintf(csv, " %3d, ", core_mp->key_raw_buf[y]);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);           
                 }
                 printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
             }
             else if(core_mp->tx_rx_delta_test)
             {
+                /* print X raw */
+                for(x = 0; x < core_mp->xch_len; x++)
+                {
+                    if(x == 0)
+                    {
+                        printk("           ");
+                        sprintf(csv, ",");
+                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
+                    }
+
+                    printk("X%02d       ", x);
+                    sprintf(csv, "X%02d, ", x);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
                 for(y = 0; y < core_mp->ych_len; y++)
                 {
+                    printk(" Y%02d ", y);
+                    sprintf(csv, "Y%02d, ", y);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
                     for(x = 0; x < core_mp->xch_len; x++)
                     {
                         /* Threshold with RX delta */
                         if(core_mp->rx_delta_buf[x+y] <= core_mp->RxDeltaMax &&
                             core_mp->rx_delta_buf[x+y] >= core_mp->RxDeltaMin)
                         {
-                            printk(" %d ",core_mp->rx_delta_buf[x+y]); 
+                            printk(" %7d ",core_mp->rx_delta_buf[x+y]); 
+                            sprintf(csv, "%7d,", core_mp->rx_delta_buf[x+y]);
+                            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                         }
                         else
                         {
                             if(core_mp->rx_delta_buf[x+y] > core_mp->RxDeltaMax)
                             {
-                                printk(" *%d ",core_mp->rx_delta_buf[x+y]);
+                                printk(" *%7d ",core_mp->rx_delta_buf[x+y]);
+                                sprintf(csv, "*%7d,", core_mp->rx_delta_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                             else
                             {
-                                printk(" #%d ",core_mp->rx_delta_buf[x+y]);
+                                printk(" #%7d ",core_mp->rx_delta_buf[x+y]);
+                                sprintf(csv, "#%7d,", core_mp->rx_delta_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                         }
+                    }
+                    printk("\n");
+                    sprintf(csv, "\n");
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
 
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                
+                for(y = 0; y < core_mp->ych_len; y++)
+                {
+                    printk(" Y%02d ", y);
+                    sprintf(csv, "Y%02d, ", y);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
+                    for(x = 0; x < core_mp->xch_len; x++)
+                    {   
                         /* Threshold with TX delta */
                         if(core_mp->tx_delta_buf[x+y] <= core_mp->TxDeltaMax &&
                             core_mp->tx_delta_buf[x+y] >= core_mp->TxDeltaMin)
                         {
-                            printk(" %d ",core_mp->tx_delta_buf[x+y]); 
+                            printk(" %7d ",core_mp->tx_delta_buf[x+y]);
+                            sprintf(csv, "%7d,", core_mp->tx_delta_buf[x+y]);
+                            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                         }
                         else
                         {
                             if(core_mp->tx_delta_buf[x+y] > core_mp->TxDeltaMax)
                             {
-                                printk(" *%d ",core_mp->tx_delta_buf[x+y]);
+                                printk(" *%7d ",core_mp->tx_delta_buf[x+y]);
+                                sprintf(csv, "*%7d,", core_mp->tx_delta_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                                
                             }
                             else
                             {
-                                printk(" #%d ",core_mp->tx_delta_buf[x+y]);
+                                printk(" #%7d ",core_mp->tx_delta_buf[x+y]);
+                                sprintf(csv, "#%7d,", core_mp->tx_delta_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                         }
                     }
                     printk("\n");
+                    sprintf(csv, "\n");
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                 }
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
             }
             else if(core_mp->p2p_test)
             {
+                /* print X raw */
+                for(x = 0; x < core_mp->xch_len; x++)
+                {
+                    if(x == 0)
+                    {
+                        printk("           ");
+                        sprintf(csv, ",");
+                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
+                    }
+
+                    printk("X0%2d       ", x);
+                    sprintf(csv, "X%02d, ", x);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
                 for(y = 0; y < core_mp->ych_len; y++)
                 {
+                    printk(" Y%02d ", y);
+                    sprintf(csv, "Y%02d, ", y);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
                     for(x = 0; x < core_mp->xch_len; x++)
                     {
-                        /* Threshold with TX delta */
+                        /* Threshold with P2P */
                         if(core_mp->p2p_raw_buf[x+y] <= core_mp->P2PMax &&
                             core_mp->p2p_raw_buf[x+y] >= core_mp->P2PMin)
                         {
-                            printk(" %d ",core_mp->p2p_raw_buf[x+y]); 
+                            printk(" %7d ",core_mp->p2p_raw_buf[x+y]);
+                            sprintf(csv, "%7d,", core_mp->p2p_raw_buf[x+y]);
+                            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                         }
                         else
                         {
                             if(core_mp->p2p_raw_buf[x+y] > core_mp->P2PMax)
                             {
-                                printk(" *%d ",core_mp->p2p_raw_buf[x+y]);
+                                printk(" *%7d ",core_mp->p2p_raw_buf[x+y]);
+                                sprintf(csv, "*%7d,", core_mp->p2p_raw_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                             else
                             {
-                                printk(" #%d ",core_mp->p2p_raw_buf[x+y]);
+                                printk(" #%7d ",core_mp->p2p_raw_buf[x+y]);
+                                sprintf(csv, "#%7d,", core_mp->p2p_raw_buf[x+y]);
+                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                             }
                         }
                     }
                     printk("\n");
+                    sprintf(csv, "\n");
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                 }
             }
             break;
         }
-	}
+    }
+
+    filp_close(f, NULL);
+fail_open:
+    set_fs(fs);
+    kfree(csv);
+    return;
 }
 
 static void cdc_revert_status(void)
@@ -1169,9 +1363,9 @@ int core_mp_init(void)
             core_mp->tItems[28].cmd = protocol->tx_rx_delta;
             core_mp->tItems[28].do_test = tx_rx_delta_test;
 
-            core_mp->tItems[28].name = "p2p";
-            core_mp->tItems[28].cmd = protocol->mutual_signal;
-            core_mp->tItems[28].do_test = untouch_p2p_test;
+            core_mp->tItems[29].name = "p2p";
+            core_mp->tItems[29].cmd = protocol->mutual_signal;
+            core_mp->tItems[29].do_test = untouch_p2p_test;
         }
     }
     else
