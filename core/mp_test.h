@@ -25,23 +25,30 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
+enum mp_test_catalog
+{
+    MUTUAL_TEST = 0,
+    SELF_TEST = 1,
+    KEY_TEST = 2,
+    ST_TEST = 3,
+    TX_RX_DELTA = 4,
+    UNTOUCH_P2P = 5,
+};
+
 struct mp_test_items
 {
     char *name;
+    char *desp;
+    char *result;
+    int catalog;
     uint8_t cmd;
-	int (*do_test)(uint8_t, uint8_t);
+    int32_t* buf;
+    bool run;
+	int (*do_test)(int, uint8_t);
 };
 
 struct core_mp_test_data
 {
-    /* A flag indicates an item being tested */
-    bool mutual_test;
-    bool self_test;
-    bool key_test;
-    bool st_test;
-    bool tx_rx_delta_test;
-    bool p2p_test;
-
     /* A flag shows a test run in particular */
     bool m_signal;
     bool m_dac;
@@ -65,23 +72,15 @@ struct core_mp_test_data
     int P2PMax;
     int P2PMin;
 
-    /* Raw data buffer */
-    int32_t *m_raw_buf;
-	int32_t *s_raw_buf;
-	int32_t *key_raw_buf;
-	int32_t *m_sin_buf;
-    int32_t *s_sin_buf;
     int32_t *tx_delta_buf;
     int32_t *rx_delta_buf;
-    int32_t *p2p_raw_buf;
-    int32_t *p2p_max_buf;
-    int32_t *p2p_min_buf;
 
     struct mp_test_items tItems[30];
 };
 
 extern struct core_mp_test_data *core_mp;
 
+extern void core_mp_show_result(void);
 extern int core_mp_run_test(const char *name, uint8_t value);
 extern void core_mp_move_code(void);
 extern int core_mp_init(void);
