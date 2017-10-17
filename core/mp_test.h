@@ -33,6 +33,7 @@ enum mp_test_catalog
     ST_TEST = 3,
     TX_RX_DELTA = 4,
     UNTOUCH_P2P = 5,
+    PIXEL = 6,
 };
 
 struct mp_test_items
@@ -55,7 +56,9 @@ struct core_mp_test_data
 	bool s_signal;
 	bool s_dac;
 	bool key_dac;
-	bool st_dac;
+    bool st_dac;
+    bool p_no_bk;
+    bool p_has_bk;
 
     int xch_len;
     int ych_len;
@@ -75,7 +78,7 @@ struct core_mp_test_data
     int32_t *tx_delta_buf;
     int32_t *rx_delta_buf;
 
-    struct mp_test_items tItems[30];
+    struct mp_test_items tItems[32];
 };
 
 extern struct core_mp_test_data *core_mp;

@@ -74,6 +74,35 @@ static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
 
 struct core_mp_test_data *core_mp = NULL;
 
+// static void debug_matrix(int32_t *data)
+// {
+//     int x, y;
+
+//     for(x = 0; x < core_mp->xch_len; x++)
+//     {
+//         if(x == 0)
+//         {
+//             printk("           ");
+                    
+//         }
+//         printk("X%02d      ", x);
+//     }
+
+//     printk("\n");
+
+//     for(y = 0; y < core_mp->ych_len; y++)
+//     {
+//         printk(" Y%02d ", y);
+//         for(x = 0; x < core_mp->xch_len; x++)
+//         {
+//             printk(" %7d ", data[x+y]);
+//         }
+//         printk("\n");
+//     }
+
+//     printk("\n\n\n");
+// }
+
 static void mp_test_free(void)
 {
     int i;
@@ -143,6 +172,145 @@ static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
 
 out:
     return res;
+}
+
+static int pixel_test(int index, uint8_t val)
+{
+    int i, x, y, len = 0, res = 0;
+    int tmp[4] = {0}, max = 0;
+    uint8_t cmd[2] = {0};
+    uint8_t *pixel = NULL;
+
+    cmd[0] = core_mp->tItems[index].cmd;
+    cmd[1] = val;
+
+    /* update X/Y channel length if they're changed */
+	core_mp->xch_len = core_config->tp_info->nXChannelNum;
+    core_mp->ych_len = core_config->tp_info->nYChannelNum;
+    
+    len = core_mp->xch_len * core_mp->ych_len;
+
+    DBG_INFO("Read Mutual X/Y Channel length = %d", len);
+
+    if(cmd[0] == protocol->mutual_no_bk)
+        core_mp->p_no_bk = true;
+    
+    if(cmd[0] == protocol->mutual_has_bk)
+        core_mp->p_has_bk = true; 
+
+    if(core_mp->tItems[index].buf == NULL)
+    {
+        /* Create a buffer that belogs to itself */
+        core_mp->tItems[index].buf = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
+    }
+    else
+    {
+        /* erase data if this buffrer was not cleaned and freed */
+        memset(core_mp->tItems[index].buf, 0x0, len * sizeof(int32_t));
+    }
+    
+    /* sending command to get raw data, converting it and comparing it with threshold */
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
+    if(res < 0)
+    {
+        DBG_ERR("I2C error");
+        goto out;
+    }
+    else
+    {
+        pixel = kzalloc(len, GFP_KERNEL);
+        if(ERR_ALLOC_MEM(pixel))
+        {
+            res = FAIL;
+            goto out;
+        }
+
+        res = exec_cdc_command(EXEC_READ, 0, len, pixel);
+		if(res < 0)
+            goto out;
+                     
+        /* Start to converting data */
+        for(y = 0; y < core_mp->ych_len; y++)
+        {
+            for(x = 0; x < core_mp->xch_len; x++)
+            {
+                /* if its position is in corner, the number of point 
+                    we have to minus is around 2 to 3.  */
+                if(y == 0 && x == 0)
+                {
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                }
+                else if(y == (core_mp->ych_len - 1) && x == 0)
+                {
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                }
+                else if(y == 0 && x == (core_mp->xch_len - 1))
+                {
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
+                }
+                else if(y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1) )
+                {
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
+                }
+                else if (y == 0 && x != 0)
+                {
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
+                    tmp[2] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                }
+                else if (y != 0 && x == 0)
+                {
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                    tmp[2] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
+
+                }
+                else if(y == (core_mp->ych_len - 1) && x != 0 )
+                {
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
+                    tmp[2] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                }
+                else if(y != 0 && x == (core_mp->xch_len - 1) )
+                {
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
+                    tmp[2] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                }
+                else
+                {
+                    /* middle minus four directions */
+                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
+                    tmp[1] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
+                    tmp[2] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
+                    tmp[3] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                }
+
+                max = tmp[0];                  
+
+                for(i = 0; i < 4; i++)
+                {
+                    if(tmp[i] > max)
+                        max = tmp[i];
+                }
+
+                core_mp->tItems[index].buf[x+y] = max;
+                max = 0;
+                memset(tmp, 0, 4 * sizeof(int));
+            }
+        }
+    }
+
+out:
+    kfree(pixel);
+    core_mp->p_no_bk = false;
+    core_mp->p_has_bk = false;
+    core_mp->tItems[index].result = (res != 0 ? "FAIL" : "PASS");   
+    return res;   
 }
 
 static int mutual_test(int index, uint8_t val)
@@ -300,7 +468,7 @@ out:
     core_mp->m_signal = false;
     core_mp->m_dac = false;
     core_mp->tItems[index].result = (res != 0 ? "FAIL" : "PASS");   
-    return res;    
+    return res;
 }
 
 static int self_test(int index, uint8_t val)
@@ -1198,6 +1366,45 @@ void core_mp_show_result(void)
                     f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
                 }                
             }
+            else if (core_mp->tItems[i].catalog == PIXEL)
+            {
+                /* print X raw */
+                for(x = 0; x < core_mp->xch_len; x++)
+                {
+                    if(x == 0)
+                    {
+                        printk("           ");
+                        sprintf(csv, ",");
+                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
+                    }
+
+                    printk("X%02d      ", x);
+                    sprintf(csv, "X%02d, ", x);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
+                for(y = 0; y < core_mp->ych_len; y++)
+                {
+                    printk(" Y%02d ", y);
+                    sprintf(csv, "Y%02d, ", y);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
+                    for(x = 0; x < core_mp->xch_len; x++)
+                    {
+                        printk(" %7d ",core_mp->tItems[i].buf[x+y]);
+                        sprintf(csv, "%7d,", core_mp->tItems[i].buf[x+y]);
+                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                    }
+                    printk("\n");
+                    sprintf(csv, "\n");
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+            }
+
             printk("\n");
             sprintf(csv, "\n");
             f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
@@ -1477,6 +1684,18 @@ int core_mp_init(void)
             core_mp->tItems[29].do_test = untouch_p2p_test;
             core_mp->tItems[29].desp = "Untounch Peak to Peak";
             core_mp->tItems[29].catalog = UNTOUCH_P2P;
+
+            core_mp->tItems[30].name = "pixel_no_bk";
+            core_mp->tItems[30].cmd = protocol->mutual_no_bk;
+            core_mp->tItems[30].do_test = pixel_test;
+            core_mp->tItems[30].desp = "Pixel No BK";
+            core_mp->tItems[30].catalog = PIXEL;
+
+            core_mp->tItems[31].name = "pixel_has_bk";
+            core_mp->tItems[31].cmd = protocol->mutual_has_bk;
+            core_mp->tItems[31].do_test = pixel_test;
+            core_mp->tItems[31].desp = "Pixel Has BK";
+            core_mp->tItems[31].catalog = PIXEL;
         }
     }
     else
