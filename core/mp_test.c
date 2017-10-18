@@ -76,6 +76,7 @@ enum mp_test_catalog
     TX_RX_DELTA = 4,
     UNTOUCH_P2P = 5,
     PIXEL = 6,
+    OPEN_TEST = 7,
 };
 
 struct mp_test_items
@@ -129,6 +130,9 @@ struct mp_test_items
 
     {"pixel_no_bk", "Pixel No BK", "false", PIXEL, false, NULL, NULL},
     {"pixel_has_bk", "Pixel Has BK", "false", PIXEL, false, NULL, NULL},
+
+    {"open_integration", "Open Test Integration", "false", OPEN_TEST, false, NULL, NULL},
+    {"open_cap", "Open Test Cap", "false", OPEN_TEST, false, NULL, NULL},
 };
 
 /* Tx/Rx Delta outside buffer */
@@ -143,6 +147,7 @@ static int st_test(int index, uint8_t val);
 static int tx_rx_delta_test(int index, uint8_t val);
 static int untouch_p2p_test(int index, uint8_t val);
 static int pixel_test(int index, uint8_t val);
+static int open_test(int index, uint8_t val);
 
 static void mp_test_free(void);
 
@@ -178,6 +183,9 @@ static void mp_test_init_item(void)
         
         if(tItems[i].catalog == PIXEL)
             tItems[i].do_test = pixel_test;
+        
+        if(tItems[i].catalog == OPEN_TEST)
+            tItems[i].do_test = open_test;
     }
 
     /* assign protocol command written into firmware via I2C,
@@ -214,6 +222,8 @@ static void mp_test_init_item(void)
     tItems[29].cmd = protocol->mutual_signal;
     tItems[30].cmd = protocol->mutual_no_bk;
     tItems[31].cmd = protocol->mutual_has_bk;
+    tItems[32].cmd = protocol->rx_open;
+    tItems[33].cmd = protocol->rx_open;
 }
 
 static void dump_data(void *data, int type)
@@ -259,27 +269,23 @@ static void mp_test_free(void)
     for(i = 0; i < ARRAY_SIZE(tItems); i++)
     {
         tItems[i].run = false;
-        
-        if(tItems[i].catalog == TX_RX_DELTA)
+
+        if(tItems[i].buf != NULL)
         {
-            kfree(rx_delta_buf);
-            rx_delta_buf = NULL;
-            kfree(tx_delta_buf);
-            tx_delta_buf = NULL;
-        }
-        else
-        {
-            kfree(tItems[i].buf);
-            tItems[i].buf = NULL;
+            if(tItems[i].catalog == TX_RX_DELTA)
+            {
+                kfree(rx_delta_buf);
+                rx_delta_buf = NULL;
+                kfree(tx_delta_buf);
+                tx_delta_buf = NULL;
+            }
+            else
+            {
+                kfree(tItems[i].buf);
+                tItems[i].buf = NULL;
+            }
         }
     }
-
-    core_mp->m_signal = false;
-	core_mp->m_dac = false;
-	core_mp->s_signal = false;
-	core_mp->s_dac = false;
-	core_mp->key_dac = false;
-    core_mp->st_dac = false;
 }
 
 static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
@@ -430,7 +436,7 @@ static int pixel_test(int index, uint8_t val)
                 {
                     tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
                     tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
-                    tmp[2] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                    tmp[2] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
                 }
                 else
                 {
@@ -462,6 +468,195 @@ out:
     core_mp->p_has_bk = false;
     tItems[index].result = (res != 0 ? "FAIL" : "PASS");   
     return res;   
+}
+
+static int open_test(int index, uint8_t val)
+{
+    int i, x, y, res = 0, len = 0;
+    uint8_t cmd[2] = {0};
+    uint8_t *open = NULL;
+    int32_t *raw = NULL;
+
+    cmd[0] = tItems[index].cmd;
+
+    if( strcmp(tItems[index].name, "open_integration") == 0)
+        cmd[1] = 0x2;
+    if(strcmp(tItems[index].name, "open_cap") == 0)
+        cmd[1] = 0x3;
+
+    /* update X/Y channel length if they're changed */
+	core_mp->xch_len = core_config->tp_info->nXChannelNum;
+    core_mp->ych_len = core_config->tp_info->nYChannelNum;
+    
+    len = core_mp->xch_len * core_mp->ych_len;
+
+    DBG(DEBUG_MP_TEST,"Read X/Y Channel length = %d\n", len);
+
+    /* raw buffer is used to receive data from firmware */
+    raw = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
+    if (ERR_ALLOC_MEM(raw))
+    {
+        DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(raw));
+        res = -ENOMEM;
+        goto out;
+    }
+
+    if(tItems[index].buf == NULL)
+    {
+        /* Create a buffer that belogs to itself */
+        tItems[index].buf = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
+    }
+    else
+    {
+        /* erase data if this buffrer was not cleaned and freed */
+        memset(tItems[index].buf, 0x0, len * sizeof(int32_t));
+    }
+
+    /* sending command to get raw data, converting it and comparing it with threshold */
+    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
+    if(res < 0)
+    {
+        DBG_ERR("I2C error\n");
+        goto out;
+    }
+    else
+    {
+        open = kzalloc(len, GFP_KERNEL);
+        if(ERR_ALLOC_MEM(open))
+        {
+            res = FAIL;
+            goto out;
+        }
+
+        res = exec_cdc_command(EXEC_READ, 0, len, open);
+		if(res < 0)
+            goto out;
+
+        dump_data(open, 8);
+
+        if(cmd[1] == 0x2)
+        {
+            for(i = 0; i < len; i++)
+            {
+                /* H byte + L byte */
+                raw[i] = (open[2 * i] << 8) +  open[1 + (2 * i)];            
+            
+                if((raw[i] * 0x8000) == 0x8000)
+                {
+                    tItems[index].buf[i] = raw[i] - 65536;
+                }
+                else
+                {
+                    tItems[index].buf[i] = raw[i];
+                }
+            }
+        }
+
+        if(cmd[1] == 0x3)
+        {
+            /* Each result is getting from a 3 by 3 grid depending on where the centre location is.
+            So if the centre is at corner, the number of node grabbed from a grid will be different. */
+            for(y = 0; y < core_mp->ych_len; y++)
+            {
+                for(x = 0; x < core_mp->xch_len; x++)
+                {
+                    int tmp[8] = {0};
+                    int sum = 0, avg = 0, count = 0;
+                    int centre = open[x+y];
+
+                    if(y == 0 && x == 0)
+                    {
+                        tmp[0] = open[x+(y+1)]; // down
+                        tmp[1] = open[(x+1)+y]; // right
+                        tmp[2] = open[(x+1)+(y+1)]; //lower right
+
+                        count = 3;                   
+                    }
+                    else if(y == (core_mp->ych_len - 1) && x == 0)
+                    {
+                        tmp[0] = open[x+(y-1)]; // up
+                        tmp[1] = open[(x+1)+y]; // right
+                        tmp[2] = open[(x+1)+(y-1)]; //upper right 
+                        count = 3;
+                    }
+                    else if(y == 0 && x == (core_mp->xch_len - 1))
+                    {
+                        tmp[0] = open[x+(y+1)]; // down
+                        tmp[1] = open[(x-1)+y]; // left
+                        tmp[2] = open[(x-1)+(y+1)]; // lower left
+                        count = 3;
+                    }
+                    else if(y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1) )
+                    {
+                        tmp[0] = open[x+(y-1)]; // up
+                        tmp[1] = open[(x-1)+y]; // left
+                        tmp[2] = open[(x-1)+(y-1)]; // upper left
+                        count = 3;
+                    }
+                    else if (y == 0 && x != 0)
+                    {
+                        tmp[0] = open[x+(y+1)]; // down
+                        tmp[1] = open[(x-1)+y]; // left
+                        tmp[2] = open[(x+1)+y]; // right
+                        tmp[3] = open[(x-1)+(y+1)]; // lower left
+                        tmp[4] = open[(x+1)+(y+1)]; //lower right 
+                        count = 5;
+                    }
+                    else if (y != 0 && x == 0)
+                    {
+                        tmp[0] = open[x+(y-1)]; // up
+                        tmp[1] = open[(x+1)+y]; // right
+                        tmp[2] = open[x+(y+1)]; // down
+                        tmp[3] = open[(x+1)+(y-1)]; //upper right 
+                        tmp[4] = open[(x+1)+(y+1)]; //lower right  
+                        count = 5;                        
+                    }
+                    else if(y == (core_mp->ych_len - 1) && x != 0 )
+                    {
+                        tmp[0] = open[x+(y-1)]; // up
+                        tmp[1] = open[(x-1)+y]; // left
+                        tmp[2] = open[(x+1)+y]; // right
+                        tmp[3] = open[(x-1)+(y-1)]; // upper left
+                        tmp[4] = open[(x+1)+(y-1)]; //upper right
+                        count = 5;                                                
+                    }
+                    else if(y != 0 && x == (core_mp->xch_len - 1) )
+                    {
+                        tmp[0] = open[x+(y-1)]; // up
+                        tmp[1] = open[(x-1)+y]; // left
+                        tmp[2] = open[x+(y+1)]; // down
+                        tmp[3] = open[(x-1)+(y-1)]; // upper left
+                        tmp[4] = open[(x-1)+(y+1)]; // lower left
+                        count = 5;                                                
+                    }
+                    else
+                    {
+                        tmp[0] = open[x+(y-1)]; // up
+                        tmp[1] = open[(x-1)+(y-1)]; // upper left
+                        tmp[2] = open[(x-1)+y]; // left
+                        tmp[3] = open[(x-1)+(y+1)]; // lower left
+                        tmp[4] = open[x+(y+1)]; // down
+                        tmp[5] = open[(x+1)+y]; // right
+                        tmp[6] = open[(x+1)+(y-1)]; //upper right 
+                        tmp[7] = open[(x+1)+(y+1)]; //lower right
+                        count = 8;
+                    }
+
+                    for(i = 0; i < 8; i++)
+                        sum += tmp[i];
+
+                    avg = (sum+centre)/(count+1); // plus 1 becuase of centre
+                    tItems[index].buf[x+y] = (centre / avg) * 100;
+                }
+            }
+        }
+    }
+
+out:
+    kfree(open);
+    kfree(raw);
+    tItems[index].result = (res != 0 ? "FAIL" : "PASS");   
+    return res;
 }
 
 static int mutual_test(int index, uint8_t val)
@@ -1527,6 +1722,44 @@ void core_mp_show_result(void)
                 }                
             }
             else if (tItems[i].catalog == PIXEL)
+            {
+                /* print X raw */
+                for(x = 0; x < core_mp->xch_len; x++)
+                {
+                    if(x == 0)
+                    {
+                        DUMP(DEBUG_MP_TEST,"           ");
+                        sprintf(csv, ",");
+                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
+                    }
+
+                    DUMP(DEBUG_MP_TEST,"X%02d      ", x);
+                    sprintf(csv, "X%02d, ", x);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+
+                DUMP(DEBUG_MP_TEST,"\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
+                for(y = 0; y < core_mp->ych_len; y++)
+                {
+                    DUMP(DEBUG_MP_TEST," Y%02d ", y);
+                    sprintf(csv, "Y%02d, ", y);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
+                    for(x = 0; x < core_mp->xch_len; x++)
+                    {
+                        DUMP(DEBUG_MP_TEST," %7d ",tItems[i].buf[x+y]);
+                        sprintf(csv, "%7d,", tItems[i].buf[x+y]);
+                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                    }
+                    DUMP(DEBUG_MP_TEST,"\n");
+                    sprintf(csv, "\n");
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+            }
+            else if(tItems[i].catalog == OPEN_TEST)
             {
                 /* print X raw */
                 for(x = 0; x < core_mp->xch_len; x++)

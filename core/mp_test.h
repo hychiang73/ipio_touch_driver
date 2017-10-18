@@ -36,6 +36,8 @@ struct core_mp_test_data
     bool st_dac;
     bool p_no_bk;
     bool p_has_bk;
+    bool open_integ;
+    bool open_cap;
 
     int xch_len;
     int ych_len;

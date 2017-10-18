@@ -213,8 +213,10 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 		// core_mp_run_test("tx_rx_delta", 0x0);
 		// core_mp_run_test("p2p", 0x2);
 
-		core_mp_run_test("pixel_no_bk", 0x0);
 		//core_mp_run_test("pixel_no_bk", 0x0);
+		//core_mp_run_test("pixel_no_bk", 0x0);
+
+		core_mp_run_test("open_cap", 0x0);
 
 		core_mp_show_result();
 		return size;
