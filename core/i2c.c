@@ -45,7 +45,7 @@ static int dma_alloc(void)
 	ilitek_dma_va = (u8 *)dma_alloc_coherent(&core_i2c->client->dev, DMA_VA_BUFFER, &ilitek_dma_pa, GFP_KERNEL);
 	if(!ilitek_dma_va)
 	{
-		DBG_ERR("Allocate DMA I2C Buffer failed");
+		DBG_ERR("Allocate DMA I2C Buffer failed\n");
 		res = -ENODEV;
 		return res;
     }
@@ -64,7 +64,7 @@ static void dma_free(void)
         ilitek_dma_va = NULL;
         ilitek_dma_pa = 0;
 
-        DBG_INFO("Succeed to free DMA buffer");
+        DBG_INFO("Succeed to free DMA buffer\n");
     }
 }
 #endif
@@ -90,7 +90,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 #endif
 
 #ifdef I2C_DMA
-    DBG(DEBUG_I2C, "DMA: size = %d", nSize);
+    DBG(DEBUG_I2C, "DMA: size = %d\n", nSize);
     if (nSize > 8)
     {
         msgs[0].addr = (core_i2c->client->addr & I2C_MASK_FLAG);
@@ -110,7 +110,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         else
         {
             res = -EIO;
-            DBG_ERR("I2C Write Error, res = %d", res);
+            DBG_ERR("I2C Write Error, res = %d\n", res);
             goto out;
         }
     }
@@ -141,7 +141,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 #endif
 
 #ifdef I2C_DMA
-    DBG(DEBUG_I2C, "DMA: size = %d", nSize);
+    DBG(DEBUG_I2C, "DMA: size = %d\n", nSize);
     if (nSize > 8)
     {
         msgs[0].addr = (core_i2c->client->addr & I2C_MASK_FLAG);
@@ -157,7 +157,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
     {
         res = -EIO;
-        DBG_ERR("I2C Read Error, res = %d", res);
+        DBG_ERR("I2C Read Error, res = %d\n", res);
         goto out;
     }
 
@@ -210,12 +210,12 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
             nSize = 0;
         }
 
-        DBG(DEBUG_I2C, "Length = %d", msgs[0].len);
+        DBG(DEBUG_I2C, "Length = %d\n", msgs[0].len);
 
         if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
         {
             res = -EIO;
-            DBG_ERR("I2C Read Error, res = %d", res);
+            DBG_ERR("I2C Read Error, res = %d\n", res);
             goto out;
         }
     }
@@ -236,7 +236,7 @@ int core_i2c_init(struct i2c_client *client)
             core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
             if (IS_ERR(core_i2c))
             {
-                DBG_ERR("init core-i2c failed !");
+                DBG_ERR("init core-i2c failed !\n");
                 res = -EINVAL;
                 goto out;
             }
@@ -276,7 +276,7 @@ int core_i2c_init(struct i2c_client *client)
         }
     }
 
-    DBG_ERR("Can't find this chip in support list");
+    DBG_ERR("Can't find this chip in support list\n");
 out:
     core_i2c_remove();
     return res;
@@ -285,7 +285,7 @@ EXPORT_SYMBOL(core_i2c_init);
 
 void core_i2c_remove(void)
 {
-    DBG_INFO("Remove core-i2c members");
+    DBG_INFO("Remove core-i2c members\n");
 
 #ifdef I2C_DMA
     dma_free();

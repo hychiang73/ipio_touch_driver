@@ -116,7 +116,7 @@ static uint32_t check_chip_id(uint32_t pid_data)
 	}
 	else
 	{
-		DBG_ERR("The Chip isn't supported by the driver");
+		DBG_ERR("The Chip isn't supported by the driver\n");
 	}
 
 	return id;
@@ -151,7 +151,7 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 	return data;
 
 out:
-	DBG_ERR("Failed to read/write data in ICE mode, res = %d", res);
+	DBG_ERR("Failed to read/write data in ICE mode, res = %d\n", res);
 	return res;
 }
 EXPORT_SYMBOL(core_config_read_write_onebyte);
@@ -182,7 +182,7 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 	return data;
 
 out:
-	DBG_ERR("Failed to read data in ICE mode, res = %d", res);
+	DBG_ERR("Failed to read data in ICE mode, res = %d\n", res);
 	return res;
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
@@ -209,7 +209,7 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
 
 	if (res < 0)
-		DBG_ERR("Failed to write data in ICE mode, res = %d", res);
+		DBG_ERR("Failed to write data in ICE mode, res = %d\n", res);
 
 	return res;
 }
@@ -260,7 +260,7 @@ void core_config_ic_reset(void)
 		key = 0x00019881;
 	}
 
-	DBG(DEBUG_CONFIG, "key = 0x%x", key);
+	DBG(DEBUG_CONFIG, "key = 0x%x\n", key);
 	if(key != 0)
 	{
 		core_config->do_ic_reset = true;
@@ -272,7 +272,7 @@ EXPORT_SYMBOL(core_config_ic_reset);
 
 void core_config_sense_ctrl(bool start)
 {
-	DBG_INFO("sense start = %d", start);
+	DBG_INFO("sense start = %d\n", start);
 
 	if(protocol->major == 0x5)
 	{
@@ -301,14 +301,14 @@ void core_config_sense_ctrl(bool start)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->sense_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -316,7 +316,7 @@ EXPORT_SYMBOL(core_config_sense_ctrl);
 
 void core_config_sleep_ctrl(bool out)
 {
-	DBG_INFO("Sleep Out = %d", out);
+	DBG_INFO("Sleep Out = %d\n", out);
 
 	if(protocol->major == 0x5)
 	{
@@ -345,14 +345,14 @@ void core_config_sleep_ctrl(bool out)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->sleep_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -360,7 +360,7 @@ EXPORT_SYMBOL(core_config_sleep_ctrl);
 
 void core_config_glove_ctrl(bool enable, bool seamless)
 {
-	DBG_INFO("Glove = %d, seamless = %d", enable, seamless);
+	DBG_INFO("Glove = %d, seamless = %d\n", enable, seamless);
 
 	if(protocol->major == 0x5)
 	{
@@ -402,14 +402,14 @@ void core_config_glove_ctrl(bool enable, bool seamless)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->glove_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -417,7 +417,7 @@ EXPORT_SYMBOL(core_config_glove_ctrl);
 
 void core_config_stylus_ctrl(bool enable, bool seamless)
 {
-	DBG_INFO("stylus = %d, seamless = %d", enable, seamless);
+	DBG_INFO("stylus = %d, seamless = %d\n", enable, seamless);
 
 	if(protocol->major == 0x5)
 	{
@@ -459,14 +459,14 @@ void core_config_stylus_ctrl(bool enable, bool seamless)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->stylus_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -474,7 +474,7 @@ EXPORT_SYMBOL(core_config_stylus_ctrl);
 
 void core_config_tp_scan_mode(bool mode)
 {
-	DBG_INFO("TP Scan mode = %d", mode);
+	DBG_INFO("TP Scan mode = %d\n", mode);
 
 	if(protocol->major == 0x5)
 	{
@@ -502,14 +502,14 @@ void core_config_tp_scan_mode(bool mode)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->tp_scan_mode, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -517,7 +517,7 @@ EXPORT_SYMBOL(core_config_tp_scan_mode);
 
 void core_config_lpwg_ctrl(bool enable)
 {
-	DBG_INFO("LPWG = %d", enable);
+	DBG_INFO("LPWG = %d\n", enable);
 
 	if(protocol->major == 0x5)
 	{
@@ -546,14 +546,14 @@ void core_config_lpwg_ctrl(bool enable)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->lpwg_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 	core_i2c_write(core_config->slave_i2c_addr, protocol->lpwg_ctrl, protocol->func_ctrl_len);
@@ -564,7 +564,7 @@ void core_config_gesture_ctrl(uint8_t func)
 {
 	uint8_t max_byte = 0x0, min_byte = 0x0;
 
-	DBG_INFO("Gesture function = 0x%x", func);
+	DBG_INFO("Gesture function = 0x%x\n", func);
 
 	if(protocol->major == 0x5)
 	{
@@ -573,7 +573,7 @@ void core_config_gesture_ctrl(uint8_t func)
 
 		if(func > max_byte || func < min_byte)
 		{
-			DBG_ERR("Gesture ctrl error, 0x%x", func);
+			DBG_ERR("Gesture ctrl error, 0x%x\n", func);
 			return;
 		}
 
@@ -587,14 +587,14 @@ void core_config_gesture_ctrl(uint8_t func)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->gesture_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -602,7 +602,7 @@ EXPORT_SYMBOL(core_config_gesture_ctrl);
 
 void core_config_phone_cover_ctrl(bool enable)
 {
-	DBG_INFO("Phone Cover = %d", enable);
+	DBG_INFO("Phone Cover = %d\n", enable);
 
 	if(protocol->major == 0x5)
 	{
@@ -630,14 +630,14 @@ void core_config_phone_cover_ctrl(bool enable)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->phone_cover_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -645,7 +645,7 @@ EXPORT_SYMBOL(core_config_phone_cover_ctrl);
 
 void core_config_finger_sense_ctrl(bool enable)
 {
-	DBG_INFO("Finger sense = %d", enable);
+	DBG_INFO("Finger sense = %d\n", enable);
 
 	if(protocol->major == 0x5)
 	{
@@ -673,14 +673,14 @@ void core_config_finger_sense_ctrl(bool enable)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->finger_sense_ctrl, protocol->func_ctrl_len);
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -688,7 +688,7 @@ EXPORT_SYMBOL(core_config_finger_sense_ctrl);
 
 void core_config_proximity_ctrl(bool enable)
 {
-	DBG_INFO("Proximity = %d", enable);
+	DBG_INFO("Proximity = %d\n", enable);
 
 	if(protocol->major == 0x5)
 	{
@@ -706,14 +706,14 @@ void core_config_proximity_ctrl(bool enable)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->proximity_ctrl, protocol->func_ctrl_len);		
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -721,7 +721,7 @@ EXPORT_SYMBOL(core_config_proximity_ctrl);
 
 void core_config_plug_ctrl(bool out)
 {
-	DBG_INFO("Plug Out = %d", out);
+	DBG_INFO("Plug Out = %d\n", out);
 
 	if(protocol->major == 0x5)
 	{
@@ -739,14 +739,14 @@ void core_config_plug_ctrl(bool out)
 		}
 		else
 		{
-			DBG_ERR("Wrong the minor version of protocol, 0x%x", protocol->minor);
+			DBG_ERR("Wrong the minor version of protocol, 0x%x\n", protocol->minor);
 			return;
 		}
 		core_i2c_write(core_config->slave_i2c_addr, protocol->plug_ctrl, protocol->func_ctrl_len);
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -759,11 +759,11 @@ void core_config_set_phone_cover(uint8_t *pattern)
 	uint8_t br_x_l = BR_X_LOW, br_x_h = BR_X_HIGH;
 	uint8_t br_y_l = BR_Y_LOW, br_y_h = BR_Y_HIGH;
 
-	DBG_INFO("pattern = 0x%x", *pattern);
+	DBG_INFO("pattern = 0x%x\n", *pattern);
 
 	if(*pattern < 0 || pattern == NULL)
 	{
-		DBG_ERR("Invaild width or height");
+		DBG_ERR("Invaild width or height\n");
 		return;		
 	}
 
@@ -785,17 +785,17 @@ void core_config_set_phone_cover(uint8_t *pattern)
 			/* TODO */
 		}
 	
-		DBG_INFO("window: cmd = 0x%x", protocol->phone_cover_window[0]);
-		DBG_INFO("window: ul_x_l = 0x%x, ul_x_h = 0x%x", protocol->phone_cover_window[1], protocol->phone_cover_window[2]);
-		DBG_INFO("window: ul_y_l = 0x%x, ul_y_l = 0x%x", protocol->phone_cover_window[3], protocol->phone_cover_window[4]);
-		DBG_INFO("window: br_x_l = 0x%x, br_x_l = 0x%x", protocol->phone_cover_window[5], protocol->phone_cover_window[6]);
-		DBG_INFO("window: br_y_l = 0x%x, br_y_l = 0x%x", protocol->phone_cover_window[7], protocol->phone_cover_window[8]);
+		DBG_INFO("window: cmd = 0x%x\n", protocol->phone_cover_window[0]);
+		DBG_INFO("window: ul_x_l = 0x%x, ul_x_h = 0x%x\n", protocol->phone_cover_window[1], protocol->phone_cover_window[2]);
+		DBG_INFO("window: ul_y_l = 0x%x, ul_y_l = 0x%x\n", protocol->phone_cover_window[3], protocol->phone_cover_window[4]);
+		DBG_INFO("window: br_x_l = 0x%x, br_x_l = 0x%x\n", protocol->phone_cover_window[5], protocol->phone_cover_window[6]);
+		DBG_INFO("window: br_y_l = 0x%x, br_y_l = 0x%x\n", protocol->phone_cover_window[7], protocol->phone_cover_window[8]);
 
 		core_i2c_write(core_config->slave_i2c_addr, protocol->phone_cover_window, protocol->window_len);
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		return;
 	}
 }
@@ -803,16 +803,16 @@ EXPORT_SYMBOL(core_config_set_phone_cover);
 
 void core_config_ic_suspend(void)
 {
-	DBG_INFO("Tell IC to suspend");
+	DBG_INFO("Tell IC to suspend\n");
 
 	/* sense stop */
 	core_config_sense_ctrl(false);
 
 	/* check system busy */
 	if(core_config_check_cdc_busy() < 0)
-		DBG_ERR("Check busy is timout !");
+		DBG_ERR("Check busy is timout !\n");
 
-	DBG_INFO("Is enabled gesture = %d", core_config->isEnableGesture);
+	DBG_INFO("Is enabled gesture = %d\n", core_config->isEnableGesture);
 	
 	if(core_config->isEnableGesture)
 	{
@@ -829,14 +829,14 @@ EXPORT_SYMBOL(core_config_ic_suspend);
 
 void core_config_ic_resume(void)
 {
-	DBG_INFO("Tell IC to resume");
+	DBG_INFO("Tell IC to resume\n");
 
 	/* sleep out */
 	core_config_sleep_ctrl(true);
 
 	/* check system busy */
 	if(core_config_check_cdc_busy() < 0)
-		DBG_ERR("Check busy is timout !");
+		DBG_ERR("Check busy is timout !\n");
 
 	/* sense start for TP */
 	core_config_sense_ctrl(true);
@@ -857,7 +857,7 @@ int core_config_ice_mode_disable(void)
 	cmd[2] = 0x10;
 	cmd[3] = 0x18;
 
-	DBG_INFO("ICE Mode disabled")
+	DBG_INFO("ICE Mode disabled\n")
 
 	return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
 }
@@ -865,7 +865,7 @@ EXPORT_SYMBOL(core_config_ice_mode_disable);
 
 int core_config_ice_mode_enable(void)
 {
-	DBG_INFO("ICE Mode enabled");
+	DBG_INFO("ICE Mode enabled\n");
 	return core_config_ice_mode_write(0x181062, 0x0, 0);
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
@@ -900,7 +900,7 @@ int core_config_check_cdc_busy(void)
 			core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 			mdelay(10);
 			core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
-			DBG(DEBUG_CONFIG, "CDC busy state = 0x%x", busy);
+			DBG(DEBUG_CONFIG, "CDC busy state = 0x%x\n", busy);
 			if(busy == 0x41)
 			{
 				res = 0;
@@ -911,7 +911,7 @@ int core_config_check_cdc_busy(void)
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 	}
 
 	return res;
@@ -933,7 +933,7 @@ int core_config_get_key_info(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -942,7 +942,7 @@ int core_config_get_key_info(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -951,12 +951,12 @@ int core_config_get_key_info(void)
 		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->key_info_len);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to read data via I2C, %d", res);
+			DBG_ERR("Failed to read data via I2C, %d\n", res);
 			goto out;
 		}
 
 		for (i = 0; i < protocol->key_info_len; i++)
-			DBG(DEBUG_CONFIG, "key_info[%d] = %x", i, read_buf[i]);
+			DBG(DEBUG_CONFIG, "key_info[%d] = %x\n", i, read_buf[i]);
 
 		if (core_config->tp_info->nKeyCount)
 		{
@@ -964,8 +964,8 @@ int core_config_get_key_info(void)
 			core_config->tp_info->nKeyAreaXLength = (read_buf[0] << 8) + read_buf[1];
 			core_config->tp_info->nKeyAreaYLength = (read_buf[2] << 8) + read_buf[3];
 
-			DBG_INFO("key: length of X area = %x", core_config->tp_info->nKeyAreaXLength);
-			DBG_INFO("key: length of Y area = %x", core_config->tp_info->nKeyAreaYLength);
+			DBG_INFO("key: length of X area = %x\n", core_config->tp_info->nKeyAreaXLength);
+			DBG_INFO("key: length of Y area = %x\n", core_config->tp_info->nKeyAreaYLength);
 
 			for (i = 0; i < core_config->tp_info->nKeyCount; i ++)
 			{
@@ -974,14 +974,14 @@ int core_config_get_key_info(void)
 				core_config->tp_info->virtual_key[i].nY = (read_buf[i*5+7] << 8) + read_buf[i*5+8];
 				core_config->tp_info->virtual_key[i].nStatus = 0;
 
-				DBG_INFO("key: id = %d, X = %d, Y = %d", core_config->tp_info->virtual_key[i].nId,
+				DBG_INFO("key: id = %d, X = %d, Y = %d\n", core_config->tp_info->virtual_key[i].nId,
 				core_config->tp_info->virtual_key[i].nX, core_config->tp_info->virtual_key[i].nY);
 			}
 		}
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		res = -1;
 	}
 
@@ -1005,7 +1005,7 @@ int core_config_get_tp_info(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1014,7 +1014,7 @@ int core_config_get_tp_info(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1023,12 +1023,12 @@ int core_config_get_tp_info(void)
 		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->tp_info_len);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to read data via I2C, %d", res);
+			DBG_ERR("Failed to read data via I2C, %d\n", res);
 			goto out;
 		}
 
 		for (; i < protocol->tp_info_len; i++)
-			DBG(DEBUG_CONFIG, "tp_info[%d] = %x", i, read_buf[i]);
+			DBG(DEBUG_CONFIG, "tp_info[%d] = %x\n", i, read_buf[i]);
 
 		/* in protocol v5, ignore the first btye because of a header. */
 		core_config->tp_info->nMinX = read_buf[1];
@@ -1045,19 +1045,19 @@ int core_config_get_tp_info(void)
 
 		core_config->tp_info->nMaxKeyButtonNum = 5;
 
-		DBG_INFO("minX = %d, minY = %d, maxX = %d, maxY = %d",
+		DBG_INFO("minX = %d, minY = %d, maxX = %d, maxY = %d\n",
 				 core_config->tp_info->nMinX, core_config->tp_info->nMinY,
 				 core_config->tp_info->nMaxX, core_config->tp_info->nMaxY);
-		DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d",
+		DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d\n",
 				 core_config->tp_info->nXChannelNum, core_config->tp_info->nYChannelNum,
 				 core_config->tp_info->self_tx_channel_num, core_config->tp_info->self_rx_channel_num);
-		DBG_INFO("side_touch_type = %d, max_touch_num= %d, touch_key_num = %d, max_key_num = %d",
+		DBG_INFO("side_touch_type = %d, max_touch_num= %d, touch_key_num = %d, max_key_num = %d\n",
 				 core_config->tp_info->side_touch_type, core_config->tp_info->nMaxTouchNum,
 				 core_config->tp_info->nKeyCount, core_config->tp_info->nMaxKeyButtonNum);
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		res = -1;
 	}
 
@@ -1082,7 +1082,7 @@ int core_config_get_protocol_ver(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1091,7 +1091,7 @@ int core_config_get_protocol_ver(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1100,7 +1100,7 @@ int core_config_get_protocol_ver(void)
 		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->pro_ver_len);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to read data via I2C, %d", res);
+			DBG_ERR("Failed to read data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1108,23 +1108,23 @@ int core_config_get_protocol_ver(void)
 		for (; i < protocol->pro_ver_len; i++)
 		{
 			core_config->protocol_ver[i] = read_buf[i+1];
-			DBG(DEBUG_CONFIG, "protocol_ver[%d] = %d", i, core_config->protocol_ver[i]);
+			DBG(DEBUG_CONFIG, "protocol_ver[%d] = %d\n", i, core_config->protocol_ver[i]);
 		}
 		
-		DBG_INFO("Procotol Version = %d.%d.%d",
+		DBG_INFO("Procotol Version = %d.%d.%d\n",
 				core_config->protocol_ver[0],core_config->protocol_ver[1],core_config->protocol_ver[2]);
 
 		/* update protocol */
 		res = core_protocol_init(core_config->protocol_ver[0], core_config->protocol_ver[1], core_config->protocol_ver[2]);
 		if(res < 0)
 		{
-			DBG_ERR("Protocol version is invalid");
+			DBG_ERR("Protocol version is invalid\n");
 			goto out;
 		}
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		res = -1;
 	}
 
@@ -1148,7 +1148,7 @@ int core_config_get_core_ver(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1157,7 +1157,7 @@ int core_config_get_core_ver(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1166,24 +1166,24 @@ int core_config_get_core_ver(void)
 		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->core_ver_len);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to read data via I2C, %d", res);
+			DBG_ERR("Failed to read data via I2C, %d\n", res);
 			goto out;
 		}
 
 		for (; i < protocol->core_ver_len; i++)
 		{
 			core_config->core_ver[i] = read_buf[i];
-			DBG(DEBUG_CONFIG, "core_ver[%d] = %d", i, read_buf[i]);
+			DBG(DEBUG_CONFIG, "core_ver[%d] = %d\n", i, read_buf[i]);
 		}
 
 		/* in protocol v5, ignore the first btye because of a header. */
-		DBG_INFO("Core Version = %d.%d.%d.%d",
+		DBG_INFO("Core Version = %d.%d.%d.%d\n",
 				core_config->core_ver[1], core_config->core_ver[2],
 				core_config->core_ver[3], core_config->core_ver[4]);
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		res = -1;
 	}
 
@@ -1211,7 +1211,7 @@ int core_config_get_fw_ver(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1220,7 +1220,7 @@ int core_config_get_fw_ver(void)
 		res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to write data via I2C, %d", res);
+			DBG_ERR("Failed to write data via I2C, %d\n", res);
 			goto out;
 		}
 
@@ -1229,24 +1229,24 @@ int core_config_get_fw_ver(void)
 		res = core_i2c_read(core_config->slave_i2c_addr, &read_buf[0], protocol->fw_ver_len);
 		if (res < 0)
 		{
-			DBG_ERR("Failed to read fw version %d", res);
+			DBG_ERR("Failed to read fw version %d\n", res);
 			goto out;
 		}
 
 		for (; i < protocol->fw_ver_len ; i++)
 		{
 			core_config->firmware_ver[i] = read_buf[i];
-			DBG(DEBUG_CONFIG, "firmware_ver[%d] = %d", i, read_buf[i]);
+			DBG(DEBUG_CONFIG, "firmware_ver[%d] = %d\n", i, read_buf[i]);
 		}
 
 		/* in protocol v5, ignore the first btye because of a header. */
-		DBG_INFO("Firmware Version = %d.%d.%d",
+		DBG_INFO("Firmware Version = %d.%d.%d\n",
 				 core_config->firmware_ver[1], core_config->firmware_ver[2],
 				 core_config->firmware_ver[3]);
 	}
 	else
 	{
-		DBG_ERR("Wrong the major version of protocol, 0x%x", protocol->major);
+		DBG_ERR("Wrong the major version of protocol, 0x%x\n", protocol->major);
 		res = -1;
 	}
 
@@ -1264,7 +1264,7 @@ int core_config_get_chip_id(void)
 	res = core_config_ice_mode_enable();
 	if (res < 0)
 	{
-		DBG_ERR("Failed to enter ICE mode, res = %d", res);
+		DBG_ERR("Failed to enter ICE mode, res = %d\n", res);
 		goto out;
 	}
 
@@ -1276,11 +1276,11 @@ int core_config_get_chip_id(void)
 	{
 		RealID = check_chip_id(PIDData);
 
-		DBG_INFO("CHIP ID = 0x%x, CHIP TYPE = %04x", RealID, core_config->chip_type);
+		DBG_INFO("CHIP ID = 0x%x, CHIP TYPE = %04x\n", RealID, core_config->chip_type);
 
 		if (RealID != core_config->chip_id)
 		{
-			DBG_ERR("CHIP ID ERROR: 0x%x, ON_BOARD_IC = 0x%x", 
+			DBG_ERR("CHIP ID ERROR: 0x%x, ON_BOARD_IC = 0x%x\n", 
 						RealID, ON_BOARD_IC);
 			res = -ENODEV;
 			goto out;
@@ -1288,7 +1288,7 @@ int core_config_get_chip_id(void)
 	}
 	else
 	{
-		DBG_ERR("PID DATA error : 0x%x", PIDData);
+		DBG_ERR("PID DATA error : 0x%x\n", PIDData);
 		res = -EINVAL;
 		goto out;
 	}
@@ -1324,7 +1324,7 @@ int core_config_init(void)
 			core_config = kzalloc(alloca_size, GFP_KERNEL);
 			if(ERR_ALLOC_MEM(core_config))
 			{
-				DBG_ERR("Failed to allocate core_config memory, %ld", PTR_ERR(core_config));
+				DBG_ERR("Failed to allocate core_config memory, %ld\n", PTR_ERR(core_config));
 				res = -ENOMEM;
 				goto out;
 			}
@@ -1333,7 +1333,7 @@ int core_config_init(void)
 			core_config->tp_info = kzalloc(alloca_size, GFP_KERNEL);
 			if(ERR_ALLOC_MEM(core_config->tp_info))
 			{
-				DBG_ERR("Failed to allocate core_config->tp_info memory, %ld", PTR_ERR(core_config->tp_info));
+				DBG_ERR("Failed to allocate core_config->tp_info memory, %ld\n", PTR_ERR(core_config->tp_info));
 				res = -ENOMEM;
 				goto out;
 			}
@@ -1362,7 +1362,7 @@ int core_config_init(void)
 		}
 	}
 
-	DBG_ERR("Can't find this chip in support list");
+	DBG_ERR("Can't find this chip in support list\n");
 out:
 	core_config_remove();
 	return res;
@@ -1371,7 +1371,7 @@ EXPORT_SYMBOL(core_config_init);
 
 void core_config_remove(void)
 {
-	DBG_INFO("Remove core-config memebers");
+	DBG_INFO("Remove core-config memebers\n");
 
 	if(core_config != NULL)
 	{

@@ -98,10 +98,10 @@ extern uint32_t ipio_chip_list[2];
 
 /* Normal debug messages */
 #define DBG_INFO(fmt, arg...) \
-			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
+			pr_info("ILITEK: (%s, %d): " fmt , __func__, __LINE__, ##arg);
 
 #define DBG_ERR(fmt, arg...) \
-			pr_err("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
+			pr_err("ILITEK: (%s, %d): " fmt , __func__, __LINE__, ##arg);
 
 /* Detailed debug messages */
 #ifdef BIT
@@ -128,7 +128,7 @@ extern uint32_t ipio_debug_level;
 #define DBG(level, fmt, arg...) \
 			do { \
 				if (level & ipio_debug_level) \
-				pr_info( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg); \
+				pr_info( "ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg); \
 			} while (0)
 
 /* Macros */

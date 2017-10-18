@@ -25,29 +25,6 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
-enum mp_test_catalog
-{
-    MUTUAL_TEST = 0,
-    SELF_TEST = 1,
-    KEY_TEST = 2,
-    ST_TEST = 3,
-    TX_RX_DELTA = 4,
-    UNTOUCH_P2P = 5,
-    PIXEL = 6,
-};
-
-struct mp_test_items
-{
-    char *name;
-    char *desp;
-    char *result;
-    int catalog;
-    uint8_t cmd;
-    int32_t* buf;
-    bool run;
-	int (*do_test)(int, uint8_t);
-};
-
 struct core_mp_test_data
 {
     /* A flag shows a test run in particular */
@@ -74,11 +51,6 @@ struct core_mp_test_data
     int RxDeltaMin;
     int P2PMax;
     int P2PMin;
-
-    int32_t *tx_delta_buf;
-    int32_t *rx_delta_buf;
-
-    struct mp_test_items tItems[32];
 };
 
 extern struct core_mp_test_data *core_mp;
