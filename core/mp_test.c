@@ -269,6 +269,7 @@ static void mp_test_free(void)
     for(i = 0; i < ARRAY_SIZE(tItems); i++)
     {
         tItems[i].run = false;
+        tItems[i].result = "false";
 
         if(tItems[i].buf != NULL)
         {
