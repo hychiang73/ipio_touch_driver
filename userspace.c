@@ -41,6 +41,7 @@
 #include "core/i2c.h"
 #include "core/protocol.h"
 #include "core/mp_test.h"
+#include "core/parser.h"
 
 #define ILITEK_IOCTL_MAGIC	100 
 #define ILITEK_IOCTL_MAXNR	18
@@ -163,24 +164,63 @@ static ssize_t ilitek_proc_report_data_read(struct file *filp, char __user *buff
 
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
+	int i, j, mp_num = 9;
 	uint32_t len = 0;
+	char str[512]={0};
+	char **mp_ini = NULL;
 
 	if (*pPos != 0)
 		return 0;
 
-	/*
-	len = sprintf(buff, "%d", ipio_debug_level);
+	mp_ini = (char **)kmalloc(mp_num, GFP_KERNEL);
+
+	for(i = 0; i < mp_num; i++)
+		mp_ini[i] = (char *)kmalloc(256 * sizeof(char), GFP_KERNEL);
+
+	sprintf(mp_ini[0], "FW Ver. Check");
+	sprintf(mp_ini[1], "Short Test (Rx)");
+	sprintf(mp_ini[2], "Pixel Raw (No BK)");
+	sprintf(mp_ini[3], "Pixel Raw (Have BK)");
+	sprintf(mp_ini[4], "Untouch Calibration Data(DAC) - Mutual");
+	sprintf(mp_ini[5], "Untouch Raw Data(Have BK) - Mutual");
+	sprintf(mp_ini[6], "Untouch Peak to Peak");
+	sprintf(mp_ini[7], "Untouch Cm Data");
+	sprintf(mp_ini[8], "Untouch Raw Data(No BK) - Mutual");
 
 
-	res = copy_to_user((uint32_t *)buff, &ipio_debug_level, len);
-	if (res < 0)
+	if(core_parser_path("/sdcard/mp.ini") < 0)
 	{
-		DBG_ERR("Failed to copy data to user space");
+		DBG_ERR("Failed to parsing INI file \n");
+		goto out;
 	}
-*/	
 
+	for(i = 0; i < mp_num; i++)
+	{
+		for(j = 0; j < core_mp->mp_items; j++)
+		{
+			if(strcmp(tItems[j].desp, mp_ini[i]) == 0)
+			{
+				DBG_INFO("mp_ini[%d] = %s \n",i, mp_ini[i]);
+				core_parser_get_int_data(mp_ini[i], "Enable", str);
+				tItems[j].run = katoi(str);
+				core_parser_get_int_data(mp_ini[i], "Max", str);
+				tItems[j].max = katoi(str);
+				core_parser_get_int_data(mp_ini[i], "Min", str);
+				tItems[j].min = katoi(str);
+				DBG_INFO("run = %d, max = %d, min = %d\n",tItems[j].run,tItems[j].max,tItems[j].min );
+			}			
+		}
+	}
+
+	core_mp_run_test();
+	core_mp_show_result();
+	core_mp_test_free();
+
+out:
+	for(i = 0; i < mp_num; i++)
+		kfree(mp_ini[i]);
+	kfree(mp_ini);
 	*pPos = len;
-
 	return len;
 }
 
@@ -199,27 +239,6 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 			DBG_INFO("copy data from user space, failed\n");
 			return -1;
 		}
-	}
-
-	/* for test */
-	{
-		// core_mp_run_test("mutual_dac", 0x0);
-		// core_mp_run_test("mutual_bg", 0x0);
-		// core_mp_run_test("mutual_signal", 0x0);
-		// core_mp_run_test("mutual_no_bk", 0x0);
-		// core_mp_run_test("mutual_has_bk", 0x0);
-		// core_mp_run_test("mutual_bk_dac", 0x0);
-
-		// core_mp_run_test("tx_rx_delta", 0x0);
-		// core_mp_run_test("p2p", 0x2);
-
-		//core_mp_run_test("pixel_no_bk", 0x0);
-		//core_mp_run_test("pixel_no_bk", 0x0);
-
-		core_mp_run_test("open_cap", 0x0);
-
-		core_mp_show_result();
-		return size;
 	}
 
 	DBG_INFO("size = %d, cmd = %s\n", (int)size, cmd);
@@ -245,7 +264,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 			break;
 	}
 
-	core_mp_run_test(cmd, va[1]);
+	//core_mp_run_test(cmd, va[1]);
 
 	return size;
 }

@@ -25,6 +25,21 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
+struct mp_test_items
+{
+    char *name;
+    char *desp;
+    char *result;
+    int catalog;
+    uint8_t cmd;
+    bool run;
+    int max;
+    int min;
+    int frame_count;
+    int32_t* buf;
+	int (*do_test)(int, uint8_t);
+};
+
 struct core_mp_test_data
 {
     /* A flag shows a test run in particular */
@@ -45,6 +60,7 @@ struct core_mp_test_data
     int srx_len;
     int key_len;
     int st_len;
+    int mp_items;
 
     /* Spec threshold */
     int TxDeltaMax;
@@ -56,9 +72,11 @@ struct core_mp_test_data
 };
 
 extern struct core_mp_test_data *core_mp;
+extern struct mp_test_items tItems[];
 
+extern void core_mp_test_free(void);
 extern void core_mp_show_result(void);
-extern int core_mp_run_test(const char *name, uint8_t value);
+extern void core_mp_run_test(void);
 extern void core_mp_move_code(void);
 extern int core_mp_init(void);
 extern void core_mp_remove(void);

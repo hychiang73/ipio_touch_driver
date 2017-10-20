@@ -79,60 +79,50 @@ enum mp_test_catalog
     OPEN_TEST = 7,
 };
 
-struct mp_test_items
-{
-    char *name;
-    char *desp;
-    char *result;
-    int catalog;
-    uint8_t cmd;
-    bool run;    
-    int32_t* buf;
-	int (*do_test)(int, uint8_t);
-} tItems[] = {
-    {"mutual_dac", "Calibration Data(DAC/Mutual)", "false", MUTUAL_TEST, false, NULL, NULL},
-    {"mutual_bg", "Baseline Data(BG)", "false", MUTUAL_TEST, false, NULL, NULL},
-    {"mutual_signal", "Signal Data(BG - RAW - 4096)", "false", MUTUAL_TEST, false, NULL, NULL},
-    {"mutual_no_bk", "Raw Data(No BK)", "false", MUTUAL_TEST, false, NULL, NULL},
-    {"mutual_has_bk", "Raw Data(Have BK)", "false", MUTUAL_TEST, false, NULL, NULL},
-    {"mutual_bk_dac", "Manual BK Data(Mutual)", "false", MUTUAL_TEST, false, NULL, NULL},
+struct mp_test_items tItems[] = {
+    {"mutual_dac", "Untouch Calibration Data(DAC) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"mutual_bg", "Baseline Data(BG)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"mutual_signal", "Untouch Signal Data(BG–Raw-4096) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"mutual_no_bk", "Untouch Raw Data(No BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"mutual_has_bk", "Untouch Raw Data(Have BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"mutual_bk_dac", "Manual BK Data(Mutual)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
     
-    {"self_dac", "Calibration Data(DAC/Self_Tx/Self_Rx)", "false", SELF_TEST, false, NULL, NULL},
-    {"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "false", SELF_TEST, false, NULL, NULL},
-    {"self_signal", "Signal Data(Self_Tx,Self_Rx/RAW -4096/Have BK)", "false", SELF_TEST, false, NULL, NULL},
-    {"self_no_bk", "Raw Data(Self_Tx/Self_Rx/No BK)", "false", SELF_TEST, false, NULL, NULL},
-    {"self_has_bk", "Raw Data(Self_Tx/Self_Rx/Have BK)", "false", SELF_TEST, false, NULL, NULL},
-    {"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "false", SELF_TEST, false, NULL, NULL},
+    {"self_dac", "Untouch Calibration Data(DAC) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"self_no_bk", "Untouch Raw Data(No BK) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"self_has_bk", "Untouch Raw Data(Have BK) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
 
-    {"key_dac", "Calibration Data(DAC/ICON)", "false", KEY_TEST, false, NULL, NULL},
-    {"key_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "false", KEY_TEST, false, NULL, NULL},
-    {"key_no_bk", "ICON Raw Data", "false", KEY_TEST, false, NULL, NULL},
-    {"key_has_bk", "ICON Raw Data(Have BK)", "false", KEY_TEST, false, NULL, NULL},
-    {"key_open", "ICON Open Data", "false", KEY_TEST, false, NULL, NULL},
-    {"key_short", "ICON Short Data", "false", KEY_TEST, false, NULL, NULL},
+    {"key_dac", "Calibration Data(DAC/ICON)", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"key_bg", "Key Baseline Data", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"key_no_bk", "Key Raw Data", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"key_has_bk", "Key Raw BK DAC", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"key_open", "Key Raw Open Test", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"key_short", "Key Raw Short Test", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
 
-    {"st_dac", "ST DAC", "false", ST_TEST, false, NULL, NULL},
-    {"st_bg", "ST BG", "false", ST_TEST, false, NULL, NULL},
-    {"st_no_bk", "ST NO BK", "false", ST_TEST, false, NULL, NULL},
-    {"st_has_bk", "ST Has BK", "false", ST_TEST, false, NULL, NULL},
-    {"st_open", "ST Open", "false", ST_TEST, false, NULL, NULL},
+    {"st_dac", "ST Calibration Data(DAC)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"st_bg", "ST Baseline Data(BG)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"st_no_bk", "ST Raw Data(No BK)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"st_has_bk", "ST Raw(Have BK)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"st_open", "ST Open Data", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL},
 
-    {"tx_short", "TX Short", "false", MUTUAL_TEST, false, NULL, NULL},
-    {"rx_short", "RX Short", "false", MUTUAL_TEST, false, NULL, NULL},
-    {"rx_open", "RX Open", "false", MUTUAL_TEST, false, NULL, NULL},
+    {"tx_short", "Tx Short Test", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"rx_short", "Short Test (Rx)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"rx_open", "RX Open", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
 
-    {"cm_data", "CM Data", "false", MUTUAL_TEST, false, NULL, NULL},
-    {"cs_data", "CS Data", "false", MUTUAL_TEST, false, NULL, NULL},
+    {"cm_data", "Untouch Cm Data", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"cs_data", "Untouch Cs Data", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
 
-    {"tx_rx_delta", "Tx/Rx Delta Data", "false", TX_RX_DELTA, false, NULL, NULL},
+    {"tx_rx_delta", "Tx/Rx Delta", "false", TX_RX_DELTA, 0x0, false, 0, 0, 0, NULL, NULL},
+ 
+    {"p2p", "Untouch Peak to Peak", "false", UNTOUCH_P2P, 0x0, false, 0, 0, 0, NULL, NULL},
 
-    {"p2p", "Untounch Peak to Peak", "false", UNTOUCH_P2P, false, NULL, NULL},
+    {"pixel_no_bk", "Pixel Raw (No BK)", "false", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"pixel_has_bk", "Pixel Raw (Have BK)", "false", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL},
 
-    {"pixel_no_bk", "Pixel No BK", "false", PIXEL, false, NULL, NULL},
-    {"pixel_has_bk", "Pixel Has BK", "false", PIXEL, false, NULL, NULL},
-
-    {"open_integration", "Open Test Integration", "false", OPEN_TEST, false, NULL, NULL},
-    {"open_cap", "Open Test Cap", "false", OPEN_TEST, false, NULL, NULL},
+    {"open_integration", "Open Test(integration)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"open_cap", "Open Test(Cap)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
 };
 
 /* Tx/Rx Delta outside buffer */
@@ -149,82 +139,10 @@ static int untouch_p2p_test(int index, uint8_t val);
 static int pixel_test(int index, uint8_t val);
 static int open_test(int index, uint8_t val);
 
-static void mp_test_free(void);
-
 /* Read from and write into data via I2c */
 static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf);
 
 struct core_mp_test_data *core_mp = NULL;
-
-static void mp_test_init_item(void)
-{
-    int i;
-
-    /* assign test functions run on MP flow according to their catalog */
-    for(i = 0; i < ARRAY_SIZE(tItems); i++)
-    {
-        if(tItems[i].catalog == MUTUAL_TEST)
-            tItems[i].do_test = mutual_test;
-
-        if(tItems[i].catalog == SELF_TEST)
-            tItems[i].do_test = self_test;
-         
-        if(tItems[i].catalog == KEY_TEST)
-            tItems[i].do_test = key_test;
-         
-        if(tItems[i].catalog == ST_TEST)
-            tItems[i].do_test = st_test;
-        
-        if(tItems[i].catalog == TX_RX_DELTA)
-           tItems[i].do_test = tx_rx_delta_test;
-      
-        if(tItems[i].catalog == UNTOUCH_P2P)
-            tItems[i].do_test = untouch_p2p_test;
-        
-        if(tItems[i].catalog == PIXEL)
-            tItems[i].do_test = pixel_test;
-        
-        if(tItems[i].catalog == OPEN_TEST)
-            tItems[i].do_test = open_test;
-    }
-
-    /* assign protocol command written into firmware via I2C,
-    which might be differnet if the version of protocol was changed. */
-    tItems[0].cmd = protocol->mutual_dac;
-    tItems[1].cmd = protocol->mutual_bg;
-    tItems[2].cmd = protocol->mutual_signal;
-    tItems[3].cmd = protocol->mutual_no_bk;
-    tItems[4].cmd = protocol->mutual_has_bk;
-    tItems[5].cmd = protocol->mutual_bk_dac;
-    tItems[6].cmd = protocol->self_dac;
-    tItems[7].cmd = protocol->self_bg;
-    tItems[8].cmd = protocol->self_signal;
-    tItems[9].cmd = protocol->self_no_bk;
-    tItems[10].cmd = protocol->self_has_bk;
-    tItems[11].cmd = protocol->self_bk_dac;
-    tItems[12].cmd = protocol->key_dac;
-    tItems[13].cmd = protocol->key_bg;
-    tItems[14].cmd = protocol->key_no_bk;
-    tItems[15].cmd = protocol->key_has_bk;
-    tItems[16].cmd = protocol->key_open;
-    tItems[17].cmd = protocol->key_short;
-    tItems[18].cmd = protocol->st_dac;
-    tItems[19].cmd = protocol->st_bg;
-    tItems[20].cmd = protocol->st_no_bk;
-    tItems[21].cmd = protocol->st_has_bk;
-    tItems[22].cmd = protocol->st_open;
-    tItems[23].cmd = protocol->tx_short;
-    tItems[24].cmd = protocol->rx_short;
-    tItems[25].cmd = protocol->rx_open;
-    tItems[26].cmd = protocol->cm_data;
-    tItems[27].cmd = protocol->cs_data;
-    tItems[28].cmd = protocol->tx_rx_delta;
-    tItems[29].cmd = protocol->mutual_signal;
-    tItems[30].cmd = protocol->mutual_no_bk;
-    tItems[31].cmd = protocol->mutual_has_bk;
-    tItems[32].cmd = protocol->rx_open;
-    tItems[33].cmd = protocol->rx_open;
-}
 
 static void dump_data(void *data, int type)
 {
@@ -260,33 +178,6 @@ static void dump_data(void *data, int type)
         DUMP(DEBUG_MP_TEST,"\n");
     }
     DUMP(DEBUG_MP_TEST,"\n\n\n");
-}
-
-static void mp_test_free(void)
-{
-    int i;
-     
-    for(i = 0; i < ARRAY_SIZE(tItems); i++)
-    {
-        tItems[i].run = false;
-        tItems[i].result = "false";
-
-        if(tItems[i].buf != NULL)
-        {
-            if(tItems[i].catalog == TX_RX_DELTA)
-            {
-                kfree(rx_delta_buf);
-                rx_delta_buf = NULL;
-                kfree(tx_delta_buf);
-                tx_delta_buf = NULL;
-            }
-            else
-            {
-                kfree(tItems[i].buf);
-                tItems[i].buf = NULL;
-            }
-        }
-    }
 }
 
 static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
@@ -1413,6 +1304,106 @@ out:
     return res; 
 }
 
+static void mp_test_init_item(void)
+{
+    int i;
+
+    core_mp->mp_items = ARRAY_SIZE(tItems);
+
+    /* assign test functions run on MP flow according to their catalog */
+    for(i = 0; i < ARRAY_SIZE(tItems); i++)
+    {
+        if(tItems[i].catalog == MUTUAL_TEST)
+            tItems[i].do_test = mutual_test;
+
+        if(tItems[i].catalog == SELF_TEST)
+            tItems[i].do_test = self_test;
+         
+        if(tItems[i].catalog == KEY_TEST)
+            tItems[i].do_test = key_test;
+         
+        if(tItems[i].catalog == ST_TEST)
+            tItems[i].do_test = st_test;
+        
+        if(tItems[i].catalog == TX_RX_DELTA)
+           tItems[i].do_test = tx_rx_delta_test;
+      
+        if(tItems[i].catalog == UNTOUCH_P2P)
+            tItems[i].do_test = untouch_p2p_test;
+        
+        if(tItems[i].catalog == PIXEL)
+            tItems[i].do_test = pixel_test;
+        
+        if(tItems[i].catalog == OPEN_TEST)
+            tItems[i].do_test = open_test;
+    }
+
+    /* assign protocol command written into firmware via I2C,
+    which might be differnet if the version of protocol was changed. */
+    tItems[0].cmd = protocol->mutual_dac;
+    tItems[1].cmd = protocol->mutual_bg;
+    tItems[2].cmd = protocol->mutual_signal;
+    tItems[3].cmd = protocol->mutual_no_bk;
+    tItems[4].cmd = protocol->mutual_has_bk;
+    tItems[5].cmd = protocol->mutual_bk_dac;
+    tItems[6].cmd = protocol->self_dac;
+    tItems[7].cmd = protocol->self_bg;
+    tItems[8].cmd = protocol->self_signal;
+    tItems[9].cmd = protocol->self_no_bk;
+    tItems[10].cmd = protocol->self_has_bk;
+    tItems[11].cmd = protocol->self_bk_dac;
+    tItems[12].cmd = protocol->key_dac;
+    tItems[13].cmd = protocol->key_bg;
+    tItems[14].cmd = protocol->key_no_bk;
+    tItems[15].cmd = protocol->key_has_bk;
+    tItems[16].cmd = protocol->key_open;
+    tItems[17].cmd = protocol->key_short;
+    tItems[18].cmd = protocol->st_dac;
+    tItems[19].cmd = protocol->st_bg;
+    tItems[20].cmd = protocol->st_no_bk;
+    tItems[21].cmd = protocol->st_has_bk;
+    tItems[22].cmd = protocol->st_open;
+    tItems[23].cmd = protocol->tx_short;
+    tItems[24].cmd = protocol->rx_short;
+    tItems[25].cmd = protocol->rx_open;
+    tItems[26].cmd = protocol->cm_data;
+    tItems[27].cmd = protocol->cs_data;
+    tItems[28].cmd = protocol->tx_rx_delta;
+    tItems[29].cmd = protocol->mutual_signal;
+    tItems[30].cmd = protocol->mutual_no_bk;
+    tItems[31].cmd = protocol->mutual_has_bk;
+    tItems[32].cmd = protocol->rx_open;
+    tItems[33].cmd = protocol->rx_open;
+}
+
+void core_mp_test_free(void)
+{
+    int i;
+     
+    for(i = 0; i < ARRAY_SIZE(tItems); i++)
+    {
+        tItems[i].run = false;
+        tItems[i].result = "false";
+
+        if(tItems[i].buf != NULL)
+        {
+            if(tItems[i].catalog == TX_RX_DELTA)
+            {
+                kfree(rx_delta_buf);
+                rx_delta_buf = NULL;
+                kfree(tx_delta_buf);
+                tx_delta_buf = NULL;
+            }
+            else
+            {
+                kfree(tItems[i].buf);
+                tItems[i].buf = NULL;
+            }
+        }
+    }
+}
+EXPORT_SYMBOL(core_mp_test_free);
+
 void core_mp_show_result(void)
 {
     int i, x, y;
@@ -1805,7 +1796,6 @@ void core_mp_show_result(void)
         }
     }
 
-    mp_test_free();    
     filp_close(f, NULL);
 fail_open:
     set_fs(fs);
@@ -1814,26 +1804,15 @@ fail_open:
 }
 EXPORT_SYMBOL(core_mp_show_result);
 
-int core_mp_run_test(const char *name, uint8_t val)
+void core_mp_run_test(void)
 {
-	int i = 0, res = 0;
-
-    DBG_INFO("Test name = %s, size = %d\n", name, (int)ARRAY_SIZE(tItems));
+	int i = 0;
     
 	for(i = 0; i < ARRAY_SIZE(tItems); i++)
 	{
-        if(strcmp(name, tItems[i].name) == 0)
-		{
-            tItems[i].run = true;
-            res = tItems[i].do_test(i, val);
-            DBG_INFO("***** DONE: tItems[%d] = %p\n ", i, tItems[i].buf);
-            printk("\n\n\n");
-			return res;
-		}
+        if(tItems[i].run)
+            tItems[i].do_test(i, 0x0);
     }
-
-    DBG_ERR("The name can't be found in the list\n");
-    return FAIL;
 }
 EXPORT_SYMBOL(core_mp_run_test);
 
