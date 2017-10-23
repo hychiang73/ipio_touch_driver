@@ -1440,6 +1440,12 @@ void core_mp_show_result(void)
             sprintf(csv, "\n");
             f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
 
+            if(ERR_ALLOC_MEM(tItems[i].buf))
+            {
+                DBG_ERR("This test item (%s) has no data inside its buffer \n", tItems[i].desp);
+                continue;
+            }
+
             if(tItems[i].catalog == MUTUAL_TEST)
             {
                 /* print X raw */
@@ -1811,7 +1817,10 @@ void core_mp_run_test(void)
 	for(i = 0; i < ARRAY_SIZE(tItems); i++)
 	{
         if(tItems[i].run)
-            tItems[i].do_test(i, 0x0);
+        {
+            DBG_INFO("Runing Test Item : %s \n", tItems[i].desp);
+            tItems[i].do_test(i, 0x0);            
+        }
     }
 }
 EXPORT_SYMBOL(core_mp_run_test);

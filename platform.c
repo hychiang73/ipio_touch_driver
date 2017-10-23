@@ -51,7 +51,7 @@ extern struct tpd_device *tpd;
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
 #endif
 
-uint32_t ipio_debug_level = DEBUG_ALL;
+uint32_t ipio_debug_level = DEBUG_NONE;
 EXPORT_SYMBOL(ipio_debug_level);
 
 struct ilitek_platform_data *ipd;

@@ -19,7 +19,8 @@ ilitek-y += core/config.o \
 			core/flash.o \
 			core/i2c.o \
 			core/mp_test.o \
-			core/protocol.o 
+			core/protocol.o \
+			core/parser.o
 
 KERNEL_DIR= /home/likewise-open/ILI/1061279/workplace/rk3288_sdk/kernel
 all:
