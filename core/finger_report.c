@@ -557,7 +557,7 @@ void core_fr_mode_control(uint8_t *from_user)
 		}
 		else
 		{
-			DBG_ERR("Unknown firmware mode: %d\n", mode);
+			DBG_ERR("Unknown firmware mode: %x\n", mode);
 		}
 	}
 	else

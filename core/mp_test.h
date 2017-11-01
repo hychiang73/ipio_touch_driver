@@ -37,7 +37,9 @@ struct mp_test_items
     int min;
     int frame_count;
     int32_t* buf;
-	int (*do_test)(int, uint8_t);
+    int32_t* max_buf;
+    int32_t* min_buf;
+	int (*do_test)(int index);
 };
 
 struct core_mp_test_data
@@ -60,15 +62,20 @@ struct core_mp_test_data
     int srx_len;
     int key_len;
     int st_len;
+    int frame_len;
     int mp_items;
 
-    /* Spec threshold */
+    /* Tx/Rx threshold & buffer */
     int TxDeltaMax;
     int TxDeltaMin;
     int RxDeltaMax;
     int RxDeltaMin;
-    int P2PMax;
-    int P2PMin;
+    int32_t *tx_delta_buf;
+    int32_t *rx_delta_buf;
+    int32_t *tx_max_buf;
+    int32_t *tx_min_buf;
+    int32_t *rx_max_buf;
+    int32_t *rx_min_buf;
 };
 
 extern struct core_mp_test_data *core_mp;

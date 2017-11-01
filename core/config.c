@@ -901,7 +901,7 @@ int core_config_check_cdc_busy(void)
 			mdelay(10);
 			core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
 			DBG(DEBUG_CONFIG, "CDC busy state = 0x%x\n", busy);
-			if(busy == 0x41)
+			if(busy == 0x41 || busy == 0x51)
 			{
 				res = 0;
 				break;

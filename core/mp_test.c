@@ -82,7 +82,7 @@ enum mp_test_catalog
 struct mp_test_items tItems[] = {
     {"mutual_dac", "Untouch Calibration Data(DAC) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
     {"mutual_bg", "Baseline Data(BG)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"mutual_signal", "Untouch Signal Data(BG–Raw-4096) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
     {"mutual_no_bk", "Untouch Raw Data(No BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
     {"mutual_has_bk", "Untouch Raw Data(Have BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
     {"mutual_bk_dac", "Manual BK Data(Mutual)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
@@ -125,1183 +125,822 @@ struct mp_test_items tItems[] = {
     {"open_cap", "Open Test(Cap)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
 };
 
-/* Tx/Rx Delta outside buffer */
-int32_t *tx_delta_buf = NULL;
-int32_t *rx_delta_buf = NULL;
-
-/* Handle its own test item */
-static int mutual_test(int index, uint8_t val);
-static int self_test(int index, uint8_t val);
-static int key_test(int index, uint8_t val);
-static int st_test(int index, uint8_t val);
-static int tx_rx_delta_test(int index, uint8_t val);
-static int untouch_p2p_test(int index, uint8_t val);
-static int pixel_test(int index, uint8_t val);
-static int open_test(int index, uint8_t val);
-
-/* Read from and write into data via I2c */
-static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf);
-
+int32_t *frame_buf = NULL;
 struct core_mp_test_data *core_mp = NULL;
 
-static void dump_data(void *data, int type)
+static void dump_data(void *data, int type, int len)
 {
-    int x, y;
+    int i;
     uint8_t *p8 = NULL;
     int32_t *p32 = NULL;
+
+    if(data == NULL)
+    {
+        DBG_ERR("The data going to dump is NULL\n");
+        return;        
+    }
+
+    printk("\n  Original Data: \n");
 
     if(type == 8)
     p8 = (uint8_t *)data;
     if(type == 32)
         p32 = (int32_t *)data;
 
+    for(i = 0; i < len; i++)
+    {   
+        if(type == 8)
+            printk(" %4x ", p8[i]);
+        else if(type == 32)
+            printk(" %4x ", p32[i]);
+
+        if((i % 32) == 0)
+            printk("\n");
+    }
+    printk("\n\n");
+}
+
+static void print_cdc_data(int32_t *data, int max_ts, int min_ts, struct file *f, char *csv)
+{
+    int x, y;
+    int32_t *tmp = data;
+    
+    /* print X raw */
     for(x = 0; x < core_mp->xch_len; x++)
     {
         if(x == 0)
-            DUMP(DEBUG_MP_TEST, "           ");
+        {
+            DUMP(DEBUG_MP_TEST,"           ");
+            sprintf(csv, ",");
+            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
+        }
 
         DUMP(DEBUG_MP_TEST,"X%02d      ", x);
+        sprintf(csv, "X%02d, ", x);
+        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
     }
 
     DUMP(DEBUG_MP_TEST,"\n");
+    sprintf(csv, "\n");
+    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
 
     for(y = 0; y < core_mp->ych_len; y++)
     {
         DUMP(DEBUG_MP_TEST," Y%02d ", y);
+        sprintf(csv, "Y%02d, ", y);
+        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
         for(x = 0; x < core_mp->xch_len; x++)
         {
-            if(type == 8)
-                DUMP(DEBUG_MP_TEST," %7d ", p8[x+y]);
-            if(type == 32)
-                DUMP(DEBUG_MP_TEST," %7d ", p32[x+y]);
+            if(tmp[y * core_mp->xch_len + x] <= max_ts &&
+                tmp[y * core_mp->xch_len + x] >= min_ts)
+            {
+                DUMP(DEBUG_MP_TEST," %7d ", tmp[y * core_mp->xch_len + x]);
+                sprintf(csv, "%d,", tmp[y * core_mp->xch_len + x]);
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+            }
+            else
+            {
+                if(tmp[y * core_mp->xch_len + x] > max_ts)
+                {
+                    DUMP(DEBUG_MP_TEST," *%7d ",tmp[y * core_mp->xch_len + x]);
+                    sprintf(csv, "*%d,", tmp[y * core_mp->xch_len + x]);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+                else
+                {
+                    DUMP(DEBUG_MP_TEST," #%7d ",tmp[y * core_mp->xch_len + x]);
+                    sprintf(csv, "#%d,", tmp[y * core_mp->xch_len + x]);
+                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                }
+            }
         }
         DUMP(DEBUG_MP_TEST,"\n");
+        sprintf(csv, "\n");
+        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
     }
-    DUMP(DEBUG_MP_TEST,"\n\n\n");
+
+    DUMP(DEBUG_MP_TEST,"\n");
+    sprintf(csv, "\n");
+    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
 }
 
-static int exec_cdc_command(bool write, uint8_t *item, int length, uint8_t *buf)
+static int create_mp_test_frame_buffer(int index)
 {
     int res = 0;
-    uint8_t cmd[3] = {0};
 
-    if(write)
+    if(tItems[index].catalog == TX_RX_DELTA)
     {
-        cmd[0] = protocol->cmd_cdc;
-        cmd[1] = item[0];
-		cmd[2] = item[1];
-		DBG(DEBUG_MP_TEST,"cmd[0] = 0x%x, cmd[1] = 0x%x, cmd[2] = 0x%x\n",cmd[0],cmd[1],cmd[2]);
-        res = core_i2c_write(core_config->slave_i2c_addr, cmd, 1 + length);
-        if(res < 0)
-            goto out;
-    }
-    else
-    {
-        if(ERR_ALLOC_MEM(buf))
+        /* 
+         * Because tx/rx have their own buffer to store data speparately, I allocate both buffers
+         *  in outside instead of creating it in their strcture.
+         */
+        core_mp->tx_delta_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(core_mp->tx_delta_buf))
         {
-            DBG_ERR("Invalid buffer\n");
+            DBG_ERR("Failed to allocate TX Delta buffer, %ld\n", PTR_ERR(core_mp->tx_delta_buf));
             res = -ENOMEM;
             goto out;
         }
 
-        cmd[0] = protocol->cmd_read_ctrl;
-        cmd[1] = protocol->cmd_get_cdc;
-        res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
-        if(res < 0)
+        core_mp->rx_delta_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(core_mp->rx_delta_buf))
+        {
+            DBG_ERR("Failed to allocate RX Delta buffer, %ld\n", PTR_ERR(core_mp->rx_delta_buf));
+            res = -ENOMEM;
             goto out;
-        
-        mdelay(1);
+        }
 
-        res = core_i2c_read(core_config->slave_i2c_addr, buf, length);
-        if(res < 0)
+        core_mp->tx_max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(core_mp->tx_max_buf))
+        {
+            DBG_ERR("Failed to allocate TX Max buffer, %ld\n", PTR_ERR(core_mp->tx_max_buf));
+            res = -ENOMEM;
             goto out;
+        }
+    
+        core_mp->tx_min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(core_mp->tx_min_buf))
+        {
+            DBG_ERR("Failed to allocate TX Min buffer, %ld\n", PTR_ERR(core_mp->tx_min_buf));
+            res = -ENOMEM;
+            goto out;
+        }
+
+        core_mp->rx_max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(core_mp->rx_max_buf))
+        {
+            DBG_ERR("Failed to allocate RX Max buffer, %ld\n", PTR_ERR(core_mp->rx_max_buf));
+            res = -ENOMEM;
+            goto out;
+        }
+    
+        core_mp->rx_min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(core_mp->rx_min_buf))
+        {
+            DBG_ERR("Failed to allocate RX Min buffer, %ld\n", PTR_ERR(core_mp->rx_min_buf));
+            res = -ENOMEM;
+            goto out;
+        } 
+    }
+    else
+    {
+        tItems[index].buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(tItems[index].buf))
+        {
+            DBG_ERR("Failed to allocate FRAME buffer, %ld\n", PTR_ERR(tItems[index].buf));
+            res = -ENOMEM;
+            goto out;
+        }
+    
+        tItems[index].max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(tItems[index].max_buf))
+        {
+            DBG_ERR("Failed to allocate MAX buffer, %ld\n", PTR_ERR(tItems[index].max_buf));
+            res = -ENOMEM;
+            goto out;
+        }
+    
+        tItems[index].min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if (ERR_ALLOC_MEM(tItems[index].min_buf))
+        {
+            DBG_ERR("Failed to allocate MIN buffer, %ld\n", PTR_ERR(tItems[index].min_buf));
+            res = -ENOMEM;
+            goto out;
+        }
     }
 
 out:
     return res;
 }
 
-static int pixel_test(int index, uint8_t val)
+static int allnode_mutual_cdc_data(int index)
 {
-    int i, x, y, len = 0, res = 0;
-    int tmp[4] = {0}, max = 0;
-    uint8_t cmd[2] = {0};
-    uint8_t *pixel = NULL;
+    int i = 0, res = 0, len = 0;
+    int inDACp = 0, inDACn = 0;
+    uint8_t cmd[3] = {0};
+    uint8_t *ori = NULL;
 
-    cmd[0] = tItems[index].cmd;
-    cmd[1] = val;
+    /* CDC init */
+    cmd[0] = protocol->cmd_cdc;
+    cmd[1] = tItems[index].cmd;
+    cmd[2] = 0;
 
-    /* update X/Y channel length if they're changed */
-	core_mp->xch_len = core_config->tp_info->nXChannelNum;
-    core_mp->ych_len = core_config->tp_info->nYChannelNum;
-    
-    len = core_mp->xch_len * core_mp->ych_len;
+    if(strcmp(tItems[index].name, "open_integration") == 0)
+        cmd[2] = 0x2;
+    if(strcmp(tItems[index].name, "open_cap") == 0)
+        cmd[2] = 0x3;
 
-    DBG(DEBUG_MP_TEST,"Read Mutual X/Y Channel length = %d\n", len);
-
-    if(cmd[0] == protocol->mutual_no_bk)
-        core_mp->p_no_bk = true;
-    
-    if(cmd[0] == protocol->mutual_has_bk)
-        core_mp->p_has_bk = true; 
-
-    if(tItems[index].buf == NULL)
-    {
-        /* Create a buffer that belogs to itself */
-        tItems[index].buf = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
-    }
-    else
-    {
-        /* erase data if this buffrer was not cleaned and freed */
-        memset(tItems[index].buf, 0x0, len * sizeof(int32_t));
-    }
-    
-    /* sending command to get raw data, converting it and comparing it with threshold */
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
+    res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
     if(res < 0)
     {
-        DBG_ERR("I2C error\n");
+        DBG_ERR("I2C Write Error while initialising cdc \n");
+        goto out;        
+    }
+
+    /* Check busy */
+    if(core_config_check_cdc_busy() < 0)
+    {
+        DBG_ERR("Check busy is timout !\n");
+        res = FAIL;
+        goto out;         
+    }
+
+    /* Prepare to get cdc data */
+    cmd[0] = protocol->cmd_read_ctrl;
+    cmd[1] = protocol->cmd_get_cdc;
+    DBG(DEBUG_MP_TEST,"R: cmd[0] = 0x%x, cmd[1] = 0x%x\n",cmd[0],cmd[1]);
+    res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+    if(res < 0)
+    {
+        DBG_ERR("I2C Read Error \n");
+        goto out;        
+    }
+
+    /* Multipling by 2 is due to the 16 bit in each node */
+    len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
+
+    DBG(DEBUG_MP_TEST,"Read X/Y Channel length = %d\n", len);
+    DBG(DEBUG_MP_TEST,"core_mp->frame_len = %d \n", core_mp->frame_len); 
+
+    /* Allocate a buffer for the original */
+    ori = kzalloc(len * sizeof(uint8_t), GFP_KERNEL);
+    if(ERR_ALLOC_MEM(ori))
+    {
+        DBG_ERR("Failed to allocate ori mem (%ld) \n", PTR_ERR(ori));
         goto out;
+    }
+
+    /* Get original frame(cdc) data */
+    res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
+    if(res < 0)
+    {
+        DBG_ERR("I2C Read Error while getting original cdc data \n");
+        goto out;        
+    }
+
+    //dump_data(ori, 8, len);
+
+    if(frame_buf == NULL)
+    {
+        frame_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+        if(ERR_ALLOC_MEM(frame_buf))
+        {
+            DBG_ERR("Failed to allocate FrameBuffer mem (%ld) \n", PTR_ERR(frame_buf));
+            goto out;
+        }
     }
     else
     {
-        pixel = kzalloc(len, GFP_KERNEL);
-        if(ERR_ALLOC_MEM(pixel))
+        memset(frame_buf, 0, core_mp->frame_len * sizeof(int32_t));
+    }
+
+    /* Convert original data to the physical one in each node */
+    for(i = 0; i < core_mp->frame_len; i++)
+    {
+        if(tItems[index].cmd == protocol->mutual_dac)
         {
-            res = FAIL;
-            goto out;
+            /* DAC - P */
+            if(((ori[(2 * i) + 1] & 0x80) >> 7) == 1)
+            {
+                /* Negative */
+                inDACp = 0 - (int)(ori[(2 * i) + 1] & 0x7F); 
+            }
+            else
+            {
+                inDACp = ori[(2 * i) + 1] & 0x7F;
+            }
+
+            /* DAC - N */
+            if(((ori[(1 + (2 * i))+ 1] & 0x80) >> 7) == 1)
+            {
+                /* Negative */
+                inDACn = 0 - (int)(ori[(1 + (2 * i)) + 1] & 0x7F);
+            }
+            else
+            {
+                inDACn = ori[(1 + (2 * i)) + 1] & 0x7F;
+            }
+
+            frame_buf[i] = (inDACp + inDACn) / 2;
         }
+        else
+        {
+             /* H byte + L byte */
+            int32_t tmp = (ori[(2 * i) + 1] << 8) +  ori[(1 + (2 * i)) + 1];
+         
+            if((tmp & 0x8000) == 0x8000)
+                frame_buf[i] = tmp - 65536;
+            else
+                frame_buf[i] = tmp;
+        }
+    }
 
-        res = exec_cdc_command(EXEC_READ, 0, len, pixel);
-		if(res < 0)
-            goto out;
+    //dump_data(frame_buf, 32, core_mp->frame_len);
 
-        dump_data(pixel, 8);
-                   
-        /* Start to converting data */
+out:
+    kfree(ori);
+    return res;
+}
+
+static void run_pixel_test(int index)
+{
+    int i, x, y, res = 0;
+    int32_t *p_comb = frame_buf;
+
+    for(y = 0; y < core_mp->ych_len; y++)
+    {
+        for(x = 0; x < core_mp->xch_len; x++)
+        {
+            int tmp[4] = {0}, max = 0;
+            int shift = y * core_mp->xch_len;
+            int centre = p_comb[shift + x];
+
+            /* if its position is in corner, the number of point 
+                we have to minus is around 2 to 3.  */
+            if(y == 0 && x == 0)
+            {
+                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); // down
+                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+            }
+            else if(y == (core_mp->ych_len - 1) && x == 0)
+            {
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
+                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+            }
+            else if(y == 0 && x == (core_mp->xch_len - 1))
+            {
+                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); // down
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
+            }
+            else if(y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1) )
+            {
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
+            }
+            else if (y == 0 && x != 0)
+            {
+                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); // down
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
+                tmp[2] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+            }
+            else if (y != 0 && x == 0)
+            {
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
+                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+                tmp[2] = Mathabs(centre - p_comb[(shift+1)+x]); // down
+
+            }
+            else if(y == (core_mp->ych_len - 1) && x != 0 )
+            {
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
+                tmp[2] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+            }
+            else if(y != 0 && x == (core_mp->xch_len - 1) )
+            {
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
+                tmp[2] = Mathabs(centre - p_comb[(shift+1)+x]); // down
+            }
+            else
+            {
+                /* middle minus four directions */
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
+                tmp[1] = Mathabs(centre - p_comb[(shift+1)+x]); // down
+                tmp[2] = Mathabs(centre - p_comb[shift+(x-1)]); // left
+                tmp[3] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+            }
+
+            max = tmp[0];
+
+            for(i = 0; i < 4; i++)
+            {
+                if(tmp[i] > max)
+                    max = tmp[i];
+            }
+
+            tItems[index].buf[shift+x] = max;
+        }
+    }
+}
+
+static int run_open_test(int index)
+{
+    int i, x, y, res = 0;
+    int32_t *p_comb = frame_buf;
+
+    if(strcmp(tItems[index].name, "open_integration") == 0)
+    {
+        for(i = 0; i < core_mp->frame_len; i++)
+            tItems[index].buf[i] = p_comb[i];
+    }
+    else if(strcmp(tItems[index].name, "open_cap") == 0)
+    {
+        /* Each result is getting from a 3 by 3 grid depending on where the centre location is.
+        So if the centre is at corner, the number of node grabbed from a grid will be different. */
         for(y = 0; y < core_mp->ych_len; y++)
         {
             for(x = 0; x < core_mp->xch_len; x++)
             {
-                /* if its position is in corner, the number of point 
-                    we have to minus is around 2 to 3.  */
+                int tmp[8] = {0};
+                int sum = 0, avg = 0, count = 0;
+                int shift = y * core_mp->xch_len;
+                int centre = p_comb[shift + x];
+
                 if(y == 0 && x == 0)
                 {
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                    tmp[0] = p_comb[(shift+1)+x]; // down
+                    tmp[1] = p_comb[shift+(x+1)]; // right
+                    tmp[2] = p_comb[(shift+1)+(x+1)]; // lower right
+                    count = 3;                   
                 }
                 else if(y == (core_mp->ych_len - 1) && x == 0)
                 {
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                    tmp[0] = p_comb[(shift-1)+x]; // up
+                    tmp[1] = p_comb[shift+(x+1)]; // right
+                    tmp[2] = p_comb[(shift-1)+(x+1)]; // upper right                   
+                    count = 3;
                 }
                 else if(y == 0 && x == (core_mp->xch_len - 1))
                 {
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
+                    tmp[0] = p_comb[(shift+1)+x]; // down
+                    tmp[1] = p_comb[shift+(x-1)]; // left
+                    tmp[2] = p_comb[(shift+1)+(x+1)]; // lower right
+                    count = 3;
                 }
                 else if(y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1) )
                 {
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
+                    tmp[0] = p_comb[(shift-1)+x]; // up
+                    tmp[1] = p_comb[shift+(x-1)]; // left
+                    tmp[2] = p_comb[(shift-1)+(x-1)]; // upper left
+                    count = 3;
                 }
                 else if (y == 0 && x != 0)
                 {
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
-                    tmp[2] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                    tmp[0] = p_comb[(shift+1)+x]; // down
+                    tmp[1] = p_comb[shift+(x-1)]; // left
+                    tmp[2] = p_comb[shift+(x+1)]; // right
+                    tmp[3] = p_comb[(shift+1)+(x-1)]; // lower left
+                    tmp[4] = p_comb[(shift+1)+(x+1)]; // lower right
+                    count = 5;
                 }
                 else if (y != 0 && x == 0)
                 {
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
-                    tmp[2] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
+                    tmp[0] = p_comb[(shift-1)+x]; // up
+                    tmp[1] = p_comb[shift+(x+1)]; // right
+                    tmp[2] = p_comb[(shift+1)+x]; // down
+                    tmp[3] = p_comb[(shift-1)+(x+1)]; // upper right
+                    tmp[4] = p_comb[(shift+1)+(x+1)]; // lower right
 
+                    count = 5;                        
                 }
                 else if(y == (core_mp->ych_len - 1) && x != 0 )
                 {
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
-                    tmp[2] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                    tmp[0] = p_comb[(shift-1)+x]; // up
+                    tmp[1] = p_comb[shift+(x+1)]; // right
+                    tmp[2] = p_comb[shift+(x-1)]; // left
+                    tmp[3] = p_comb[(shift-1)+(x-1)]; // upper left 
+                    tmp[4] = p_comb[(shift-1)+(x+1)]; // upper right                       
+                    count = 5;                                                
                 }
                 else if(y != 0 && x == (core_mp->xch_len - 1) )
                 {
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
-                    tmp[2] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
+                    tmp[0] = p_comb[(shift-1)+x]; // up
+                    tmp[1] = p_comb[shift+(x-1)]; // left
+                    tmp[2] = p_comb[(shift+1)+x]; // down
+                    tmp[3] = p_comb[(shift-1)+(x-1)]; // upper left
+                    tmp[4] = p_comb[(shift+1)+(x-1)]; // lower left
+                    count = 5;                                                
                 }
                 else
                 {
-                    /* middle minus four directions */
-                    tmp[0] = Mathabs(pixel[x+y] - pixel[x+(y-1)]); // up
-                    tmp[1] = Mathabs(pixel[x+y] - pixel[x+(y+1)]); // down
-                    tmp[2] = Mathabs(pixel[x+y] - pixel[(x-1)+y]); // left
-                    tmp[3] = Mathabs(pixel[x+y] - pixel[(x+1)+y]); // right
+                    tmp[0] = p_comb[(shift-1)+x]; // up
+                    tmp[1] = p_comb[(shift-1)+(x-1)]; // upper left                        
+                    tmp[2] = p_comb[shift+(x-1)]; // left
+                    tmp[3] = p_comb[(shift+1)+(x-1)]; // lower left                        
+                    tmp[4] = p_comb[(shift+1)+x]; // down
+                    tmp[5] = p_comb[shift+(x+1)]; // right
+                    tmp[6] = p_comb[(shift-1)+(x+1)]; // upper right
+                    tmp[7] = p_comb[(shift+1)+(x+1)]; // lower right
+                    count = 8;
                 }
 
-                max = tmp[0];
+                for(i = 0; i < 8; i++)
+                    sum += tmp[i];
 
-                for(i = 0; i < 4; i++)
-                {
-                    if(tmp[i] > max)
-                        max = tmp[i];
-                }
-
-                tItems[index].buf[x+y] = max;
-                max = 0;
-                memset(tmp, 0, 4 * sizeof(int));
+                avg = (sum+centre)/(count+1); // plus 1 becuase of centre
+                tItems[index].buf[shift + x] = (centre * 100) / avg;
             }
         }
     }
-
-out:
-    kfree(pixel);
-    core_mp->p_no_bk = false;
-    core_mp->p_has_bk = false;
-    tItems[index].result = (res != 0 ? "FAIL" : "PASS");   
-    return res;   
-}
-
-static int open_test(int index, uint8_t val)
-{
-    int i, x, y, res = 0, len = 0;
-    uint8_t cmd[2] = {0};
-    uint8_t *open = NULL;
-    int32_t *raw = NULL;
-
-    cmd[0] = tItems[index].cmd;
-
-    if( strcmp(tItems[index].name, "open_integration") == 0)
-        cmd[1] = 0x2;
-    if(strcmp(tItems[index].name, "open_cap") == 0)
-        cmd[1] = 0x3;
-
-    /* update X/Y channel length if they're changed */
-	core_mp->xch_len = core_config->tp_info->nXChannelNum;
-    core_mp->ych_len = core_config->tp_info->nYChannelNum;
-    
-    len = core_mp->xch_len * core_mp->ych_len;
-
-    DBG(DEBUG_MP_TEST,"Read X/Y Channel length = %d\n", len);
-
-    /* raw buffer is used to receive data from firmware */
-    raw = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
-    if (ERR_ALLOC_MEM(raw))
-    {
-        DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(raw));
-        res = -ENOMEM;
-        goto out;
-    }
-
-    if(tItems[index].buf == NULL)
-    {
-        /* Create a buffer that belogs to itself */
-        tItems[index].buf = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
-    }
-    else
-    {
-        /* erase data if this buffrer was not cleaned and freed */
-        memset(tItems[index].buf, 0x0, len * sizeof(int32_t));
-    }
-
-    /* sending command to get raw data, converting it and comparing it with threshold */
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        DBG_ERR("I2C error\n");
-        goto out;
-    }
-    else
-    {
-        open = kzalloc(len, GFP_KERNEL);
-        if(ERR_ALLOC_MEM(open))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        res = exec_cdc_command(EXEC_READ, 0, len, open);
-		if(res < 0)
-            goto out;
-
-        dump_data(open, 8);
-
-        if(cmd[1] == 0x2)
-        {
-            for(i = 0; i < len; i++)
-            {
-                /* H byte + L byte */
-                raw[i] = (open[2 * i] << 8) +  open[1 + (2 * i)];            
-            
-                if((raw[i] * 0x8000) == 0x8000)
-                {
-                    tItems[index].buf[i] = raw[i] - 65536;
-                }
-                else
-                {
-                    tItems[index].buf[i] = raw[i];
-                }
-            }
-        }
-
-        if(cmd[1] == 0x3)
-        {
-            /* Each result is getting from a 3 by 3 grid depending on where the centre location is.
-            So if the centre is at corner, the number of node grabbed from a grid will be different. */
-            for(y = 0; y < core_mp->ych_len; y++)
-            {
-                for(x = 0; x < core_mp->xch_len; x++)
-                {
-                    int tmp[8] = {0};
-                    int sum = 0, avg = 0, count = 0;
-                    int centre = open[x+y];
-
-                    if(y == 0 && x == 0)
-                    {
-                        tmp[0] = open[x+(y+1)]; // down
-                        tmp[1] = open[(x+1)+y]; // right
-                        tmp[2] = open[(x+1)+(y+1)]; //lower right
-
-                        count = 3;                   
-                    }
-                    else if(y == (core_mp->ych_len - 1) && x == 0)
-                    {
-                        tmp[0] = open[x+(y-1)]; // up
-                        tmp[1] = open[(x+1)+y]; // right
-                        tmp[2] = open[(x+1)+(y-1)]; //upper right 
-                        count = 3;
-                    }
-                    else if(y == 0 && x == (core_mp->xch_len - 1))
-                    {
-                        tmp[0] = open[x+(y+1)]; // down
-                        tmp[1] = open[(x-1)+y]; // left
-                        tmp[2] = open[(x-1)+(y+1)]; // lower left
-                        count = 3;
-                    }
-                    else if(y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1) )
-                    {
-                        tmp[0] = open[x+(y-1)]; // up
-                        tmp[1] = open[(x-1)+y]; // left
-                        tmp[2] = open[(x-1)+(y-1)]; // upper left
-                        count = 3;
-                    }
-                    else if (y == 0 && x != 0)
-                    {
-                        tmp[0] = open[x+(y+1)]; // down
-                        tmp[1] = open[(x-1)+y]; // left
-                        tmp[2] = open[(x+1)+y]; // right
-                        tmp[3] = open[(x-1)+(y+1)]; // lower left
-                        tmp[4] = open[(x+1)+(y+1)]; //lower right 
-                        count = 5;
-                    }
-                    else if (y != 0 && x == 0)
-                    {
-                        tmp[0] = open[x+(y-1)]; // up
-                        tmp[1] = open[(x+1)+y]; // right
-                        tmp[2] = open[x+(y+1)]; // down
-                        tmp[3] = open[(x+1)+(y-1)]; //upper right 
-                        tmp[4] = open[(x+1)+(y+1)]; //lower right  
-                        count = 5;                        
-                    }
-                    else if(y == (core_mp->ych_len - 1) && x != 0 )
-                    {
-                        tmp[0] = open[x+(y-1)]; // up
-                        tmp[1] = open[(x-1)+y]; // left
-                        tmp[2] = open[(x+1)+y]; // right
-                        tmp[3] = open[(x-1)+(y-1)]; // upper left
-                        tmp[4] = open[(x+1)+(y-1)]; //upper right
-                        count = 5;                                                
-                    }
-                    else if(y != 0 && x == (core_mp->xch_len - 1) )
-                    {
-                        tmp[0] = open[x+(y-1)]; // up
-                        tmp[1] = open[(x-1)+y]; // left
-                        tmp[2] = open[x+(y+1)]; // down
-                        tmp[3] = open[(x-1)+(y-1)]; // upper left
-                        tmp[4] = open[(x-1)+(y+1)]; // lower left
-                        count = 5;                                                
-                    }
-                    else
-                    {
-                        tmp[0] = open[x+(y-1)]; // up
-                        tmp[1] = open[(x-1)+(y-1)]; // upper left
-                        tmp[2] = open[(x-1)+y]; // left
-                        tmp[3] = open[(x-1)+(y+1)]; // lower left
-                        tmp[4] = open[x+(y+1)]; // down
-                        tmp[5] = open[(x+1)+y]; // right
-                        tmp[6] = open[(x+1)+(y-1)]; //upper right 
-                        tmp[7] = open[(x+1)+(y+1)]; //lower right
-                        count = 8;
-                    }
-
-                    for(i = 0; i < 8; i++)
-                        sum += tmp[i];
-
-                    avg = (sum+centre)/(count+1); // plus 1 becuase of centre
-                    tItems[index].buf[x+y] = (centre / avg) * 100;
-                }
-            }
-        }
-    }
-
-out:
-    kfree(open);
-    kfree(raw);
-    tItems[index].result = (res != 0 ? "FAIL" : "PASS");   
     return res;
 }
 
-static int mutual_test(int index, uint8_t val)
-{
-    int i, res = 0, len = 0;
-    int inDACp = 0, inDACn = 0;
-    int inCountX = 0, inCountY = 0;
-    int FrameCount = 0;
-    uint8_t cmd[2] = {0};
-    uint8_t *mutual = NULL;
-    int32_t *raw = NULL, *raw_sin = NULL;
 
-    cmd[0] = tItems[index].cmd;
-    cmd[1] = val;
-
-    /* update X/Y channel length if they're changed */
-	core_mp->xch_len = core_config->tp_info->nXChannelNum;
-	core_mp->ych_len = core_config->tp_info->nYChannelNum;
-    
-    len = core_mp->xch_len * core_mp->ych_len * 2;
-    FrameCount = core_mp->xch_len * core_mp->ych_len;
-
-    DBG(DEBUG_MP_TEST,"Read X/Y Channel length = %d\n", len);
-    DBG(DEBUG_MP_TEST,"FrameCount = %d\n", FrameCount);
-    
-    /* set specifc flag  */
-    if(cmd[0] == protocol->mutual_signal)
-    {
-        core_mp->m_signal = true;
-        raw_sin = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(raw_sin))
-		{
-			DBG_ERR("Failed to allocate signal buffer, %ld\n", PTR_ERR(raw_sin));
-			res = -ENOMEM;
-			goto out;
-        }       
-    }  
-    else if(cmd[0] == protocol->mutual_dac)
-    {
-        core_mp->m_dac = true;        
-    }
-
-    /* raw buffer is used to receive data from firmware */
-    raw = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
-    if (ERR_ALLOC_MEM(raw))
-    {
-        DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(raw));
-        res = -ENOMEM;
-        goto out;
-    }    
-
-    if(tItems[index].buf == NULL)
-    {
-        /* Create a buffer that belogs to itself */
-        tItems[index].buf = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
-    }
-    else
-    {
-        /* erase data if this buffrer was not cleaned and freed */
-        memset(tItems[index].buf, 0x0, FrameCount * sizeof(int32_t));
-    }
-
-    /* sending command to get raw data, converting it and comparing it with threshold */
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        DBG_ERR("I2C error\n");
-        goto out;
-    }
-    else
-    {
-        mutual = kzalloc(len, GFP_KERNEL);
-        if(ERR_ALLOC_MEM(mutual))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        res = exec_cdc_command(EXEC_READ, 0, len, mutual);
-		if(res < 0)
-            goto out;
-
-        dump_data(mutual, 8);
-                      
-        /* Start to converting data */
-        for(i = 0; i < FrameCount; i++)
-        {
-            if(core_mp->m_dac)
-            {
-                /* DAC - P */
-                if(((mutual[2 * i] & 0x80) >> 7) == 1)
-                {
-                    /* Negative */
-                    inDACp = 0 - (int)(mutual[2 * i] & 0x7F); 
-                }
-                else
-                {
-                    inDACp = mutual[2 * i] & 0x7F;
-                }
-
-                /* DAC - N */
-                if(((mutual[1 + (2 * i)] & 0x80) >> 7) == 1)
-                {
-                    /* Negative */
-                    inDACn = 0 - (int)(mutual[1 + (2 * i)] & 0x7F);
-                }
-                else
-                {
-                    inDACn = mutual[1 + (2 * i)] & 0x7F;
-                }
-
-                raw[i] = (inDACp + inDACn) / 2;
-            }
-            else
-            {
-                /* H byte + L byte */
-                raw[i] = (mutual[2 * i] << 8) +  mutual[1 + (2 * i)];
-
-                if(core_mp->m_signal)
-                {
-                    if((raw[i] * 0x8000) == 0x8000)
-                    {
-                        raw_sin[i] = raw[i] - 65536;
-                    }
-                    else
-                    {
-                        raw_sin[i] = raw[i];
-                    }
-                }
-            }
-
-            if(inCountX == (core_mp->xch_len - 1))
-            {
-                inCountY++;
-                inCountX = 0;
-            }
-            else
-            {
-                inCountX++;
-            }
-        }
-    }
-
-    /* assign raw buffer to its own buffer after calculated */
-    for(i = 0; i < FrameCount; i ++)
-    {
-        if(core_mp->m_signal)
-            tItems[index].buf[i] = raw_sin[i];
-        else
-            tItems[index].buf[i] = raw[i];
-    }      
-        
-out:
-    kfree(mutual);
-    kfree(raw);
-    kfree(raw_sin);
-    core_mp->m_signal = false;
-    core_mp->m_dac = false;
-    tItems[index].result = (res != 0 ? "FAIL" : "PASS");   
-    return res;
-}
-
-static int self_test(int index, uint8_t val)
-{
-    int i, res = 0, len = 0;
-    int inDACp = 0, inDACn = 0;
-    int inCountX = 0, inCountY = 0;
-    int FrameCount = 0;
-    uint8_t cmd[2] = {0};
-    uint8_t *self = NULL;
-    int32_t *raw = NULL, *raw_sin = NULL;
-
-    cmd[0] = tItems[index].cmd;
-    cmd[1] = val;
-
-    /* update self tx/rx length if they're changed */
-    core_mp->stx_len = core_config->tp_info->self_tx_channel_num;
-    core_mp->srx_len = core_config->tp_info->self_rx_channel_num;
-
-    len = core_mp->stx_len * core_mp->srx_len * 2;
-    FrameCount = core_mp->stx_len * core_mp->srx_len;
-    
-    DBG(DEBUG_MP_TEST,"Read SELF X/Y Channel length = %d\n", len);
-    DBG(DEBUG_MP_TEST,"FrameCount = %d\n", FrameCount);    
-
-    /* set specifc flag  */
-    if(cmd[0] == protocol->self_signal)
-    {
-        core_mp->s_signal = true;
-        raw_sin = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(raw_sin))
-		{
-			DBG_ERR("Failed to allocate signal buffer, %ld\n", PTR_ERR(raw_sin));
-			res = -ENOMEM;
-			goto out;
-        }       
-    }  
-    else if(cmd[0] == protocol->self_dac)
-    {
-        core_mp->s_dac = true;        
-    }
-
-    /* raw buffer is used to receive data from firmware */
-    raw = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
-    if (ERR_ALLOC_MEM(raw))
-    {
-        DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(raw));
-        res = -ENOMEM;
-        goto out;
-    }    
-
-    if(tItems[index].buf == NULL)
-    {
-        /* Create a buffer that belogs to itself */
-        tItems[index].buf = kzalloc(FrameCount * sizeof(int32_t), GFP_KERNEL);
-    }
-    else
-    {
-        /* erase data if this buffrer was not cleaned and freed */
-        memset(tItems[index].buf, 0x0, FrameCount * sizeof(int32_t));
-    }
-
-    /* sending command to get raw data, converting it and comparing it with threshold */
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        goto out;    
-    }
-    else
-    {
-        self = kzalloc(len, GFP_KERNEL);
-        if(ERR_ALLOC_MEM(self))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        res = exec_cdc_command(EXEC_READ, 0, len, self);
-		if(res < 0)
-            goto out;
-        
-        dump_data(self, 8);
-
-        /* Start to converting data */
-        for(i = 0; i < FrameCount; i++)
-        {
-            if(core_mp->s_dac)
-            {
-                /* DAC - P */
-                if(((self[2 * i] & 0x80) >> 7) == 1)
-                {
-                    /* Negative */
-                    inDACp = 0 - (int)(self[2 * i] & 0x7F); 
-                }
-                else
-                {
-                    inDACp = self[2 * i] & 0x7F;
-                }
-
-                /* DAC - N */
-                if(((self[1 + (2 * i)] & 0x80) >> 7) == 1)
-                {
-                    /* Negative */
-                    inDACn = 0 - (int)(self[1 + (2 * i)] & 0x7F);
-                }
-                else
-                {
-                    inDACn = self[1 + (2 * i)] & 0x7F;
-                }
-
-                raw[i] = (inDACp + inDACn) / 2;
-            }
-            else
-            {
-                /* H byte + L byte */
-                raw[i] = (self[2 * i] << 8) +  self[1 + (2 * i)];
-
-                if(core_mp->s_signal)
-                {
-                    if((raw[i] * 0x8000) == 0x8000)
-                    {
-                        raw_sin[i] = raw[i] - 65536;
-                    }
-                    else
-                    {
-                        raw_sin[i] = raw[i];
-                    }
-                }
-            }
-
-            if(inCountX == (core_mp->xch_len - 1))
-            {
-                inCountY++;
-                inCountX = 0;
-            }
-            else
-            {
-                inCountX++;
-            }
-        }        
-    }
-
-    /* assign raw buffer to its own buffer after calculated */
-    for(i = 0; i < FrameCount; i ++)
-    {
-        if(core_mp->s_signal)
-            tItems[index].buf[i] = raw_sin[i];
-        else
-            tItems[index].buf[i] = raw[i];
-    }      
-        
-out:
-    kfree(self);
-    kfree(raw);
-    kfree(raw_sin);
-    core_mp->s_signal = false;
-    core_mp->s_dac = false;
-    tItems[index].result = (res != 0 ? "FAIL" : "PASS");   
-    return res; 
-}
-
-static int key_test(int index, uint8_t val)
-{
-    int i, res = 0;
-    int len = 0;
-    int inDACp = 0, inDACn = 0;
-    uint8_t cmd[2] = {0};
-    uint8_t *icon = NULL;
-    int32_t *raw = NULL;
-
-    cmd[0] = tItems[index].cmd;
-    cmd[1] = val;
-
-    /* update key's length if they're changed */
-    core_mp->key_len = core_config->tp_info->nKeyCount;
-    len = core_mp->key_len * 2;
-
-    DBG(DEBUG_MP_TEST,"Read key's length = %d\n", len);
-    DBG(DEBUG_MP_TEST,"core_mp->key_len = %d\n",core_mp->key_len); 
-
-    /* raw buffer is used to receive data from firmware */
-    raw = kzalloc(core_mp->key_len  * sizeof(int32_t), GFP_KERNEL);
-    if (ERR_ALLOC_MEM(raw))
-    {
-        DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(raw));
-        res = -ENOMEM;
-        goto out;
-    }
-
-    if(tItems[index].buf == NULL)
-    {
-        /* Create a buffer that belogs to itself */
-        tItems[index].buf = kzalloc(core_mp->key_len * sizeof(int32_t), GFP_KERNEL);
-    }
-    else
-    {
-        /* erase data if this buffrer was not cleaned and freed */
-        memset(tItems[index].buf, 0x0, core_mp->key_len * sizeof(int32_t));
-    }
-    
-    if(cmd[0] == protocol->key_dac)
-        core_mp->key_dac = true;
-
-    /* sending command to get raw data, converting it and comparing it with threshold */
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        goto out;
-    }
-    else
-    {
-        icon = kzalloc(len, GFP_KERNEL);
-        if(ERR_ALLOC_MEM(icon))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        res = exec_cdc_command(EXEC_READ, 0, len, icon);
-		if(res < 0)
-            goto out;
-
-        dump_data(icon, 8);
-        
-        /* Start to converting data */
-        for(i = 0; i < core_mp->key_len; i++)
-        {
-            if(core_mp->key_dac)
-            {
-                /* DAC - P */
-                if(((icon[2 * i] & 0x80) >> 7) == 1)
-                {
-                    /* Negative */
-                    inDACp = 0 - (int)(icon[2 * i] & 0x7F); 
-                }
-                else
-                {
-                    inDACp = icon[2 * i] & 0x7F;
-                }
-    
-                /* DAC - N */
-                if(((icon[1 + (2 * i)] & 0x80) >> 7) == 1)
-                {
-                    /* Negative */
-                    inDACn = 0 - (int)(icon[1 + (2 * i)] & 0x7F);
-                }
-                else
-                {
-                    inDACn = icon[1 + (2 * i)] & 0x7F;
-                }
-    
-                raw[i] = (inDACp + inDACn) / 2;
-            }
-        }
-    }
-
-    /* assign raw buffer to its own buffer after calculated */
-    for(i = 0; i < core_mp->key_len; i ++)
-    {
-        if(core_mp->key_dac)
-            tItems[index].buf[i] = raw[i];
-    }
-
-out:
-    kfree(icon);
-    kfree(raw);
-    core_mp->key_dac = false;
-    tItems[index].result = (res != 0 ? "FAIL" : "PASS");
-    return res;    
-}
-
-static int st_test(int index, uint8_t val)
-{
-    int i, res = 0;
-    int len = 0;
-    int inDACp = 0, inDACn = 0;
-    uint8_t cmd[2] = {0};
-    uint8_t *st = NULL;
-    int32_t *raw = NULL;
-
-    cmd[0] = tItems[index].cmd;
-    cmd[1] = val;
-
-    /* update side touch's length it they're changed */
-    core_mp->st_len = core_config->tp_info->side_touch_type;
-    len = core_mp->st_len * 2;
-
-    DBG(DEBUG_MP_TEST,"Read st's length = %d\n", len);
-    DBG(DEBUG_MP_TEST,"core_mp->st_len = %d\n", core_mp->st_len); 
-
-    /* raw buffer is used to receive data from firmware */
-    raw = kzalloc(core_mp->st_len  * sizeof(int32_t), GFP_KERNEL);
-    if (ERR_ALLOC_MEM(raw))
-    {
-        DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(raw));
-        res = -ENOMEM;
-        goto out;
-    }
-
-    if(tItems[index].buf == NULL)
-    {
-        /* Create a buffer that belogs to itself */
-        tItems[index].buf = kzalloc(core_mp->st_len * sizeof(int32_t), GFP_KERNEL);
-    }
-    else
-    {
-        /* erase data if this buffrer was not cleaned and freed */
-        memset(tItems[index].buf, 0x0, core_mp->st_len * sizeof(int32_t));
-    }
-    
-    if(cmd[0] == protocol->st_dac)
-        core_mp->st_dac = true;
-
-    /* sending command to get raw data, converting it and comparing it with threshold */
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        goto out;      
-    }
-    else
-    {
-        st = kzalloc(len, GFP_KERNEL);
-        if(ERR_ALLOC_MEM(st))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        res = exec_cdc_command(EXEC_READ, 0, len, st);
-		if(res < 0)
-            goto out;
-        
-        dump_data(st, 8);
-
-        /* Start to converting data */
-        for(i = 0; i < core_mp->st_len; i++)
-        {
-            if(core_mp->st_dac)
-            {
-                /* DAC - P */
-                if(((st[2 * i] & 0x80) >> 7) == 1)
-                {
-                    /* Negative */
-                    inDACp = 0 - (int)(st[2 * i] & 0x7F); 
-                }
-                else
-                {
-                    inDACp = st[2 * i] & 0x7F;
-                }
-    
-                /* DAC - N */
-                if(((st[1 + (2 * i)] & 0x80) >> 7) == 1)
-                {
-                    /* Negative */
-                    inDACn = 0 - (int)(st[1 + (2 * i)] & 0x7F);
-                }
-                else
-                {
-                    inDACn = st[1 + (2 * i)] & 0x7F;
-                }
-    
-                raw[i] = (inDACp + inDACn) / 2;
-            }
-        }
-    }
-
-    /* assign raw buffer to its own buffer after calculated */
-    for(i = 0; i < core_mp->st_len; i ++)
-    {
-        if(core_mp->st_dac)
-            tItems[index].buf[i] = raw[i];
-    }
-
-out:
-    kfree(st);
-    kfree(raw);
-    core_mp->st_dac = false;
-    tItems[index].result = (res != 0 ? "FAIL" : "PASS");
-    return res; 
-}
-
-static int tx_rx_delta_test(int index, uint8_t val)
-{
-    int i, x, y, res = 0;
-    int FrameCount = 1;
-    int len = 0;
-    uint8_t cmd[2] = {0};
-    uint8_t *delta = NULL;
-
-    cmd[0] = tItems[index].cmd;
-    cmd[1] = val;
-
-    /* update X/Y channel length if they're changed */
-	core_mp->xch_len = core_config->tp_info->nXChannelNum;
-    core_mp->ych_len = core_config->tp_info->nYChannelNum;
-    
-    len = core_mp->xch_len * core_mp->ych_len;
-
-    DBG(DEBUG_MP_TEST, "Read Tx/Rx delta length = %d\n", len);
-    
-    /* Because tx/rx have their own buffer to store data speparately, */
-    /* I allocate outside buffer instead of its own one to catch it */
-	tx_delta_buf = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(tx_delta_buf))
-	{
-		DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(tx_delta_buf));
-		res = -ENOMEM;
-		goto out;
-    }
-
-	rx_delta_buf = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(rx_delta_buf))
-	{
-		DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(rx_delta_buf));
-		res = -ENOMEM;
-		goto out;
-    }
-    
-    res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-    if(res < 0)
-    {
-        goto out;      
-    }
-    else
-    {
-        delta = kzalloc(len, GFP_KERNEL);
-        if(ERR_ALLOC_MEM(delta))
-        {
-            res = FAIL;
-            goto out;
-        }
-
-        res = exec_cdc_command(EXEC_READ, 0, len, delta);
-		if(res < 0)
-            goto out;
-
-        dump_data(delta, 8);
-
-        for(i = 0; i < FrameCount; i++)
-        {
-            for(y = 0; y < core_mp->ych_len; y++)
-            {
-                for(x = 0; x < core_mp->xch_len; x++)
-                {
-                    /* Rx Delta */
-                    if(x != (core_mp->xch_len - 1))
-                    {
-                        rx_delta_buf[x+y] = Mathabs(delta[x+y] - delta[(x+1)+y]);
-                    }
-    
-                    /* Tx Delta */
-                    if(y != (core_mp->ych_len - 1))
-                    {
-                        tx_delta_buf[x+y] = Mathabs(delta[x+y] - delta[x+(y+1)]);
-                    }
-                }
-            }
-        }
-    }
-
-out:
-    kfree(delta);
-    tItems[index].result = (res != 0 ? "FAIL" : "PASS");
-    return res; 
-}
-
-static int untouch_p2p_test(int index, uint8_t count)
+static void run_tx_rx_delta_test(int index)
 {
     int x, y;
-    int res = 0;
-    int len = 0;
-    uint8_t cmd[2] = {0};
-    uint8_t *p2p = NULL;
-    int32_t *max_buf = NULL, *min_buf = NULL;
-
-    cmd[0] = tItems[index].cmd;
-    cmd[1] = 0x0;
-
-    if(count <= 0)
-    {
-        DBG_ERR("The frame is equal or less than 0\n");
-        res = -EINVAL;
-        goto out;
-    }
-
-    /* update X/Y channel length if they're changed */
-	core_mp->xch_len = core_config->tp_info->nXChannelNum;
-    core_mp->ych_len = core_config->tp_info->nYChannelNum;
-    
-    len = core_mp->xch_len * core_mp->ych_len;
-
-    DBG_INFO("Read length of frame = %d\n", len);
-
-    if(tItems[index].buf == NULL)
-    {
-        /* Create a buffer that belogs to itself */
-        tItems[index].buf = kzalloc(len * sizeof(int32_t), GFP_KERNEL);
-    }
-    else
-    {
-        /* erase data if this buffrer was not cleaned and freed */
-        memset(tItems[index].buf, 0x0, len * sizeof(int32_t));
-    }
-
-    max_buf = kmalloc(len * sizeof(int32_t), GFP_KERNEL);
-    if (ERR_ALLOC_MEM(max_buf))
-    {
-        DBG_ERR("Failed to allocate MAX buffer, %ld\n", PTR_ERR(max_buf));
-        res = -ENOMEM;
-        goto out;
-    }
-
-    min_buf = kmalloc(len * sizeof(int32_t), GFP_KERNEL);
-    if (ERR_ALLOC_MEM(min_buf))
-    {
-        DBG_ERR("Failed to allocate MIN buffer, %ld\n", PTR_ERR(min_buf));
-        res = -ENOMEM;
-        goto out;
-    }
-
-    /* init values only once */
+    int32_t *p_comb = frame_buf;
+   
     for(y = 0; y < core_mp->ych_len; y++)
     {
         for(x = 0; x < core_mp->xch_len; x++)
         {
-            max_buf[x+y] = -65535;
-            min_buf[x+y] = 65535;
+            int shift = y * core_mp->xch_len;
+
+            /* Tx Delta */
+            if(y != (core_mp->ych_len - 1))
+            {
+                core_mp->tx_delta_buf[shift + x] = Mathabs(p_comb[shift + x] - p_comb[(shift+1)+x]);
+            }
+
+            /* Rx Delta */
+            if(x != (core_mp->xch_len - 1))
+            {
+                core_mp->rx_delta_buf[shift + x] = Mathabs(p_comb[shift + x] - p_comb[shift+(x+1)]);
+            }
         }
     }
+}
 
-    while(count > 0)
-    {
-        res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-        if(res < 0)
-        {
-            DBG_ERR("I2C error");
-            goto out;      
-        }
-        else
-        {
-            if(p2p == NULL)
-            {
-                p2p = kzalloc(len, GFP_KERNEL);
-                if(ERR_ALLOC_MEM(p2p))
-                {
-                    res = FAIL;
-                    DBG_ERR("Failed to create p2p buffer\n");
-                    goto out;
-                }
-            }
-    
-            res = exec_cdc_command(EXEC_READ, 0, len, p2p);
-            if(res < 0)
-                goto out;
+static void run_untouch_p2p_test(int index)
+{
+    int x, y;
+    int32_t *p_comb = frame_buf;
 
-            dump_data(p2p, 8);
-    
-            /* Start to comparing data with each frame */
-            for(y = 0; y < core_mp->ych_len; y++)
-            {
-                for(x = 0; x < core_mp->xch_len; x++)
-                {
-                    if(p2p[x+y] > max_buf[x+y])
-                    {
-                        max_buf[x+y] = p2p[x+y];
-                    }
-
-                    if(p2p[x+y] < min_buf[+y])
-                    {
-                        min_buf[x+y] = p2p[x+y];
-                    }
-                }
-            }
-            memset(p2p, 0x0, len * sizeof(uint8_t));
-        }
-        count--;
-    }
-
-    /* Get final result */
     for(y = 0; y < core_mp->ych_len; y++)
     {
         for(x = 0; x < core_mp->xch_len; x++)
         {
-            tItems[index].buf[x+y] = max_buf[x+y] - min_buf[x+y];
+            int shift = y * core_mp->xch_len;
+
+            if(p_comb[shift+x] > tItems[index].max_buf[shift+x])
+            {
+                tItems[index].max_buf[shift+x] = p_comb[shift+x];
+            }
+
+            if(p_comb[shift+x] < tItems[index].max_buf[shift+y])
+            {
+                tItems[index].min_buf[shift+x] = p_comb[shift+x];
+            }
+
+            tItems[index].buf[shift+x] = tItems[index].max_buf[shift+x] - tItems[index].min_buf[shift+x];
+        }
+    }
+}
+
+static void compare_MaxMin_result(int index, int32_t *data)
+{
+    int x, y;
+
+    DBG_INFO("index = %d\n", index);
+
+    for(y = 0; y < core_mp->ych_len; y++)
+    {
+        for(x= 0; x < core_mp->xch_len; x++)
+        {
+            int shift = y * core_mp->xch_len;
+
+            if(tItems[index].catalog == UNTOUCH_P2P)
+                return;
+            else if(tItems[index].catalog == TX_RX_DELTA)
+            {
+                /* Tx max/min comparison */
+                if(core_mp->tx_delta_buf[shift+x] < data[shift+x])
+                {
+                    core_mp->tx_max_buf[shift+x] = data[shift+x];
+                }
+                
+                if(core_mp->tx_delta_buf[shift+x] > data[shift+x])
+                {
+                    core_mp->tx_min_buf[shift+x] = data[shift+x];
+                }
+
+                /* Rx max/min comparison */
+                if(core_mp->rx_delta_buf[shift+x] < data[shift+x])
+                {
+                    core_mp->rx_max_buf[shift+x] = data[shift+x];
+                }
+                
+                if(core_mp->rx_delta_buf[shift+x] > data[shift+x])
+                {
+                    core_mp->rx_min_buf[shift+x] = data[shift+x];
+                }
+            }
+            else
+            {
+                if(tItems[index].max_buf[shift+x] < tItems[index].buf[shift+x])
+                {
+                    tItems[index].max_buf[shift+x] = tItems[index].buf[shift+x];
+                }
+                
+                if(tItems[index].min_buf[shift+x] > tItems[index].buf[shift+x])
+                {
+                    tItems[index].min_buf[shift+x] = tItems[index].buf[shift+x];
+                }
+            }
+        }
+    }
+}
+
+static int mutual_test(int index)
+{
+    int i = 0, x = 0, y = 0, res = 0;
+
+    DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x, Frame Count = %d\n", 
+    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
+
+    if(tItems[index].frame_count == 0)
+    {
+        DBG_ERR("Frame count is zero, which at least sets as 1\n");
+        goto out;
+    }
+
+    res = create_mp_test_frame_buffer(index);
+    if(res < 0)
+        goto out;
+
+    /* Init Max/Min buffer */
+    for(y = 0; y < core_mp->ych_len; y++)
+    {
+        for(x = 0; x < core_mp->xch_len; x++)
+        {
+            if(tItems[i].catalog == TX_RX_DELTA)
+            {
+                core_mp->tx_max_buf[y * core_mp->xch_len + x] = -65535;
+                core_mp->rx_max_buf[y * core_mp->xch_len + x] = -65535;
+                core_mp->tx_min_buf[y * core_mp->xch_len + x] = 65535;
+                core_mp->rx_min_buf[y * core_mp->xch_len + x] = 65535;
+            }
+            else
+            {
+                tItems[index].max_buf[y * core_mp->xch_len + x] = -65535;
+                tItems[index].min_buf[y * core_mp->xch_len + x] = 65535;
+            }
         }
     }
 
+    for(i = 0; i < tItems[index].frame_count; i++)
+    {
+        res = allnode_mutual_cdc_data(index);
+        if (res < 0)
+        {
+            DBG_ERR("Failed to initialise CDC data, %d\n", res);
+            goto out;
+        }
+
+        //dump_data(frame, 32, core_mp->frame_len);
+
+        switch(tItems[index].catalog)
+        {
+            case PIXEL:
+                run_pixel_test(index);
+                break;
+            case UNTOUCH_P2P:
+                run_untouch_p2p_test(index);
+                break;
+            case OPEN_TEST:
+                run_open_test(index);
+                break;
+            case TX_RX_DELTA:
+                run_tx_rx_delta_test(index);
+                break;
+            default:
+                DBG_INFO(" Default \n");
+                for(i = 0; i < core_mp->frame_len; i++)
+                    tItems[index].buf[i] = frame_buf[i];
+                break;
+        }
+    }
+
+    compare_MaxMin_result(index, tItems[index].buf);
+        
 out:
-    kfree(p2p);
-    kfree(max_buf);
-    kfree(min_buf);
-    tItems[index].result = (res != 0 ? "FAIL" : "PASS");
-    return res; 
+    return res;
+}
+
+static int key_test(int index)
+{
+//     int i, frame_count = 0, res = 0;
+//     int len = 0;
+//     int inDACp = 0, inDACn = 0;
+//     uint8_t cmd[2] = {0};
+//     uint8_t *icon = NULL;
+//     int32_t *raw = NULL;
+
+//     DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x\n", tItems[index].name, tItems[index].cmd);
+
+//     cmd[0] = tItems[index].cmd;
+//     cmd[1] = 0x0;
+
+//     if(tItems[index].frame_count == 0)
+//     {
+//         DBG_ERR("Frame count is zero, which at least sets as 1\n");
+//         res = -EINVAL;
+//         goto out;
+//     }
+
+//     /* update key's length if they're changed */
+//     core_mp->key_len = core_config->tp_info->nKeyCount;
+//     len = core_mp->key_len * 2;
+
+//     DBG(DEBUG_MP_TEST,"Read key's length = %d\n", len);
+//     DBG(DEBUG_MP_TEST,"core_mp->key_len = %d\n",core_mp->key_len); 
+
+//     if(tItems[index].buf == NULL)
+//     {
+//         /* Create a buffer that belogs to itself */
+//         tItems[index].buf = kzalloc(core_mp->key_len * sizeof(int32_t), GFP_KERNEL);
+//         if (ERR_ALLOC_MEM(tItems[index].buf))
+//         {
+//             DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(tItems[index].buf));
+//             res = -ENOMEM;
+//             goto out;
+//         }
+//     }
+//     else
+//     {
+//         /* erase data if this buffrer was not cleaned and freed */
+//         memset(tItems[index].buf, 0x0, core_mp->key_len * sizeof(int32_t));
+//     }
+    
+//     if(cmd[0] == protocol->key_dac)
+//         core_mp->key_dac = true;
+
+//     /* sending command to get raw data, converting it and comparing it with threshold */
+//     res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
+//     if(res == 0)
+//     {
+//         icon = kzalloc(len, GFP_KERNEL);
+//         if(ERR_ALLOC_MEM(icon))
+//         {
+//             DBG_ERR("I2C error\n");
+//             goto out;
+//         }
+        
+//         /* Start to converting data */
+//         for(frame_count = 0; frame_count < tItems[index].frame_count; frame_count++)
+//         {
+//             res = exec_cdc_command(EXEC_READ, 0, len, icon);
+//             if(res < 0)
+//             {
+//                 DBG_ERR("I2C error\n");                
+//                 goto out;                
+//             }
+    
+//             dump_data(icon, 8, len);
+
+//             if(core_mp->key_dac)
+//             {
+//                 for(i = 0; i < core_mp->key_len; i++)
+//                 {
+//                     /* DAC - P */
+//                     if(((icon[(2 * i) + 1] & 0x80) >> 7) == 1)
+//                     {
+//                         /* Negative */
+//                         inDACp = 0 - (int)(icon[(2 * i) + 1] & 0x7F); 
+//                     }
+//                     else
+//                     {
+//                         inDACp = icon[(2 * i) + 1] & 0x7F;
+//                     }
+        
+//                     /* DAC - N */
+//                     if(((icon[(1 + (2 * i))+ 1] & 0x80) >> 7) == 1)
+//                     {
+//                         /* Negative */
+//                         inDACn = 0 - (int)(icon[(1 + (2 * i)) + 1] & 0x7F);
+//                     }
+//                     else
+//                     {
+//                         inDACn = icon[(1 + (2 * i)) + 1] & 0x7F;
+//                     }
+        
+//                     tItems[index].buf[i] = (inDACp + inDACn) / 2;
+//                 }
+//             }
+//             memset(icon, 0, len);
+//         }
+//     }
+
+// out:
+//     kfree(icon);
+//     core_mp->key_dac = false;
+//     tItems[index].result = (res != 0 ? "FAIL" : "PASS");
+//     return res;    
+}
+
+static int self_test(int index)
+{
+    DBG_ERR("TDDI has no self to be tested currently \n");
+    return -1; 
+}
+
+static int st_test(int index)
+{
+    DBG_ERR("ST Test is not suppored by the driver\n");
+    return FAIL; 
 }
 
 static void mp_test_init_item(void)
@@ -1315,27 +954,27 @@ static void mp_test_init_item(void)
     {
         if(tItems[i].catalog == MUTUAL_TEST)
             tItems[i].do_test = mutual_test;
+       
+        if(tItems[i].catalog == TX_RX_DELTA)
+           tItems[i].do_test = mutual_test;
+      
+        if(tItems[i].catalog == UNTOUCH_P2P)
+            tItems[i].do_test = mutual_test;
+        
+        if(tItems[i].catalog == PIXEL)
+            tItems[i].do_test = mutual_test;
+        
+        if(tItems[i].catalog == OPEN_TEST)
+            tItems[i].do_test = mutual_test;
+                 
+        if(tItems[i].catalog == KEY_TEST)
+            tItems[i].do_test = key_test;
 
         if(tItems[i].catalog == SELF_TEST)
             tItems[i].do_test = self_test;
          
-        if(tItems[i].catalog == KEY_TEST)
-            tItems[i].do_test = key_test;
-         
         if(tItems[i].catalog == ST_TEST)
             tItems[i].do_test = st_test;
-        
-        if(tItems[i].catalog == TX_RX_DELTA)
-           tItems[i].do_test = tx_rx_delta_test;
-      
-        if(tItems[i].catalog == UNTOUCH_P2P)
-            tItems[i].do_test = untouch_p2p_test;
-        
-        if(tItems[i].catalog == PIXEL)
-            tItems[i].do_test = pixel_test;
-        
-        if(tItems[i].catalog == OPEN_TEST)
-            tItems[i].do_test = open_test;
     }
 
     /* assign protocol command written into firmware via I2C,
@@ -1389,18 +1028,32 @@ void core_mp_test_free(void)
         {
             if(tItems[i].catalog == TX_RX_DELTA)
             {
-                kfree(rx_delta_buf);
-                rx_delta_buf = NULL;
-                kfree(tx_delta_buf);
-                tx_delta_buf = NULL;
+                kfree(core_mp->rx_delta_buf);
+                core_mp->rx_delta_buf = NULL;
+                kfree(core_mp->tx_delta_buf);
+                core_mp->tx_delta_buf = NULL;
+                kfree(core_mp->tx_max_buf);
+                core_mp->tx_max_buf = NULL;
+                kfree(core_mp->tx_min_buf);
+                core_mp->tx_min_buf = NULL;
+                kfree(core_mp->rx_max_buf);
+                core_mp->rx_max_buf = NULL;
+                kfree(core_mp->rx_min_buf);
+                core_mp->rx_min_buf = NULL;
             }
             else
             {
                 kfree(tItems[i].buf);
                 tItems[i].buf = NULL;
+                kfree(tItems[i].max_buf);
+                tItems[i].max_buf = NULL;
+                kfree(tItems[i].min_buf);
+                tItems[i].min_buf = NULL;
             }
         }
     }
+    kfree(frame_buf);
+    frame_buf = NULL;
 }
 EXPORT_SYMBOL(core_mp_test_free);
 
@@ -1414,12 +1067,12 @@ void core_mp_show_result(void)
     fs = get_fs();
     set_fs(KERNEL_DS);
 
-    csv = kmalloc(1024, GFP_KERNEL);
+    csv = kmalloc(1024 * 100, GFP_KERNEL);
 
     DBG_INFO("Open CSV: %s\n ", CSV_PATH);
 
     if(f == NULL)
-    f = filp_open(CSV_PATH, O_CREAT | O_RDWR , 0644);
+        f = filp_open(CSV_PATH, O_CREAT | O_RDWR , 0644);
 
     if(ERR_ALLOC_MEM(f))
     {
@@ -1440,98 +1093,24 @@ void core_mp_show_result(void)
             sprintf(csv, "\n");
             f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
 
-            if(ERR_ALLOC_MEM(tItems[i].buf))
+            if(tItems[i].catalog == TX_RX_DELTA)
             {
-                DBG_ERR("This test item (%s) has no data inside its buffer \n", tItems[i].desp);
-                continue;
-            }
-
-            if(tItems[i].catalog == MUTUAL_TEST)
-            {
-                /* print X raw */
-                for(x = 0; x < core_mp->xch_len; x++)
+                if(ERR_ALLOC_MEM(core_mp->rx_delta_buf) || ERR_ALLOC_MEM(core_mp->tx_delta_buf))
                 {
-                    if(x == 0)
-                    {
-                        DUMP(DEBUG_MP_TEST,"           ");
-                        sprintf(csv, ",");
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
-                    }
-
-                    DUMP(DEBUG_MP_TEST,"X%02d      ", x);
-                    sprintf(csv, "X%02d, ", x);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-
-                DUMP(DEBUG_MP_TEST,"\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                for(y = 0; y < core_mp->ych_len; y++)
-                {
-                    DUMP(DEBUG_MP_TEST," Y%02d ", y);
-                    sprintf(csv, "Y%02d, ", y);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                    for(x = 0; x < core_mp->xch_len; x++)
-                    {
-                        DUMP(DEBUG_MP_TEST," %7d ",tItems[i].buf[x+y]);
-                        sprintf(csv, "%7d,", tItems[i].buf[x+y]);
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                    }
-                    DUMP(DEBUG_MP_TEST,"\n");
-                    sprintf(csv, "\n");
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                    DBG_ERR("This test item (%s) has no data inside its buffer \n", tItems[i].desp);
+                    continue;                   
                 }
             }
-            else if(tItems[i].catalog == SELF_TEST)
+            else
             {
-                DUMP(DEBUG_MP_TEST,"\n\n");
-                DUMP(DEBUG_MP_TEST," %s : %s ", tItems[i].desp, tItems[i].result);
-                sprintf(csv,  " %s : %s ", tItems[i].desp, tItems[i].result);
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-    
-                DUMP(DEBUG_MP_TEST,"\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                /* print X raw */
-                for(x = 0; x < core_mp->xch_len; x++)
+                if(ERR_ALLOC_MEM(tItems[i].buf))
                 {
-                    if(x == 0)
-                    {
-                        DUMP(DEBUG_MP_TEST,"           ");
-                        sprintf(csv, ",");
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
-                    }
-
-                    DUMP(DEBUG_MP_TEST,"X%02d      ", x);
-                    sprintf(csv, "X%02d, ", x);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-
-                DUMP(DEBUG_MP_TEST,"\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                for(y = 0; y < core_mp->ych_len; y++)
-                {
-                    DUMP(DEBUG_MP_TEST," Y%02d ", y);
-                    sprintf(csv, "Y%02d, ", y);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                    for(x = 0; x < core_mp->xch_len; x++)
-                    {
-                        DUMP(DEBUG_MP_TEST," %7d ",tItems[i].buf[x+y]);
-                        sprintf(csv, "%7d,", tItems[i].buf[x+y]);
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                    }
-                    DUMP(DEBUG_MP_TEST,"\n");
-                    sprintf(csv, "\n");
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                    DBG_ERR("This test item (%s) has no data inside its buffer \n", tItems[i].desp);
+                    continue;
                 }
             }
-            else if(tItems[i].catalog == KEY_TEST)
+
+            if(tItems[i].catalog == KEY_TEST)
             {
                 for(x = 0; x < core_mp->key_len; x++)
                 {
@@ -1554,251 +1133,73 @@ void core_mp_show_result(void)
                 sprintf(csv, "\n");
                 f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
             }
-            else if(tItems[i].catalog == ST_TEST)
-            {
-                /* TODO: Not implemented yet */
-            }
             else if(tItems[i].catalog == TX_RX_DELTA)
             {
-                /* print X raw */
-                for(x = 0; x < core_mp->xch_len; x++)
-                {
-                    if(x == 0)
-                    {
-                        DUMP(DEBUG_MP_TEST,"           ");
-                        sprintf(csv, ",");
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
-                    }
-
-                    DUMP(DEBUG_MP_TEST,"X%02d       ", x);
-                    sprintf(csv, "X%02d, ", x);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-
-                DUMP(DEBUG_MP_TEST,"\n");
+                printk(" %s ", "TX Max Hold");
+                sprintf(csv,  "  %s ", "Max Hold");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                printk("\n");
                 sprintf(csv, "\n");
                 f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                for(y = 0; y < core_mp->ych_len; y++)
-                {
-                    DUMP(DEBUG_MP_TEST," Y%02d ", y);
-                    sprintf(csv, "Y%02d, ", y);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                    for(x = 0; x < core_mp->xch_len; x++)
-                    {
-                        /* Threshold with RX delta */
-                        if(rx_delta_buf[x+y] <= core_mp->RxDeltaMax &&
-                            rx_delta_buf[x+y] >= core_mp->RxDeltaMin)
-                        {
-                            DUMP(DEBUG_MP_TEST," %7d ",rx_delta_buf[x+y]); 
-                            sprintf(csv, "%7d,", rx_delta_buf[x+y]);
-                            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                        }
-                        else
-                        {
-                            if(rx_delta_buf[x+y] > core_mp->RxDeltaMax)
-                            {
-                                DUMP(DEBUG_MP_TEST," *%7d ",rx_delta_buf[x+y]);
-                                sprintf(csv, "*%7d,", rx_delta_buf[x+y]);
-                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                            }
-                            else
-                            {
-                                DUMP(DEBUG_MP_TEST," #%7d ",rx_delta_buf[x+y]);
-                                sprintf(csv, "#%7d,", rx_delta_buf[x+y]);
-                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                            }
-                        }
-                    }
-                    DUMP(DEBUG_MP_TEST,"\n");
-                    sprintf(csv, "\n");
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-
-                DUMP(DEBUG_MP_TEST,"\n");
-                sprintf(csv, "\n");
+    
+                print_cdc_data(core_mp->tx_max_buf, core_mp->TxDeltaMax, core_mp->TxDeltaMin, f, csv);
+    
+                printk(" %s ", "TX Min Hold");
+                sprintf(csv,  "  %s ", "Min Hold");
                 f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);   
+    
+                print_cdc_data(core_mp->tx_min_buf, core_mp->TxDeltaMax, core_mp->TxDeltaMin, f, csv);
                 
-                for(y = 0; y < core_mp->ych_len; y++)
-                {
-                    DUMP(DEBUG_MP_TEST," Y%02d ", y);
-                    sprintf(csv, "Y%02d, ", y);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                    for(x = 0; x < core_mp->xch_len; x++)
-                    {   
-                        /* Threshold with TX delta */
-                        if(tx_delta_buf[x+y] <= core_mp->TxDeltaMax &&
-                            tx_delta_buf[x+y] >= core_mp->TxDeltaMin)
-                        {
-                            DUMP(DEBUG_MP_TEST," %7d ",tx_delta_buf[x+y]);
-                            sprintf(csv, "%7d,", tx_delta_buf[x+y]);
-                            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                        }
-                        else
-                        {
-                            if(tx_delta_buf[x+y] > core_mp->TxDeltaMax)
-                            {
-                                DUMP(DEBUG_MP_TEST," *%7d ",tx_delta_buf[x+y]);
-                                sprintf(csv, "*%7d,", tx_delta_buf[x+y]);
-                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                                
-                            }
-                            else
-                            {
-                                DUMP(DEBUG_MP_TEST," #%7d ",tx_delta_buf[x+y]);
-                                sprintf(csv, "#%7d,", tx_delta_buf[x+y]);
-                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                            }
-                        }
-                    }
-                    DUMP(DEBUG_MP_TEST,"\n");
-                    sprintf(csv, "\n");
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-                DUMP(DEBUG_MP_TEST,"\n");
+                printk(" %s ", "RX Max Hold");
+                sprintf(csv,  "  %s ", "Max Hold");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                printk("\n");
                 sprintf(csv, "\n");
                 f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+    
+                print_cdc_data(core_mp->rx_max_buf, core_mp->RxDeltaMax, core_mp->RxDeltaMin, f, csv);
+    
+                printk(" %s ", "RX Min Hold");
+                sprintf(csv,  "  %s ", "Min Hold");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                printk("\n");
+                sprintf(csv, "\n");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);   
+    
+                print_cdc_data(core_mp->rx_min_buf, core_mp->RxDeltaMax, core_mp->RxDeltaMin, f, csv);
             }
-            else if(tItems[i].catalog == UNTOUCH_P2P)
+            else
             {
-                /* print X raw */
-                for(x = 0; x < core_mp->xch_len; x++)
-                {
-                    if(x == 0)
-                    {
-                        DUMP(DEBUG_MP_TEST,"           ");
-                        sprintf(csv, ",");
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
-                    }
-
-                    DUMP(DEBUG_MP_TEST,"X0%2d       ", x);
-                    sprintf(csv, "X%02d, ", x);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-
-                DUMP(DEBUG_MP_TEST,"\n");
+                printk(" %s ", "Max Hold");
+                sprintf(csv,  "  %s ", "Max Hold");
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                printk("\n");
                 sprintf(csv, "\n");
                 f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                for(y = 0; y < core_mp->ych_len; y++)
-                {
-                    DUMP(DEBUG_MP_TEST," Y%02d ", y);
-                    sprintf(csv, "Y%02d, ", y);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                    for(x = 0; x < core_mp->xch_len; x++)
-                    {
-                        /* Threshold with P2P */
-                        if(tItems[i].buf[x+y] <= core_mp->P2PMax &&
-                            tItems[i].buf[x+y] >= core_mp->P2PMin)
-                        {
-                            DUMP(DEBUG_MP_TEST," %7d ",tItems[i].buf[x+y]);
-                            sprintf(csv, "%7d,", tItems[i].buf[x+y]);
-                            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                        }
-                        else
-                        {
-                            if(tItems[i].buf[x+y] > core_mp->P2PMax)
-                            {
-                                DUMP(DEBUG_MP_TEST," *%7d ",tItems[i].buf[x+y]);
-                                sprintf(csv, "*%7d,", tItems[i].buf[x+y]);
-                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                            }
-                            else
-                            {
-                                DUMP(DEBUG_MP_TEST," #%7d ",tItems[i].buf[x+y]);
-                                sprintf(csv, "#%7d,", tItems[i].buf[x+y]);
-                                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                            }
-                        }
-                    }
-                    DUMP(DEBUG_MP_TEST,"\n");
-                    sprintf(csv, "\n");
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }                
-            }
-            else if (tItems[i].catalog == PIXEL)
-            {
-                /* print X raw */
-                for(x = 0; x < core_mp->xch_len; x++)
-                {
-                    if(x == 0)
-                    {
-                        DUMP(DEBUG_MP_TEST,"           ");
-                        sprintf(csv, ",");
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
-                    }
-
-                    DUMP(DEBUG_MP_TEST,"X%02d      ", x);
-                    sprintf(csv, "X%02d, ", x);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-
-                DUMP(DEBUG_MP_TEST,"\n");
-                sprintf(csv, "\n");
+    
+                print_cdc_data(tItems[i].max_buf, tItems[i].max, tItems[i].min, f, csv);
+    
+                printk(" %s ", "Min Hold");
+                sprintf(csv,  "  %s ", "Min Hold");
                 f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                for(y = 0; y < core_mp->ych_len; y++)
-                {
-                    DUMP(DEBUG_MP_TEST," Y%02d ", y);
-                    sprintf(csv, "Y%02d, ", y);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                    for(x = 0; x < core_mp->xch_len; x++)
-                    {
-                        DUMP(DEBUG_MP_TEST," %7d ",tItems[i].buf[x+y]);
-                        sprintf(csv, "%7d,", tItems[i].buf[x+y]);
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                    }
-                    DUMP(DEBUG_MP_TEST,"\n");
-                    sprintf(csv, "\n");
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-            }
-            else if(tItems[i].catalog == OPEN_TEST)
-            {
-                /* print X raw */
-                for(x = 0; x < core_mp->xch_len; x++)
-                {
-                    if(x == 0)
-                    {
-                        DUMP(DEBUG_MP_TEST,"           ");
-                        sprintf(csv, ",");
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
-                    }
-
-                    DUMP(DEBUG_MP_TEST,"X%02d      ", x);
-                    sprintf(csv, "X%02d, ", x);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
-
-                DUMP(DEBUG_MP_TEST,"\n");
+                printk("\n");
                 sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);   
+    
+                print_cdc_data(tItems[i].min_buf, tItems[i].max, tItems[i].min, f, csv);
 
-                for(y = 0; y < core_mp->ych_len; y++)
-                {
-                    DUMP(DEBUG_MP_TEST," Y%02d ", y);
-                    sprintf(csv, "Y%02d, ", y);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-                    for(x = 0; x < core_mp->xch_len; x++)
-                    {
-                        DUMP(DEBUG_MP_TEST," %7d ",tItems[i].buf[x+y]);
-                        sprintf(csv, "%7d,", tItems[i].buf[x+y]);
-                        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                    }
-                    DUMP(DEBUG_MP_TEST,"\n");
-                    sprintf(csv, "\n");
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                }
+                // printk(" %s ", "Frame 1");
+                // sprintf(csv,  "  %s ", "Frame 1");
+                // f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                // printk("\n");
+                // sprintf(csv, "\n");
+                // f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);   
+    
+                // print_cdc_data(tItems[i].buf, tItems[i].max, tItems[i].min, f, csv);
             }
-
-            DUMP(DEBUG_MP_TEST,"\n");
-            sprintf(csv, "\n");
-            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
         }
     }
 
@@ -1812,14 +1213,21 @@ EXPORT_SYMBOL(core_mp_show_result);
 
 void core_mp_run_test(void)
 {
-	int i = 0;
+    int i = 0;
+
+    /* update X/Y channel length if they're changed */
+	core_mp->xch_len = core_config->tp_info->nXChannelNum;
+    core_mp->ych_len = core_config->tp_info->nYChannelNum;
+        
+    /* compute the total length in one frame */
+    core_mp->frame_len = core_mp->xch_len * core_mp->ych_len;
     
 	for(i = 0; i < ARRAY_SIZE(tItems); i++)
 	{
         if(tItems[i].run)
         {
             DBG_INFO("Runing Test Item : %s \n", tItems[i].desp);
-            tItems[i].do_test(i, 0x0);            
+            tItems[i].do_test(i);            
         }
     }
 }
@@ -1875,14 +1283,6 @@ int core_mp_init(void)
 
             core_mp->key_len = core_config->tp_info->nKeyCount;
             core_mp->st_len = core_config->tp_info->side_touch_type;
-
-            /* Set spec threshold as initial value */
-            core_mp->TxDeltaMax = 0;
-            core_mp->RxDeltaMax = 0;
-            core_mp->TxDeltaMin = 9999;
-            core_mp->RxDeltaMin = 9999;
-            core_mp->P2PMax = 0;
-            core_mp->P2PMin = 9999;
 
 			mp_test_init_item();
        }
