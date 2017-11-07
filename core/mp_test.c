@@ -65,8 +65,6 @@ do { \
         printk( fmt, ##arg); \
 } while (0)
 
-#define CSV_PATH    "/sdcard/ilitek_mp_test.csv"
-
 enum mp_test_catalog
 {
     MUTUAL_TEST = 0,
@@ -79,6 +77,7 @@ enum mp_test_catalog
     OPEN_TEST = 7,
 };
 
+/* You must declare a new test at here before running a new process of mp test */
 struct mp_test_items tItems[] = {
     {"mutual_dac", "Untouch Calibration Data(DAC) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
     {"mutual_bg", "Baseline Data(BG)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
@@ -126,6 +125,7 @@ struct mp_test_items tItems[] = {
 };
 
 int32_t *frame_buf = NULL;
+int32_t *key_buf = NULL;
 struct core_mp_test_data *core_mp = NULL;
 
 static void dump_data(void *data, int type, int len)
@@ -134,30 +134,33 @@ static void dump_data(void *data, int type, int len)
     uint8_t *p8 = NULL;
     int32_t *p32 = NULL;
 
-    if(data == NULL)
+    if(ipio_debug_level == DEBUG_MP_TEST)
     {
-        DBG_ERR("The data going to dump is NULL\n");
-        return;        
-    }
-
-    printk("\n  Original Data: \n");
-
-    if(type == 8)
-    p8 = (uint8_t *)data;
-    if(type == 32)
-        p32 = (int32_t *)data;
-
-    for(i = 0; i < len; i++)
-    {   
+        if(data == NULL)
+        {
+            DBG_ERR("The data going to dump is NULL\n");
+            return;        
+        }
+    
+        printk("\n  Original Data: \n");
+    
         if(type == 8)
-            printk(" %4x ", p8[i]);
-        else if(type == 32)
-            printk(" %4x ", p32[i]);
-
-        if((i % 32) == 0)
-            printk("\n");
+        p8 = (uint8_t *)data;
+        if(type == 32)
+            p32 = (int32_t *)data;
+    
+        for(i = 0; i < len; i++)
+        {   
+            if(type == 8)
+                printk(" %4x ", p8[i]);
+            else if(type == 32)
+                printk(" %4x ", p32[i]);
+    
+            if((i % 32) == 0)
+                printk("\n");
+        }
+        printk("\n\n");
     }
-    printk("\n\n");
 }
 
 static void print_cdc_data(int32_t *data, int max_ts, int min_ts, struct file *f, char *csv)
@@ -165,7 +168,7 @@ static void print_cdc_data(int32_t *data, int max_ts, int min_ts, struct file *f
     int x, y;
     int32_t *tmp = data;
     
-    /* print X raw */
+    /* print X raw only */
     for(x = 0; x < core_mp->xch_len; x++)
     {
         if(x == 0)
@@ -192,6 +195,7 @@ static void print_cdc_data(int32_t *data, int max_ts, int min_ts, struct file *f
 
         for(x = 0; x < core_mp->xch_len; x++)
         {
+            /* Print/Write actual data to terminal/csv */
             if(tmp[y * core_mp->xch_len + x] <= max_ts &&
                 tmp[y * core_mp->xch_len + x] >= min_ts)
             {
@@ -314,6 +318,118 @@ out:
     return res;
 }
 
+static int allnode_key_cdc_data(int index)
+{
+    int i, res = 0, len = 0;
+    int inDACp = 0, inDACn = 0;
+    uint8_t cmd[3] = {0};
+    uint8_t *ori = NULL;
+
+    /* CDC init */
+    cmd[0] = protocol->cmd_cdc;
+    cmd[1] = tItems[index].cmd;
+    cmd[2] = 0;
+
+    res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
+    if(res < 0)
+    {
+        DBG_ERR("I2C Write Error while initialising cdc \n");
+        goto out;        
+    }
+
+    /* Check busy */
+    if(core_config_check_cdc_busy() < 0)
+    {
+        DBG_ERR("Check busy is timout !\n");
+        res = FAIL;
+        goto out;         
+    }
+
+    /* Prepare to get cdc data */
+    cmd[0] = protocol->cmd_read_ctrl;
+    cmd[1] = protocol->cmd_get_cdc;
+    DBG(DEBUG_MP_TEST,"R: cmd[0] = 0x%x, cmd[1] = 0x%x\n",cmd[0],cmd[1]);
+    res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+    if(res < 0)
+    {
+        DBG_ERR("I2C Read Error \n");
+        goto out;        
+    }
+
+    len = core_mp->key_len * 2;
+
+    DBG(DEBUG_MP_TEST,"Read key's length = %d\n", len);
+    DBG(DEBUG_MP_TEST,"core_mp->key_len = %d\n",core_mp->key_len);
+
+    if(len <= 0)
+        goto out;
+
+    /* Allocate a buffer for the original */
+    ori = kzalloc(len * sizeof(uint8_t), GFP_KERNEL);
+    if(ERR_ALLOC_MEM(ori))
+    {
+        DBG_ERR("Failed to allocate ori mem (%ld) \n", PTR_ERR(ori));
+        goto out;
+    }
+
+    /* Get original frame(cdc) data */
+    res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
+    if(res < 0)
+    {
+        DBG_ERR("I2C Read Error while getting original cdc data \n");
+        goto out;        
+    }
+
+    dump_data(ori, 8, len);
+
+    if(key_buf == NULL)
+    {
+        key_buf = kzalloc(core_mp->key_len * sizeof(int32_t), GFP_KERNEL);
+        if(ERR_ALLOC_MEM(key_buf))
+        {
+            DBG_ERR("Failed to allocate FrameBuffer mem (%ld) \n", PTR_ERR(key_buf));
+            goto out;
+        }
+    }
+
+    /* Convert original data to the physical one in each node */
+    for(i = 0; i < core_mp->frame_len; i++)
+    {
+        if(tItems[index].cmd == protocol->key_dac)
+        {
+            /* DAC - P */
+            if(((ori[(2 * i) + 1] & 0x80) >> 7) == 1)
+            {
+                /* Negative */
+                inDACp = 0 - (int)(ori[(2 * i) + 1] & 0x7F); 
+            }
+            else
+            {
+                inDACp = ori[(2 * i) + 1] & 0x7F;
+            }
+
+            /* DAC - N */
+            if(((ori[(1 + (2 * i))+ 1] & 0x80) >> 7) == 1)
+            {
+                /* Negative */
+                inDACn = 0 - (int)(ori[(1 + (2 * i)) + 1] & 0x7F);
+            }
+            else
+            {
+                inDACn = ori[(1 + (2 * i)) + 1] & 0x7F;
+            }
+
+            key_buf[i] = (inDACp + inDACn) / 2;
+        }
+    }
+
+    dump_data(key_buf, 32, core_mp->frame_len);
+
+out:
+    kfree(ori);
+    return res;
+}
+
 static int allnode_mutual_cdc_data(int index)
 {
     int i = 0, res = 0, len = 0;
@@ -361,7 +477,10 @@ static int allnode_mutual_cdc_data(int index)
     len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
 
     DBG(DEBUG_MP_TEST,"Read X/Y Channel length = %d\n", len);
-    DBG(DEBUG_MP_TEST,"core_mp->frame_len = %d \n", core_mp->frame_len); 
+    DBG(DEBUG_MP_TEST,"core_mp->frame_len = %d \n", core_mp->frame_len);
+
+    if(len <= 2)
+        goto out;
 
     /* Allocate a buffer for the original */
     ori = kzalloc(len * sizeof(uint8_t), GFP_KERNEL);
@@ -379,7 +498,7 @@ static int allnode_mutual_cdc_data(int index)
         goto out;        
     }
 
-    //dump_data(ori, 8, len);
+    dump_data(ori, 8, len);
 
     if(frame_buf == NULL)
     {
@@ -436,7 +555,7 @@ static int allnode_mutual_cdc_data(int index)
         }
     }
 
-    //dump_data(frame_buf, 32, core_mp->frame_len);
+    dump_data(frame_buf, 32, core_mp->frame_len);
 
 out:
     kfree(ori);
@@ -445,7 +564,7 @@ out:
 
 static void run_pixel_test(int index)
 {
-    int i, x, y, res = 0;
+    int i, x, y;
     int32_t *p_comb = frame_buf;
 
     for(y = 0; y < core_mp->ych_len; y++)
@@ -637,7 +756,6 @@ static int run_open_test(int index)
     return res;
 }
 
-
 static void run_tx_rx_delta_test(int index)
 {
     int x, y;
@@ -680,7 +798,7 @@ static void run_untouch_p2p_test(int index)
                 tItems[index].max_buf[shift+x] = p_comb[shift+x];
             }
 
-            if(p_comb[shift+x] < tItems[index].max_buf[shift+y])
+            if(p_comb[shift+x] < tItems[index].min_buf[shift+y])
             {
                 tItems[index].min_buf[shift+x] = p_comb[shift+x];
             }
@@ -693,8 +811,6 @@ static void run_untouch_p2p_test(int index)
 static void compare_MaxMin_result(int index, int32_t *data)
 {
     int x, y;
-
-    DBG_INFO("index = %d\n", index);
 
     for(y = 0; y < core_mp->ych_len; y++)
     {
@@ -790,8 +906,6 @@ static int mutual_test(int index)
             goto out;
         }
 
-        //dump_data(frame, 32, core_mp->frame_len);
-
         switch(tItems[index].catalog)
         {
             case PIXEL:
@@ -807,7 +921,6 @@ static int mutual_test(int index)
                 run_tx_rx_delta_test(index);
                 break;
             default:
-                DBG_INFO(" Default \n");
                 for(i = 0; i < core_mp->frame_len; i++)
                     tItems[index].buf[i] = frame_buf[i];
                 break;
@@ -817,118 +930,46 @@ static int mutual_test(int index)
     compare_MaxMin_result(index, tItems[index].buf);
         
 out:
+    kfree(frame_buf);
     return res;
 }
 
 static int key_test(int index)
 {
-//     int i, frame_count = 0, res = 0;
-//     int len = 0;
-//     int inDACp = 0, inDACn = 0;
-//     uint8_t cmd[2] = {0};
-//     uint8_t *icon = NULL;
-//     int32_t *raw = NULL;
+    int i, res = 0;
 
-//     DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x\n", tItems[index].name, tItems[index].cmd);
+    DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x, Frame Count = %d\n", 
+    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
-//     cmd[0] = tItems[index].cmd;
-//     cmd[1] = 0x0;
-
-//     if(tItems[index].frame_count == 0)
-//     {
-//         DBG_ERR("Frame count is zero, which at least sets as 1\n");
-//         res = -EINVAL;
-//         goto out;
-//     }
-
-//     /* update key's length if they're changed */
-//     core_mp->key_len = core_config->tp_info->nKeyCount;
-//     len = core_mp->key_len * 2;
-
-//     DBG(DEBUG_MP_TEST,"Read key's length = %d\n", len);
-//     DBG(DEBUG_MP_TEST,"core_mp->key_len = %d\n",core_mp->key_len); 
-
-//     if(tItems[index].buf == NULL)
-//     {
-//         /* Create a buffer that belogs to itself */
-//         tItems[index].buf = kzalloc(core_mp->key_len * sizeof(int32_t), GFP_KERNEL);
-//         if (ERR_ALLOC_MEM(tItems[index].buf))
-//         {
-//             DBG_ERR("Failed to allocate raw buffer, %ld\n", PTR_ERR(tItems[index].buf));
-//             res = -ENOMEM;
-//             goto out;
-//         }
-//     }
-//     else
-//     {
-//         /* erase data if this buffrer was not cleaned and freed */
-//         memset(tItems[index].buf, 0x0, core_mp->key_len * sizeof(int32_t));
-//     }
+    if(tItems[index].frame_count == 0)
+    {
+        DBG_ERR("Frame count is zero, which at least sets as 1\n");
+        res = -EINVAL;
+        goto out;
+    }
+ 
+    res = create_mp_test_frame_buffer(index);
+    if(res < 0)
+        goto out;
     
-//     if(cmd[0] == protocol->key_dac)
-//         core_mp->key_dac = true;
+    for(i = 0; i < tItems[index].frame_count; i++)
+    {
+        res = allnode_key_cdc_data(index);
+        if (res < 0)
+        {
+            DBG_ERR("Failed to initialise CDC data, %d\n", res);
+            goto out;
+        }
 
-//     /* sending command to get raw data, converting it and comparing it with threshold */
-//     res = exec_cdc_command(EXEC_WRITE, cmd, 2, NULL);
-//     if(res == 0)
-//     {
-//         icon = kzalloc(len, GFP_KERNEL);
-//         if(ERR_ALLOC_MEM(icon))
-//         {
-//             DBG_ERR("I2C error\n");
-//             goto out;
-//         }
-        
-//         /* Start to converting data */
-//         for(frame_count = 0; frame_count < tItems[index].frame_count; frame_count++)
-//         {
-//             res = exec_cdc_command(EXEC_READ, 0, len, icon);
-//             if(res < 0)
-//             {
-//                 DBG_ERR("I2C error\n");                
-//                 goto out;                
-//             }
-    
-//             dump_data(icon, 8, len);
+        for(i = 0; i < core_mp->key_len; i++)
+            tItems[index].buf[i] = key_buf[i];
+    }
 
-//             if(core_mp->key_dac)
-//             {
-//                 for(i = 0; i < core_mp->key_len; i++)
-//                 {
-//                     /* DAC - P */
-//                     if(((icon[(2 * i) + 1] & 0x80) >> 7) == 1)
-//                     {
-//                         /* Negative */
-//                         inDACp = 0 - (int)(icon[(2 * i) + 1] & 0x7F); 
-//                     }
-//                     else
-//                     {
-//                         inDACp = icon[(2 * i) + 1] & 0x7F;
-//                     }
-        
-//                     /* DAC - N */
-//                     if(((icon[(1 + (2 * i))+ 1] & 0x80) >> 7) == 1)
-//                     {
-//                         /* Negative */
-//                         inDACn = 0 - (int)(icon[(1 + (2 * i)) + 1] & 0x7F);
-//                     }
-//                     else
-//                     {
-//                         inDACn = icon[(1 + (2 * i)) + 1] & 0x7F;
-//                     }
-        
-//                     tItems[index].buf[i] = (inDACp + inDACn) / 2;
-//                 }
-//             }
-//             memset(icon, 0, len);
-//         }
-//     }
+    compare_MaxMin_result(index, tItems[index].buf);
 
-// out:
-//     kfree(icon);
-//     core_mp->key_dac = false;
-//     tItems[index].result = (res != 0 ? "FAIL" : "PASS");
-//     return res;    
+out:
+    kfree(key_buf);
+    return res;    
 }
 
 static int self_test(int index)
@@ -1018,6 +1059,8 @@ static void mp_test_init_item(void)
 void core_mp_test_free(void)
 {
     int i;
+
+    DBG_INFO("Free all allocated mem \n");
      
     for(i = 0; i < ARRAY_SIZE(tItems); i++)
     {
@@ -1054,6 +1097,8 @@ void core_mp_test_free(void)
     }
     kfree(frame_buf);
     frame_buf = NULL;
+    kfree(key_buf);
+    key_buf = NULL;
 }
 EXPORT_SYMBOL(core_mp_test_free);
 
@@ -1069,14 +1114,14 @@ void core_mp_show_result(void)
 
     csv = kmalloc(1024 * 100, GFP_KERNEL);
 
-    DBG_INFO("Open CSV: %s\n ", CSV_PATH);
+    DBG_INFO("Open CSV: %s\n ", CSV_NAME_PATH);
 
     if(f == NULL)
-        f = filp_open(CSV_PATH, O_CREAT | O_RDWR , 0644);
+        f = filp_open(CSV_NAME_PATH, O_CREAT | O_RDWR , 0644);
 
     if(ERR_ALLOC_MEM(f))
     {
-        DBG_ERR("Failed to open CSV file %s\n", CSV_PATH);
+        DBG_ERR("Failed to open CSV file %s\n", CSV_NAME_PATH);
         goto fail_open;
     }
 
@@ -1103,7 +1148,7 @@ void core_mp_show_result(void)
             }
             else
             {
-                if(ERR_ALLOC_MEM(tItems[i].buf))
+                if(ERR_ALLOC_MEM(tItems[i].buf) || ERR_ALLOC_MEM(tItems[i].max_buf) || ERR_ALLOC_MEM(tItems[i].min_buf))
                 {
                     DBG_ERR("This test item (%s) has no data inside its buffer \n", tItems[i].desp);
                     continue;
@@ -1218,6 +1263,9 @@ void core_mp_run_test(void)
     /* update X/Y channel length if they're changed */
 	core_mp->xch_len = core_config->tp_info->nXChannelNum;
     core_mp->ych_len = core_config->tp_info->nYChannelNum;
+
+    /* update key's length if they're changed */
+    core_mp->key_len = core_config->tp_info->nKeyCount;
         
     /* compute the total length in one frame */
     core_mp->frame_len = core_mp->xch_len * core_mp->ych_len;

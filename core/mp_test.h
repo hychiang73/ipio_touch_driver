@@ -28,6 +28,7 @@
 struct mp_test_items
 {
     char *name;
+    /* The description must be the same as ini's section name */
     char *desp;
     char *result;
     int catalog;

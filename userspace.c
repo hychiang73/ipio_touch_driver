@@ -164,7 +164,7 @@ static ssize_t ilitek_proc_report_data_read(struct file *filp, char __user *buff
 
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	int i, j, mp_num = 18;
+	int i, j, mp_num = 12;
 	uint32_t len = 0;
 	char str[512]={0};
 	char **mp_ini = NULL;
@@ -182,27 +182,25 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	/* listing test items which are all corrensponding with INI section name */
 	//sprintf(mp_ini[0], "FW Ver. Check");
-
 	sprintf(mp_ini[0], "Untouch Calibration Data(DAC) - Mutual");
 	sprintf(mp_ini[1], "Untouch Signal Data(BG-Raw-4096) - Mutual");
 	sprintf(mp_ini[2], "Untouch Raw Data(Have BK) - Mutual");
 	sprintf(mp_ini[3], "Untouch Raw Data(No BK) - Mutual");
 	sprintf(mp_ini[4], "Open Test(integration)");
 	sprintf(mp_ini[5], "Open Test(Cap)");
-	// sprintf(mp_ini[6], "Pixel Raw (No BK)");
-	// sprintf(mp_ini[7], "Pixel Raw (Have BK)");
-	sprintf(mp_ini[13], "Untouch Cm Data");
-	sprintf(mp_ini[14], "Short Test (Rx)")
-	// sprintf(mp_ini[1], "Untouch Peak to Peak");	
-	// sprintf(mp_ini[0], "Tx/Rx Delta");
-	// sprintf(mp_ini[8], "Key Raw Open Test");
-	// sprintf(mp_ini[9], "Key Raw Short Test");
-	// sprintf(mp_ini[10], "Key Raw Data");
-	// sprintf(mp_ini[11], "Key Raw BK DAC");
-	// sprintf(mp_ini[12], "Key Baseline Data");
-;
+	sprintf(mp_ini[6], "Untouch Cm Data");
+	sprintf(mp_ini[7], "Short Test (Rx)");
+	sprintf(mp_ini[8], "Pixel Raw (No BK)");
+	sprintf(mp_ini[9], "Pixel Raw (Have BK)");
+	sprintf(mp_ini[10], "Untouch Peak to Peak");	
+	sprintf(mp_ini[11], "Tx/Rx Delta");
+	// sprintf(mp_ini[12], "Key Raw Open Test");
+	// sprintf(mp_ini[13], "Key Raw Short Test");
+	// sprintf(mp_ini[14], "Key Raw Data");
+	// sprintf(mp_ini[15], "Key Raw BK DAC");
+	// sprintf(mp_ini[16], "Key Baseline Data");
 
-	if(core_parser_path("/sdcard/mp.ini") < 0)
+	if(core_parser_path(INI_NAME_PATH) < 0)
 	{
 		DBG_ERR("Failed to parsing INI file \n");
 		goto out;
@@ -265,8 +263,8 @@ out:
 	for(i = 0; i < mp_num; i++)
 		kfree(mp_ini[i]);
 	kfree(mp_ini);
+	ilitek_platform_enable_irq();	
 	*pPos = len;
-	ilitek_platform_enable_irq();
 	return len;
 }
 

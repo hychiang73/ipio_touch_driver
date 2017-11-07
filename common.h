@@ -162,6 +162,8 @@ extern uint32_t ipio_debug_level;
 /*
  * Other settings
  */
+#define CSV_NAME_PATH	"/sdcard/ilitek_mp_test.csv"
+#define INI_NAME_PATH	"/sdcard/mp.ini"
 
  /* define the width and heigth of a screen. */
 #define TOUCH_SCREEN_X_MIN 0
