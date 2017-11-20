@@ -1300,10 +1300,6 @@ int core_config_get_chip_id(void)
 		do_once = 1;
 	}
 
-	core_config_ic_reset();
-	mdelay(150);
-	return res;
-
 out:
 	core_config_ic_reset();
 	mdelay(150);
@@ -1313,31 +1309,28 @@ EXPORT_SYMBOL(core_config_get_chip_id);
 
 int core_config_init(void)
 {
-	int i = 0, res = -1;
-	int alloca_size = 0;
+	int i = 0;
+
+	core_config = kzalloc(sizeof(*core_config) * sizeof(uint8_t) * 6, GFP_KERNEL);
+	if(ERR_ALLOC_MEM(core_config))
+	{
+		DBG_ERR("Failed to allocate core_config mem, %ld\n", PTR_ERR(core_config));
+		core_config_remove();
+		return -ENOMEM;
+	}
+
+	core_config->tp_info = kzalloc(sizeof(*core_config->tp_info), GFP_KERNEL);
+	if(ERR_ALLOC_MEM(core_config->tp_info))
+	{
+		DBG_ERR("Failed to allocate core_config->tp_info mem, %ld\n", PTR_ERR(core_config->tp_info));
+		core_config_remove();
+		return -ENOMEM;
+	}
 
 	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
 		if (ipio_chip_list[i] == ON_BOARD_IC)
 		{
-			alloca_size = sizeof(*core_config) * sizeof(uint8_t) * 6;
-			core_config = kzalloc(alloca_size, GFP_KERNEL);
-			if(ERR_ALLOC_MEM(core_config))
-			{
-				DBG_ERR("Failed to allocate core_config memory, %ld\n", PTR_ERR(core_config));
-				res = -ENOMEM;
-				goto out;
-			}
-
-			alloca_size = sizeof(*core_config->tp_info);
-			core_config->tp_info = kzalloc(alloca_size, GFP_KERNEL);
-			if(ERR_ALLOC_MEM(core_config->tp_info))
-			{
-				DBG_ERR("Failed to allocate core_config->tp_info memory, %ld\n", PTR_ERR(core_config->tp_info));
-				res = -ENOMEM;
-				goto out;
-			}
-
 			core_config->chip_id = ipio_chip_list[i];
 			core_config->chip_type = 0x0000;
 
@@ -1356,16 +1349,12 @@ int core_config_init(void)
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
 			}
-
-			res = 0;
-			return res;
+			return 0;
 		}
 	}
 
 	DBG_ERR("Can't find this chip in support list\n");
-out:
-	core_config_remove();
-	return res;
+	return 0;
 }
 EXPORT_SYMBOL(core_config_init);
 

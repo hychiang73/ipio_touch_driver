@@ -228,7 +228,8 @@ int core_protocol_init(uint8_t major, uint8_t mid, uint8_t minor)
         protocol = kzalloc(sizeof(*protocol), GFP_KERNEL);
         if(ERR_ALLOC_MEM(protocol))
         {
-            DBG_ERR("Failed to allocate protocol mem\n");
+            DBG_ERR("Failed to allocate protocol mem, %ld\n", PTR_ERR(protocol));
+            core_protocol_remove();
             return -ENOMEM;
         }
     }
@@ -251,7 +252,7 @@ int core_protocol_init(uint8_t major, uint8_t mid, uint8_t minor)
     }
 
     DBG_ERR("Doesn't support this verions of protocol\n");
-    return -1;
+    return 0;
 }
 
 void core_protocol_remove(void)

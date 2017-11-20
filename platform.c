@@ -44,7 +44,7 @@ extern struct tpd_device *tpd;
 #define DTS_OF_NAME		"tchip,ilitek"
 #endif
 
-#define I2C_DEVICE_ID	"ILITEK_TP_ID"
+#define I2C_DEVICE_ID	"ILITEK_TDDI"
 #define POWER_STATUS_PATH "/sys/class/power_supply/battery/status"
 
 #ifdef USE_KTHREAD
@@ -851,7 +851,6 @@ static int ilitek_platform_remove(struct i2c_client *client)
  */
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-	int res = 0;
 #ifdef REGULATOR_POWER_ON
 #ifdef PLATFORM_MTK
 	const char *vdd_name = "vtouch";
@@ -864,15 +863,15 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if (client == NULL)
 	{
 		DBG_ERR("i2c client is NULL\n");
-		res = -ENODEV;
-		goto out;
+		return -ENODEV;
 	}
 
 	/* Set i2c slave addr if it's not configured */
-	if(client->addr != 0x41)
+	DBG_INFO("I2C Slave address = 0x%x \n", client->addr);
+	if(client->addr != ILI7807_SLAVE_ADDR || client->addr != ILI9881_SLAVE_ADDR)
 	{
-		client->addr = 0x41;
-		DBG_INFO(" I2C addr : 0x%x\n",client->addr);
+		client->addr = ILI9881_SLAVE_ADDR;
+		DBG_ERR("I2C Slave addr doesn't be set up, use default : 0x%x\n",client->addr);
 	}
 
 	/* initialise the struct of touch ic memebers. */
@@ -880,8 +879,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	if (ERR_ALLOC_MEM(ipd))
 	{
 		DBG_ERR("Failed to allocate ipd memory, %ld\n", PTR_ERR(ipd));
-		res = -ENOMEM;
-		goto out;
+		return -ENOMEM;
 	}
 
 	ipd->client = client;
@@ -934,8 +932,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	}
 	else 
 	{
-		res = regulator_set_voltage(ipd->vdd, 1800000, 1800000); 
-		if (res < 0)
+		if (regulator_set_voltage(ipd->vdd, 1800000, 1800000) < 0)
 			DBG_ERR("Failed to set vdd 1800mv.\n");
 	}
 
@@ -947,43 +944,35 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	}
 	else
 	{
-		res = regulator_set_voltage(ipd->vdd_i2c, 1800000, 1800000);  
-		if (res < 0) 
+		if (regulator_set_voltage(ipd->vdd_i2c, 1800000, 1800000) < 0) 
 			DBG_ERR("Failed to set vdd_i2c 1800mv.\n");
 	}
 	ilitek_regulator_power_on(true);
 #endif
 
-	res = ilitek_platform_gpio();
-	if (res < 0)
+	if (ilitek_platform_gpio() < 0)
 		DBG_ERR("Failed to request gpios\n ");
 
-	res = ilitek_platform_core_init();
-	if (res < 0)
+	/* If kernel failes to allocate memory to the core components, driver will be unloaded. */
+	if (ilitek_platform_core_init() < 0)
 	{
-		DBG_ERR("Failed to init core APIs\n");
-		goto out;
+		DBG_ERR("Failed to allocate cores' mem\n");
+		return -ENOMEM;
 	}
 
 	ilitek_platform_tp_hw_reset(true);
 
 	/* get our tp ic information */
-	res = ilitek_platform_read_tp_info();
-	if(res < 0)
-	{
-		DBG_ERR("Failed to get TP info\n");
-		goto out;
-	}
+	if(ilitek_platform_read_tp_info() < 0)
+		DBG_ERR("Failed to get TP info \n");
 
 	/* If it defines boot upgrade, input register will be done at boot function. */
 #ifndef BOOT_FW_UPGRADE
-	res = ilitek_platform_input_init();
-	if (res < 0)
+	if (ilitek_platform_input_init() < 0)
 		DBG_ERR("Failed to init input device in kernel\n");
 #endif
 
-	res = ilitek_platform_isr_register();
-	if (res < 0)
+	if (ilitek_platform_isr_register() < 0)
 		DBG_ERR("Failed to register ISR\n");
 
 	/*
@@ -992,12 +981,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	 */
 	ilitek_platform_tp_hw_reset(true);
 
-	res = ilitek_platform_reg_suspend();
-	if (res < 0)
+	if (ilitek_platform_reg_suspend() < 0)
 		DBG_ERR("Failed to register suspend/resume function\n");
 
-	res = ilitek_platform_reg_power_check();
-	if(res < 0)
+	if(ilitek_platform_reg_power_check() < 0)
 		DBG_ERR("Failed to register power check function\n");
 
 	/* Create nodes for users */
@@ -1016,8 +1003,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	}
 #endif
 
-out:
-	return res;
+	return 0;
 }
 
 static const struct i2c_device_id tp_device_id[] =

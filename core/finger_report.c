@@ -872,20 +872,20 @@ EXPORT_SYMBOL(core_fr_input_set_param);
 
 int core_fr_init(struct i2c_client *pClient)
 {
-	int i = 0, res = -1;
+	int i = 0;
 
-	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
+	core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(core_fr))
+	{
+		DBG_ERR("Failed to allocate core_fr mem, %ld\n", PTR_ERR(core_fr));
+		core_fr_remove();
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
 		if (ipio_chip_list[i] == ON_BOARD_IC)
 		{
-			core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
-			if (ERR_ALLOC_MEM(core_fr))
-			{
-				DBG_ERR("Failed to init core_fr, %ld\n", PTR_ERR(core_fr));
-				res = -ENOMEM;
-				goto out;
-			}
-
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
 			core_fr->isEnablePressure = false;
@@ -893,16 +893,12 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isSetPhoneCover = false;
 			core_fr->isPrint = false;
 			core_fr->actual_fw_mode = protocol->demo_mode;
-
-			res = 0;
-			return res;			
+			return 0;
 		}
 	}
 
 	DBG_ERR("Can't find this chip in support list\n");
-out:
-	core_fr_remove();
-	return res;
+	return 0;
 }
 EXPORT_SYMBOL(core_fr_init);
 

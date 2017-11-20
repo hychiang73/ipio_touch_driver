@@ -1249,23 +1249,23 @@ out:
 
 int core_firmware_init(void)
 {
-	int i = 0, j = 0, res = -1;
+	int i = 0, j = 0;
+
+	core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
+	if(ERR_ALLOC_MEM(core_firmware))
+	{
+		DBG_ERR("Failed to allocate core_firmware mem, %ld\n", PTR_ERR(core_firmware));
+		core_firmware_remove();
+		return -ENOMEM;
+	}
+
+	core_firmware->hasBlockInfo = false;
+	core_firmware->isboot = false;
 
 	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
 		if (ipio_chip_list[i] == ON_BOARD_IC)
 		{
-			core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
-			if(ERR_ALLOC_MEM(core_firmware))
-			{
-				DBG_ERR("Failed to allocate core_firmware memory, %ld\n", PTR_ERR(core_firmware));
-				res = -ENOMEM;
-				goto out;
-			}
-
-			core_firmware->hasBlockInfo = false;
-			core_firmware->isboot = false;
-
 			for (j = 0; j < 4; j++)
 			{
 				core_firmware->old_fw_ver[i] = core_config->firmware_ver[i];
@@ -1286,16 +1286,12 @@ int core_firmware_init(void)
 				core_firmware->upgrade_func = tddi_fw_upgrade;
 				core_firmware->delay_after_upgrade = 200;
 			}
-
-			res = 0;
-			return res;			
+			return 0;
 		}
 	}
 
 	DBG_ERR("Can't find this chip in support list\n");
-out:
-	core_firmware_remove();
-	return res;
+	return 0;
 }
 
 void core_firmware_remove(void)
