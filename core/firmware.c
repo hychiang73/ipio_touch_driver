@@ -838,7 +838,7 @@ int core_firmware_boot_upgrade(void)
 	int res = 0;
 	bool power = false;
 
-	DBG_INFO("FW upgrade at boot stage\n");
+	DBG_INFO("BOOT: Starting to upgrade firmware ... \n");
 
 	core_firmware->isUpgrading = true;
 	core_firmware->update_status = 0;
@@ -899,7 +899,7 @@ int core_firmware_boot_upgrade(void)
 		res = core_firmware->upgrade_func(false);
 		if (res < 0)
 		{
-			core_firmware->update_status = -1;
+			core_firmware->update_status = res;
 			DBG_ERR("Failed to upgrade firmware, res = %d\n", res);
 			goto out;
 		}

@@ -51,8 +51,49 @@ extern struct tpd_device *tpd;
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
 #endif
 
-uint32_t ipio_debug_level = DEBUG_MP_TEST;
+uint32_t ipio_debug_level = DEBUG_NONE;
 EXPORT_SYMBOL(ipio_debug_level);
+
+void ilitek_platform_disable_irq(void);
+void ilitek_platform_enable_irq(void);
+void ilitek_platform_tp_hw_reset(bool isEnable);
+#ifdef REGULATOR_POWER_ON
+void ilitek_regulator_power_on(bool status);
+#endif
+
+static int kthread_handler(void *arg);
+static void read_power_status(uint8_t *buf);
+
+static void ilitek_platform_vpower_notify(struct work_struct *pWork);
+static int ilitek_platform_input_init(void);
+
+/* The method of suspend/resume */
+#ifdef PLATFORM_MTK
+static void tpd_resume(struct device *h);
+static void tpd_suspend(struct device *h);
+#elif defined CONFIG_FB
+static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned long event, void *data);
+#else
+static void ilitek_platform_early_suspend(struct early_suspend *h);
+static void ilitek_platform_late_resume(struct early_suspend *h);
+#endif
+
+static int ilitek_platform_reg_power_check(void);
+static int ilitek_platform_reg_suspend(void);
+#ifndef USE_KTHREAD
+static void ilitek_platform_work_queue(struct work_struct *work);
+#endif
+
+static int ilitek_platform_isr_register(void);
+static int ilitek_platform_gpio(void);
+static int ilitek_platform_read_tp_info(void);
+static int ilitek_platform_input_init(void);
+static void ilitek_platform_core_remove(void);
+static int ilitek_platform_core_init(void);
+static int ilitek_platform_remove(struct i2c_client *client);
+static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int __init ilitek_platform_init(void);
+static void __exit ilitek_platform_exit(void);
 
 struct ilitek_platform_data *ipd;
 
@@ -184,6 +225,57 @@ void ilitek_regulator_power_on(bool status)
 EXPORT_SYMBOL(ilitek_regulator_power_on);
 #endif
 
+static int kthread_handler(void *arg)
+{
+	int res = 0;
+	char *str = (char*)arg;
+
+	if(strcmp(str, "boot_fw") == 0)
+	{
+		/* FW Upgrade event */
+		core_firmware->isboot = true;
+
+		ilitek_platform_disable_irq();
+
+#ifdef BOOT_FW_UPGRADE
+		res = core_firmware_boot_upgrade();
+		if(res < 0)
+			DBG_ERR("Failed to upgrade FW at boot stage \n");
+#endif
+
+		ilitek_platform_enable_irq();
+
+		ilitek_platform_input_init();
+
+		core_firmware->isboot = false;
+	}
+	else if(strcmp(str, "irq") == 0)
+	{
+		/* IRQ event */
+		struct sched_param param = { .sched_priority = 4};
+
+		sched_setscheduler(current, SCHED_RR, &param);
+
+		while(!kthread_should_stop() && !ipd->free_irq_thread)
+		{
+			DBG(DEBUG_IRQ, "kthread: before->irq_trigger = %d\n", ipd->irq_trigger);
+			set_current_state(TASK_INTERRUPTIBLE);
+			wait_event_interruptible(waiter, ipd->irq_trigger);
+			ipd->irq_trigger = false;
+			set_current_state(TASK_RUNNING);
+			DBG(DEBUG_IRQ, "kthread: after->irq_trigger = %d\n", ipd->irq_trigger);
+			ilitek_platform_enable_irq();
+			core_fr_handler();
+		}
+	}
+	else
+	{
+		DBG_ERR("Unknown EVENT \n");
+	}
+
+	return res;
+}
+
 static void read_power_status(uint8_t *buf)
 {
 	struct file *f = NULL;
@@ -281,8 +373,7 @@ static void tpd_suspend(struct device *h)
 
     DBG_INFO("TPD enter sleep done\n");
 }
-#else
-#ifdef CONFIG_FB
+#elif defined CONFIG_FB
 static int ilitek_platform_notifier_fb(struct notifier_block *self,
 									   unsigned long event, void *data)
 {
@@ -359,7 +450,6 @@ static void ilitek_platform_late_resume(struct early_suspend *h)
 	if(ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 }
-#endif
 #endif /* PLATFORM_MTK */
 
 /**
@@ -422,26 +512,7 @@ static int ilitek_platform_reg_suspend(void)
 	return res;
 }
 
-#ifdef USE_KTHREAD
-static int ilitek_platform_irq_kthread(void *arg)
-{
-	struct sched_param param = { .sched_priority = 4};
-	sched_setscheduler(current, SCHED_RR, &param);
-
-	while(!kthread_should_stop() && !ipd->free_irq_thread)
-	{
-		DBG(DEBUG_IRQ, "kthread: before->irq_trigger = %d\n", ipd->irq_trigger);
-		set_current_state(TASK_INTERRUPTIBLE);
-		wait_event_interruptible(waiter, ipd->irq_trigger);
-		ipd->irq_trigger = false;
-		set_current_state(TASK_RUNNING);
-		DBG(DEBUG_IRQ, "kthread: after->irq_trigger = %d\n", ipd->irq_trigger);
-		ilitek_platform_enable_irq();
-		core_fr_handler();
-	}
-	return 0;
-}
-#else
+#ifndef USE_KTHREAD
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
 	DBG(DEBUG_IRQ, "work_queue: IRQ = %d\n", ipd->isEnableIRQ);
@@ -486,7 +557,7 @@ static int ilitek_platform_isr_register(void)
 #endif
 
 #ifdef USE_KTHREAD
-	ipd->irq_thread = kthread_run(ilitek_platform_irq_kthread, NULL, "ilitek_irq_thread");
+	ipd->irq_thread = kthread_run(kthread_handler, "irq", "ili_irq_thread");
 	if (ipd->irq_thread == (struct task_struct*)ERR_PTR)
 	{
 		ipd->irq_thread = NULL;
@@ -670,29 +741,6 @@ out:
 	return res;
 #endif
 }
-
-#ifdef BOOT_FW_UPGRADE
-static int ilitek_platform_boot_fw_upgrade(void *arg)
-{
-	int res = 0;
-
-	core_firmware->isboot = true;
-
-	ilitek_platform_disable_irq();
-
-	res = core_firmware_boot_upgrade();
-	if(res < 0)
-		DBG_ERR("Failed to upgrade FW at boot stage \n");
-	
-	ilitek_platform_enable_irq();
-
-	ilitek_platform_input_init();
-
-	core_firmware->isboot = false;
-
-	return res;
-}
-#endif
 
 /**
  * Remove Core APIs memeory being allocated.
@@ -949,7 +997,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 #endif
 
 #ifdef BOOT_FW_UPGRADE
-	ipd->update_thread = kthread_run(ilitek_platform_boot_fw_upgrade, NULL, "ilitek_platform_boot_fw_upgrade");
+	ipd->update_thread = kthread_run(kthread_handler, "boot_fw", "ili_fw_boot");
 	if (ipd->update_thread == (struct task_struct*)ERR_PTR)
 	{
 		ipd->update_thread = NULL;
