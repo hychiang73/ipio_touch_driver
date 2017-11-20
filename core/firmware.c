@@ -422,6 +422,10 @@ static int flash_program_sector(void)
 
 	for(i = 0; i < sec_length + 1; i++)
 	{
+		/*
+		 * If running the boot stage, fw will only be upgrade data with the flag of block,
+		 * otherwise data with its flag will be programed.
+		 */
 		if(core_firmware->isboot)
 		{
 			if(!ffls[i].inside_block)

@@ -916,9 +916,12 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		goto out;
 	}
 
+	/* If it defines boot upgrade, input register will be done at boot function. */
+#ifndef BOOT_FW_UPGRADE
 	res = ilitek_platform_input_init();
 	if (res < 0)
 		DBG_ERR("Failed to init input device in kernel\n");
+#endif
 
 	res = ilitek_platform_isr_register();
 	if (res < 0)
