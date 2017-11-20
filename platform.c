@@ -61,10 +61,15 @@ void ilitek_platform_tp_hw_reset(bool isEnable);
 void ilitek_regulator_power_on(bool status);
 #endif
 
+#if defined(USE_KTHREAD) || defined(BOOT_FW_UPGRADE)
 static int kthread_handler(void *arg);
-static void read_power_status(uint8_t *buf);
+#endif
 
+#ifdef BATTERY_CHECK
+static void read_power_status(uint8_t *buf);
 static void ilitek_platform_vpower_notify(struct work_struct *pWork);
+#endif
+
 static int ilitek_platform_input_init(void);
 
 /* The method of suspend/resume */
@@ -80,6 +85,7 @@ static void ilitek_platform_late_resume(struct early_suspend *h);
 
 static int ilitek_platform_reg_power_check(void);
 static int ilitek_platform_reg_suspend(void);
+
 #ifndef USE_KTHREAD
 static void ilitek_platform_work_queue(struct work_struct *work);
 #endif
@@ -276,6 +282,7 @@ static int kthread_handler(void *arg)
 	return res;
 }
 
+#ifdef BATTERY_CHECK
 static void read_power_status(uint8_t *buf)
 {
 	struct file *f = NULL;
@@ -335,6 +342,7 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 
 	return;
 }
+#endif
 
 #ifdef PLATFORM_MTK
 static void tpd_resume(struct device *h)
@@ -459,8 +467,9 @@ static int ilitek_platform_reg_power_check(void)
 {
 	int res = 0;
 
+#ifdef BATTERY_CHECK
 	INIT_DELAYED_WORK(&ipd->check_power_status_work, ilitek_platform_vpower_notify);
-	ipd->check_power_status_queue = create_workqueue("ilitek_check_power_status");
+	ipd->check_power_status_queue = create_workqueue("ili_power_check");
 	ipd->work_delay = msecs_to_jiffies(2000);
 	if(!ipd->check_power_status_queue)
 	{
@@ -478,6 +487,7 @@ static int ilitek_platform_reg_power_check(void)
 			ipd->vpower_reg_nb = true;
 		}
 	}
+#endif
 
 	return res;
 }
@@ -879,6 +889,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ipd->chip_id = ON_BOARD_IC;
 	ipd->isEnableIRQ = false;
 	ipd->isEnablePollCheckPower = false;
+	ipd->vpower_reg_nb = false;
 
 	DBG_INFO("Driver version : %s\n", DRIVER_VERSION);
 	DBG_INFO("This driver now supports %x \n", ON_BOARD_IC);

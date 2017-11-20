@@ -466,6 +466,7 @@ static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *bu
 
 	DBG_INFO("size = %d, cmd = %s\n", (int)size, cmd);
 
+#ifdef ENABLE_BATTERY_CHECK
 	if(strcmp(cmd, "on") == 0)
 	{
 		DBG_INFO("Start the thread of check power status\n");
@@ -480,6 +481,9 @@ static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *bu
 	}
 	else
 		DBG_ERR("Unknown command\n");
+#else
+	DBG_ERR("You need to enable its MACRO before operate it. \n");
+#endif
 
 	return size;
 }

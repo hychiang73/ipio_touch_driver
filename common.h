@@ -206,4 +206,7 @@ extern uint32_t ipio_debug_level;
 /* Be able to upgrade fw at boot stage */
 //#define BOOT_FW_UPGRADE
 
+/* Check battery's status in order to avoid some effects from charge. */
+//#define BATTERY_CHECK
+
 #endif /* __COMMON_H */
