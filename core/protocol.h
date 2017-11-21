@@ -171,7 +171,9 @@ struct protocol_cmd_list
 
 extern struct protocol_cmd_list *protocol;
 
-extern int core_protocol_init(uint8_t major, uint8_t mid, uint8_t minor);
+extern void core_protocol_func_control(int key, int ctrl);
+extern int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor);
+extern int core_protocol_init(void);
 extern void core_protocol_remove(void);
 
 #endif

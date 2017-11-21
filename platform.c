@@ -777,7 +777,7 @@ static int ilitek_platform_core_init(void)
 	DBG_INFO("Initialise core's components \n");
 
 	if (core_config_init() < 0 ||
-		core_protocol_init(PROTOCOL_MAJOR, PROTOCOL_MID, PROTOCOL_MINOR) < 0 ||
+		core_protocol_init() < 0 ||
 		core_i2c_init(ipd->client) < 0 ||
 		core_firmware_init() < 0 ||
 		core_fr_init(ipd->client) < 0)
