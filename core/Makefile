@@ -13,4 +13,5 @@ obj-y += config.o \
 		 mp_test.o \
 		 flash.o \
 		 protocol.o \
-		 parser.o
+		 parser.o \
+		 gesture.o

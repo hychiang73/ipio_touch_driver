@@ -35,6 +35,7 @@
 #include "config.h"
 #include "i2c.h"
 #include "finger_report.h"
+#include "gesture.h"
 #include "mp_test.h"
 #include "protocol.h"
 
@@ -373,7 +374,7 @@ out:
  */
 static int finger_report_ver_5_0(void)
 {
-	int i, res = 0;
+	int i, gesture, res = 0;
 	static int last_touch = 0;
 	uint8_t pid = 0x0;
 
@@ -403,10 +404,14 @@ static int finger_report_ver_5_0(void)
 	if(pid == protocol->ges_pid && core_config->isEnableGesture)
 	{
 		DBG(DEBUG_FINGER_REPORT, "pid = 0x%x, code = %x\n", pid, fnode->data[1]);
-		input_report_key(core_fr->input_device, KEY_POWER, 1);
-		input_sync(core_fr->input_device);
-		input_report_key(core_fr->input_device, KEY_POWER, 0);
-		input_sync(core_fr->input_device);
+		gesture = core_gesture_key(fnode->data[1]);
+		if(gesture != -1)
+		{
+			input_report_key(core_fr->input_device, gesture, 1);
+			input_sync(core_fr->input_device);
+			input_report_key(core_fr->input_device, gesture, 0);
+			input_sync(core_fr->input_device);
+		}
 		goto out;
 	}
 
@@ -857,11 +862,7 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	#endif /* MT_B_TYPE */
 
 	/* Set up virtual key with gesture code */
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_POWER);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_UP);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_DOWN);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_LEFT);
-	input_set_capability(core_fr->input_device, EV_KEY, KEY_RIGHT);
+	core_gesture_init(core_fr);
 
 	if(core_fr->isSetPhoneCover)
 		core_config_set_phone_cover(NULL);
