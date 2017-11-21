@@ -918,6 +918,13 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	mutex_init(&ipd->MUTEX);
 	spin_lock_init(&ipd->SPIN_LOCK);
 
+	/* Init members for debug */
+	mutex_init(&ipd->ilitek_debug_mutex);
+	mutex_init(&ipd->ilitek_debug_read_mutex);
+	init_waitqueue_head(&(ipd->inq));
+	ipd->debug_data_frame = 0;
+	ipd->debug_node_open = false;
+
 #ifdef REGULATOR_POWER_ON
 #ifdef PLATFORM_MTK
 	ipd->vdd = regulator_get(tpd->tpd_dev, vdd_name);

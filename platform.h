@@ -77,6 +77,14 @@ struct ilitek_platform_data {
 	struct workqueue_struct *check_power_status_queue;
 	unsigned long work_delay;
 	bool vpower_reg_nb;
+
+	/* Sending report data to users for the debug */
+	bool debug_node_open;
+	int debug_data_frame;
+	wait_queue_head_t inq;
+	unsigned char debug_buf[1024][2048];
+	struct mutex ilitek_debug_mutex;
+	struct mutex ilitek_debug_read_mutex;
 };
 
 extern struct ilitek_platform_data *ipd;

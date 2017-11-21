@@ -675,7 +675,7 @@ fr_hashtable fr_t[] = {
  */
 void core_fr_handler(void)
 {
-	int i = 0, j;
+	int i = 0;
 	uint8_t *tdata = NULL;
 
 	if(core_fr->isEnableFR)
@@ -732,27 +732,21 @@ void core_fr_handler(void)
 					if (core_fr->isEnableNetlink)
 						netlink_reply_msg(tdata, tlen);
 
-					/* printing report data at terminal for the use of debug */
-					if (core_fr->isPrint)
+					if (ipd->debug_node_open)
 					{
-						bool st = false;
-						for(j = 0; j < tlen; j++)
-						{
-							if(j == 0 || st)
-							{
-								st = false;
-								printk("ILI_DATA: ");
-							}
-
-							printk(" 0x%02x ", tdata[j]);
-
-							if((j % 16) == 0)
-							{
-								st = true;
-								printk("\n");
-							}
+						mutex_lock(&ipd->ilitek_debug_mutex);
+						memset(ipd->debug_buf[ipd->debug_data_frame], 0x00, (uint8_t)sizeof(uint8_t) * 2048);
+						memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, tlen);
+						ipd->debug_data_frame++;
+						if (ipd->debug_data_frame > 1) {
+							DBG_INFO("ipd->debug_data_frame = %d\n", ipd->debug_data_frame);
 						}
-						printk("\nILI_DATA: ---------------------- \n");
+						if (ipd->debug_data_frame > 1023) {
+							DBG_ERR("ipd->debug_data_frame = %d > 1024\n", ipd->debug_data_frame);
+							ipd->debug_data_frame = 1023;
+						}
+						mutex_unlock(&ipd->ilitek_debug_mutex);
+						wake_up(&(ipd->inq));
 					}
 					break;
 				}

@@ -141,25 +141,154 @@ static int str2hex(char *str)
 	return result;
 }
 
-static ssize_t ilitek_proc_report_data_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
 {
-	uint32_t len = 0;
+    if (*pPos != 0) 
+        return 0;
 
-	if (*pPos != 0)
-		return 0;
+	ipd->debug_node_open = !ipd->debug_node_open;
+	DBG_INFO(" %s debug_flag message(%X). \n", ipd->debug_node_open ? "Enabled" : "Disabled",ipd->debug_node_open);
+	nCount = sprintf(buff, "ipd->debug_node_open %s\n", ipd->debug_node_open?"Enabled":"Disabled");
+    *pPos += nCount;
 
-	if(core_fr->isPrint)
-		core_fr->isPrint = false;
+	return nCount;
+}
+
+static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	unsigned long p =  *pPos;
+	unsigned int count = size;
+	int i = 0;
+	int send_data_len = 0;
+	size_t ret = 0;
+	int data_count = 0;
+	int one_data_bytes = 0;
+	int need_read_data_len = 0;
+	int type = 0;
+	unsigned char * tmpbuf = NULL;
+	unsigned char tmpbufback[128] = {0};
+
+	mutex_lock(&ipd->ilitek_debug_read_mutex);
+
+	while (ipd->debug_data_frame <= 0) {
+		if (filp->f_flags & O_NONBLOCK) {
+			return -EAGAIN;
+		}
+		wait_event_interruptible(ipd->inq, ipd->debug_data_frame > 0);
+	}
+
+	mutex_lock(&ipd->ilitek_debug_mutex);
+
+	tmpbuf = (unsigned char * )vmalloc(4096);/* buf size if even */
+	if (ERR_ALLOC_MEM(tmpbuf))
+	{
+		DBG_ERR("buffer vmalloc error\n");
+		send_data_len += sprintf(tmpbufback + send_data_len, "buffer vmalloc error\n");
+		ret = copy_to_user(buff, tmpbufback/*ipd->debug_buf[0]*/, send_data_len);
+	}
 	else
-		core_fr->isPrint = true;
+	{
+		if (ipd->debug_data_frame > 0) 
+		{
+			if (ipd->debug_buf[0][0] == 0x5A) 
+			{
+				need_read_data_len = 43;
+			}
+			else if (ipd->debug_buf[0][0] == 0x7A) 
+			{
+				type = ipd->debug_buf[0][3] & 0x0F;
 
-	len = sprintf(buff, "%d", core_fr->isPrint);
+				data_count = ipd->debug_buf[0][1] * ipd->debug_buf[0][2];
+				
+				if (type == 0 || type == 1 || type == 6)
+				{
+					one_data_bytes = 1;
+				}
+				else if (type == 2 || type == 3)
+				{
+					one_data_bytes = 2;
+				}
+				else if (type == 4 || type == 5)
+				{
+					one_data_bytes = 4;
+				}		
+				need_read_data_len = data_count * one_data_bytes + 1 + 5;
+			}
 
-	DBG_INFO("Print report data = %d\n", core_fr->isPrint);
+			send_data_len = 0;//ipd->debug_buf[0][1] - 2;
+			need_read_data_len = 2040;
+			if (need_read_data_len <= 0)
+			{
+				DBG_ERR("parse data err data len = %d\n", need_read_data_len);
+				send_data_len += sprintf(tmpbuf + send_data_len, "parse data err data len = %d\n", need_read_data_len);
+			}
+			else
+			{
+				for (i = 0; i < need_read_data_len; i++) 
+				{
+					send_data_len += sprintf(tmpbuf + send_data_len, "%02X", ipd->debug_buf[0][i]);
+					if (send_data_len >= 4096)
+					{
+						DBG_ERR("send_data_len = %d set 4096 i = %d\n", send_data_len, i);
+						send_data_len = 4096;
+						break;
+					}
+				}
+			}
+			send_data_len += sprintf(tmpbuf + send_data_len, "\n\n");
 
-	*pPos = len;
+			if (p == 5 || size == 4096  || size == 2048)
+			{
+				ipd->debug_data_frame--;
+				if (ipd->debug_data_frame < 0)
+				{
+					ipd->debug_data_frame = 0;
+				}
 
-	return len;
+				for (i = 1; i <= ipd->debug_data_frame; i++)
+				{
+					memcpy(ipd->debug_buf[i - 1], ipd->debug_buf[i], 2048);
+				}
+			}
+		}
+		else
+		{
+			DBG_ERR("no data send\n");
+			send_data_len += sprintf(tmpbuf + send_data_len, "no data send\n");
+		}
+
+		/* Preparing to send data to user */
+		if (size == 4096)
+			ret = copy_to_user(buff, tmpbuf/*ipd->debug_buf[0]*/, send_data_len);
+		else
+			ret = copy_to_user(buff, tmpbuf/*ipd->debug_buf[0]*/ + p, send_data_len - p);
+		
+		if (ret)
+		{
+			DBG_ERR("copy_to_user err\n");
+			ret = -EFAULT;
+		}
+		else
+		{
+			*pPos += count;
+			ret = count;
+			DBG(DEBUG_FINGER_REPORT,"Read %d bytes(s) from %ld\n", count, p);
+		}
+	}
+	//DBG_ERR("send_data_len = %d\n", send_data_len);
+	if (send_data_len <= 0 || send_data_len > 4096) {
+		DBG_ERR("send_data_len = %d set 2048\n", send_data_len);
+		send_data_len = 4096;
+	}
+	if (tmpbuf != NULL)
+	{
+		vfree(tmpbuf);
+		tmpbuf = NULL;
+	}
+
+	mutex_unlock(&ipd->ilitek_debug_mutex);
+	mutex_unlock(&ipd->ilitek_debug_read_mutex);
+	return send_data_len;
 }
 
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
@@ -1101,6 +1230,8 @@ struct proc_dir_entry *proc_gesture;
 struct proc_dir_entry *proc_debug_level;
 struct proc_dir_entry *proc_report_data;
 struct proc_dir_entry *proc_mp_test;
+struct proc_dir_entry *proc_debug_message;
+struct proc_dir_entry *proc_debug_message_switch;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
@@ -1135,13 +1266,17 @@ struct file_operations proc_debug_level_fops = {
 	.read = ilitek_proc_debug_level_read,
 };
 
-struct file_operations proc_report_data_fops = {
-	.read = ilitek_proc_report_data_read,
-};
-
 struct file_operations proc_mp_test_fops = {
 	.write = ilitek_proc_mp_test_write,
 	.read = ilitek_proc_mp_test_read,
+};
+
+struct file_operations proc_debug_message_fops = {
+	.read = ilitek_proc_debug_message_read,
+};
+
+struct file_operations proc_debug_message_switch_fops = {
+	.read = ilitek_proc_debug_switch_read,
 };
 
 /**
@@ -1169,8 +1304,9 @@ proc_node_t proc_table[] = {
 	{"gesture", NULL, &proc_gesture_fops, false},
 	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
-	{"report_data", NULL, &proc_report_data_fops, false},
 	{"mp_test", NULL, &proc_mp_test_fops, false},
+	{"debug_message", NULL, &proc_debug_message_fops, false},
+	{"debug_message_switch", NULL, &proc_debug_message_switch_fops, false},
 };
 
 #define NETLINK_USER 21

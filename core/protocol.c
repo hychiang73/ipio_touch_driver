@@ -84,7 +84,7 @@ static void insert_func(int key, int len, uint8_t *cmd, char *name)
     }
 
     hashArray[hashIndex] = func;
-    DBG_INFO("hashArray[%d] = %p \n",hashIndex, hashArray[hashIndex]);
+    //DBG_INFO("hashArray[%d] = %p \n",hashIndex, hashArray[hashIndex]);
 }
 
 

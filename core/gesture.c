@@ -114,8 +114,6 @@ void core_gesture_init(struct core_fr_data *fr_data)
 {
     struct input_dev *input_dev = fr_data->input_device;
 
-    DBG_INFO("HHHHHHHHHHHHHHHHHHHH");
-
     if(input_dev != NULL)
     {
         input_set_capability(input_dev, EV_KEY, KEY_POWER);
