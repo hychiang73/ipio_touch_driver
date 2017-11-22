@@ -89,7 +89,7 @@ extern uint32_t ipio_chip_list[2];
 #define PLATFORM_RK 
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.1.1"
+#define DRIVER_VERSION	"1.0.1.2"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
