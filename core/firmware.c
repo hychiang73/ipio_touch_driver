@@ -666,14 +666,14 @@ static int tddi_fw_upgrade(bool isIRAM)
 		goto out;
 	}
 
-	// We do have to reset chip in order to move new code from flash to iram.
+	/* We do have to reset chip in order to move new code from flash to iram. */
 	DBG_INFO("Doing Soft Reset ..\n");
 	core_config_ic_reset();
 
-	// the delay time moving code depends on what the touch IC you're using.
+	/* the delay time moving code depends on what the touch IC you're using. */
 	mdelay(core_firmware->delay_after_upgrade);
 
-	// ensure that the chip has been updated
+	/* ensure that the chip has been updated */
 	DBG_INFO("Enter to ICE Mode again\n");
 	res = core_config_ice_mode_enable();
 	if (res < 0)
@@ -687,7 +687,7 @@ static int tddi_fw_upgrade(bool isIRAM)
 	if (core_config->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
-	// check the data that we've just written into the iram.
+	/* check the data that we've just written into the iram. */
 	res = verify_flash_data();
 	if(res == 0)
 		DBG_INFO("Data Correct !\n");

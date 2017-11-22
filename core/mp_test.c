@@ -1281,15 +1281,20 @@ void core_mp_run_test(void)
 }
 EXPORT_SYMBOL(core_mp_run_test);
 
-void core_mp_move_code(void)
+int core_mp_move_code(void)
 {
+    DBG_INFO("Prepaing to enter Test Mode \n");
+
     if(core_config_check_cdc_busy() < 0)
-        DBG_ERR("Check busy is timout !\n");
+    {
+       DBG_ERR("Check busy is timout ! Enter Test Mode failed\n");
+       return -1;
+    }
 
     if(core_config_ice_mode_enable() < 0)
     {
         DBG_ERR("Failed to enter ICE mode\n");
-        return;
+        return -1;
     }
 
     /* DMA Trigger */
@@ -1303,7 +1308,13 @@ void core_mp_move_code(void)
     core_config_ice_mode_disable();
 
     if(core_config_check_cdc_busy() < 0)
-        DBG_ERR("Check busy is timout !\n");
+    {
+        DBG_ERR("Check busy is timout ! Enter Test Mode failed\n");
+        return - 1;
+    }
+
+    DBG_INFO("FW Test Mode ready \n");
+    return 0;
 }
 EXPORT_SYMBOL(core_mp_move_code);
 

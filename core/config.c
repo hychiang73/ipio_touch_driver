@@ -452,11 +452,6 @@ void core_config_ic_suspend(void)
 	
 	if(core_config->isEnableGesture)
 	{
-		/* We need to give a signal to tell ic that gesture is going to be enable.
-		 * The way to do this is to send sense stop again.
-		 */
-		core_config_sense_ctrl(false);
-
 		core_config_lpwg_ctrl(true);
 	}
 	else

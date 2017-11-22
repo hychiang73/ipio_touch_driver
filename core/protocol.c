@@ -316,7 +316,7 @@ void core_protocol_func_control(int key, int ctrl)
 
     if(tmp != NULL)
     {
-        DBG_INFO("Found func's name: %s \n", tmp->name);
+        DBG_INFO("Found func's name: %s, key = %d\n", tmp->name, key);
 
         /* last element is used to control this func */
         if(tmp->key != 9)

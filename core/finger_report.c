@@ -554,11 +554,28 @@ void core_fr_mode_control(uint8_t *from_user)
 			}
 			else
 			{
-				core_fr->actual_fw_mode = mode;				
-			}
+				int i, checksum = 0, codeLength = 8;
+				uint8_t mp_code[8] = {0};
 
-			// doing sensor test
-			//core_mp_switch_mode();
+				cmd[0] = 0xFE;
+
+				/* Read MP Test information to ensure if fw supports test mode. */
+				core_i2c_write(core_config->slave_i2c_addr, cmd, 1);
+				mdelay(10);
+				core_i2c_read(core_config->slave_i2c_addr, mp_code, codeLength);
+
+				for(i = 1; i < codeLength - 1; i++)
+					checksum += mp_code[i];
+
+				if(((~checksum & 0xFF) == mp_code[i-1]) ? true : false)
+				{
+					/* FW enter to Test Mode */
+					if(core_mp_move_code() == 0)
+						core_fr->actual_fw_mode = mode;	
+				}
+				else
+					DBG_INFO("checksume error (0x%x), FW doesn't support test mode.\n", (~checksum & 0XFF));
+			}
 		}
 		else
 		{
