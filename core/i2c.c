@@ -88,9 +88,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-#if defined(PLATFORM_MTK) 
-    //msgs[0].timing = core_i2c->clk;
-#elif defined(PLATFORM_RK)
+#if defined(PLATFORM_RK)
     msgs[0].scl_rate = core_i2c->clk;
 #endif
 
@@ -139,9 +137,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-#if defined(PLATFORM_MTK) 
-    //msgs[0].timing = core_i2c->clk;
-#elif defined(PLATFORM_RK)
+#if defined(PLATFORM_RK)
     msgs[0].scl_rate = core_i2c->clk;
 #endif
 
@@ -193,9 +189,7 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-#if defined(PLATFORM_MTK) 
-    //msgs[0].timing = core_i2c->clk;
-#elif defined(PLATFORM_RK)
+#if defined(PLATFORM_RK)
     msgs[0].scl_rate = core_i2c->clk;
 #endif
 

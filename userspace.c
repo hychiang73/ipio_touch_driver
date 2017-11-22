@@ -1228,7 +1228,6 @@ struct proc_dir_entry *proc_fw_upgrade;
 struct proc_dir_entry *proc_iram_upgrade;
 struct proc_dir_entry *proc_gesture;
 struct proc_dir_entry *proc_debug_level;
-struct proc_dir_entry *proc_report_data;
 struct proc_dir_entry *proc_mp_test;
 struct proc_dir_entry *proc_debug_message;
 struct proc_dir_entry *proc_debug_message_switch;
