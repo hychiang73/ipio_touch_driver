@@ -12,4 +12,6 @@ obj-y += config.o \
 		 finger_report.o \
 		 mp_test.o \
 		 flash.o \
-		 protocol.o 
+		 protocol.o \
+		 parser.o \
+		 gesture.o

@@ -44,7 +44,7 @@ extern struct tpd_device *tpd;
 #define DTS_OF_NAME		"tchip,ilitek"
 #endif
 
-#define I2C_DEVICE_ID	"ILITEK_TP_ID"
+#define I2C_DEVICE_ID	"ILITEK_TDDI"
 #define POWER_STATUS_PATH "/sys/class/power_supply/battery/status"
 
 #ifdef USE_KTHREAD
@@ -53,6 +53,53 @@ static DECLARE_WAIT_QUEUE_HEAD(waiter);
 
 uint32_t ipio_debug_level = DEBUG_NONE;
 EXPORT_SYMBOL(ipio_debug_level);
+
+void ilitek_platform_disable_irq(void);
+void ilitek_platform_enable_irq(void);
+void ilitek_platform_tp_hw_reset(bool isEnable);
+#ifdef REGULATOR_POWER_ON
+void ilitek_regulator_power_on(bool status);
+#endif
+
+#if defined(USE_KTHREAD) || defined(BOOT_FW_UPGRADE)
+static int kthread_handler(void *arg);
+#endif
+
+#ifdef BATTERY_CHECK
+static void read_power_status(uint8_t *buf);
+static void ilitek_platform_vpower_notify(struct work_struct *pWork);
+#endif
+
+static int ilitek_platform_input_init(void);
+
+/* The method of suspend/resume */
+#ifdef PLATFORM_MTK
+static void tpd_resume(struct device *h);
+static void tpd_suspend(struct device *h);
+#elif defined CONFIG_FB
+static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned long event, void *data);
+#else
+static void ilitek_platform_early_suspend(struct early_suspend *h);
+static void ilitek_platform_late_resume(struct early_suspend *h);
+#endif
+
+static int ilitek_platform_reg_power_check(void);
+static int ilitek_platform_reg_suspend(void);
+
+#ifndef USE_KTHREAD
+static void ilitek_platform_work_queue(struct work_struct *work);
+#endif
+
+static int ilitek_platform_isr_register(void);
+static int ilitek_platform_gpio(void);
+static int ilitek_platform_read_tp_info(void);
+static int ilitek_platform_input_init(void);
+static void ilitek_platform_core_remove(void);
+static int ilitek_platform_core_init(void);
+static int ilitek_platform_remove(struct i2c_client *client);
+static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int __init ilitek_platform_init(void);
+static void __exit ilitek_platform_exit(void);
 
 struct ilitek_platform_data *ipd;
 
@@ -70,13 +117,13 @@ void ilitek_platform_disable_irq(void)
 		{
 			disable_irq_nosync(ipd->isr_gpio);
 			ipd->isEnableIRQ = false;
-			DBG(DEBUG_IRQ, "Disable IRQ: %d", ipd->isEnableIRQ);
+			DBG(DEBUG_IRQ, "Disable IRQ: %d\n", ipd->isEnableIRQ);
 		}
 		else
-			DBG_ERR("The number of gpio to irq is incorrect");
+			DBG_ERR("The number of gpio to irq is incorrect\n");
 	}
 	else
-		DBG(DEBUG_IRQ, "IRQ was already disabled");
+		DBG(DEBUG_IRQ, "IRQ was already disabled\n");
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 }
@@ -86,7 +133,7 @@ void ilitek_platform_enable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -96,13 +143,13 @@ void ilitek_platform_enable_irq(void)
 		{
 			enable_irq(ipd->isr_gpio);
 			ipd->isEnableIRQ = true;
-			DBG(DEBUG_IRQ, "Enable IRQ: %d", ipd->isEnableIRQ);
+			DBG(DEBUG_IRQ, "Enable IRQ: %d\n", ipd->isEnableIRQ);
 		}
 		else
-			DBG_ERR("The number of gpio to irq is incorrect");
+			DBG_ERR("The number of gpio to irq is incorrect\n");
 	}
 	else
-		DBG(DEBUG_IRQ, "IRQ was already enabled");
+		DBG(DEBUG_IRQ, "IRQ was already enabled\n");
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 }
@@ -110,7 +157,7 @@ EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
 void ilitek_platform_tp_hw_reset(bool isEnable)
 {
-	DBG_INFO("HW Reset: %d ", isEnable);
+	DBG_INFO("HW Reset: %d \n", isEnable);
 
 	if (isEnable)
 	{
@@ -145,7 +192,7 @@ EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
 void ilitek_regulator_power_on(bool status)
 {
 	int res = 0;
-	DBG_INFO("%s", status ? "POWER ON":"POWER OFF");
+	DBG_INFO("%s\n", status ? "POWER ON":"POWER OFF");
 
 	if (status)
 	{
@@ -153,13 +200,13 @@ void ilitek_regulator_power_on(bool status)
 		{
 			res = regulator_enable(ipd->vdd);
 			if (res < 0)
-				DBG_ERR("regulator_enable vdd fail");
+				DBG_ERR("regulator_enable vdd fail\n");
 		}	
 		if (ipd->vdd_i2c) 
 		{
 			res = regulator_enable(ipd->vdd_i2c);
 			if (res < 0) 
-				DBG_ERR("regulator_enable vdd_i2c fail");
+				DBG_ERR("regulator_enable vdd_i2c fail\n");
 		}	
 	}
 	else 
@@ -168,13 +215,13 @@ void ilitek_regulator_power_on(bool status)
 		{
 			res = regulator_disable(ipd->vdd);
 			if (res < 0) 
-				DBG_ERR("regulator_enable vdd fail");
+				DBG_ERR("regulator_enable vdd fail\n");
 		}	
 		if (ipd->vdd_i2c)
 		 {
 			res = regulator_disable(ipd->vdd_i2c);
 			if (res < 0) 
-				DBG_ERR("regulator_enable vdd_i2c fail");
+				DBG_ERR("regulator_enable vdd_i2c fail\n");
 		}	
 	}
 
@@ -184,6 +231,58 @@ void ilitek_regulator_power_on(bool status)
 EXPORT_SYMBOL(ilitek_regulator_power_on);
 #endif
 
+static int kthread_handler(void *arg)
+{
+	int res = 0;
+	char *str = (char*)arg;
+
+	if(strcmp(str, "boot_fw") == 0)
+	{
+		/* FW Upgrade event */
+		core_firmware->isboot = true;
+
+		ilitek_platform_disable_irq();
+
+#ifdef BOOT_FW_UPGRADE
+		res = core_firmware_boot_upgrade();
+		if(res < 0)
+			DBG_ERR("Failed to upgrade FW at boot stage \n");
+#endif
+
+		ilitek_platform_enable_irq();
+
+		ilitek_platform_input_init();
+
+		core_firmware->isboot = false;
+	}
+	else if(strcmp(str, "irq") == 0)
+	{
+		/* IRQ event */
+		struct sched_param param = { .sched_priority = 4};
+
+		sched_setscheduler(current, SCHED_RR, &param);
+
+		while(!kthread_should_stop() && !ipd->free_irq_thread)
+		{
+			DBG(DEBUG_IRQ, "kthread: before->irq_trigger = %d\n", ipd->irq_trigger);
+			set_current_state(TASK_INTERRUPTIBLE);
+			wait_event_interruptible(waiter, ipd->irq_trigger);
+			ipd->irq_trigger = false;
+			set_current_state(TASK_RUNNING);
+			DBG(DEBUG_IRQ, "kthread: after->irq_trigger = %d\n", ipd->irq_trigger);
+			ilitek_platform_enable_irq();
+			core_fr_handler();
+		}
+	}
+	else
+	{
+		DBG_ERR("Unknown EVENT \n");
+	}
+
+	return res;
+}
+
+#ifdef BATTERY_CHECK
 static void read_power_status(uint8_t *buf)
 {
 	struct file *f = NULL;
@@ -196,14 +295,14 @@ static void read_power_status(uint8_t *buf)
 	f = filp_open(POWER_STATUS_PATH, O_RDONLY, 0);
 	if(ERR_ALLOC_MEM(f))
 	{
-		DBG_ERR("Failed to open %s", POWER_STATUS_PATH);
+		DBG_ERR("Failed to open %s\n", POWER_STATUS_PATH);
 		return;
 	}
 
 	f->f_op->llseek(f, 0, SEEK_SET);
 	byte = f->f_op->read(f, buf, 20, &f->f_pos);
 	
-	DBG(DEBUG_BATTERY, "Read %d bytes", (int)byte);
+	DBG(DEBUG_BATTERY, "Read %d bytes\n", (int)byte);
 
 	set_fs(old_fs);
 	filp_close(f, NULL);
@@ -214,16 +313,16 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 	uint8_t charge_status[20] = {0};
 	static int charge_mode = 0;
 
-	DBG(DEBUG_BATTERY, "isEnableCheckPower = %d", ipd->isEnablePollCheckPower);
+	DBG(DEBUG_BATTERY, "isEnableCheckPower = %d\n", ipd->isEnablePollCheckPower);
 	read_power_status(charge_status);
-	DBG(DEBUG_BATTERY, "Batter Status: %s", charge_status);
+	DBG(DEBUG_BATTERY, "Batter Status: %s\n", charge_status);
 
 	if(strstr(charge_status, "Charging") != NULL || strstr(charge_status, "Full") != NULL 
 			|| strstr(charge_status, "Fully charged") != NULL)
 	{
 		if(charge_mode != 1)
 		{
-			DBG(DEBUG_BATTERY, "Charging mode");
+			DBG(DEBUG_BATTERY, "Charging mode\n");
 			core_config_plug_ctrl(false);
 			charge_mode = 1;
 		}
@@ -232,7 +331,7 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 	{
 		if(charge_mode != 2)
 		{
-			DBG(DEBUG_BATTERY, "Not charging mode");
+			DBG(DEBUG_BATTERY, "Not charging mode\n");
 			core_config_plug_ctrl(true);;
 			charge_mode = 2;
 		}
@@ -243,11 +342,12 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 
 	return;
 }
+#endif
 
 #ifdef PLATFORM_MTK
 static void tpd_resume(struct device *h)
 {
-	DBG_INFO("TPD wake up");
+	DBG_INFO("TPD wake up\n");
 
 	if(!core_firmware->isUpgrading)
 	{
@@ -258,18 +358,18 @@ static void tpd_resume(struct device *h)
 			queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
 
-	DBG_INFO("TPD wake up done");
+	DBG_INFO("TPD wake up done\n");
 }
 
 static void tpd_suspend(struct device *h)
 {
-    DBG_INFO("TPD enter sleep");
+    DBG_INFO("TPD enter sleep\n");
 
 	if(!core_firmware->isUpgrading)
 	{
 		if(!core_config->isEnableGesture)
 		{
-			DBG_INFO("gesture not enabled");
+			DBG_INFO("gesture not enabled\n");
 			ilitek_platform_disable_irq();
 		}
 
@@ -279,24 +379,23 @@ static void tpd_suspend(struct device *h)
 		core_config_ic_suspend();		
 	}
 
-    DBG_INFO("TPD enter sleep done");
+    DBG_INFO("TPD enter sleep done\n");
 }
-#else
-#ifdef CONFIG_FB
+#elif defined CONFIG_FB
 static int ilitek_platform_notifier_fb(struct notifier_block *self,
 									   unsigned long event, void *data)
 {
 	int *blank;
 	struct fb_event *evdata = data;
 
-	DBG_INFO("Notifier's event = %ld", event);
+	DBG_INFO("Notifier's event = %ld\n", event);
 
 	if (event == FB_EVENT_BLANK)
 	{
 		blank = evdata->data;
 		if (*blank == FB_BLANK_POWERDOWN)
 		{
-			DBG_INFO("Touch Suspend");
+			DBG_INFO("Touch Suspend\n");
 
 			if(!core_firmware->isUpgrading)
 			{
@@ -329,7 +428,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 #else // CONFIG_HAS_EARLYSUSPEND
 static void ilitek_platform_early_suspend(struct early_suspend *h)
 {
-	DBG_INFO("Touch Suspend");
+	DBG_INFO("Touch Suspend\n");
 
 	//TODO: there is doing nothing if an upgrade firmware's processing.
 
@@ -350,7 +449,7 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 static void ilitek_platform_late_resume(struct early_suspend *h)
 {
-	DBG_INFO("Touch Resuem");
+	DBG_INFO("Touch Resuem\n");
 
 	core_fr->isEnableFR = true;
 	core_config_ic_resume();
@@ -359,7 +458,6 @@ static void ilitek_platform_late_resume(struct early_suspend *h)
 	if(ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 }
-#endif
 #endif /* PLATFORM_MTK */
 
 /**
@@ -369,18 +467,19 @@ static int ilitek_platform_reg_power_check(void)
 {
 	int res = 0;
 
+#ifdef BATTERY_CHECK
 	INIT_DELAYED_WORK(&ipd->check_power_status_work, ilitek_platform_vpower_notify);
-	ipd->check_power_status_queue = create_workqueue("ilitek_check_power_status");
+	ipd->check_power_status_queue = create_workqueue("ili_power_check");
 	ipd->work_delay = msecs_to_jiffies(2000);
 	if(!ipd->check_power_status_queue)
 	{
-		DBG_ERR("Failed to create a work thread to check power status");
+		DBG_ERR("Failed to create a work thread to check power status\n");
 		ipd->vpower_reg_nb = false;
 		res = -1;
 	}
 	else
 	{
-		DBG_INFO("Created a work thread to check power status at every %u jiffies", (unsigned)ipd->work_delay);
+		DBG_INFO("Created a work thread to check power status at every %u jiffies\n", (unsigned)ipd->work_delay);
 
 		if(ipd->isEnablePollCheckPower)
 		{
@@ -388,6 +487,7 @@ static int ilitek_platform_reg_power_check(void)
 			ipd->vpower_reg_nb = true;
 		}
 	}
+#endif
 
 	return res;
 }
@@ -404,9 +504,9 @@ static int ilitek_platform_reg_suspend(void)
 	int res = 0;
 
 #ifdef PLATFORM_MTK
-	DBG_INFO("Platform is MTK, do nothing");
+	DBG_INFO("Platform is MTK, do nothing\n");
 #else
-	DBG_INFO("Register suspend/resume callback function");
+	DBG_INFO("Register suspend/resume callback function\n");
 
 #ifdef CONFIG_FB
 	ipd->notifier_fb.notifier_call = ilitek_platform_notifier_fb;
@@ -422,29 +522,10 @@ static int ilitek_platform_reg_suspend(void)
 	return res;
 }
 
-#ifdef USE_KTHREAD
-static int ilitek_platform_irq_kthread(void *arg)
-{
-	struct sched_param param = { .sched_priority = 4};
-	sched_setscheduler(current, SCHED_RR, &param);
-
-	while(!kthread_should_stop() && !ipd->free_irq_thread)
-	{
-		DBG(DEBUG_IRQ, "kthread: before->irq_trigger = %d", ipd->irq_trigger);
-		set_current_state(TASK_INTERRUPTIBLE);
-		wait_event_interruptible(waiter, ipd->irq_trigger);
-		ipd->irq_trigger = false;
-		set_current_state(TASK_RUNNING);
-		DBG(DEBUG_IRQ, "kthread: after->irq_trigger = %d", ipd->irq_trigger);
-		ilitek_platform_enable_irq();
-		core_fr_handler();
-	}
-	return 0;
-}
-#else
+#ifndef USE_KTHREAD
 static void ilitek_platform_work_queue(struct work_struct *work)
 {
-	DBG(DEBUG_IRQ, "work_queue: IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "work_queue: IRQ = %d\n", ipd->isEnableIRQ);
 
 	if (!ipd->isEnableIRQ)
 		ilitek_platform_enable_irq();
@@ -457,7 +538,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
 //	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
 
 //	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -466,7 +547,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 		ilitek_platform_disable_irq();
 #ifdef USE_KTHREAD
 		ipd->irq_trigger = true;
-		DBG(DEBUG_IRQ, "kthread: irq_trigger = %d", ipd->irq_trigger);
+		DBG(DEBUG_IRQ, "kthread: irq_trigger = %d\n", ipd->irq_trigger);
 		wake_up_interruptible(&waiter);
 #else
 		schedule_work(&ipd->report_work_queue);
@@ -486,11 +567,11 @@ static int ilitek_platform_isr_register(void)
 #endif
 
 #ifdef USE_KTHREAD
-	ipd->irq_thread = kthread_run(ilitek_platform_irq_kthread, NULL, "ilitek_irq_thread");
+	ipd->irq_thread = kthread_run(kthread_handler, "irq", "ili_irq_thread");
 	if (ipd->irq_thread == (struct task_struct*)ERR_PTR)
 	{
 		ipd->irq_thread = NULL;
-		DBG_ERR("Failed to create kthread");
+		DBG_ERR("Failed to create kthread\n");
 		res = -ENOMEM;
 		goto out;
 	}
@@ -510,7 +591,7 @@ static int ilitek_platform_isr_register(void)
 	ipd->isr_gpio = gpio_to_irq(ipd->int_gpio);
 #endif
 
-	DBG_INFO("ipd->isr_gpio = %d", ipd->isr_gpio);
+	DBG_INFO("ipd->isr_gpio = %d\n", ipd->isr_gpio);
 
 	res = request_threaded_irq(
 		ipd->isr_gpio,
@@ -522,7 +603,7 @@ static int ilitek_platform_isr_register(void)
 
 	if (res != 0)
 	{
-		DBG_ERR("Failed to register irq handler, irq = %d, res = %d",
+		DBG_ERR("Failed to register irq handler, irq = %d, res = %d\n",
 				ipd->isr_gpio, res);
 		goto out;
 	}
@@ -549,30 +630,30 @@ static int ilitek_platform_gpio(void)
 #endif
 #endif /* PLATFORM_MTK */
 
-	DBG_INFO("GPIO INT: %d", ipd->int_gpio);
-	DBG_INFO("GPIO RESET: %d", ipd->reset_gpio);
+	DBG_INFO("GPIO INT: %d\n", ipd->int_gpio);
+	DBG_INFO("GPIO RESET: %d\n", ipd->reset_gpio);
 
 	if (!gpio_is_valid(ipd->int_gpio))
 	{
-		DBG_ERR("Invalid INT gpio: %d", ipd->int_gpio);
+		DBG_ERR("Invalid INT gpio: %d\n", ipd->int_gpio);
 		return -EBADR;
 	}
 
 	if (!gpio_is_valid(ipd->reset_gpio))
 	{
-		DBG_ERR("Invalid RESET gpio: %d", ipd->reset_gpio);
+		DBG_ERR("Invalid RESET gpio: %d\n", ipd->reset_gpio);
 		return -EBADR;
 	}
 
 	res = gpio_request(ipd->int_gpio, "ILITEK_TP_IRQ");
 	if (res < 0)
 	{
-		DBG_ERR("Request IRQ GPIO failed, res = %d", res);
+		DBG_ERR("Request IRQ GPIO failed, res = %d\n", res);
 		gpio_free(ipd->int_gpio);
 		res = gpio_request(ipd->int_gpio, "ILITEK_TP_IRQ");
 		if(res < 0)
 		{
-			DBG_ERR("Retrying request INT GPIO still failed , res = %d", res);
+			DBG_ERR("Retrying request INT GPIO still failed , res = %d\n", res);
 			goto out;
 		}
 	}
@@ -580,12 +661,12 @@ static int ilitek_platform_gpio(void)
 	res = gpio_request(ipd->reset_gpio, "ILITEK_TP_RESET");
 	if (res < 0)
 	{
-		DBG_ERR("Request RESET GPIO failed, res = %d", res);
+		DBG_ERR("Request RESET GPIO failed, res = %d\n", res);
 		gpio_free(ipd->reset_gpio);
 		res = gpio_request(ipd->reset_gpio, "ILITEK_TP_RESET");
 		if(res < 0)
 		{
-			DBG_ERR("Retrying request RESET GPIO still failed , res = %d", res);
+			DBG_ERR("Retrying request RESET GPIO still failed , res = %d\n", res);
 			goto out;
 		}
 	}
@@ -638,7 +719,7 @@ static int ilitek_platform_input_init(void)
 
 	if (ERR_ALLOC_MEM(ipd->input_device))
 	{
-		DBG_ERR("Failed to allocate touch input device");
+		DBG_ERR("Failed to allocate touch input device\n");
 		res = -ENOMEM;
 		goto fail_alloc;
 	}
@@ -654,7 +735,7 @@ static int ilitek_platform_input_init(void)
 	res = input_register_device(ipd->input_device);
 	if (res < 0)
 	{
-		DBG_ERR("Failed to register touch input device, res = %d", res);
+		DBG_ERR("Failed to register touch input device, res = %d\n", res);
 		goto out;
 	}
 
@@ -671,35 +752,12 @@ out:
 #endif
 }
 
-#ifdef BOOT_FW_UPGRADE
-static int ilitek_platform_boot_fw_upgrade(void *arg)
-{
-	int res = 0;
-
-	core_firmware->isboot = true;
-
-	ilitek_platform_disable_irq();
-
-	res = core_firmware_boot_upgrade();
-	if(res < 0)
-		DBG_ERR("Failed to upgrade FW at boot stage ");
-	
-	ilitek_platform_enable_irq();
-
-	ilitek_platform_input_init();
-
-	core_firmware->isboot = false;
-
-	return res;
-}
-#endif
-
 /**
  * Remove Core APIs memeory being allocated.
  */
 static void ilitek_platform_core_remove(void)
 {
-	DBG_INFO("Remove all core's compoenets");
+	DBG_INFO("Remove all core's compoenets\n");
 	ilitek_proc_remove();
 	core_flash_remove();
 	core_firmware_remove();
@@ -716,15 +774,15 @@ static void ilitek_platform_core_remove(void)
  */
 static int ilitek_platform_core_init(void)
 {
-	DBG_INFO("Initialise core's components ");
+	DBG_INFO("Initialise core's components \n");
 
 	if (core_config_init() < 0 ||
-		core_protocol_init(PROTOCOL_MAJOR, PROTOCOL_MID, PROTOCOL_MINOR) < 0 ||
+		core_protocol_init() < 0 ||
 		core_i2c_init(ipd->client) < 0 ||
 		core_firmware_init() < 0 ||
 		core_fr_init(ipd->client) < 0)
 	{
-		DBG_ERR("Failed to initialise core components");
+		DBG_ERR("Failed to initialise core components\n");
 		return -EINVAL;
 	}
 
@@ -735,7 +793,7 @@ static int ilitek_platform_core_init(void)
 
 static int ilitek_platform_remove(struct i2c_client *client)
 {
-	DBG_INFO("Remove platform components");
+	DBG_INFO("Remove platform components\n");
 
 	if(ipd->isEnableIRQ)
 	{
@@ -793,7 +851,6 @@ static int ilitek_platform_remove(struct i2c_client *client)
  */
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-	int res = 0;
 #ifdef REGULATOR_POWER_ON
 #ifdef PLATFORM_MTK
 	const char *vdd_name = "vtouch";
@@ -805,25 +862,24 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	if (client == NULL)
 	{
-		DBG_ERR("i2c client is NULL");
-		res = -ENODEV;
-		goto out;
+		DBG_ERR("i2c client is NULL\n");
+		return -ENODEV;
 	}
 
 	/* Set i2c slave addr if it's not configured */
-	if(client->addr != 0x41)
+	DBG_INFO("I2C Slave address = 0x%x \n", client->addr);
+	if(client->addr != ILI7807_SLAVE_ADDR || client->addr != ILI9881_SLAVE_ADDR)
 	{
-		client->addr = 0x41;
-		DBG_INFO(" I2C addr : 0x%x\n",client->addr);
+		client->addr = ILI9881_SLAVE_ADDR;
+		DBG_ERR("I2C Slave addr doesn't be set up, use default : 0x%x\n",client->addr);
 	}
 
 	/* initialise the struct of touch ic memebers. */
 	ipd = kzalloc(sizeof(*ipd), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ipd))
 	{
-		DBG_ERR("Failed to allocate ipd memory, %ld", PTR_ERR(ipd));
-		res = -ENOMEM;
-		goto out;
+		DBG_ERR("Failed to allocate ipd memory, %ld\n", PTR_ERR(ipd));
+		return -ENOMEM;
 	}
 
 	ipd->client = client;
@@ -831,9 +887,10 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ipd->chip_id = ON_BOARD_IC;
 	ipd->isEnableIRQ = false;
 	ipd->isEnablePollCheckPower = false;
+	ipd->vpower_reg_nb = false;
 
-	DBG_INFO("Driver version : %s", DRIVER_VERSION);
-	DBG_INFO("This driver now supports %x ", ON_BOARD_IC);
+	DBG_INFO("Driver version : %s\n", DRIVER_VERSION);
+	DBG_INFO("This driver now supports %x \n", ON_BOARD_IC);
 
 	/*
 	 * Different ICs may require different delay time for the reset.
@@ -861,6 +918,13 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	mutex_init(&ipd->MUTEX);
 	spin_lock_init(&ipd->SPIN_LOCK);
 
+	/* Init members for debug */
+	mutex_init(&ipd->ilitek_debug_mutex);
+	mutex_init(&ipd->ilitek_debug_read_mutex);
+	init_waitqueue_head(&(ipd->inq));
+	ipd->debug_data_frame = 0;
+	ipd->debug_node_open = false;
+
 #ifdef REGULATOR_POWER_ON
 #ifdef PLATFORM_MTK
 	ipd->vdd = regulator_get(tpd->tpd_dev, vdd_name);
@@ -870,59 +934,53 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 #endif
 	if (ERR_ALLOC_MEM(ipd->vdd))
 	{
-		DBG_ERR("regulator_get vdd fail");
+		DBG_ERR("regulator_get vdd fail\n");
 		ipd->vdd = NULL;
 	}
 	else 
 	{
-		res = regulator_set_voltage(ipd->vdd, 1800000, 1800000); 
-		if (res < 0)
-			DBG_ERR("Failed to set vdd 1800mv.");
+		if (regulator_set_voltage(ipd->vdd, 1800000, 1800000) < 0)
+			DBG_ERR("Failed to set vdd 1800mv.\n");
 	}
 
 	ipd->vdd_i2c = regulator_get(&ipd->client->dev, vcc_i2c_name);
 	if (ERR_ALLOC_MEM(ipd->vdd_i2c))
 	{
-		DBG_ERR("regulator_get vdd_i2c fail.");
+		DBG_ERR("regulator_get vdd_i2c fail.\n");
 		ipd->vdd_i2c = NULL;
 	}
 	else
 	{
-		res = regulator_set_voltage(ipd->vdd_i2c, 1800000, 1800000);  
-		if (res < 0) 
-			DBG_ERR("Failed to set vdd_i2c 1800mv.");
+		if (regulator_set_voltage(ipd->vdd_i2c, 1800000, 1800000) < 0) 
+			DBG_ERR("Failed to set vdd_i2c 1800mv.\n");
 	}
 	ilitek_regulator_power_on(true);
 #endif
 
-	res = ilitek_platform_gpio();
-	if (res < 0)
-		DBG_ERR("Failed to request gpios ");
+	if (ilitek_platform_gpio() < 0)
+		DBG_ERR("Failed to request gpios\n ");
 
-	res = ilitek_platform_core_init();
-	if (res < 0)
+	/* If kernel failes to allocate memory to the core components, driver will be unloaded. */
+	if (ilitek_platform_core_init() < 0)
 	{
-		DBG_ERR("Failed to init core APIs");
-		goto out;
+		DBG_ERR("Failed to allocate cores' mem\n");
+		return -ENOMEM;
 	}
 
 	ilitek_platform_tp_hw_reset(true);
 
 	/* get our tp ic information */
-	res = ilitek_platform_read_tp_info();
-	if(res < 0)
-	{
-		DBG_ERR("Failed to get TP info");
-		goto out;
-	}
+	if(ilitek_platform_read_tp_info() < 0)
+		DBG_ERR("Failed to get TP info \n");
 
-	res = ilitek_platform_input_init();
-	if (res < 0)
-		DBG_ERR("Failed to init input device in kernel");
+	/* If it defines boot upgrade, input register will be done at boot function. */
+#ifndef BOOT_FW_UPGRADE
+	if (ilitek_platform_input_init() < 0)
+		DBG_ERR("Failed to init input device in kernel\n");
+#endif
 
-	res = ilitek_platform_isr_register();
-	if (res < 0)
-		DBG_ERR("Failed to register ISR");
+	if (ilitek_platform_isr_register() < 0)
+		DBG_ERR("Failed to register ISR\n");
 
 	/*
 	 * To make sure our ic runing well before the work,
@@ -930,13 +988,11 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	 */
 	ilitek_platform_tp_hw_reset(true);
 
-	res = ilitek_platform_reg_suspend();
-	if (res < 0)
-		DBG_ERR("Failed to register suspend/resume function");
+	if (ilitek_platform_reg_suspend() < 0)
+		DBG_ERR("Failed to register suspend/resume function\n");
 
-	res = ilitek_platform_reg_power_check();
-	if(res < 0)
-		DBG_ERR("Failed to register power check function");
+	if(ilitek_platform_reg_power_check() < 0)
+		DBG_ERR("Failed to register power check function\n");
 
 	/* Create nodes for users */
 	ilitek_proc_init();
@@ -946,16 +1002,15 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 #endif
 
 #ifdef BOOT_FW_UPGRADE
-	ipd->update_thread = kthread_run(ilitek_platform_boot_fw_upgrade, NULL, "ilitek_platform_boot_fw_upgrade");
+	ipd->update_thread = kthread_run(kthread_handler, "boot_fw", "ili_fw_boot");
 	if (ipd->update_thread == (struct task_struct*)ERR_PTR)
 	{
 		ipd->update_thread = NULL;
-		DBG_ERR("Failed to create fw upgrade thread");
+		DBG_ERR("Failed to create fw upgrade thread\n");
 	}
 #endif
 
-out:
-	return res;
+	return 0;
 }
 
 static const struct i2c_device_id tp_device_id[] =
@@ -979,7 +1034,7 @@ static struct of_device_id tp_match_table[] = {
 #ifdef PLATFORM_MTK
 static int tpd_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
-	DBG_INFO("TPD detect i2c device");
+	DBG_INFO("TPD detect i2c device\n");
 	strcpy(info->type, TPD_DEVICE);
 	return 0;
 }
@@ -1003,16 +1058,16 @@ static struct i2c_driver tp_i2c_driver =
 #ifdef PLATFORM_MTK
 static int tpd_local_init(void)
 {
-	DBG_INFO("TPD init device driver");
+	DBG_INFO("TPD init device driver\n");
 
 	if (i2c_add_driver(&tp_i2c_driver) != 0)
 	{
-		DBG_ERR("Unable to add i2c driver");
+		DBG_ERR("Unable to add i2c driver\n");
 		return -1;
 	}
 	if (tpd_load_status == 0) 
 	{
-		DBG_ERR("Add error touch panel driver");
+		DBG_ERR("Add error touch panel driver\n");
 
 		i2c_del_driver(&tp_i2c_driver);
 		return -1;
@@ -1046,7 +1101,7 @@ static int __init ilitek_platform_init(void)
 	res = tpd_driver_add(&tpd_device_driver);
 	if (res < 0) 
 	{
-		DBG_ERR("TPD add TP driver failed");
+		DBG_ERR("TPD add TP driver failed\n");
 		tpd_driver_remove(&tpd_device_driver);
 		return -ENODEV;
 	}
@@ -1054,19 +1109,19 @@ static int __init ilitek_platform_init(void)
 	res = i2c_add_driver(&tp_i2c_driver);
 	if (res < 0)
 	{
-		DBG_ERR("Failed to add i2c driver");
+		DBG_ERR("Failed to add i2c driver\n");
 		i2c_del_driver(&tp_i2c_driver);
 		return -ENODEV;
 	}
 #endif
 
-	DBG_INFO("Succeed to add i2c driver");
+	DBG_INFO("Succeed to add i2c driver\n");
 	return res;
 }
 
 static void __exit ilitek_platform_exit(void)
 {
-	DBG_INFO("I2C driver has been removed");
+	DBG_INFO("I2C driver has been removed\n");
 
 #ifdef PLATFORM_MTK
 	tpd_driver_remove(&tpd_device_driver);

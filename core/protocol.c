@@ -22,20 +22,111 @@
  *
  */
 #include "../common.h"
+#include "config.h"
+#include "i2c.h"
 #include "protocol.h"
 
-struct protocol_version
+#define FUNC_NUM    20
+
+struct DataItem
 {
-    uint8_t major;
-    uint8_t mid;
-    uint8_t minor;
-} pver[] = {
-    {0x5, 0x0, 0x0},
-    {0x5, 0x1, 0x0},
-    {0x5, 0x2, 0x0},
+    int key;
+    char *name;
+    int len;
+    uint8_t *cmd;
 };
 
 struct protocol_cmd_list *protocol = NULL;
+
+struct DataItem *hashArray[FUNC_NUM];
+struct DataItem *func;
+
+static int hashCode(int key)
+{
+    return key % FUNC_NUM;
+}
+
+static struct DataItem *search_func(int key)
+{
+    int hashIndex = hashCode(key);
+
+    while(hashArray[hashIndex] != NULL)
+    {
+        if(hashArray[hashIndex]->key == key)
+            return hashArray[hashIndex];
+
+        hashIndex++;
+        hashIndex %= FUNC_NUM;
+    }
+
+    return NULL;
+}
+
+static void insert_func(int key, int len, uint8_t *cmd, char *name)
+{
+    int i, hashIndex;
+    struct DataItem *func = kmalloc(sizeof(struct DataItem), GFP_KERNEL);
+
+    func->key = key;
+    func->name = name;
+    func->len = len;
+
+    func->cmd = kmalloc(sizeof(uint8_t) * len, GFP_KERNEL);
+    for(i = 0; i < len; i++)
+        func->cmd[i] = cmd[i];
+
+    hashIndex = hashCode(key);
+
+    while(hashArray[hashIndex] != NULL)
+    {
+        hashIndex++;
+        hashIndex %= FUNC_NUM;
+    }
+
+    hashArray[hashIndex] = func;
+    //DBG_INFO("hashArray[%d] = %p \n",hashIndex, hashArray[hashIndex]);
+}
+
+
+static void free_func_hash(void)
+{
+    int i;
+
+    if(func != NULL || hashArray != NULL)
+    {
+        kfree(func);
+        func = NULL;
+
+        for(i = 0; i < FUNC_NUM; i++)
+        {
+            if(hashArray[i] != NULL)
+            {
+                kfree(hashArray[i]);
+                hashArray[i] = NULL;
+            }
+        }
+    }
+}
+
+static void create_func_hash(void)
+{
+    /* if protocol is updated, we free its allocated mem at all after create new ones. */
+    free_func_hash();
+
+    insert_func(0, protocol->func_ctrl_len, protocol->sense_ctrl, "sense_ctrl");
+    insert_func(1, protocol->func_ctrl_len, protocol->sleep_ctrl, "sleep_ctrl");
+    insert_func(2, protocol->func_ctrl_len, protocol->glove_ctrl, "glove_ctrl");
+    insert_func(3, protocol->func_ctrl_len, protocol->stylus_ctrl, "stylus_ctrl");
+    insert_func(4, protocol->func_ctrl_len, protocol->tp_scan_mode, "tp_scan_mode");
+    insert_func(5, protocol->func_ctrl_len, protocol->lpwg_ctrl, "lpwg_ctrl");
+    insert_func(6, protocol->func_ctrl_len, protocol->gesture_ctrl, "gesture_ctrl");
+    insert_func(7, protocol->func_ctrl_len, protocol->phone_cover_ctrl, "phone_cover_ctrl");
+    insert_func(8, protocol->func_ctrl_len, protocol->finger_sense_ctrl, "finger_sense_ctrl");
+    insert_func(9, protocol->window_len, protocol->phone_cover_window, "phone_cover_window");
+    insert_func(10, protocol->func_ctrl_len, protocol->finger_sense_ctrl, "finger_sense_ctrl");
+    insert_func(11, protocol->func_ctrl_len, protocol->proximity_ctrl, "proximity_ctrl");
+    insert_func(12, protocol->func_ctrl_len, protocol->plug_ctrl, "plug_ctrl");
+}
 
 static void config_protocol_v5_cmd(void)
 {
@@ -219,19 +310,40 @@ static void config_protocol_v5_cmd(void)
     protocol->st_integra_time		= 0x25;
 }
 
-int core_protocol_init(uint8_t major, uint8_t mid, uint8_t minor)
+void core_protocol_func_control(int key, int ctrl)
 {
-    int i;
+    struct DataItem *tmp = search_func(key);
 
-    if(protocol == NULL)
+    if(tmp != NULL)
     {
-        protocol = kzalloc(sizeof(*protocol), GFP_KERNEL);
-        if(ERR_ALLOC_MEM(protocol))
-        {
-            DBG_ERR("Failed to allocate protocol mem");
-            return -ENOMEM;
-        }
+        DBG_INFO("Found func's name: %s, key = %d\n", tmp->name, key);
+
+        /* last element is used to control this func */
+        if(tmp->key != 9)
+            tmp->cmd[tmp->len - 1] = ctrl;
+
+        core_i2c_write(core_config->slave_i2c_addr, tmp->cmd, tmp->len);
+        return;
     }
+
+    DBG_INFO("Can't find any main functions \n");
+}
+EXPORT_SYMBOL(core_protocol_func_control);
+
+int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
+{
+    int i = 0;
+
+    struct protocol_sup_list
+    {
+        uint8_t major;
+        uint8_t mid;
+        uint8_t minor;
+    } pver[] = {
+        {0x5, 0x0, 0x0},
+        {0x5, 0x1, 0x0},
+        {0x5, 0x2, 0x0},
+    };
 
     for(i = 0; i < ARRAY_SIZE(pver); i++)
     {
@@ -240,28 +352,52 @@ int core_protocol_init(uint8_t major, uint8_t mid, uint8_t minor)
             protocol->major = major;
             protocol->mid = mid;
             protocol->minor = minor;
-            DBG_INFO("protocol: major = %d, mid = %d, minor = %d", 
+            DBG_INFO("protocol: major = %d, mid = %d, minor = %d\n", 
                 protocol->major, protocol->mid, protocol->minor);
 
             if(protocol->major == 0x5)
                 config_protocol_v5_cmd(); 
 
+            /* We need to recreate function controls because of the commands updated. */
+            create_func_hash();
             return 0;
         }
     }
 
-    DBG_ERR("Doesn't support this verions of protocol");
+    DBG_ERR("Doesn't support this version of protocol\n");
     return -1;
 }
+EXPORT_SYMBOL(core_protocol_update_ver);
+
+int core_protocol_init(void)
+{
+    if(protocol == NULL)
+    {
+        protocol = kzalloc(sizeof(*protocol), GFP_KERNEL);
+        if(ERR_ALLOC_MEM(protocol))
+        {
+            DBG_ERR("Failed to allocate protocol mem, %ld\n", PTR_ERR(protocol));
+            core_protocol_remove();
+            return -ENOMEM;
+        }
+    }
+
+    /* The default version must only once be set up at this initial time. */
+    core_protocol_update_ver(PROTOCOL_MAJOR, PROTOCOL_MID, PROTOCOL_MINOR);
+    return 0;
+}
+EXPORT_SYMBOL(core_protocol_init);
 
 void core_protocol_remove(void)
 {
-    DBG_INFO("Remove core-protocol memebers");
+    DBG_INFO("Remove core-protocol memebers\n");
 
     if(protocol != NULL)
     {
         kfree(protocol);
         protocol = NULL;
     }
-}
 
+    free_func_hash();
+}
+EXPORT_SYMBOL(core_protocol_remove);

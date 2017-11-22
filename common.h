@@ -98,10 +98,10 @@ extern uint32_t ipio_chip_list[2];
 
 /* Normal debug messages */
 #define DBG_INFO(fmt, arg...) \
-			pr_info("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
+			pr_info("ILITEK: (%s, %d): " fmt , __func__, __LINE__, ##arg);
 
 #define DBG_ERR(fmt, arg...) \
-			pr_err("ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg);
+			pr_err("ILITEK: (%s, %d): " fmt , __func__, __LINE__, ##arg);
 
 /* Detailed debug messages */
 #ifdef BIT
@@ -120,6 +120,8 @@ enum {
 	DEBUG_MP_TEST = BIT(6),
 	DEBUG_IOCTL= BIT(7),
 	DEBUG_NETLINK = BIT(8),
+	DEBUG_PARSER = BIT(9),
+	DEBUG_GESTURE = BIT(10),
 	DEBUG_ALL = ~0,
 };
 
@@ -128,12 +130,14 @@ extern uint32_t ipio_debug_level;
 #define DBG(level, fmt, arg...) \
 			do { \
 				if (level & ipio_debug_level) \
-				pr_info( "ILITEK: (%s, %d): " fmt "\n", __func__, __LINE__, ##arg); \
+				pr_info( "ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg); \
 			} while (0)
 
 /* Macros */
 #define CHECK_EQUAL(X,Y) ((X==Y) ? 0 : -1 )
 #define ERR_ALLOC_MEM(X)	((IS_ERR(X) || X == NULL) ? 1 : 0)
+#define USEC	1
+#define MSEC	(USEC * 1000)
 
 /* The size of firmware upgrade */
 #define MAX_HEX_FILE_SIZE			(160*1024)
@@ -161,6 +165,8 @@ extern uint32_t ipio_debug_level;
 /*
  * Other settings
  */
+#define CSV_NAME_PATH	"/sdcard/ilitek_mp_test.csv"
+#define INI_NAME_PATH	"/sdcard/mp.ini"
 
  /* define the width and heigth of a screen. */
 #define TOUCH_SCREEN_X_MIN 0
@@ -202,5 +208,8 @@ extern uint32_t ipio_debug_level;
 
 /* Be able to upgrade fw at boot stage */
 //#define BOOT_FW_UPGRADE
+
+/* Check battery's status in order to avoid some effects from charge. */
+//#define BATTERY_CHECK
 
 #endif /* __COMMON_H */

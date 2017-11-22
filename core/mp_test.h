@@ -28,25 +28,34 @@
 struct mp_test_items
 {
     char *name;
+    /* The description must be the same as ini's section name */
+    char *desp;
+    char *result;
+    int catalog;
     uint8_t cmd;
-	int (*do_test)(uint8_t, uint8_t);
+    bool run;
+    int max;
+    int min;
+    int frame_count;
+    int32_t* buf;
+    int32_t* max_buf;
+    int32_t* min_buf;
+	int (*do_test)(int index);
 };
 
 struct core_mp_test_data
 {
-    /* A flag indicates an item being tested */
-    bool mutual_test;
-    bool self_test;
-    bool key_test;
-    bool st_test;
-    bool tx_rx_delta_test;
-
+    /* A flag shows a test run in particular */
     bool m_signal;
     bool m_dac;
 	bool s_signal;
 	bool s_dac;
 	bool key_dac;
-	bool st_dac;
+    bool st_dac;
+    bool p_no_bk;
+    bool p_has_bk;
+    bool open_integ;
+    bool open_cap;
 
     int xch_len;
     int ych_len;
@@ -54,29 +63,29 @@ struct core_mp_test_data
     int srx_len;
     int key_len;
     int st_len;
+    int frame_len;
+    int mp_items;
 
-    /* Spec threshold */
+    /* Tx/Rx threshold & buffer */
     int TxDeltaMax;
     int TxDeltaMin;
     int RxDeltaMax;
     int RxDeltaMin;
-
-    /* Raw data buffer */
-    int32_t *m_raw_buf;
-	int32_t *s_raw_buf;
-	int32_t *key_raw_buf;
-	int32_t *m_sin_buf;
-    int32_t *s_sin_buf;
     int32_t *tx_delta_buf;
     int32_t *rx_delta_buf;
-
-    struct mp_test_items tItems[29];
+    int32_t *tx_max_buf;
+    int32_t *tx_min_buf;
+    int32_t *rx_max_buf;
+    int32_t *rx_min_buf;
 };
 
 extern struct core_mp_test_data *core_mp;
+extern struct mp_test_items tItems[];
 
-extern int core_mp_run_test(const char *name, uint8_t value);
-extern void core_mp_move_code(void);
+extern void core_mp_test_free(void);
+extern void core_mp_show_result(void);
+extern void core_mp_run_test(void);
+extern int core_mp_move_code(void);
 extern int core_mp_init(void);
 extern void core_mp_remove(void);
 

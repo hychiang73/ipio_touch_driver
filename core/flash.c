@@ -50,7 +50,7 @@ void core_flash_init(uint16_t mid, uint16_t did)
     flashtab = kzalloc(sizeof(ft), GFP_KERNEL);
     if(ERR_ALLOC_MEM(flashtab))
     {
-        DBG_ERR("Failed to allocate flashtab memory, %ld", PTR_ERR(flashtab));
+        DBG_ERR("Failed to allocate flashtab memory, %ld\n", PTR_ERR(flashtab));
         return;
     }
 
@@ -58,7 +58,7 @@ void core_flash_init(uint16_t mid, uint16_t did)
     {
         if(mid == ft[i].mid && did == ft[i].dev_id)
         {
-            DBG_INFO("Find them in flash table");
+            DBG_INFO("Find them in flash table\n");
 
             flashtab->mid = mid;
             flashtab->dev_id = did;
@@ -72,7 +72,7 @@ void core_flash_init(uint16_t mid, uint16_t did)
 
     if(i >= ARRAY_SIZE(ft))
     {
-        DBG_ERR("Can't find them in flash table, apply default flash config");
+        DBG_ERR("Can't find them in flash table, apply default flash config\n");
         flashtab->mid = mid;
         flashtab->dev_id = did;
         flashtab->mem_size = (256*1024);
@@ -81,16 +81,16 @@ void core_flash_init(uint16_t mid, uint16_t did)
         flashtab->block = (64*1024);
     }
 
-    DBG_INFO("Max Memory size = %d", flashtab->mem_size);
-    DBG_INFO("Per program page = %d", flashtab->program_page);
-    DBG_INFO("Sector size = %d", flashtab->sector);
-    DBG_INFO("Block size = %d", flashtab->block);
+    DBG_INFO("Max Memory size = %d\n", flashtab->mem_size);
+    DBG_INFO("Per program page = %d\n", flashtab->program_page);
+    DBG_INFO("Sector size = %d\n", flashtab->sector);
+    DBG_INFO("Block size = %d\n", flashtab->block);
 }
 EXPORT_SYMBOL(core_flash_init);
 
 void core_flash_remove(void)
 {
-    DBG_INFO("Remove core-flash memebers");
+    DBG_INFO("Remove core-flash memebers\n");
 
     if(flashtab != NULL)
         kfree(flashtab);
