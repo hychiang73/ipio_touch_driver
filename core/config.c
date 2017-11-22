@@ -512,7 +512,19 @@ EXPORT_SYMBOL(core_config_ice_mode_disable);
 int core_config_ice_mode_enable(void)
 {
 	DBG_INFO("ICE Mode enabled\n");
-	return core_config_ice_mode_write(0x181062, 0x0, 0);
+	
+	if(core_config_ice_mode_write(0x181062, 0x0, 0) < 0)
+		return -1;
+
+	/* 
+	 * We add CS high command to solve the bug that ic didn't pull it as high,
+	 * which may cause some pluses didn't be catached up when moving code or programming.
+	 */
+	usleep_range(MSEC, MSEC * 10);
+	if(core_config_ice_mode_write(0x041000, 0x1, 1) < 0)
+		return -1;
+
+	return 0;
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 

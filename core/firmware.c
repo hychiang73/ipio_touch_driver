@@ -645,11 +645,6 @@ static int tddi_fw_upgrade(bool isIRAM)
 	if (core_config->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
 
-	/* We add CS high command to solve the bug that ic didn't pull it as high,
-	 * which may cause some pluses didn't be catached up when moving code or programming.
-	 */
-	core_config_ice_mode_write(0x041000, 0x1, 1);
-
 	res = flash_erase_sector();
 	if(res < 0)
 	{
