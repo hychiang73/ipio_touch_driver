@@ -79,49 +79,49 @@ enum mp_test_catalog
 
 /* You must declare a new test at here before running a new process of mp test */
 struct mp_test_items tItems[] = {
-    {"mutual_dac", "Untouch Calibration Data(DAC) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"mutual_bg", "Baseline Data(BG)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"mutual_no_bk", "Untouch Raw Data(No BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"mutual_has_bk", "Untouch Raw Data(Have BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"mutual_bk_dac", "Manual BK Data(Mutual)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"mutual_dac", "Untouch Calibration Data(DAC) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_bg", "Baseline Data(BG)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_no_bk", "Untouch Raw Data(No BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_has_bk", "Untouch Raw Data(Have BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_bk_dac", "Manual BK Data(Mutual)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
     
-    {"self_dac", "Untouch Calibration Data(DAC) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"self_no_bk", "Untouch Raw Data(No BK) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"self_has_bk", "Untouch Raw Data(Have BK) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"self_dac", "Untouch Calibration Data(DAC) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_no_bk", "Untouch Raw Data(No BK) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_has_bk", "Untouch Raw Data(Have BK) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"key_dac", "Calibration Data(DAC/ICON)", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"key_bg", "Key Baseline Data", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"key_no_bk", "Key Raw Data", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"key_has_bk", "Key Raw BK DAC", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"key_open", "Key Raw Open Test", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"key_short", "Key Raw Short Test", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"key_dac", "Calibration Data(DAC/ICON)", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_bg", "Key Baseline Data", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_no_bk", "Key Raw Data", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_has_bk", "Key Raw BK DAC", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_open", "Key Raw Open Test", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_short", "Key Raw Short Test", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"st_dac", "ST Calibration Data(DAC)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"st_bg", "ST Baseline Data(BG)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"st_no_bk", "ST Raw Data(No BK)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"st_has_bk", "ST Raw(Have BK)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"st_open", "ST Open Data", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL},
+    {"st_dac", "ST Calibration Data(DAC)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_bg", "ST Baseline Data(BG)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_no_bk", "ST Raw Data(No BK)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_has_bk", "ST Raw(Have BK)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_open", "ST Open Data", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"tx_short", "Tx Short Test", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"rx_short", "Short Test (Rx)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"rx_open", "RX Open", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"tx_short", "Tx Short Test", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"rx_short", "Short Test (Rx)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"rx_open", "RX Open", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"cm_data", "Untouch Cm Data", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"cs_data", "Untouch Cs Data", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"cm_data", "Untouch Cm Data", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"cs_data", "Untouch Cs Data", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"tx_rx_delta", "Tx/Rx Delta", "false", TX_RX_DELTA, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"tx_rx_delta", "Tx/Rx Delta", "false", TX_RX_DELTA, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
  
-    {"p2p", "Untouch Peak to Peak", "false", UNTOUCH_P2P, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"p2p", "Untouch Peak to Peak", "false", UNTOUCH_P2P, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"pixel_no_bk", "Pixel Raw (No BK)", "false", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"pixel_has_bk", "Pixel Raw (Have BK)", "false", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"pixel_no_bk", "Pixel Raw (No BK)", "false", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"pixel_has_bk", "Pixel Raw (Have BK)", "false", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"open_integration", "Open Test(integration)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
-    {"open_cap", "Open Test(Cap)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL},
+    {"open_integration", "Open Test(integration)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"open_cap", "Open Test(Cap)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 };
 
 int32_t *frame_buf = NULL;
@@ -130,9 +130,9 @@ struct core_mp_test_data *core_mp = NULL;
 
 static void dump_data(void *data, int type, int len)
 {
-    int i;
-    uint8_t *p8 = NULL;
-    int32_t *p32 = NULL;
+   int i;
+   uint8_t *p8 = NULL;
+   int32_t *p32 = NULL;
 
     if(ipio_debug_level == DEBUG_MP_TEST)
     {
@@ -232,6 +232,8 @@ static void print_cdc_data(int32_t *data, int max_ts, int min_ts, struct file *f
 static int create_mp_test_frame_buffer(int index)
 {
     int res = 0;
+
+    DBG_INFO("Create MP frame buffer \n");
 
     if(tItems[index].catalog == TX_RX_DELTA)
     {
@@ -862,7 +864,7 @@ static void compare_MaxMin_result(int index, int32_t *data)
 
 static int mutual_test(int index)
 {
-    int i = 0, x = 0, y = 0, res = 0;
+    int i = 0, j = 0, x = 0, y = 0, res = 0;
 
     DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x, Frame Count = %d\n", 
     tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
@@ -921,8 +923,8 @@ static int mutual_test(int index)
                 run_tx_rx_delta_test(index);
                 break;
             default:
-                for(i = 0; i < core_mp->frame_len; i++)
-                    tItems[index].buf[i] = frame_buf[i];
+                for(j = 0; j < core_mp->frame_len; j++)
+                    tItems[index].buf[j] = frame_buf[j];
                 break;
         }
     }
@@ -930,13 +932,12 @@ static int mutual_test(int index)
     compare_MaxMin_result(index, tItems[index].buf);
         
 out:
-    kfree(frame_buf);
     return res;
 }
 
 static int key_test(int index)
 {
-    int i, res = 0;
+    int i, j = 0, res = 0;
 
     DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x, Frame Count = %d\n", 
     tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
@@ -961,14 +962,13 @@ static int key_test(int index)
             goto out;
         }
 
-        for(i = 0; i < core_mp->key_len; i++)
-            tItems[index].buf[i] = key_buf[i];
+        for(j = 0; j < core_mp->key_len; j++)
+            tItems[index].buf[j] = key_buf[j];
     }
 
     compare_MaxMin_result(index, tItems[index].buf);
 
 out:
-    kfree(key_buf);
     return res;    
 }
 
@@ -1095,10 +1095,18 @@ void core_mp_test_free(void)
             }
         }
     }
-    kfree(frame_buf);
-    frame_buf = NULL;
-    kfree(key_buf);
-    key_buf = NULL;
+    
+    if(frame_buf != NULL)
+    {
+        kfree(frame_buf);
+        frame_buf = NULL;
+    }
+
+    if(key_buf != NULL)
+    {
+        kfree(key_buf);
+        key_buf = NULL;
+    }
 }
 EXPORT_SYMBOL(core_mp_test_free);
 

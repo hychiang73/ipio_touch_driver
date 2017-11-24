@@ -335,6 +335,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 		goto out;
 	}
 
+	/* Switch to Test mode */
 	test_cmd[0] = 0x1;
 	core_fr_mode_control(test_cmd);
 
@@ -389,9 +390,14 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_mp_test_free();
 
 out:
+	/* Switch to DEMO mode */
+	test_cmd[0] = 0x0;
+	core_fr_mode_control(test_cmd);
+
 	for(i = 0; i < mp_num; i++)
 		kfree(mp_ini[i]);
 	kfree(mp_ini);
+	mp_ini = NULL;
 	ilitek_platform_enable_irq();	
 	*pPos = len;
 	return len;

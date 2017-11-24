@@ -564,17 +564,17 @@ void core_fr_mode_control(uint8_t *from_user)
 				mdelay(10);
 				core_i2c_read(core_config->slave_i2c_addr, mp_code, codeLength);
 
-				for(i = 1; i < codeLength - 1; i++)
+				for(i = 0; i < codeLength - 1; i++)
 					checksum += mp_code[i];
 
-				if(((~checksum & 0xFF) == mp_code[i-1]) ? true : false)
+				if(((-checksum & 0xFF) == mp_code[codeLength-1]) ? true : false)
 				{
 					/* FW enter to Test Mode */
 					if(core_mp_move_code() == 0)
 						core_fr->actual_fw_mode = mode;	
 				}
 				else
-					DBG_INFO("checksume error (0x%x), FW doesn't support test mode.\n", (~checksum & 0XFF));
+					DBG_INFO("checksume error (0x%x), FW doesn't support test mode.\n", (-checksum & 0XFF));
 			}
 		}
 		else
