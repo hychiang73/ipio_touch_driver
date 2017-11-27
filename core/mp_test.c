@@ -40,12 +40,7 @@
 
 #define EXEC_READ  0
 #define EXEC_WRITE 1
-
-#define SET_KEY    0
-#define SET_MUTUAL 1
-#define SET_SELF   2
-
-#define FAIL       -1
+#define CSV_FILE_SIZE   (400 * 1024)
 
 #define Mathabs(x) ({					\
     long ret;					        \
@@ -62,7 +57,7 @@
 #define DUMP(level, fmt, arg...) \
 do { \
     if (level & ipio_debug_level) \
-        printk( fmt, ##arg); \
+        pr_info( fmt, ##arg); \
 } while (0)
 
 enum mp_test_catalog
@@ -79,49 +74,49 @@ enum mp_test_catalog
 
 /* You must declare a new test at here before running a new process of mp test */
 struct mp_test_items tItems[] = {
-    {"mutual_dac", "Untouch Calibration Data(DAC) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"mutual_bg", "Baseline Data(BG)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"mutual_no_bk", "Untouch Raw Data(No BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"mutual_has_bk", "Untouch Raw Data(Have BK) - Mutual", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"mutual_bk_dac", "Manual BK Data(Mutual)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_dac", "Untouch Calibration Data(DAC) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_bg", "Baseline Data(BG)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_no_bk", "Untouch Raw Data(No BK) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_has_bk", "Untouch Raw Data(Have BK) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"mutual_bk_dac", "Manual BK Data(Mutual)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
     
-    {"self_dac", "Untouch Calibration Data(DAC) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"self_no_bk", "Untouch Raw Data(No BK) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"self_has_bk", "Untouch Raw Data(Have BK) - Self", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "false", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_dac", "Untouch Calibration Data(DAC) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_no_bk", "Untouch Raw Data(No BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_has_bk", "Untouch Raw Data(Have BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"key_dac", "Calibration Data(DAC/ICON)", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"key_bg", "Key Baseline Data", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"key_no_bk", "Key Raw Data", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"key_has_bk", "Key Raw BK DAC", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"key_open", "Key Raw Open Test", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"key_short", "Key Raw Short Test", "false", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_dac", "Calibration Data(DAC/ICON)", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_bg", "Key Baseline Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_no_bk", "Key Raw Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_has_bk", "Key Raw BK DAC", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_open", "Key Raw Open Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"key_short", "Key Raw Short Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"st_dac", "ST Calibration Data(DAC)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"st_bg", "ST Baseline Data(BG)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"st_no_bk", "ST Raw Data(No BK)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"st_has_bk", "ST Raw(Have BK)", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"st_open", "ST Open Data", "false", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_dac", "ST Calibration Data(DAC)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_bg", "ST Baseline Data(BG)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_no_bk", "ST Raw Data(No BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_has_bk", "ST Raw(Have BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"st_open", "ST Open Data", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"tx_short", "Tx Short Test", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"rx_short", "Short Test (Rx)", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"rx_open", "RX Open", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"tx_short", "Tx Short Test", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"rx_short", "Short Test (Rx)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"rx_open", "RX Open", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"cm_data", "Untouch Cm Data", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"cs_data", "Untouch Cs Data", "false", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"cm_data", "Untouch Cm Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"cs_data", "Untouch Cs Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"tx_rx_delta", "Tx/Rx Delta", "false", TX_RX_DELTA, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"tx_rx_delta", "Tx/Rx Delta", "FAIL", TX_RX_DELTA, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
  
-    {"p2p", "Untouch Peak to Peak", "false", UNTOUCH_P2P, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"p2p", "Untouch Peak to Peak", "FAIL", UNTOUCH_P2P, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"pixel_no_bk", "Pixel Raw (No BK)", "false", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"pixel_has_bk", "Pixel Raw (Have BK)", "false", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"pixel_no_bk", "Pixel Raw (No BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"pixel_has_bk", "Pixel Raw (Have BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-    {"open_integration", "Open Test(integration)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    {"open_cap", "Open Test(Cap)", "false", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"open_integration", "Open Test(integration)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+    {"open_cap", "Open Test(Cap)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 };
 
 int32_t *frame_buf = NULL;
@@ -134,7 +129,7 @@ static void dump_data(void *data, int type, int len)
    uint8_t *p8 = NULL;
    int32_t *p32 = NULL;
 
-    if(ipio_debug_level == DEBUG_MP_TEST)
+    if(ipio_debug_level & DEBUG_MP_TEST)
     {
         if(data == NULL)
         {
@@ -142,7 +137,7 @@ static void dump_data(void *data, int type, int len)
             return;        
         }
     
-        printk("\n  Original Data: \n");
+        pr_info("\n  Original Data: \n");
     
         if(type == 8)
         p8 = (uint8_t *)data;
@@ -152,21 +147,57 @@ static void dump_data(void *data, int type, int len)
         for(i = 0; i < len; i++)
         {   
             if(type == 8)
-                printk(" %4x ", p8[i]);
+                pr_info(" %4x ", p8[i]);
             else if(type == 32)
-                printk(" %4x ", p32[i]);
+                pr_info(" %4x ", p32[i]);
     
             if((i % 32) == 0)
-                printk("\n");
+                pr_info("\n");
         }
-        printk("\n\n");
+        pr_info("\n\n");
     }
 }
 
-static void print_cdc_data(int32_t *data, int max_ts, int min_ts, struct file *f, char *csv)
+static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len)
 {
-    int x, y;
-    int32_t *tmp = data;
+    int x, y, tmp_len = *csv_len;
+    int max_ts, min_ts, mp_result;
+    char *line_breaker = "\n";
+    int32_t *tmp = NULL;
+
+    if(tItems[index].catalog == TX_RX_DELTA)
+    {
+        if(tx)
+        {
+            if(max)
+                tmp = core_mp->tx_max_buf;
+            else
+                tmp = core_mp->tx_min_buf;
+            
+            max_ts = core_mp->TxDeltaMax;
+            min_ts = core_mp->TxDeltaMin;
+        }
+        else
+        {
+             if(max)
+                tmp = core_mp->rx_max_buf;
+            else
+                tmp = core_mp->rx_min_buf;
+            
+            max_ts = core_mp->RxDeltaMax;
+            min_ts = core_mp->RxDeltaMin;           
+        }
+    }
+    else
+    {
+        if(max)
+            tmp = tItems[index].max_buf;
+        else
+            tmp = tItems[index].min_buf;
+
+        max_ts = tItems[index].max;
+        min_ts = tItems[index].min;
+    }
     
     /* print X raw only */
     for(x = 0; x < core_mp->xch_len; x++)
@@ -174,67 +205,62 @@ static void print_cdc_data(int32_t *data, int max_ts, int min_ts, struct file *f
         if(x == 0)
         {
             DUMP(DEBUG_MP_TEST,"           ");
-            sprintf(csv, ",");
-            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                      
+            tmp_len += sprintf(csv + tmp_len, ",");                   
         }
 
         DUMP(DEBUG_MP_TEST,"X%02d      ", x);
-        sprintf(csv, "X%02d, ", x);
-        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+        tmp_len += sprintf(csv + tmp_len, "X%02d, ", x); 
     }
 
-    DUMP(DEBUG_MP_TEST,"\n");
-    sprintf(csv, "\n");
-    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+    DUMP(DEBUG_MP_TEST, "\n");
+    tmp_len += sprintf(csv + tmp_len ,"%s",  line_breaker);
 
     for(y = 0; y < core_mp->ych_len; y++)
     {
         DUMP(DEBUG_MP_TEST," Y%02d ", y);
-        sprintf(csv, "Y%02d, ", y);
-        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+        tmp_len += sprintf(csv + tmp_len, "Y%02d, ", y);
 
         for(x = 0; x < core_mp->xch_len; x++)
         {
-            /* Print/Write actual data to terminal/csv */
-            if(tmp[y * core_mp->xch_len + x] <= max_ts &&
-                tmp[y * core_mp->xch_len + x] >= min_ts)
+            int shift = y * core_mp->xch_len + x;
+
+            if(tmp[shift] <= max_ts && tmp[shift] >= min_ts)
             {
-                DUMP(DEBUG_MP_TEST," %7d ", tmp[y * core_mp->xch_len + x]);
-                sprintf(csv, "%d,", tmp[y * core_mp->xch_len + x]);
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                DUMP(DEBUG_MP_TEST," %7d ", tmp[shift]);
+                tmp_len += sprintf(csv + tmp_len, " %7d ", tmp[shift]);
+                mp_result = 1;
             }
             else
             {
-                if(tmp[y * core_mp->xch_len + x] > max_ts)
+                if(tmp[shift] > max_ts)
                 {
-                    DUMP(DEBUG_MP_TEST," *%7d ",tmp[y * core_mp->xch_len + x]);
-                    sprintf(csv, "*%d,", tmp[y * core_mp->xch_len + x]);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                    DUMP(DEBUG_MP_TEST," *%7d ",tmp[shift]);
+                    tmp_len += sprintf(csv + tmp_len, " %7d ", tmp[shift]);
+                    
                 }
                 else
                 {
-                    DUMP(DEBUG_MP_TEST," #%7d ",tmp[y * core_mp->xch_len + x]);
-                    sprintf(csv, "#%d,", tmp[y * core_mp->xch_len + x]);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                    DUMP(DEBUG_MP_TEST," #%7d ",tmp[shift]);
+                    tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
                 }
+                mp_result = -1;
             }
         }
-        DUMP(DEBUG_MP_TEST,"\n");
-        sprintf(csv, "\n");
-        f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
+        DUMP(DEBUG_MP_TEST, "\n");
+        tmp_len += sprintf(csv + tmp_len ,"%s",  line_breaker);
     }
 
-    DUMP(DEBUG_MP_TEST,"\n");
-    sprintf(csv, "\n");
-    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+    if(mp_result)
+        sprintf(tItems[index].result, "%s", "PASS");
+    else
+        sprintf(tItems[index].result, "%s", "FAIL");
+
+    *csv_len = tmp_len;
 }
 
 static int create_mp_test_frame_buffer(int index)
 {
-    int res = 0;
-
-    DBG_INFO("Create MP frame buffer \n");
-
     if(tItems[index].catalog == TX_RX_DELTA)
     {
         /* 
@@ -245,48 +271,42 @@ static int create_mp_test_frame_buffer(int index)
         if (ERR_ALLOC_MEM(core_mp->tx_delta_buf))
         {
             DBG_ERR("Failed to allocate TX Delta buffer, %ld\n", PTR_ERR(core_mp->tx_delta_buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         }
 
         core_mp->rx_delta_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(core_mp->rx_delta_buf))
         {
             DBG_ERR("Failed to allocate RX Delta buffer, %ld\n", PTR_ERR(core_mp->rx_delta_buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         }
 
         core_mp->tx_max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(core_mp->tx_max_buf))
         {
             DBG_ERR("Failed to allocate TX Max buffer, %ld\n", PTR_ERR(core_mp->tx_max_buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         }
     
         core_mp->tx_min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(core_mp->tx_min_buf))
         {
             DBG_ERR("Failed to allocate TX Min buffer, %ld\n", PTR_ERR(core_mp->tx_min_buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         }
 
         core_mp->rx_max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(core_mp->rx_max_buf))
         {
             DBG_ERR("Failed to allocate RX Max buffer, %ld\n", PTR_ERR(core_mp->rx_max_buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         }
     
         core_mp->rx_min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(core_mp->rx_min_buf))
         {
             DBG_ERR("Failed to allocate RX Min buffer, %ld\n", PTR_ERR(core_mp->rx_min_buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         } 
     }
     else
@@ -295,29 +315,25 @@ static int create_mp_test_frame_buffer(int index)
         if (ERR_ALLOC_MEM(tItems[index].buf))
         {
             DBG_ERR("Failed to allocate FRAME buffer, %ld\n", PTR_ERR(tItems[index].buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         }
     
         tItems[index].max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(tItems[index].max_buf))
         {
             DBG_ERR("Failed to allocate MAX buffer, %ld\n", PTR_ERR(tItems[index].max_buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         }
     
         tItems[index].min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(tItems[index].min_buf))
         {
             DBG_ERR("Failed to allocate MIN buffer, %ld\n", PTR_ERR(tItems[index].min_buf));
-            res = -ENOMEM;
-            goto out;
+            return -ENOMEM;
         }
     }
 
-out:
-    return res;
+    return 0;
 }
 
 static int allnode_key_cdc_data(int index)
@@ -343,7 +359,7 @@ static int allnode_key_cdc_data(int index)
     if(core_config_check_cdc_busy() < 0)
     {
         DBG_ERR("Check busy is timout !\n");
-        res = FAIL;
+        res = -1;
         goto out;         
     }
 
@@ -364,7 +380,11 @@ static int allnode_key_cdc_data(int index)
     DBG(DEBUG_MP_TEST,"core_mp->key_len = %d\n",core_mp->key_len);
 
     if(len <= 0)
+    {
+        DBG_ERR("Length is invalid \n");
+        res = -1;
         goto out;
+    }
 
     /* Allocate a buffer for the original */
     ori = kzalloc(len * sizeof(uint8_t), GFP_KERNEL);
@@ -460,7 +480,7 @@ static int allnode_mutual_cdc_data(int index)
     if(core_config_check_cdc_busy() < 0)
     {
         DBG_ERR("Check busy is timout !\n");
-        res = FAIL;
+        res = -1;
         goto out;         
     }
 
@@ -482,7 +502,11 @@ static int allnode_mutual_cdc_data(int index)
     DBG(DEBUG_MP_TEST,"core_mp->frame_len = %d \n", core_mp->frame_len);
 
     if(len <= 2)
+    {
+        DBG_ERR("Length is invalid \n");
+        res = -1;
         goto out;
+    }
 
     /* Allocate a buffer for the original */
     ori = kzalloc(len * sizeof(uint8_t), GFP_KERNEL);
@@ -981,7 +1005,7 @@ static int self_test(int index)
 static int st_test(int index)
 {
     DBG_ERR("ST Test is not suppored by the driver\n");
-    return FAIL; 
+    return -1; 
 }
 
 static void mp_test_init_item(void)
@@ -1065,7 +1089,7 @@ void core_mp_test_free(void)
     for(i = 0; i < ARRAY_SIZE(tItems); i++)
     {
         tItems[i].run = false;
-        tItems[i].result = "false";
+        tItems[i].result = "FAIL";
 
         if(tItems[i].buf != NULL)
         {
@@ -1112,24 +1136,17 @@ EXPORT_SYMBOL(core_mp_test_free);
 
 void core_mp_show_result(void)
 {
-    int i, x, y;
+    int i, x, y, csv_len = 0;
     char *csv = NULL;
+    char *line_breaker = "\n";
     struct file *f = NULL;
     mm_segment_t fs;
+    loff_t pos;
 
-    fs = get_fs();
-    set_fs(KERNEL_DS);
-
-    csv = kmalloc(1024 * 100, GFP_KERNEL);
-
-    DBG_INFO("Open CSV: %s\n ", CSV_NAME_PATH);
-
-    if(f == NULL)
-        f = filp_open(CSV_NAME_PATH, O_CREAT | O_RDWR , 0644);
-
-    if(ERR_ALLOC_MEM(f))
+    csv = kmalloc(CSV_FILE_SIZE, GFP_KERNEL);
+    if(ERR_ALLOC_MEM(csv))
     {
-        DBG_ERR("Failed to open CSV file %s\n", CSV_NAME_PATH);
+        DBG_ERR("Failed to allocate CSV mem \n");
         goto fail_open;
     }
 
@@ -1137,14 +1154,7 @@ void core_mp_show_result(void)
 	{
         if(tItems[i].run)
         {
-            printk("\n\n");
-            printk(" %s : %s ", tItems[i].desp, tItems[i].result);
-            sprintf(csv,  " %s : %s ", tItems[i].desp, tItems[i].result);
-            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-
-            printk("\n");
-            sprintf(csv, "\n");
-            f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+            pr_info("\n");
 
             if(tItems[i].catalog == TX_RX_DELTA)
             {
@@ -1168,103 +1178,106 @@ void core_mp_show_result(void)
                 for(x = 0; x < core_mp->key_len; x++)
                 {
                     DUMP(DEBUG_MP_TEST,"KEY_%02d ",x);     
-                    sprintf(csv, "KEY_%02d,", x);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);                     
+                    csv_len += sprintf(csv + csv_len, "KEY_%02d,", x);                     
                 }
 
-                DUMP(DEBUG_MP_TEST,"\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                DUMP(DEBUG_MP_TEST, "\n");
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
 
                 for(y = 0; y < core_mp->key_len; y++)
                 {
                     DUMP(DEBUG_MP_TEST," %3d   ",tItems[i].buf[y]);     
-                    sprintf(csv, " %3d, ", tItems[i].buf[y]);
-                    f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);           
+                    csv_len += sprintf(csv + csv_len, " %3d, ", tItems[i].buf[y]);          
                 }
-                DUMP(DEBUG_MP_TEST,"\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+
+                DUMP(DEBUG_MP_TEST, "\n");
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
             }
             else if(tItems[i].catalog == TX_RX_DELTA)
             {
-                printk(" %s ", "TX Max Hold");
-                sprintf(csv,  "  %s ", "Max Hold");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                printk("\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                DUMP(DEBUG_MP_TEST," %s ", "TX Max Hold");
+                csv_len += sprintf(csv + csv_len, "  %s ", "TX Max Hold"); 
+
+                DUMP(DEBUG_MP_TEST, "\n");
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
     
-                print_cdc_data(core_mp->tx_max_buf, core_mp->TxDeltaMax, core_mp->TxDeltaMin, f, csv);
+                print_cdc_data(i, true, true, csv, &csv_len);
     
-                printk(" %s ", "TX Min Hold");
-                sprintf(csv,  "  %s ", "Min Hold");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                printk("\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);   
+                DUMP(DEBUG_MP_TEST," %s ", "TX Min Hold");
+                csv_len += sprintf(csv + csv_len, "  %s ", "TX Min Hold");
+
+                DUMP(DEBUG_MP_TEST, "\n");
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);   
     
-                print_cdc_data(core_mp->tx_min_buf, core_mp->TxDeltaMax, core_mp->TxDeltaMin, f, csv);
+                print_cdc_data(i, false, true, csv, &csv_len);
                 
-                printk(" %s ", "RX Max Hold");
-                sprintf(csv,  "  %s ", "Max Hold");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                printk("\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
+                DUMP(DEBUG_MP_TEST," %s ", "RX Max Hold");
+                csv_len += sprintf(csv + csv_len, "  %s ", "RX Max Hold");
+
+                DUMP(DEBUG_MP_TEST, "\n");
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
     
-                print_cdc_data(core_mp->rx_max_buf, core_mp->RxDeltaMax, core_mp->RxDeltaMin, f, csv);
+                print_cdc_data(i, true, false, csv, &csv_len);
     
-                printk(" %s ", "RX Min Hold");
-                sprintf(csv,  "  %s ", "Min Hold");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                printk("\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);   
+                DUMP(DEBUG_MP_TEST," %s ", "RX Min Hold");
+                csv_len += sprintf(csv + csv_len, "  %s ", "RX Min Hold");
+
+                DUMP(DEBUG_MP_TEST, "\n");
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
     
-                print_cdc_data(core_mp->rx_min_buf, core_mp->RxDeltaMax, core_mp->RxDeltaMin, f, csv);
+                print_cdc_data(i, false, false, csv, &csv_len);
             }
             else
             {
-                printk(" %s ", "Max Hold");
-                sprintf(csv,  "  %s ", "Max Hold");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                printk("\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-    
-                print_cdc_data(tItems[i].max_buf, tItems[i].max, tItems[i].min, f, csv);
-    
-                printk(" %s ", "Min Hold");
-                sprintf(csv,  "  %s ", "Min Hold");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                printk("\n");
-                sprintf(csv, "\n");
-                f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);   
-    
-                print_cdc_data(tItems[i].min_buf, tItems[i].max, tItems[i].min, f, csv);
+                DUMP(DEBUG_MP_TEST," %s ", "Max Hold");
+                csv_len += sprintf(csv + csv_len, "  %s ", "Max Hold");
 
-                // printk(" %s ", "Frame 1");
-                // sprintf(csv,  "  %s ", "Frame 1");
-                // f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);
-                // printk("\n");
-                // sprintf(csv, "\n");
-                // f->f_op->write(f, csv, strlen(csv) * sizeof(char), &f->f_pos);   
+                DUMP(DEBUG_MP_TEST, "\n");
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
     
-                // print_cdc_data(tItems[i].buf, tItems[i].max, tItems[i].min, f, csv);
+                print_cdc_data(i, true, false, csv, &csv_len);
+    
+                DUMP(DEBUG_MP_TEST," %s ", "Min Hold");
+                csv_len += sprintf(csv + csv_len, "  %s ", "Min Hold");
+
+                DUMP(DEBUG_MP_TEST, "\n");
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
+    
+                print_cdc_data(i, false, false, csv, &csv_len);
             }
+
+            pr_info("\n%s : %s ", tItems[i].desp, tItems[i].result);
+            csv_len += sprintf(csv + csv_len," %s : %s ", tItems[i].desp, tItems[i].result);
         }
     }
 
-    filp_close(f, NULL);
-fail_open:
+    if(f == NULL)
+        f = filp_open(CSV_NAME_PATH, O_CREAT | O_RDWR , 0644);
+
+    if(ERR_ALLOC_MEM(f))
+    {
+        DBG_ERR("Failed to open CSV file %s\n", CSV_NAME_PATH);
+        goto fail_open;
+    }
+
+    DBG_INFO("Open CSV succeed, its length = %d \n ", csv_len);
+
+    fs = get_fs();
+    set_fs(KERNEL_DS);
+    pos = 0;
+    vfs_write(f, csv, csv_len, &pos);
     set_fs(fs);
+    filp_close(f, NULL);
+
+    DBG_INFO("Writing Data into CSV succeed \n");
+
+fail_open:
     kfree(csv);
     return;    
 }
 EXPORT_SYMBOL(core_mp_show_result);
 
-void core_mp_run_test(void)
+int core_mp_run_test(void)
 {
     int i = 0;
 
@@ -1283,9 +1296,13 @@ void core_mp_run_test(void)
         if(tItems[i].run)
         {
             DBG_INFO("Runing Test Item : %s \n", tItems[i].desp);
-            tItems[i].do_test(i);            
+            //if(tItems[i].do_test(i) < 0)
+            //    return -1;
+            tItems[i].do_test(i);
         }
     }
+
+    return 0;
 }
 EXPORT_SYMBOL(core_mp_run_test);
 
@@ -1309,6 +1326,14 @@ int core_mp_move_code(void)
     core_config_ice_mode_write(0x41010, 0xFF, 1);
 
     mdelay(30);
+
+    /* 
+	 * We add CS high command to solve the bug that ic didn't pull it as high,
+	 * which may cause some pluses didn't be catached up when moving code or programming.
+	 */
+	usleep_range(MSEC, MSEC * 10);
+	if(core_config_ice_mode_write(0x041000, 0x1, 1) < 0)
+		return -1;
 
     /* Code reset */
     core_config_ice_mode_write(0x40040, 0xAE, 1);

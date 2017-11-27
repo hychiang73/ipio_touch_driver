@@ -332,7 +332,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	if(core_parser_path(INI_NAME_PATH) < 0)
 	{
 		DBG_ERR("Failed to parsing INI file \n");
-		goto out;
+		goto ini_err;
 	}
 
 	/* Switch to Test mode */
@@ -389,63 +389,18 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_mp_show_result();
 	core_mp_test_free();
 
-out:
 	/* Switch to DEMO mode */
 	test_cmd[0] = 0x0;
 	core_fr_mode_control(test_cmd);
 
+	ilitek_platform_enable_irq();	
+
+ini_err:
 	for(i = 0; i < mp_num; i++)
 		kfree(mp_ini[i]);
 	kfree(mp_ini);
-	mp_ini = NULL;
-	ilitek_platform_enable_irq();	
 	*pPos = len;
 	return len;
-}
-
-static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
-{
-	int res = 0, count = 0;
-	char cmd[64] = {0};
-	char *token = NULL, *cur = NULL;	
-	uint8_t *va = NULL;
-
-	if(buff != NULL)
-	{
-		res = copy_from_user(cmd, buff, size - 1);
-		if(res < 0)
-		{
-			DBG_INFO("copy data from user space, failed\n");
-			return -1;
-		}
-	}
-
-	DBG_INFO("size = %d, cmd = %s\n", (int)size, cmd);
-
-	if(size > 64)
-	{
-		DBG_ERR("The size of string is too long\n");
-		return size;
-	}
-
-	token = cur = cmd;
-
-	va = kmalloc(64 * sizeof(uint8_t), GFP_KERNEL);
-	memset(va, 0, 64);
-
-	while((token = strsep(&cur, ",")) != NULL)
-	{
-		va[count] = str2hex(token);
-		//DBG_INFO("data[%d] = %x",count, va[count]);	
-		count++;
-
-		if(count > 2)
-			break;
-	}
-
-	//core_mp_run_test(cmd);
-
-	return size;
 }
 
 static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
@@ -1272,7 +1227,6 @@ struct file_operations proc_debug_level_fops = {
 };
 
 struct file_operations proc_mp_test_fops = {
-	.write = ilitek_proc_mp_test_write,
 	.read = ilitek_proc_mp_test_read,
 };
 
