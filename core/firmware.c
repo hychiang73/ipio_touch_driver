@@ -1264,7 +1264,7 @@ int core_firmware_init(void)
 
 	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
-		if (ipio_chip_list[i] == ON_BOARD_IC)
+		if (ipio_chip_list[i] == TP_TOUCH_IC)
 		{
 			for (j = 0; j < 4; j++)
 			{

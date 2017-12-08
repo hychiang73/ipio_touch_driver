@@ -1381,8 +1381,8 @@ int core_mp_init(void)
     }
     else
     {
-        DBG_ERR("Failed to get TP information\n");
-		res = -EINVAL;
+        DBG_ERR("Failed to allocate core_mp mem as did not find TP info \n");
+		res = -ENOMEM;
     }
 
 out:

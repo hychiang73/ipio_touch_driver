@@ -77,10 +77,10 @@
 /*
  * Relative Driver with Touch IC
  */
-
 /* Touch IC support */
-//#define ON_BOARD_IC		0x7807
-#define ON_BOARD_IC		0x9881
+#define CHIP_TYPE_ILI7807	0x7807
+#define CHIP_TYPE_ILI9881	0x9881
+#define TP_TOUCH_IC		CHIP_TYPE_ILI9881	
 
 extern uint32_t ipio_chip_list[2];
 
@@ -147,8 +147,6 @@ extern uint32_t ipio_debug_level;
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
 
 /* ILI7807 Series */
-#define CHIP_TYPE_ILI7807		0x7807
-
 #define ILI7807_TYPE_F_AA		0x0000
 #define ILI7807_TYPE_F_AB		0x0001
 #define ILI7807_TYPE_H			0x1100
@@ -158,8 +156,6 @@ extern uint32_t ipio_debug_level;
 #define ILI7807_PID_ADDR		0x4009C
 
 /* ILI9881 Series */
-#define CHIP_TYPE_ILI9881		0x9881
-
 #define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
 #define ILI9881_PID_ADDR		0x4009C

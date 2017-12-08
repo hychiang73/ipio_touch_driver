@@ -783,11 +783,8 @@ static int ilitek_platform_core_init(void)
 {
 	DBG_INFO("Initialise core's components \n");
 
-	if (core_config_init() < 0 ||
-		core_protocol_init() < 0 ||
-		core_i2c_init(ipd->client) < 0 ||
-		core_firmware_init() < 0 ||
-		core_fr_init(ipd->client) < 0)
+	if (core_config_init() < 0 || core_protocol_init() < 0 ||
+		core_i2c_init(ipd->client) < 0 || core_firmware_init() < 0 || core_fr_init(ipd->client) < 0 ||)
 	{
 		DBG_ERR("Failed to initialise core components\n");
 		return -EINVAL;
@@ -891,13 +888,13 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	ipd->client = client;
 	ipd->i2c_id = id;
-	ipd->chip_id = ON_BOARD_IC;
+	ipd->chip_id = TP_TOUCH_IC;
 	ipd->isEnableIRQ = false;
 	ipd->isEnablePollCheckPower = false;
 	ipd->vpower_reg_nb = false;
 
 	DBG_INFO("Driver Version : %s\n", DRIVER_VERSION);
-	DBG_INFO("Driver for Touch IC :  %x \n", ON_BOARD_IC);
+	DBG_INFO("Driver for Touch IC :  %x \n", TP_TOUCH_IC);
 	DBG_INFO("TP_PLATFORM :  %x \n", TP_PLATFORM);
 
 	/*

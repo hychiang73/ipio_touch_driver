@@ -873,8 +873,8 @@ int core_config_get_chip_id(void)
 
 		if (RealID != core_config->chip_id)
 		{
-			DBG_ERR("CHIP ID ERROR: 0x%x, ON_BOARD_IC = 0x%x\n", 
-						RealID, ON_BOARD_IC);
+			DBG_ERR("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", 
+						RealID, TP_TOUCH_IC);
 			res = -ENODEV;
 			goto out;
 		}
@@ -922,7 +922,7 @@ int core_config_init(void)
 
 	for (; i < ARRAY_SIZE(ipio_chip_list); i++)
 	{
-		if (ipio_chip_list[i] == ON_BOARD_IC)
+		if (ipio_chip_list[i] == TP_TOUCH_IC)
 		{
 			core_config->chip_id = ipio_chip_list[i];
 			core_config->chip_type = 0x0000;

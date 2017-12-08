@@ -249,7 +249,7 @@ int core_i2c_init(struct i2c_client *client)
 
     for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++)
     {
-        if(ipio_chip_list[i] == ON_BOARD_IC)
+        if(ipio_chip_list[i] == TP_TOUCH_IC)
         {
             if (ipio_chip_list[i] == CHIP_TYPE_ILI7807)
             {
