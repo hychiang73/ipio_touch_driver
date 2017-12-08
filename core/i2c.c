@@ -72,7 +72,7 @@ static void dma_free(void)
         DBG_INFO("Succeed to free DMA buffer\n");
     }
 }
-#endif
+#endif /* I2C_DMA */
 
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
@@ -88,9 +88,9 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-#if defined(PLATFORM_RK)
+#if (TP_PLATFORM == PT_RK)
     msgs[0].scl_rate = core_i2c->clk;
-#endif
+#endif /* PT_RK */
 
 #ifdef I2C_DMA
     DBG(DEBUG_I2C, "DMA: size = %d\n", nSize);
@@ -101,7 +101,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         memcpy(ilitek_dma_va, pBuf, nSize);
         msgs[0].buf = (uint8_t *)ilitek_dma_pa;
     }
-#endif
+#endif /* I2C_DMA */
 
     if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
     {
@@ -137,9 +137,9 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-#if defined(PLATFORM_RK)
+#if (TP_PLATFORM == PT_RK)
     msgs[0].scl_rate = core_i2c->clk;
-#endif
+#endif /* PT_RK */
 
 #ifdef I2C_DMA
     DBG(DEBUG_I2C, "DMA: size = %d\n", nSize);
@@ -153,7 +153,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     {
         msgs[0].buf = pBuf;
     }
-#endif
+#endif /* I2C_DMA */
 
     if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0)
     {
@@ -167,7 +167,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     {
         memcpy(pBuf, ilitek_dma_va, nSize);
     }
-#endif
+#endif /* I2C_DMA */
 
 out:
     return res;
@@ -189,7 +189,7 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
         },
     };
 
-#if defined(PLATFORM_RK)
+#if (TP_PLATFORM == PT_RK)
     msgs[0].scl_rate = core_i2c->clk;
 #endif
 
@@ -245,7 +245,7 @@ int core_i2c_init(struct i2c_client *client)
         DBG_ERR("Failed to alllocate DMA mem %ld\n", PTR_ERR(core_i2c));
         return -ENOMEM;     
     }
-#endif
+#endif /* I2C_DMA */
 
     for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++)
     {
@@ -268,10 +268,6 @@ int core_i2c_init(struct i2c_client *client)
                 core_i2c->clk = 400000;
             }
 
-            #ifdef PLATFORM_MTK
-                core_i2c->clk = 400;
-            #endif
-
 			return 0;
         }
     }
@@ -287,7 +283,7 @@ void core_i2c_remove(void)
 
 #ifdef I2C_DMA
     dma_free();
-#endif
+#endif /* I2C_DMA */
 
     if(core_i2c != NULL)
         kfree(core_i2c);

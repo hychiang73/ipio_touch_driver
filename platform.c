@@ -34,7 +34,7 @@
 #define DTS_INT_GPIO	"touch,irq-gpio"
 #define DTS_RESET_GPIO	"touch,reset-gpio"
 
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 #define DTS_OF_NAME		"mediatek,cap_touch"
 #include "tpd.h"
 extern struct tpd_device *tpd;
@@ -42,7 +42,7 @@ extern struct tpd_device *tpd;
 #define MTK_INT_GPIO GTP_INT_PORT
 #else
 #define DTS_OF_NAME		"tchip,ilitek"
-#endif
+#endif /* PT_MTK */
 
 #define I2C_DEVICE_ID	"ILITEK_TDDI"
 #define POWER_STATUS_PATH "/sys/class/power_supply/battery/status"
@@ -73,15 +73,15 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork);
 static int ilitek_platform_input_init(void);
 
 /* The method of suspend/resume */
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 static void tpd_resume(struct device *h);
 static void tpd_suspend(struct device *h);
 #elif defined CONFIG_FB
 static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned long event, void *data);
-#else
+#else /* CONFIG_FB */
 static void ilitek_platform_early_suspend(struct early_suspend *h);
 static void ilitek_platform_late_resume(struct early_suspend *h);
-#endif
+#endif /* PT_MTK */
 
 static int ilitek_platform_reg_power_check(void);
 static int ilitek_platform_reg_suspend(void);
@@ -161,7 +161,7 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 
 	if (isEnable)
 	{
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 		tpd_gpio_output(ipd->reset_gpio, 1);
 		mdelay(ipd->delay_time_high);
 		tpd_gpio_output(ipd->reset_gpio, 0);
@@ -175,15 +175,15 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 		mdelay(ipd->delay_time_low);
 		gpio_set_value(ipd->reset_gpio, 1);
 		mdelay(ipd->edge_delay);
-#endif
+#endif /* PT_MTK */
 	}
 	else
 	{
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 		tpd_gpio_output(ipd->reset_gpio, 0);
 #else
 		gpio_set_value(ipd->reset_gpio, 0);
-#endif
+#endif /* PT_MTK */
 	}
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
@@ -229,7 +229,7 @@ void ilitek_regulator_power_on(bool status)
 	return;
 }
 EXPORT_SYMBOL(ilitek_regulator_power_on);
-#endif
+#endif /* REGULATOR_POWER_ON */
 
 static int kthread_handler(void *arg)
 {
@@ -344,26 +344,25 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 }
 #endif
 
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 static void tpd_resume(struct device *h)
 {
-	DBG_INFO("TPD wake up\n");
+	DBG_INFO("TP Resuem\n");
 
 	if(!core_firmware->isUpgrading)
 	{
 		core_config_ic_resume();
+
 		ilitek_platform_enable_irq();
 
 		if(ipd->isEnablePollCheckPower)
 			queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
-
-	DBG_INFO("TPD wake up done\n");
 }
 
 static void tpd_suspend(struct device *h)
 {
-    DBG_INFO("TPD enter sleep\n");
+    DBG_INFO("TP Suspend\n");
 
 	if(!core_firmware->isUpgrading)
 	{
@@ -378,8 +377,6 @@ static void tpd_suspend(struct device *h)
 	
 		core_config_ic_suspend();		
 	}
-
-    DBG_INFO("TPD enter sleep done\n");
 }
 #elif defined CONFIG_FB
 static int ilitek_platform_notifier_fb(struct notifier_block *self,
@@ -390,12 +387,21 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 
 	DBG_INFO("Notifier's event = %ld\n", event);
 
-	if (event == FB_EVENT_BLANK)
+	/*
+	 *  FB_EVENT_BLANK(0x09): A hardware display blank change occurred.
+	 *  FB_EARLY_EVENT_BLANK(0x10): A hardware display blank early change occured.
+	 */
+	if (evdata && evdata->data && (event == FB_EVENT_BLANK || event == FB_EARLY_EVENT_BLANK))
 	{
 		blank = evdata->data;
+
+#if (TP_PLATFORM == PT_SPRD)
+		if (*blank == DRM_MODE_DPMS_OFF)
+#else
 		if (*blank == FB_BLANK_POWERDOWN)
+#endif /* PT_SPRD */
 		{
-			DBG_INFO("Touch Suspend\n");
+			DBG_INFO("TP Suspend\n");
 
 			if(!core_firmware->isUpgrading)
 			{
@@ -408,9 +414,13 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 				core_config_ic_suspend();
 			}
 		}
-		else if (*blank == FB_BLANK_UNBLANK)
+#if (TP_PLATFORM == PT_SPRD)
+		else if (*blank == DRM_MODE_DPMS_ON)
+#else
+		else if (*blank == FB_BLANK_UNBLANK || *blank == FB_BLANK_NORMAL)
+#endif /* PT_SPRD */
 		{
-			DBG_INFO("Touch Resuem");
+			DBG_INFO("TP Resuem");
 
 			if(!core_firmware->isUpgrading)
 			{
@@ -425,12 +435,12 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 
 	return NOTIFY_OK;
 }
-#else // CONFIG_HAS_EARLYSUSPEND
+#else /* CONFIG_HAS_EARLYSUSPEND */
 static void ilitek_platform_early_suspend(struct early_suspend *h)
 {
-	DBG_INFO("Touch Suspend\n");
+	DBG_INFO("TP Suspend\n");
 
-	//TODO: there is doing nothing if an upgrade firmware's processing.
+	/* TODO: there is doing nothing if an upgrade firmware's processing. */
 
 	core_fr_touch_release(0, 0, 0);
 
@@ -449,7 +459,7 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 static void ilitek_platform_late_resume(struct early_suspend *h)
 {
-	DBG_INFO("Touch Resuem\n");
+	DBG_INFO("TP Resuem\n");
 
 	core_fr->isEnableFR = true;
 	core_config_ic_resume();
@@ -458,7 +468,7 @@ static void ilitek_platform_late_resume(struct early_suspend *h)
 	if(ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 }
-#endif /* PLATFORM_MTK */
+#endif /* PT_MTK */
 
 /**
  * reg_power_check - register a thread to inquery status at certain time.
@@ -487,7 +497,7 @@ static int ilitek_platform_reg_power_check(void)
 			ipd->vpower_reg_nb = true;
 		}
 	}
-#endif
+#endif /* BATTERY_CHECK */
 
 	return res;
 }
@@ -503,21 +513,24 @@ static int ilitek_platform_reg_suspend(void)
 {
 	int res = 0;
 
-#ifdef PLATFORM_MTK
-	DBG_INFO("Platform is MTK, do nothing\n");
+#if (TP_PLATFORM == PT_MTK)
+	DBG_INFO("It does nothing if platform is MTK \n");
 #else
 	DBG_INFO("Register suspend/resume callback function\n");
-
 #ifdef CONFIG_FB
 	ipd->notifier_fb.notifier_call = ilitek_platform_notifier_fb;
+#if (TP_PLATFORM == PT_SPRD)
+	res = adf_register_client(&ipd->notifier_fb);
+#else
 	res = fb_register_client(&ipd->notifier_fb);
+#endif /* PT_SPRD */
 #else
 	ipd->early_suspend->suspend = ilitek_platform_early_suspend;
 	ipd->early_suspend->esume = ilitek_platform_late_resume;
 	ipd->early_suspend->level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	res = register_early_suspend(ipd->early_suspend);
-#endif
-#endif /* PLATFORM_MTK */
+#endif /* CONFIG_FB */
+#endif /* PT_MTK */
 
 	return res;
 }
@@ -532,15 +545,11 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 	
 	core_fr_handler();
 }
-#endif
+#endif /* USE_KTHREAD */
 
 static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 {
-//	unsigned long nIrqFlag;
-
 	DBG(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
-
-//	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
 	if (ipd->isEnableIRQ)
 	{
@@ -551,10 +560,8 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 		wake_up_interruptible(&waiter);
 #else
 		schedule_work(&ipd->report_work_queue);
-#endif
+#endif /* USE_KTHREAD */
 	}
-
-//	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 
 	return IRQ_HANDLED;
 }
@@ -562,9 +569,9 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 static int ilitek_platform_isr_register(void)
 {
 	int res = 0;
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 	struct device_node *node;
-#endif
+#endif /* PT_MTK */
 
 #ifdef USE_KTHREAD
 	ipd->irq_thread = kthread_run(kthread_handler, "irq", "ili_irq_thread");
@@ -579,9 +586,9 @@ static int ilitek_platform_isr_register(void)
 	ipd->free_irq_thread = false;
 #else
 	INIT_WORK(&ipd->report_work_queue, ilitek_platform_work_queue);
-#endif
+#endif /* USE_KTHREAD */
 
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 	node = of_find_matching_node(NULL, touch_of_match);
 	if (node)
 	{
@@ -589,7 +596,7 @@ static int ilitek_platform_isr_register(void)
 	}
 #else
 	ipd->isr_gpio = gpio_to_irq(ipd->int_gpio);
-#endif
+#endif /* PT_MTK */
 
 	DBG_INFO("ipd->isr_gpio = %d\n", ipd->isr_gpio);
 
@@ -617,7 +624,7 @@ out:
 static int ilitek_platform_gpio(void)
 {
 	int res = 0;
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 	ipd->int_gpio = MTK_INT_GPIO;
 	ipd->reset_gpio = MTK_RST_GPIO;
 #else
@@ -627,8 +634,8 @@ static int ilitek_platform_gpio(void)
 
 	ipd->int_gpio = of_get_named_gpio_flags(dev_node, DTS_INT_GPIO, 0, &flag);
 	ipd->reset_gpio = of_get_named_gpio_flags(dev_node, DTS_RESET_GPIO, 0, &flag);
-#endif
-#endif /* PLATFORM_MTK */
+#endif /* CONFIG_OF */
+#endif /* PT_MTK */
 
 	DBG_INFO("GPIO INT: %d\n", ipd->int_gpio);
 	DBG_INFO("GPIO RESET: %d\n", ipd->reset_gpio);
@@ -703,7 +710,7 @@ static int ilitek_platform_input_init(void)
 {
 	int res = 0;
 
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 	int i;
 	ipd->input_device = tpd->dev;
 
@@ -749,7 +756,7 @@ out:
 	input_unregister_device(ipd->input_device);
 	input_free_device(core_fr->input_device);
 	return res;
-#endif
+#endif /* PT_MTK */
 }
 
 /**
@@ -811,7 +818,7 @@ static int ilitek_platform_remove(struct i2c_client *client)
 	fb_unregister_client(&ipd->notifier_fb);
 #else
 	unregister_early_suspend(&ipd->early_suspend);
-#endif
+#endif /* CONFIG_FB */
 
 #ifdef USE_KTHREAD
 	if(ipd->irq_thread != NULL)
@@ -822,7 +829,7 @@ static int ilitek_platform_remove(struct i2c_client *client)
 		kthread_stop(ipd->irq_thread);
 		ipd->irq_thread = NULL;
 	}
-#endif
+#endif /* USE_KTHREAD */
 
 	if(ipd->input_device != NULL)
 	{
@@ -852,13 +859,13 @@ static int ilitek_platform_remove(struct i2c_client *client)
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 #ifdef REGULATOR_POWER_ON
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 	const char *vdd_name = "vtouch";
 #else
 	const char *vdd_name = "vdd";
-#endif
+#endif /* PT_MTK */
 	const char *vcc_i2c_name = "vcc_i2c";
-#endif
+#endif /* REGULATOR_POWER_ON */
 
 	if (client == NULL)
 	{
@@ -889,8 +896,9 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ipd->isEnablePollCheckPower = false;
 	ipd->vpower_reg_nb = false;
 
-	DBG_INFO("Driver version : %s\n", DRIVER_VERSION);
-	DBG_INFO("This driver now supports %x \n", ON_BOARD_IC);
+	DBG_INFO("Driver Version : %s\n", DRIVER_VERSION);
+	DBG_INFO("Driver for Touch IC :  %x \n", ON_BOARD_IC);
+	DBG_INFO("TP_PLATFORM :  %x \n", TP_PLATFORM);
 
 	/*
 	 * Different ICs may require different delay time for the reset.
@@ -926,12 +934,12 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ipd->debug_node_open = false;
 
 #ifdef REGULATOR_POWER_ON
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 	ipd->vdd = regulator_get(tpd->tpd_dev, vdd_name);
 	tpd->reg = ipd->vdd;
 #else
 	ipd->vdd = regulator_get(&ipd->client->dev, vdd_name);
-#endif
+#endif /* PT_MTK */
 	if (ERR_ALLOC_MEM(ipd->vdd))
 	{
 		DBG_ERR("regulator_get vdd fail\n");
@@ -955,7 +963,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 			DBG_ERR("Failed to set vdd_i2c 1800mv.\n");
 	}
 	ilitek_regulator_power_on(true);
-#endif
+#endif /* REGULATOR_POWER_ON */
 
 	if (ilitek_platform_gpio() < 0)
 		DBG_ERR("Failed to request gpios\n ");
@@ -977,7 +985,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 #ifndef BOOT_FW_UPGRADE
 	if (ilitek_platform_input_init() < 0)
 		DBG_ERR("Failed to init input device in kernel\n");
-#endif
+#endif /* BOOT_FW_UPGRADE */
 
 	if (ilitek_platform_isr_register() < 0)
 		DBG_ERR("Failed to register ISR\n");
@@ -997,9 +1005,9 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	/* Create nodes for users */
 	ilitek_proc_init();
 		
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 		tpd_load_status = 1;
-#endif
+#endif /* PT_MTK */
 
 #ifdef BOOT_FW_UPGRADE
 	ipd->update_thread = kthread_run(kthread_handler, "boot_fw", "ili_fw_boot");
@@ -1008,7 +1016,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		ipd->update_thread = NULL;
 		DBG_ERR("Failed to create fw upgrade thread\n");
 	}
-#endif
+#endif /* BOOT_FW_UPGRADE */
 
 	return 0;
 }
@@ -1031,14 +1039,14 @@ static struct of_device_id tp_match_table[] = {
 	{},
 };
 
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 static int tpd_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
 	DBG_INFO("TPD detect i2c device\n");
 	strcpy(info->type, TPD_DEVICE);
 	return 0;
 }
-#endif
+#endif /* PT_MTK */
 
 static struct i2c_driver tp_i2c_driver =
 {
@@ -1050,12 +1058,12 @@ static struct i2c_driver tp_i2c_driver =
 	.probe = ilitek_platform_probe,
 	.remove = ilitek_platform_remove,
 	.id_table = tp_device_id,
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 	.detect = tpd_detect,
-#endif
+#endif /* PT_MTK */
 };
 
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 static int tpd_local_init(void)
 {
 	DBG_INFO("TPD init device driver\n");
@@ -1090,13 +1098,15 @@ static struct tpd_driver_t tpd_device_driver = {
     .suspend = tpd_suspend,
     .resume = tpd_resume,
 };
-#endif
+#endif /* PT_MTK */
 
 static int __init ilitek_platform_init(void)
 {
 	int res = 0;
 
-#ifdef PLATFORM_MTK
+	DBG_INFO("TP driver init \n");
+
+#if (TP_PLATFORM == PT_MTK)
 	tpd_get_dts_info();
 	res = tpd_driver_add(&tpd_device_driver);
 	if (res < 0) 
@@ -1113,7 +1123,7 @@ static int __init ilitek_platform_init(void)
 		i2c_del_driver(&tp_i2c_driver);
 		return -ENODEV;
 	}
-#endif
+#endif /* PT_MTK */
 
 	DBG_INFO("Succeed to add i2c driver\n");
 	return res;
@@ -1123,7 +1133,7 @@ static void __exit ilitek_platform_exit(void)
 {
 	DBG_INFO("I2C driver has been removed\n");
 
-#ifdef PLATFORM_MTK
+#if (TP_PLATFORM == PT_MTK)
 	tpd_driver_remove(&tpd_device_driver);
 #else
 	i2c_del_driver(&tp_i2c_driver);

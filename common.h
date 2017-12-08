@@ -78,15 +78,17 @@
  * Relative Driver with Touch IC
  */
 
-/* Touch IC */
+/* Touch IC support */
 //#define ON_BOARD_IC		0x7807
 #define ON_BOARD_IC		0x9881
 
 extern uint32_t ipio_chip_list[2];
 
-/* Platform */
-//#define PLATFORM_MTK 
-#define PLATFORM_RK 
+/* Platform support */
+#define PT_RK	1 
+#define PT_MTK	2
+#define PT_SPRD	3
+#define TP_PLATFORM PT_RK
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.1.2"

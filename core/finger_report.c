@@ -188,7 +188,7 @@ void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 		input_report_abs(core_fr->input_device, ABS_MT_PRESSURE, pressure);
 
 	input_mt_sync(core_fr->input_device);
-#endif
+#endif /* MT_B_TYPE */
 }
 EXPORT_SYMBOL(core_fr_touch_press);
 
@@ -210,7 +210,7 @@ void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 #else
 	input_report_key(core_fr->input_device, BTN_TOUCH, 0);
 	input_mt_sync(core_fr->input_device);	
-#endif
+#endif /* MT_B_TYPE */
 }
 EXPORT_SYMBOL(core_fr_touch_release);
 
@@ -851,26 +851,26 @@ void core_fr_input_set_param(struct input_dev *input_device)
 		max_x, max_y, min_x, min_y);
 	DBG_INFO("input touch number: max_tp = %d\n", max_tp);
 
-#ifndef PLATFORM_MTK
+#if (TP_PLATFORM != PT_MTK)
 	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_X, min_x, max_x - 1, 0, 0);
 	input_set_abs_params(core_fr->input_device, ABS_MT_POSITION_Y, min_y, max_y - 1, 0, 0);
 
 	input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
-#endif
+#endif /* PT_MTK */
 
 	if(core_fr->isEnablePressure)
 		input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
 
-	#ifdef MT_B_TYPE
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
-			input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
-		#else
-			input_mt_init_slots(core_fr->input_device, max_tp);
-		#endif
-	#else
-		input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
-	#endif /* MT_B_TYPE */
+#ifdef MT_B_TYPE
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
+	input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
+#else
+	input_mt_init_slots(core_fr->input_device, max_tp);
+#endif /* LINUX_VERSION_CODE */
+#else
+	input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
+#endif /* MT_B_TYPE */
 
 	/* Set up virtual key with gesture code */
 	core_gesture_init(core_fr);
