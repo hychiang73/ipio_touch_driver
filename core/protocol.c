@@ -36,10 +36,10 @@ struct DataItem
     uint8_t *cmd;
 };
 
-struct protocol_cmd_list *protocol = NULL;
-
 struct DataItem *hashArray[FUNC_NUM];
 struct DataItem *func;
+
+struct protocol_cmd_list *protocol = NULL;
 
 static int hashCode(int key)
 {

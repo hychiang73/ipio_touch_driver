@@ -54,13 +54,13 @@ uint8_t *flash_fw = NULL;
 uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = {0};
 
 /* the length of array in each sector */
-int sec_length = 0;
-int total_sector = 0;
+int _gSectionLen = 0;
+int _gTotalSector = 0;
 
 #ifdef BOOT_FW_UPGRADE
 /* The addr of block reserved for customers */
-int start_reserve = 0x1C000;
-int end_reserve = 0x1CFFF;
+int _gStartResrv = 0x1C000;
+int _gEndResrv = 0x1CFFF;
 #endif
 
 struct flash_sector
@@ -80,8 +80,8 @@ struct flash_block_info
 	uint32_t end_addr;
 };
 
-struct flash_sector *ffls = NULL;
-struct flash_block_info fbi[4];
+struct flash_sector *_gFlashSector = NULL;
+struct flash_block_info _gFlashBlockInfo[4];
 struct core_firmware_data *core_firmware = NULL;
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
@@ -268,14 +268,14 @@ static int verify_flash_data(void)
 			core_firmware->isCRC = true;
 	}
 
-	for(i = 0; i < sec_length + 1; i++)
+	for(i = 0; i < _gSectionLen + 1; i++)
 	{
-		if(ffls[i].data_flag)
+		if(_gFlashSector[i].data_flag)
 		{
-			if(ss > ffls[i].ss_addr || len == 0)
-				ss = ffls[i].ss_addr;
+			if(ss > _gFlashSector[i].ss_addr || len == 0)
+				ss = _gFlashSector[i].ss_addr;
 
-			len = len + ffls[i].dlength;
+			len = len + _gFlashSector[i].dlength;
 
 			/* if larger than max count, then committing data to check */
 			if(len >= (core_firmware->max_count - fps))
@@ -284,7 +284,7 @@ static int verify_flash_data(void)
 				if(res < 0)
 					goto out;
 
-				ss = ffls[i].ss_addr;
+				ss = _gFlashSector[i].ss_addr;
 				len = 0;
 			}
 		}
@@ -297,7 +297,7 @@ static int verify_flash_data(void)
 				if(res < 0)
 					goto out;
 				
-				ss = ffls[i].ss_addr;
+				ss = _gFlashSector[i].ss_addr;
 				len = 0;
 			}
 		}
@@ -420,7 +420,7 @@ static int flash_program_sector(void)
 {
 	int i, j, res = 0;
 
-	for(i = 0; i < sec_length + 1; i++)
+	for(i = 0; i < _gSectionLen + 1; i++)
 	{
 		/*
 		 * If running the boot stage, fw will only be upgrade data with the flag of block,
@@ -428,17 +428,17 @@ static int flash_program_sector(void)
 		 */
 		if(core_firmware->isboot)
 		{
-			if(!ffls[i].inside_block)
+			if(!_gFlashSector[i].inside_block)
 				continue;
 		}
 		else
 		{
-			if(!ffls[i].data_flag)
+			if(!_gFlashSector[i].data_flag)
 				continue;
 		}
 
 		/* programming flash by its page size */
-		for(j = ffls[i].ss_addr; j < ffls[i].se_addr; j+= flashtab->program_page)
+		for(j = _gFlashSector[i].ss_addr; j < _gFlashSector[i].se_addr; j+= flashtab->program_page)
 		{
 			if(j > core_firmware->end_addr)
 				goto out;
@@ -512,20 +512,20 @@ static int flash_erase_sector(void)
 {
 	int i, res = 0;
 
-	for(i = 0; i < total_sector; i++)
+	for(i = 0; i < _gTotalSector; i++)
 	{
 		if(core_firmware->isboot)
 		{
-			if(!ffls[i].inside_block)
+			if(!_gFlashSector[i].inside_block)
 				continue;
 		}
 		else
 		{
-			if(!ffls[i].data_flag && !ffls[i].inside_block)
+			if(!_gFlashSector[i].data_flag && !_gFlashSector[i].inside_block)
 				continue;
 		}
 
-		res = do_erase_flash(ffls[i].ss_addr);
+		res = do_erase_flash(_gFlashSector[i].ss_addr);
 		if(res < 0)
 			goto out;
 	}
@@ -750,9 +750,9 @@ static int convert_hex_array(void)
 			for(j = 0; j < blen; j++)
 			{
 				if(j < 3)
-					fbi[i].start_addr = (fbi[i].start_addr << 8) | CTPM_FW[bindex+j];
+					_gFlashBlockInfo[i].start_addr = (_gFlashBlockInfo[i].start_addr << 8) | CTPM_FW[bindex+j];
 				else
-					fbi[i].end_addr = (fbi[i].end_addr << 8) | CTPM_FW[bindex+j];
+					_gFlashBlockInfo[i].end_addr = (_gFlashBlockInfo[i].end_addr << 8) | CTPM_FW[bindex+j];
 			}
 
 			bindex += blen;
@@ -764,31 +764,31 @@ static int convert_hex_array(void)
 	{
 		flash_fw[i] = CTPM_FW[i+64];
 		index = i / flashtab->sector; 
-		if(!ffls[index].data_flag)
+		if(!_gFlashSector[index].data_flag)
 		{
-			ffls[index].ss_addr = index * flashtab->sector;
-			ffls[index].se_addr = (index + 1) * flashtab->sector - 1;
-			ffls[index].dlength = (ffls[index].se_addr - ffls[index].ss_addr) + 1;
-			ffls[index].data_flag = true;
+			_gFlashSector[index].ss_addr = index * flashtab->sector;
+			_gFlashSector[index].se_addr = (index + 1) * flashtab->sector - 1;
+			_gFlashSector[index].dlength = (_gFlashSector[index].se_addr - _gFlashSector[index].ss_addr) + 1;
+			_gFlashSector[index].data_flag = true;
 		}
 	}
 
-	sec_length = index;
+	_gSectionLen = index;
 
-	if(ffls[sec_length].se_addr > flashtab->mem_size)
+	if(_gFlashSector[_gSectionLen].se_addr > flashtab->mem_size)
 	{
 		DBG_ERR("The size written to flash is larger than it required (%x) (%x)\n", 
-					ffls[sec_length].se_addr, flashtab->mem_size);
+					_gFlashSector[_gSectionLen].se_addr, flashtab->mem_size);
 		goto out;
 	}
 
-	for(i = 0; i < total_sector; i++)
+	for(i = 0; i < _gTotalSector; i++)
 	{
 		/* fill meaing address in an array where is empty */
-		if(ffls[i].ss_addr == 0x0 && ffls[i].se_addr == 0x0)
+		if(_gFlashSector[i].ss_addr == 0x0 && _gFlashSector[i].se_addr == 0x0)
 		{
-			ffls[i].ss_addr = tmp_addr;
-			ffls[i].se_addr = (i + 1) * flashtab->sector - 1;
+			_gFlashSector[i].ss_addr = tmp_addr;
+			_gFlashSector[i].se_addr = (i + 1) * flashtab->sector - 1;
 		}
 	
 		tmp_addr += flashtab->sector;
@@ -796,11 +796,11 @@ static int convert_hex_array(void)
 		/* set erase flag in the block if the addr of sectors is between them. */
 		if(core_firmware->hasBlockInfo)
 		{
-			for(j = 0; j < ARRAY_SIZE(fbi); j++)
+			for(j = 0; j < ARRAY_SIZE(_gFlashBlockInfo); j++)
 			{
-				if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
+				if(_gFlashSector[i].ss_addr >= _gFlashBlockInfo[j].start_addr && _gFlashSector[i].se_addr <= _gFlashBlockInfo[j].end_addr)
 				{
-					ffls[i].inside_block = true;
+					_gFlashSector[i].inside_block = true;
 					break;
 				}
 			}			
@@ -810,21 +810,21 @@ static int convert_hex_array(void)
 		 * protects the reserved address been written and erased.
 		 * This feature only applies on the boot upgrade. The addr is progrmmable in normal case. 
 		 */
-		if(ffls[i].ss_addr == start_reserve && ffls[i].se_addr == end_reserve)
+		if(_gFlashSector[i].ss_addr == _gStartResrv && _gFlashSector[i].se_addr == _gEndResrv)
 		{
-			ffls[i].inside_block = false;
+			_gFlashSector[i].inside_block = false;
 		}
 	}
 		
 	/* DEBUG: for showing data with address that will write into fw or be erased */
-	for(i = 0; i < total_sector; i++)
+	for(i = 0; i < _gTotalSector; i++)
 	{
-		DBG_INFO("ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n", 
-		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag, ffls[i].inside_block);
+		DBG_INFO("_gFlashSector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n", 
+		i, _gFlashSector[i].ss_addr, _gFlashSector[i].se_addr, _gFlashSector[index].dlength, _gFlashSector[i].data_flag, _gFlashSector[i].inside_block);
 	}
 
 	core_firmware->start_addr = 0x0;
-	core_firmware->end_addr = ffls[sec_length].se_addr;
+	core_firmware->end_addr = _gFlashSector[_gSectionLen].se_addr;
 	DBG_INFO("start_addr = 0x%06X, end_addr = 0x%06X\n", core_firmware->start_addr, core_firmware->end_addr);	
 	return 0;
 
@@ -871,18 +871,18 @@ int core_firmware_boot_upgrade(void)
 	}
 	memset(flash_fw, 0xff, (int)sizeof(uint8_t) * flashtab->mem_size);
 
-	total_sector = flashtab->mem_size / flashtab->sector;
-	if(total_sector <= 0)
+	_gTotalSector = flashtab->mem_size / flashtab->sector;
+	if(_gTotalSector <= 0)
 	{
 		DBG_ERR("Flash configure is wrong\n");
 		res = -1;
 		goto out;
 	}
 
-	ffls = kcalloc(total_sector, sizeof(uint32_t) * total_sector, GFP_KERNEL);
-	if(ERR_ALLOC_MEM(ffls))
+	_gFlashSector = kcalloc(_gTotalSector, sizeof(uint32_t) * _gTotalSector, GFP_KERNEL);
+	if(ERR_ALLOC_MEM(_gFlashSector))
 	{
-		DBG_ERR("Failed to allocate ffls memory, %ld\n", PTR_ERR(ffls));
+		DBG_ERR("Failed to allocate _gFlashSector memory, %ld\n", PTR_ERR(_gFlashSector));
 		res = -ENOMEM;
 		goto out;
 	}
@@ -924,8 +924,8 @@ out:
 
 	kfree(flash_fw);
 	flash_fw = NULL;		
-	kfree(ffls);
-	ffls = NULL;
+	kfree(_gFlashSector);
+	_gFlashSector = NULL;
 
 	core_firmware->isUpgrading = false;
 	return res;
@@ -946,7 +946,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	core_firmware->crc32 = 0;
 	core_firmware->hasBlockInfo = false;
 
-	memset(fbi, 0x0, sizeof(fbi));
+	memset(_gFlashBlockInfo, 0x0, sizeof(_gFlashBlockInfo));
 
 	for (; i < nSize;)
 	{
@@ -982,10 +982,10 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			/* insert block info extracted from hex */
 			if(block < 4)
 			{
-				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
-				fbi[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
+				_gFlashBlockInfo[block].start_addr = HexToDec(&pBuf[i + 9], 6);
+				_gFlashBlockInfo[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
 				DBG(DEBUG_FIRMWARE, "Block[%d]: start_addr = %x, end = %x\n", 
-					block, fbi[block].start_addr, fbi[block].end_addr);
+					block, _gFlashBlockInfo[block].start_addr, _gFlashBlockInfo[block].end_addr);
 			}
 			block++;
 		}
@@ -1029,12 +1029,12 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 					if((nAddr + k) != 0)
 					{
 						index = ((nAddr + k) / flashtab->sector); 
-						if(!ffls[index].data_flag)
+						if(!_gFlashSector[index].data_flag)
 						{
-							ffls[index].ss_addr = index * flashtab->sector;
-							ffls[index].se_addr = (index + 1) * flashtab->sector - 1;
-							ffls[index].dlength = (ffls[index].se_addr - ffls[index].ss_addr) + 1;
-							ffls[index].data_flag = true;
+							_gFlashSector[index].ss_addr = index * flashtab->sector;
+							_gFlashSector[index].se_addr = (index + 1) * flashtab->sector - 1;
+							_gFlashSector[index].dlength = (_gFlashSector[index].se_addr - _gFlashSector[index].ss_addr) + 1;
+							_gFlashSector[index].data_flag = true;
 						}
 					}
 				}
@@ -1043,22 +1043,22 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;
 	}
 
-	sec_length = index;
+	_gSectionLen = index;
 
-	if(ffls[sec_length-1].se_addr > flashtab->mem_size)
+	if(_gFlashSector[_gSectionLen-1].se_addr > flashtab->mem_size)
 	{
 		DBG_ERR("The size written to flash is larger than it required (%x) (%x)\n", 
-					ffls[sec_length-1].se_addr, flashtab->mem_size);
+					_gFlashSector[_gSectionLen-1].se_addr, flashtab->mem_size);
 		goto out;
 	}
 	
-	for(i = 0; i < total_sector; i++)
+	for(i = 0; i < _gTotalSector; i++)
 	{
 		/* fill meaing address in an array where is empty*/
-		if(ffls[i].ss_addr == 0x0 && ffls[i].se_addr == 0x0)
+		if(_gFlashSector[i].ss_addr == 0x0 && _gFlashSector[i].se_addr == 0x0)
 		{
-			ffls[i].ss_addr = tmp_addr;
-			ffls[i].se_addr = (i + 1) * flashtab->sector - 1;
+			_gFlashSector[i].ss_addr = tmp_addr;
+			_gFlashSector[i].se_addr = (i + 1) * flashtab->sector - 1;
 		}
 	
 		tmp_addr += flashtab->sector;
@@ -1066,11 +1066,11 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		/* set erase flag in the block if the addr of sectors is between them. */
 		if(core_firmware->hasBlockInfo)
 		{
-			for(j = 0; j < ARRAY_SIZE(fbi); j++)
+			for(j = 0; j < ARRAY_SIZE(_gFlashBlockInfo); j++)
 			{
-				if(ffls[i].ss_addr >= fbi[j].start_addr && ffls[i].se_addr <= fbi[j].end_addr)
+				if(_gFlashSector[i].ss_addr >= _gFlashBlockInfo[j].start_addr && _gFlashSector[i].se_addr <= _gFlashBlockInfo[j].end_addr)
 				{
-					ffls[i].inside_block = true;
+					_gFlashSector[i].inside_block = true;
 					break;
 				}
 			}			
@@ -1078,10 +1078,10 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	}
 
 	/* DEBUG: for showing data with address that will write into fw or be erased */
-	for(i = 0; i < total_sector; i++)
+	for(i = 0; i < _gTotalSector; i++)
 	{
-		DBG(DEBUG_FIRMWARE, "ffls[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n", 
-		i, ffls[i].ss_addr, ffls[i].se_addr, ffls[index].dlength, ffls[i].data_flag, ffls[i].inside_block);
+		DBG(DEBUG_FIRMWARE, "_gFlashSector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n", 
+		i, _gFlashSector[i].ss_addr, _gFlashSector[i].se_addr, _gFlashSector[index].dlength, _gFlashSector[i].data_flag, _gFlashSector[i].inside_block);
 	}
 
 	core_firmware->start_addr = nStartAddr;
@@ -1172,18 +1172,18 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			}
 			memset(flash_fw, 0xff, sizeof(uint8_t) * flashtab->mem_size);
 
-			total_sector = flashtab->mem_size / flashtab->sector;
-			if(total_sector <= 0)
+			_gTotalSector = flashtab->mem_size / flashtab->sector;
+			if(_gTotalSector <= 0)
 			{
 				DBG_ERR("Flash configure is wrong\n");
 				res = -1;
 				goto out;
 			}
 
-			ffls = kcalloc(total_sector, sizeof(uint32_t) * total_sector, GFP_KERNEL);
-			if(ERR_ALLOC_MEM(ffls))
+			_gFlashSector = kcalloc(_gTotalSector, sizeof(uint32_t) * _gTotalSector, GFP_KERNEL);
+			if(ERR_ALLOC_MEM(_gFlashSector))
 			{
-				DBG_ERR("Failed to allocate ffls memory, %ld\n", PTR_ERR(ffls));
+				DBG_ERR("Failed to allocate _gFlashSector memory, %ld\n", PTR_ERR(_gFlashSector));
 				res = -ENOMEM;
 				goto out;
 			}
@@ -1240,8 +1240,8 @@ out:
 	hex_buffer = NULL;		
 	kfree(flash_fw);
 	flash_fw = NULL;		
-	kfree(ffls);
-	ffls = NULL;		
+	kfree(_gFlashSector);
+	_gFlashSector = NULL;		
 
 	core_firmware->isUpgrading = false;
 	return res;

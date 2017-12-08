@@ -784,7 +784,7 @@ static int ilitek_platform_core_init(void)
 	DBG_INFO("Initialise core's components \n");
 
 	if (core_config_init() < 0 || core_protocol_init() < 0 ||
-		core_i2c_init(ipd->client) < 0 || core_firmware_init() < 0 || core_fr_init(ipd->client) < 0 ||)
+		core_i2c_init(ipd->client) < 0 || core_firmware_init() < 0 || core_fr_init(ipd->client) < 0)
 	{
 		DBG_ERR("Failed to initialise core components\n");
 		return -EINVAL;

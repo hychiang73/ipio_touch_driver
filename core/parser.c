@@ -42,7 +42,7 @@ struct ini_file_data
 	int iKeyValueLen;
 } ilitek_ini_file_data[PARSER_MAX_KEY_NUM];
 
-int ini_items = 0;
+int _gINIItems = 0;
 
 static char *ini_str_trim_r(char * buf)
 {
@@ -135,7 +135,7 @@ static int get_ini_phy_data(char *data)
 
     while(true)
     {
-        if(ini_items > PARSER_MAX_KEY_NUM)
+        if(_gINIItems > PARSER_MAX_KEY_NUM)
         {
             DBG_ERR("MAX_KEY_NUM: Out of length \n");
             goto out;
@@ -167,8 +167,8 @@ static int get_ini_phy_data(char *data)
         {
             if(ini_buf[0] == M_CFG_SSL) 
             {
-                ilitek_ini_file_data[ini_items].iSectionNameLen = n-2;	
-                if(PARSER_MAX_KEY_NAME_LEN < ilitek_ini_file_data[ini_items].iSectionNameLen)
+                ilitek_ini_file_data[_gINIItems].iSectionNameLen = n-2;	
+                if(PARSER_MAX_KEY_NAME_LEN < ilitek_ini_file_data[_gINIItems].iSectionNameLen)
                 {
                     DBG_ERR("MAX_KEY_NAME_LEN: Out Of Length\n");
                     res = INI_ERR_OUT_OF_LINE;
@@ -183,8 +183,8 @@ static int get_ini_phy_data(char *data)
         }
 
         /* copy section's name without square brackets to its real buffer */
-        strcpy(ilitek_ini_file_data[ini_items].pSectionName, tmpSectionName);
-        ilitek_ini_file_data[ini_items].iSectionNameLen = strlen(tmpSectionName);
+        strcpy(ilitek_ini_file_data[_gINIItems].pSectionName, tmpSectionName);
+        ilitek_ini_file_data[_gINIItems].iSectionNameLen = strlen(tmpSectionName);
 
 
         isEqualSign = 0;
@@ -201,8 +201,8 @@ static int get_ini_phy_data(char *data)
             continue;
 
         /* Get Key names */
-        ilitek_ini_file_data[ini_items].iKeyNameLen = isEqualSign;
-		if(PARSER_MAX_KEY_NAME_LEN < ilitek_ini_file_data[ini_items].iKeyNameLen)
+        ilitek_ini_file_data[_gINIItems].iKeyNameLen = isEqualSign;
+		if(PARSER_MAX_KEY_NAME_LEN < ilitek_ini_file_data[_gINIItems].iKeyNameLen)
 		{
 				//ret = CFG_ERR_OUT_OF_LEN;
                 DBG_ERR("MAX_KEY_NAME_LEN: Out Of Length\n");
@@ -210,24 +210,24 @@ static int get_ini_phy_data(char *data)
                 goto out;
 		}
 
-		memcpy(ilitek_ini_file_data[ini_items].pKeyName,
-            ini_buf, ilitek_ini_file_data[ini_items].iKeyNameLen);
+		memcpy(ilitek_ini_file_data[_gINIItems].pKeyName,
+            ini_buf, ilitek_ini_file_data[_gINIItems].iKeyNameLen);
 
         /* Get a value assigned to a key */
-		ilitek_ini_file_data[ini_items].iKeyValueLen = n-isEqualSign-1;
-		if(PARSER_MAX_KEY_VALUE_LEN < ilitek_ini_file_data[ini_items].iKeyValueLen)
+		ilitek_ini_file_data[_gINIItems].iKeyValueLen = n-isEqualSign-1;
+		if(PARSER_MAX_KEY_VALUE_LEN < ilitek_ini_file_data[_gINIItems].iKeyValueLen)
 		{
                 DBG_ERR("MAX_KEY_VALUE_LEN: Out Of Length\n");
                 res = INI_ERR_OUT_OF_LINE;
 				goto out;		
 		}
 
-		memcpy(ilitek_ini_file_data[ini_items].pKeyValue,
-            ini_buf+isEqualSign+1, ilitek_ini_file_data[ini_items].iKeyValueLen);
+		memcpy(ilitek_ini_file_data[_gINIItems].pKeyValue,
+            ini_buf+isEqualSign+1, ilitek_ini_file_data[_gINIItems].iKeyValueLen);
 
-        DBG(DEBUG_PARSER,"%s = %s \n",ilitek_ini_file_data[ini_items].pKeyName, ilitek_ini_file_data[ini_items].pKeyValue);
+        DBG(DEBUG_PARSER,"%s = %s \n",ilitek_ini_file_data[_gINIItems].pKeyName, ilitek_ini_file_data[_gINIItems].pKeyValue);
 
-        ini_items++;
+        _gINIItems++;
     }
 
 out:
@@ -240,7 +240,7 @@ static void init_ilitek_ini_data(void)
 {
     int i;
 
-    ini_items = 0;
+    _gINIItems = 0;
 
     /* Initialise ini strcture */
 	for(i = 0; i < PARSER_MAX_KEY_NUM; i++)
@@ -267,7 +267,7 @@ static int get_ini_key_value(char * section, char * key, char * value)
 
 	len = strlen(key);
 
-	for(i = 0; i < ini_items; i++)
+	for(i = 0; i < _gINIItems; i++)
 	{
 			if(strncmp(section, ilitek_ini_file_data[i].pSectionName,
                 ilitek_ini_file_data[i].iSectionNameLen) != 0)
