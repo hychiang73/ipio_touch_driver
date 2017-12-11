@@ -37,6 +37,9 @@ struct flash_table
 
 extern struct flash_table *flashtab;
 
+extern int core_flash_poll_busy(void);
+extern int core_flash_write_enable(void);
+extern void core_flash_enable_protect(bool status);
 extern void core_flash_init(uint16_t mid, uint16_t did);
 extern void core_flash_remove(void);
 

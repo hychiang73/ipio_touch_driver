@@ -159,20 +159,16 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 		goto out;
 	}
 
-	/* CS low */
-	core_config_ice_mode_write(0x041000, 0x0, 1);
-	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
-	core_config_ice_mode_write(0x041008, 0x3b, 1);
+	core_config_ice_mode_write(0x041000, 0x0, 1); /* CS low */
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3); /* Key */
 
-	/* Set start address */
+	core_config_ice_mode_write(0x041008, 0x3b, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0xFF0000) >> 16, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
 
-	/* Enable Dio_Rx_dual */
-	core_config_ice_mode_write(0x041003, 0x01, 1);
-	/* Dummy */
-	core_config_ice_mode_write(0x041008, 0xFF, 1);
+	core_config_ice_mode_write(0x041003, 0x01, 1); /* Enable Dio_Rx_dual */
+	core_config_ice_mode_write(0x041008, 0xFF, 1); /* Dummy */
 
 	/* Set Receive count */
 	if(core_firmware->max_count == 0xFFFF)
@@ -180,10 +176,8 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 	else if(core_firmware->max_count == 0x1FFFF)
 		core_config_ice_mode_write(0x04100C, write_len, 3);
 
-	/* Checksum enable */
-	core_config_ice_mode_write(0x041014, 0x10000, 3);
-	/* Start to receive */
-	core_config_ice_mode_write(0x041010, 0xFF, 1);
+	core_config_ice_mode_write(0x041014, 0x10000, 3); /* Checksum enable */
+	core_config_ice_mode_write(0x041010, 0xFF, 1); 	/* Start to receive */
 
 	mdelay(1);
 
@@ -191,20 +185,18 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 	{
 		mdelay(1);
 
-		if (core_config_read_write_onebyte(0x041014) == 0x01)
+		if ((core_config_read_write_onebyte(0x041014) & 0x01) == 0x01)
 			break;
 
 		timer--;
 	}
 
-	// CS high
-	core_config_ice_mode_write(0x041000, 0x1, 1);
+	core_config_ice_mode_write(0x041000, 0x1, 1); /* CS high */
 
 	if (timer >= 0)
 	{
-		// Disable dio_Rx_dual
+		/* Disable dio_Rx_dual */
 		core_config_ice_mode_write(0x041003, 0x0, 1);
-
 		iram_check = core_firmware->isCRC ? core_config_ice_mode_read(0x4101C) : core_config_ice_mode_read(0x041018);
 	}
 	else
@@ -311,67 +303,20 @@ out:
 	return res;
 }
 
-static int flash_polling_busy(void)
-{
-	int timer = 500;
-
-	core_config_ice_mode_write(0x041000, 0x0, 1);
-	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
-	core_config_ice_mode_write(0x041008, 0x5, 1);
-
-	while (timer > 0)
-	{
-		core_config_ice_mode_write(0x041008, 0xFF, 1);
-		//core_config_ice_mode_write(0x041000, 0x1, 1);
-
-		mdelay(1);
-
-		if (core_config_read_write_onebyte(0x041010) == 0x00)
-		{
-			core_config_ice_mode_write(0x041000, 0x1, 1);
-			return 0;
-		}
-
-		timer--;
-	}
-
-	DBG_ERR("Polling busy Time out !\n");
-	return -1;
-}
-
-static int flash_write_enable(void)
-{
-	if (core_config_ice_mode_write(0x041000, 0x0, 1) < 0)
-		goto out;
-	if (core_config_ice_mode_write(0x041004, 0x66aa55, 3) < 0)
-		goto out;
-	if (core_config_ice_mode_write(0x041008, 0x6, 1) < 0)
-		goto out;
-	if (core_config_ice_mode_write(0x041000, 0x1, 1) < 0)
-		goto out;
-
-	return 0;
-
-out:
-	DBG_ERR("Write enable failed !\n");
-	return -EIO;
-}
-
 static int do_program_flash(uint32_t start_addr)
 {
 	int res = 0;
 	uint32_t k;
 	uint8_t buf[512] = {0};
 
-	res = flash_write_enable();
+	res = core_flash_write_enable();
 	if (res < 0)
 		goto out;
 
-	/* CS low */
-	core_config_ice_mode_write(0x041000, 0x0, 1);
-	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
-	core_config_ice_mode_write(0x041008, 0x02, 1);
+	core_config_ice_mode_write(0x041000, 0x0, 1); /* CS low */
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3); /* Key */
 
+	core_config_ice_mode_write(0x041008, 0x02, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0xFF0000) >> 16, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
@@ -397,10 +342,9 @@ static int do_program_flash(uint32_t start_addr)
 		goto out;
 	}
 
-	/* CS high */
-	core_config_ice_mode_write(0x041000, 0x1, 1);
+	core_config_ice_mode_write(0x041000, 0x1, 1); /* CS high */
 
-	res = flash_polling_busy();
+	res = core_flash_poll_busy();
 	if (res < 0)
 		goto out;
 
@@ -458,49 +402,47 @@ static int do_erase_flash(uint32_t start_addr)
 	int res = 0;
 	uint32_t temp_buf = 0;
 
-	res = flash_write_enable();
+	res = core_flash_write_enable();
 	if (res < 0)
 	{
 		DBG_ERR("Failed to config write enable\n");
 		goto out;
 	}
 
-	/* CS low */
-	core_config_ice_mode_write(0x041000, 0x0, 1);
-	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
-	core_config_ice_mode_write(0x041008, 0x20, 1);
+	core_config_ice_mode_write(0x041000, 0x0, 1); /* CS low */
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3); /* Key */
 
+	core_config_ice_mode_write(0x041008, 0x20, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0xFF0000) >> 16, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
-	core_config_ice_mode_write(0x041000, 0x1, 1);
+
+	core_config_ice_mode_write(0x041000, 0x1, 1); /* CS high */
 
 	mdelay(1);
 
-	res = flash_polling_busy();
+	res = core_flash_poll_busy();
 	if (res < 0)
-	{
-		DBG_ERR("TIME OUT\n");
 		goto out;
-	}
 
-	/* CS low */
-	core_config_ice_mode_write(0x041000, 0x0, 1);
-	core_config_ice_mode_write(0x041004, 0x66aa55, 3);
+	core_config_ice_mode_write(0x041000, 0x0, 1); /* CS low */
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3); /* Key */
+
 	core_config_ice_mode_write(0x041008, 0x3, 1);
-
 	core_config_ice_mode_write(0x041008, (start_addr & 0xFF0000) >> 16, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
 	core_config_ice_mode_write(0x041008, 0xFF, 1);
 
 	temp_buf = core_config_read_write_onebyte(0x041010);
-
 	if (temp_buf != 0xFF)
-		DBG_ERR("Failed to read data at 0x%x \n", start_addr);
+	{
+		DBG_ERR("Failed to erase data(0x%x) at 0x%x\n", temp_buf, start_addr);
+		res = -EINVAL;
+		goto out;
+	}
 
-	/* CS High */
-	core_config_ice_mode_write(0x041000, 0x1, 1);
+	core_config_ice_mode_write(0x041000, 0x1, 1); /* CS high */
 
 	DBG(DEBUG_FIRMWARE, "Earsing data at start addr: %x \n", start_addr);
 
@@ -540,7 +482,7 @@ static int iram_upgrade(void)
 	uint8_t buf[512];
 	int upl = flashtab->program_page;
 
-	// doing reset for erasing iram data before upgrade it.
+	/* doing reset for erasing iram data before upgrade it. */
 	ilitek_platform_tp_hw_reset(true);
 
 	mdelay(1);
@@ -561,7 +503,7 @@ static int iram_upgrade(void)
 	DBG(DEBUG_FIRMWARE, "nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X\n",
 		core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
 
-	// write hex to the addr of iram
+	/* write hex to the addr of iram */
 	DBG_INFO("Writting data into IRAM ...\n");
 	for (i = core_firmware->start_addr; i < core_firmware->end_addr; i += upl)
 	{
@@ -592,7 +534,7 @@ static int iram_upgrade(void)
 		mdelay(3);
 	}
 
-	// ice mode code reset
+	/* ice mode code reset */
 	DBG_INFO("Doing code reset ...\n");
 	core_config_ice_mode_write(0x40040, 0xAE, 1);
 	core_config_ice_mode_write(0x40040, 0x00, 1);
@@ -601,7 +543,7 @@ static int iram_upgrade(void)
 
 	core_config_ice_mode_disable();
 
-	//TODO: check iram status
+	/*TODO: check iram status */
 
 	return res;
 }
@@ -629,8 +571,10 @@ static int tddi_fw_upgrade(bool isIRAM)
 
 	mdelay(5);
 
-	// This command is used to fix the bug of spi clk in 7807F-AB
-	// while operating with flash.
+	/*
+	 * This command is used to fix the bug of spi clk in 7807F-AB
+	 * while operating with flash.
+	 */
 	if (core_config->chip_id == CHIP_TYPE_ILI7807
 			&& core_config->chip_type == ILI7807_TYPE_F_AB)
 	{
@@ -641,9 +585,12 @@ static int tddi_fw_upgrade(bool isIRAM)
 
 	mdelay(25);
 
-	// there is no need to disable WTD if you're using 9881
+	/* It's not necessary to disable WTD if you're using 9881 */
 	if (core_config->chip_id != CHIP_TYPE_ILI9881)
 		core_config_reset_watch_dog();
+
+	/* Disable flash protection from being written */
+	core_flash_enable_protect(false);
 
 	res = flash_erase_sector();
 	if(res < 0)
@@ -688,6 +635,7 @@ static int tddi_fw_upgrade(bool isIRAM)
 		DBG_INFO("Data Correct !\n");
 
 out:
+	core_flash_enable_protect(true);
 	core_config_ice_mode_disable();
 	return res;
 }

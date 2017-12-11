@@ -82,8 +82,6 @@
 #define CHIP_TYPE_ILI9881	0x9881
 #define TP_TOUCH_IC		CHIP_TYPE_ILI9881	
 
-extern uint32_t ipio_chip_list[2];
-
 /* Platform support */
 #define PT_RK	1 
 #define PT_MTK	2
@@ -127,13 +125,15 @@ enum {
 	DEBUG_ALL = ~0,
 };
 
-extern uint32_t ipio_debug_level;
-
 #define DBG(level, fmt, arg...) \
 			do { \
 				if (level & ipio_debug_level) \
 				pr_info( "ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg); \
 			} while (0)
+
+/* Distributed to all core functions */
+extern uint32_t ipio_debug_level;
+extern uint32_t ipio_chip_list[2];
 
 /* Macros */
 #define CHECK_EQUAL(X,Y) ((X==Y) ? 0 : -1 )

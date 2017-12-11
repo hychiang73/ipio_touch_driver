@@ -895,7 +895,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	DBG_INFO("Driver Version : %s\n", DRIVER_VERSION);
 	DBG_INFO("Driver for Touch IC :  %x \n", TP_TOUCH_IC);
-	DBG_INFO("TP_PLATFORM :  %x \n", TP_PLATFORM);
+	DBG_INFO("Driver on platform :  %x \n", TP_PLATFORM);
 
 	/*
 	 * Different ICs may require different delay time for the reset.
