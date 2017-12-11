@@ -46,7 +46,7 @@
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
 
-/* 
+/*
  * the size of two arrays is different depending on
  * which of methods to upgrade firmware you choose for.
  */
@@ -67,7 +67,7 @@ struct flash_sector
 {
 	uint32_t ss_addr;
 	uint32_t se_addr;
-	uint32_t checksum; 
+	uint32_t checksum;
 	uint32_t crc32;
 	uint32_t dlength;
 	bool data_flag;
@@ -149,7 +149,7 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 
 	write_len = end_addr;
 
-	DBG(DEBUG_FIRMWARE, "start = 0x%x , write_len = 0x%x, max_count = %x\n", 
+	DBG(DEBUG_FIRMWARE, "start = 0x%x , write_len = 0x%x, max_count = %x\n",
 				start_addr, end_addr, core_firmware->max_count);
 
 	if (write_len > core_firmware->max_count)
@@ -236,7 +236,7 @@ static void calc_verify_data(uint32_t sa, uint32_t se, uint32_t *check)
 		for(i = sa; i < (sa + se); i++)
 			tmp_ck = tmp_ck + flash_fw[i];
 
-		*check = tmp_ck;	
+		*check = tmp_ck;
 	}
 }
 
@@ -250,8 +250,8 @@ static int do_check(uint32_t start, uint32_t len)
 	res = CHECK_EQUAL(vd, lc);
 
 	DBG_INFO("%s (%x) : (%x)\n", (res < 0 ? "Invalid !" : "Correct !"), vd, lc );
-	
-	return res;	
+
+	return res;
 }
 
 static int verify_flash_data(void)
@@ -279,7 +279,7 @@ static int verify_flash_data(void)
 
 			/* if larger than max count, then committing data to check */
 			if(len >= (core_firmware->max_count - fps))
-			{				
+			{
 				res = do_check(ss, len);
 				if(res < 0)
 					goto out;
@@ -296,7 +296,7 @@ static int verify_flash_data(void)
 				res = do_check(ss, len);
 				if(res < 0)
 					goto out;
-				
+
 				ss = _gFlashSector[i].ss_addr;
 				len = 0;
 			}
@@ -307,7 +307,7 @@ static int verify_flash_data(void)
 	if(len != 0 && res != -1)
 		res = do_check(ss, core_firmware->end_addr - ss);
 
-out:		
+out:
 	return res;
 }
 
@@ -391,7 +391,7 @@ static int do_program_flash(uint32_t start_addr)
 
 	if (core_i2c_write(core_config->slave_i2c_addr, buf, flashtab->program_page + 4) < 0)
 	{
-		DBG_ERR("Failed to write data at start_addr = 0x%X, k = 0x%X, addr = 0x%x\n", 
+		DBG_ERR("Failed to write data at start_addr = 0x%X, k = 0x%X, addr = 0x%x\n",
 			start_addr, k, start_addr + k);
 		res = -EIO;
 		goto out;
@@ -505,7 +505,7 @@ static int do_erase_flash(uint32_t start_addr)
 	DBG(DEBUG_FIRMWARE, "Earsing data at start addr: %x \n", start_addr);
 
 out:
-	return res;	
+	return res;
 }
 
 static int flash_erase_sector(void)
@@ -631,7 +631,7 @@ static int tddi_fw_upgrade(bool isIRAM)
 
 	// This command is used to fix the bug of spi clk in 7807F-AB
 	// while operating with flash.
-	if (core_config->chip_id == CHIP_TYPE_ILI7807 
+	if (core_config->chip_id == CHIP_TYPE_ILI7807
 			&& core_config->chip_type == ILI7807_TYPE_F_AB)
 	{
 		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
@@ -700,7 +700,7 @@ static int convert_hex_array(void)
 	uint32_t tmp_addr = 0x0;
 
 	core_firmware->start_addr = 0;
-	core_firmware->end_addr = 0;	
+	core_firmware->end_addr = 0;
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
 	core_firmware->hasBlockInfo = false;
@@ -740,7 +740,7 @@ static int convert_hex_array(void)
 	if(block > 0)
 	{
 		core_firmware->hasBlockInfo = true;
-		
+
 		/* Initialize block's index and length */
 		blen = 6;
 		bindex = 34;
@@ -763,7 +763,7 @@ static int convert_hex_array(void)
 	for(i = 0; i < ARRAY_SIZE(CTPM_FW) - 64; i++)
 	{
 		flash_fw[i] = CTPM_FW[i+64];
-		index = i / flashtab->sector; 
+		index = i / flashtab->sector;
 		if(!_gFlashSector[index].data_flag)
 		{
 			_gFlashSector[index].ss_addr = index * flashtab->sector;
@@ -777,7 +777,7 @@ static int convert_hex_array(void)
 
 	if(_gFlashSector[_gSectionLen].se_addr > flashtab->mem_size)
 	{
-		DBG_ERR("The size written to flash is larger than it required (%x) (%x)\n", 
+		DBG_ERR("The size written to flash is larger than it required (%x) (%x)\n",
 					_gFlashSector[_gSectionLen].se_addr, flashtab->mem_size);
 		goto out;
 	}
@@ -790,7 +790,7 @@ static int convert_hex_array(void)
 			_gFlashSector[i].ss_addr = tmp_addr;
 			_gFlashSector[i].se_addr = (i + 1) * flashtab->sector - 1;
 		}
-	
+
 		tmp_addr += flashtab->sector;
 
 		/* set erase flag in the block if the addr of sectors is between them. */
@@ -803,29 +803,29 @@ static int convert_hex_array(void)
 					_gFlashSector[i].inside_block = true;
 					break;
 				}
-			}			
+			}
 		}
 
-		/* 
+		/*
 		 * protects the reserved address been written and erased.
-		 * This feature only applies on the boot upgrade. The addr is progrmmable in normal case. 
+		 * This feature only applies on the boot upgrade. The addr is progrmmable in normal case.
 		 */
 		if(_gFlashSector[i].ss_addr == _gStartResrv && _gFlashSector[i].se_addr == _gEndResrv)
 		{
 			_gFlashSector[i].inside_block = false;
 		}
 	}
-		
+
 	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for(i = 0; i < _gTotalSector; i++)
 	{
-		DBG_INFO("_gFlashSector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n", 
+		DBG_INFO("_gFlashSector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n",
 		i, _gFlashSector[i].ss_addr, _gFlashSector[i].se_addr, _gFlashSector[index].dlength, _gFlashSector[i].data_flag, _gFlashSector[i].inside_block);
 	}
 
 	core_firmware->start_addr = 0x0;
 	core_firmware->end_addr = _gFlashSector[_gSectionLen].se_addr;
-	DBG_INFO("start_addr = 0x%06X, end_addr = 0x%06X\n", core_firmware->start_addr, core_firmware->end_addr);	
+	DBG_INFO("start_addr = 0x%06X, end_addr = 0x%06X\n", core_firmware->start_addr, core_firmware->end_addr);
 	return 0;
 
 out:
@@ -847,7 +847,7 @@ int core_firmware_boot_upgrade(void)
 	{
 		ipd->isEnablePollCheckPower = false;
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
-		power = true;		
+		power = true;
 	}
 
 	/* store old version before upgrade fw */
@@ -905,7 +905,7 @@ int core_firmware_boot_upgrade(void)
 		}
 		else
 		{
-			core_firmware->update_status = 100;			
+			core_firmware->update_status = 100;
 			DBG_INFO("Update firmware information...\n");
 			core_config_get_fw_ver();
 			core_config_get_protocol_ver();
@@ -923,7 +923,7 @@ out:
 	}
 
 	kfree(flash_fw);
-	flash_fw = NULL;		
+	flash_fw = NULL;
 	kfree(_gFlashSector);
 	_gFlashSector = NULL;
 
@@ -959,12 +959,12 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		for (j = 8; j < (2 + 4 + 2 + (nLength * 2)); j += 2)
 		{
 			if (nType == 0x00)
-			{	
+			{
 				// for ice mode write method
 				nChecksum = nChecksum + HexToDec(&pBuf[i + 1 + j], 2);
 			}
 		}
-			
+
 		if (nType == 0x04)
 		{
 			nExAddr = HexToDec(&pBuf[i + 9], 4);
@@ -984,7 +984,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			{
 				_gFlashBlockInfo[block].start_addr = HexToDec(&pBuf[i + 9], 6);
 				_gFlashBlockInfo[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
-				DBG(DEBUG_FIRMWARE, "Block[%d]: start_addr = %x, end = %x\n", 
+				DBG(DEBUG_FIRMWARE, "Block[%d]: start_addr = %x, end = %x\n",
 					block, _gFlashBlockInfo[block].start_addr, _gFlashBlockInfo[block].end_addr);
 			}
 			block++;
@@ -1028,7 +1028,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 
 					if((nAddr + k) != 0)
 					{
-						index = ((nAddr + k) / flashtab->sector); 
+						index = ((nAddr + k) / flashtab->sector);
 						if(!_gFlashSector[index].data_flag)
 						{
 							_gFlashSector[index].ss_addr = index * flashtab->sector;
@@ -1047,11 +1047,11 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 
 	if(_gFlashSector[_gSectionLen-1].se_addr > flashtab->mem_size)
 	{
-		DBG_ERR("The size written to flash is larger than it required (%x) (%x)\n", 
+		DBG_ERR("The size written to flash is larger than it required (%x) (%x)\n",
 					_gFlashSector[_gSectionLen-1].se_addr, flashtab->mem_size);
 		goto out;
 	}
-	
+
 	for(i = 0; i < _gTotalSector; i++)
 	{
 		/* fill meaing address in an array where is empty*/
@@ -1060,7 +1060,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			_gFlashSector[i].ss_addr = tmp_addr;
 			_gFlashSector[i].se_addr = (i + 1) * flashtab->sector - 1;
 		}
-	
+
 		tmp_addr += flashtab->sector;
 
 		/* set erase flag in the block if the addr of sectors is between them. */
@@ -1073,14 +1073,14 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 					_gFlashSector[i].inside_block = true;
 					break;
 				}
-			}			
+			}
 		}
 	}
 
 	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for(i = 0; i < _gTotalSector; i++)
 	{
-		DBG(DEBUG_FIRMWARE, "_gFlashSector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n", 
+		DBG(DEBUG_FIRMWARE, "_gFlashSector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n",
 		i, _gFlashSector[i].ss_addr, _gFlashSector[i].se_addr, _gFlashSector[index].dlength, _gFlashSector[i].data_flag, _gFlashSector[i].inside_block);
 	}
 
@@ -1118,7 +1118,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	{
 		ipd->isEnablePollCheckPower = false;
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
-		power = true;		
+		power = true;
 	}
 
 	pfile = filp_open(pFilePath, O_RDONLY, 0);
@@ -1237,11 +1237,11 @@ out:
 
 	filp_close(pfile, NULL);
 	kfree(hex_buffer);
-	hex_buffer = NULL;		
+	hex_buffer = NULL;
 	kfree(flash_fw);
-	flash_fw = NULL;		
+	flash_fw = NULL;
 	kfree(_gFlashSector);
-	_gFlashSector = NULL;		
+	_gFlashSector = NULL;
 
 	core_firmware->isUpgrading = false;
 	return res;

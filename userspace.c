@@ -43,7 +43,7 @@
 #include "core/mp_test.h"
 #include "core/parser.h"
 
-#define ILITEK_IOCTL_MAGIC	100 
+#define ILITEK_IOCTL_MAGIC	100
 #define ILITEK_IOCTL_MAXNR	18
 
 #define ILITEK_IOCTL_I2C_WRITE_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 0, uint8_t*)
@@ -83,16 +83,16 @@ static int katoi(char *string)
 	{
 		sign = 1;
 		string += 1;
-	} 
+	}
 	else
 	{
 		sign = 0;
-		if (*string == '+') 
+		if (*string == '+')
 		{
 			string += 1;
 		}
 	}
-	
+
 	for ( ; ; string += 1)
 	{
 		digit = *string - '0';
@@ -100,15 +100,15 @@ static int katoi(char *string)
 			break;
 		result = (10*result) + digit;
 	}
-	
-	if (sign) 
+
+	if (sign)
 	{
 		return -result;
 	}
 		return result;
 }
 
-static int str2hex(char *str) 
+static int str2hex(char *str)
 {
 	int strlen,result,intermed,intermedtop;
 	char *s;
@@ -143,7 +143,7 @@ static int str2hex(char *str)
 
 static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
 {
-    if (*pPos != 0) 
+    if (*pPos != 0)
         return 0;
 
 	ipd->debug_node_open = !ipd->debug_node_open;
@@ -188,18 +188,18 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 	}
 	else
 	{
-		if (ipd->debug_data_frame > 0) 
+		if (ipd->debug_data_frame > 0)
 		{
-			if (ipd->debug_buf[0][0] == 0x5A) 
+			if (ipd->debug_buf[0][0] == 0x5A)
 			{
 				need_read_data_len = 43;
 			}
-			else if (ipd->debug_buf[0][0] == 0x7A) 
+			else if (ipd->debug_buf[0][0] == 0x7A)
 			{
 				type = ipd->debug_buf[0][3] & 0x0F;
 
 				data_count = ipd->debug_buf[0][1] * ipd->debug_buf[0][2];
-				
+
 				if (type == 0 || type == 1 || type == 6)
 				{
 					one_data_bytes = 1;
@@ -211,7 +211,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 				else if (type == 4 || type == 5)
 				{
 					one_data_bytes = 4;
-				}		
+				}
 				need_read_data_len = data_count * one_data_bytes + 1 + 5;
 			}
 
@@ -224,7 +224,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 			}
 			else
 			{
-				for (i = 0; i < need_read_data_len; i++) 
+				for (i = 0; i < need_read_data_len; i++)
 				{
 					send_data_len += sprintf(tmpbuf + send_data_len, "%02X", ipd->debug_buf[0][i]);
 					if (send_data_len >= 4096)
@@ -262,7 +262,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 			ret = copy_to_user(buff, tmpbuf/*ipd->debug_buf[0]*/, send_data_len);
 		else
 			ret = copy_to_user(buff, tmpbuf/*ipd->debug_buf[0]*/ + p, send_data_len - p);
-		
+
 		if (ret)
 		{
 			DBG_ERR("copy_to_user err\n");
@@ -321,7 +321,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	sprintf(mp_ini[7], "Short Test (Rx)");
 	sprintf(mp_ini[8], "Pixel Raw (No BK)");
 	sprintf(mp_ini[9], "Pixel Raw (Have BK)");
-	sprintf(mp_ini[10], "Untouch Peak to Peak");	
+	sprintf(mp_ini[10], "Untouch Peak to Peak");
 	sprintf(mp_ini[11], "Tx/Rx Delta");
 	// sprintf(mp_ini[12], "Key Raw Open Test");
 	// sprintf(mp_ini[13], "Key Raw Short Test");
@@ -381,7 +381,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 				DBG_INFO("%s: run = %d, max = %d, min = %d, frame_count = %d\n"
 					,tItems[j].desp, tItems[j].run,tItems[j].max,tItems[j].min,tItems[j].frame_count);
-			}			
+			}
 		}
 	}
 
@@ -393,7 +393,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	test_cmd[0] = 0x0;
 	core_fr_mode_control(test_cmd);
 
-	ilitek_platform_enable_irq();	
+	ilitek_platform_enable_irq();
 
 ini_err:
 	for(i = 0; i < mp_num; i++)
@@ -503,7 +503,7 @@ static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, si
 	if(strcmp(cmd, "on") == 0)
 	{
 		DBG_INFO("enable gesture mode\n");
-		core_config->isEnableGesture = true;		
+		core_config->isEnableGesture = true;
 	}
 	else if(strcmp(cmd, "off") == 0)
 	{
@@ -631,13 +631,13 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	if (res < 0)
 	{
-		core_firmware->update_status = res;		
-		DBG_ERR("Failed to upgrade firwmare\n");		
+		core_firmware->update_status = res;
+		DBG_ERR("Failed to upgrade firwmare\n");
 	}
 	else
 	{
 		core_firmware->update_status = 100;
-		DBG_INFO("Succeed to upgrade firmware\n");		
+		DBG_INFO("Succeed to upgrade firmware\n");
 	}
 
 	*pPos = len;
@@ -732,8 +732,8 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	int res = 0, count = 0, i;
 	int w_len = 0, r_len = 0, i2c_delay = 0;
 	char cmd[512] = {0};
-	char *token = NULL, *cur = NULL;	
-	uint8_t i2c[256] = {0};	
+	char *token = NULL, *cur = NULL;
+	uint8_t i2c[256] = {0};
 	uint8_t *data = NULL;
 
 	if(buff != NULL)
@@ -756,7 +756,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	while((token = strsep(&cur, ",")) != NULL)
 	{
 		data[count] = str2hex(token);
-		//DBG_INFO("data[%d] = %x",count, data[count]);	
+		//DBG_INFO("data[%d] = %x",count, data[count]);
 		count++;
 	}
 
@@ -862,14 +862,14 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 			i2c[i] = data[2+i];
 			DBG_INFO("i2c[%d] = %x\n",i , i2c[i]);
 		}
-		
+
 		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
 	}
 	else if(strcmp(cmd, "i2c_r") == 0)
 	{
 		r_len = data[1];
 		DBG_INFO("r_len = %d\n", r_len);
-	
+
 		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
 
 		for(i = 0; i < r_len; i++)
@@ -887,7 +887,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 			i2c[i] = data[4+i];
 			DBG_INFO("i2c[%d] = %x\n",i , i2c[i]);
 		}
-		
+
 		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
 
 		memset(i2c, 0, sizeof(i2c));
@@ -904,7 +904,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 
 	kfree(data);
-	return size;	
+	return size;
 }
 
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)

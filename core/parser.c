@@ -50,16 +50,16 @@ static char *ini_str_trim_r(char * buf)
 	char tmp[512] = {0};
 
     len = strlen(buf);
-     
+
     for(i = 0;i < len;i++)
     {
 		if (buf[i] !=' ')
 			break;
     }
-    
+
     if (i < len)
 		strncpy(tmp,(buf+i),(len-i));
-    
+
 	strncpy(buf,tmp,len);
 	return buf;
 }
@@ -68,45 +68,45 @@ static char *ini_str_trim_r(char * buf)
 static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 {
 	int i=0;
-	int j=0; 	
+	int j=0;
 	int iRetNum=-1;
-	char ch1='\0'; 
+	char ch1='\0';
 
-	for(i=0, j=0; i<maxlen; j++) { 
+	for(i=0, j=0; i<maxlen; j++) {
         ch1 = data[j];
 		iRetNum = j+1;
 		if(ch1 == '\n' || ch1 == '\r') //line end
 		{
 			ch1 = data[j+1];
-			if(ch1 == '\n' || ch1 == '\r') 
+			if(ch1 == '\n' || ch1 == '\r')
 			{
 				iRetNum++;
 			}
 
 			break;
-		}else if(ch1 == 0x00) 
+		}else if(ch1 == 0x00)
 		{
 			iRetNum = -1;
 			break; //file end
 		}
 		else
 		{
-			buffer[i++] = ch1; 
+			buffer[i++] = ch1;
 		}
-	} 
-	buffer[i] = '\0'; 
+	}
+	buffer[i] = '\0';
 
-	return iRetNum;    
+	return iRetNum;
 }
 
 static int get_ini_phy_data(char *data)
 {
     int i, n = 0, res = 0;
     int offset = 0, isEqualSign = 0;
-    char *ini_buf = NULL, *tmpSectionName = NULL;  
-    char M_CFG_SSL = '['; 
-    char M_CFG_SSR = ']'; 
-//    char M_CFG_NIS = ':'; 
+    char *ini_buf = NULL, *tmpSectionName = NULL;
+    char M_CFG_SSL = '[';
+    char M_CFG_SSR = ']';
+//    char M_CFG_NIS = ':';
     char M_CFG_NTS = '#';
     char M_CFG_EQS = '=';
 
@@ -153,9 +153,9 @@ static int get_ini_phy_data(char *data)
 
         n = strlen(ini_str_trim_r(ini_buf));
 
-		if(n == 0 || ini_buf[0] == M_CFG_NTS) 
+		if(n == 0 || ini_buf[0] == M_CFG_NTS)
             continue;
-          
+
         /* Get section names */
 		if(n > 2 && ((ini_buf[0] == M_CFG_SSL && ini_buf[n-1] != M_CFG_SSR)))
 		{
@@ -165,16 +165,16 @@ static int get_ini_phy_data(char *data)
         }
         else
         {
-            if(ini_buf[0] == M_CFG_SSL) 
+            if(ini_buf[0] == M_CFG_SSL)
             {
-                ilitek_ini_file_data[_gINIItems].iSectionNameLen = n-2;	
+                ilitek_ini_file_data[_gINIItems].iSectionNameLen = n-2;
                 if(PARSER_MAX_KEY_NAME_LEN < ilitek_ini_file_data[_gINIItems].iSectionNameLen)
                 {
                     DBG_ERR("MAX_KEY_NAME_LEN: Out Of Length\n");
                     res = INI_ERR_OUT_OF_LINE;
                     goto out;
                 }
-    
+
                 ini_buf[n-1] = 0x00;
                 strcpy((char *)tmpSectionName, ini_buf+1);
                 DBG(DEBUG_PARSER,"Section Name: %s, Len: %d \n", tmpSectionName, n-2);
@@ -219,7 +219,7 @@ static int get_ini_phy_data(char *data)
 		{
                 DBG_ERR("MAX_KEY_VALUE_LEN: Out Of Length\n");
                 res = INI_ERR_OUT_OF_LINE;
-				goto out;		
+				goto out;
 		}
 
 		memcpy(ilitek_ini_file_data[_gINIItems].pKeyValue,
@@ -247,10 +247,10 @@ static void init_ilitek_ini_data(void)
 	{
 		memset(ilitek_ini_file_data[i].pSectionName, 0, PARSER_MAX_KEY_NAME_LEN);
 		memset(ilitek_ini_file_data[i].pKeyName, 0, PARSER_MAX_KEY_NAME_LEN);
-		memset(ilitek_ini_file_data[i].pKeyValue, 0, PARSER_MAX_KEY_VALUE_LEN);	
+		memset(ilitek_ini_file_data[i].pKeyValue, 0, PARSER_MAX_KEY_VALUE_LEN);
 		ilitek_ini_file_data[i].iSectionNameLen = 0;
 		ilitek_ini_file_data[i].iKeyNameLen = 0;
-		ilitek_ini_file_data[i].iKeyValueLen = 0;		
+		ilitek_ini_file_data[i].iKeyValueLen = 0;
 	}
 }
 
@@ -284,17 +284,17 @@ static int get_ini_key_value(char * section, char * key, char * value)
 	return ret;
 }
 
-/* core_parser_get_ini_data - Get ini real value by its key & section 
+/* core_parser_get_ini_data - Get ini real value by its key & section
  *
  * An interface exporting to outside is used to get INI real value according to its key and section.
- * 
+ *
  * @section: Section name
  * @keyname: Key name
- * @rv : A value as a string returning to callers depends on the key and the section. 
+ * @rv : A value as a string returning to callers depends on the key and the section.
  */
 int core_parser_get_int_data(char *section, char *keyname, char *rv)
 {
-    int len = 0;    
+    int len = 0;
     char value[512] = {0};
 
     if(rv == NULL || section == NULL || keyname == NULL)
@@ -326,7 +326,7 @@ int core_parser_path(char *path)
     mm_segment_t old_fs;
     loff_t pos = 0;
 
-    DBG_INFO("path = %s \n", path);   
+    DBG_INFO("path = %s \n", path);
     f = filp_open(path, O_RDONLY, 0);
     if (ERR_ALLOC_MEM(f))
     {
@@ -365,7 +365,7 @@ int core_parser_path(char *path)
     set_fs(old_fs);
 
     init_ilitek_ini_data();
-    
+
     res = get_ini_phy_data(tmp);
     if(res < 0)
     {

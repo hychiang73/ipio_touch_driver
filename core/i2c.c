@@ -218,7 +218,7 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
             goto out;
         }
     }
-    
+
 out:
     return res;
 }
@@ -243,7 +243,7 @@ int core_i2c_init(struct i2c_client *client)
     if(dma_alloc(core_i2c->client) < 0)
     {
         DBG_ERR("Failed to alllocate DMA mem %ld\n", PTR_ERR(core_i2c));
-        return -ENOMEM;     
+        return -ENOMEM;
     }
 #endif /* I2C_DMA */
 
@@ -256,11 +256,11 @@ int core_i2c_init(struct i2c_client *client)
                 if(core_config->chip_type == ILI7807_TYPE_F_AA &&
                     core_config->chip_type == ILI7807_TYPE_F_AB)
                 {
-                    core_i2c->clk = 100000;                   
+                    core_i2c->clk = 100000;
                 }
                 else
                 {
-                    core_i2c->clk = 400000;            
+                    core_i2c->clk = 400000;
                 }
             }
             else if (ipio_chip_list[i] == CHIP_TYPE_ILI9881)

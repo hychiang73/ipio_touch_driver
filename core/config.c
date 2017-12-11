@@ -60,7 +60,7 @@ static void read_flash_info(uint8_t cmd, int len)
 	 * This command is used to fix the bug of spi clk for 7807F-AB
 	 * when operating with its flash.
 	 */
-	if (core_config->chip_id == CHIP_TYPE_ILI7807 
+	if (core_config->chip_id == CHIP_TYPE_ILI7807
 			&& core_config->chip_type == ILI7807_TYPE_F_AB)
 	{
 		core_config_ice_mode_write(0x4100C, 0x01, 1);
@@ -401,7 +401,7 @@ void core_config_set_phone_cover(uint8_t *pattern)
 	if(*pattern < 0 || pattern == NULL)
 	{
 		DBG_ERR("Invaild width or height\n");
-		return;		
+		return;
 	}
 
 	if(*pattern == 0)
@@ -432,7 +432,7 @@ EXPORT_SYMBOL(core_config_set_phone_cover);
 
 /*
  * ic_suspend: Get IC to suspend called from system.
- * 
+ *
  * The timing when goes to sense stop or houw much times the command need to be called
  * is depending on customer's system requirement, which might be different due to
  * the DDI design or other conditions.
@@ -449,7 +449,7 @@ void core_config_ic_suspend(void)
 		DBG_ERR("Check busy is timout !\n");
 
 	DBG_INFO("Enabled Gesture = %d\n", core_config->isEnableGesture);
-	
+
 	if(core_config->isEnableGesture)
 	{
 		core_config_lpwg_ctrl(true);
@@ -466,7 +466,7 @@ EXPORT_SYMBOL(core_config_ic_suspend);
 
 /*
  * ic_resume: Get IC to resume called from system.
- * 
+ *
  * The timing when goes to sense start or houw much times the command need to be called
  * is depending on customer's system requirement, which might be different due to
  * the DDI design or other conditions.
@@ -512,7 +512,7 @@ EXPORT_SYMBOL(core_config_ice_mode_disable);
 int core_config_ice_mode_enable(void)
 {
 	DBG_INFO("ICE Mode enabled\n");
-	
+
 	if(core_config_ice_mode_write(0x181062, 0x0, 0) < 0)
 		return -1;
 
@@ -727,7 +727,7 @@ int core_config_get_protocol_ver(void)
 	/* ignore the first btye because of a header. */
 	for (; i < protocol->pro_ver_len; i++)
 		core_config->protocol_ver[i] = _gReadBuf[i+1];
-	
+
 	DBG_INFO("Procotol Version = %d.%d.%d\n",
 			core_config->protocol_ver[0],core_config->protocol_ver[1],core_config->protocol_ver[2]);
 
@@ -873,7 +873,7 @@ int core_config_get_chip_id(void)
 
 		if (RealID != core_config->chip_id)
 		{
-			DBG_ERR("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", 
+			DBG_ERR("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n",
 						RealID, TP_TOUCH_IC);
 			res = -ENODEV;
 			goto out;
@@ -959,7 +959,7 @@ void core_config_remove(void)
 	{
 		if(core_config->tp_info != NULL)
 			kfree(core_config->tp_info);
-		
+
 		kfree(core_config);
 	}
 }

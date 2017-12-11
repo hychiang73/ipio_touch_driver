@@ -133,87 +133,87 @@ static void config_protocol_v5_cmd(void)
     if(protocol->mid == 0x0)
     {
         protocol->func_ctrl_len = 2;
-        
+
         protocol->sense_ctrl[0] = 0x1;
         protocol->sense_ctrl[1] = 0x0;
-    
+
         protocol->sleep_ctrl[0] = 0x2;
         protocol->sleep_ctrl[1] = 0x0;
-    
+
         protocol->glove_ctrl[0] = 0x6;
         protocol->glove_ctrl[1] = 0x0;
-    
+
         protocol->stylus_ctrl[0] = 0x7;
         protocol->stylus_ctrl[1] = 0x0;
-    
+
         protocol->tp_scan_mode[0] = 0x8;
         protocol->tp_scan_mode[1] = 0x0;
-    
+
         protocol->lpwg_ctrl[0] = 0xA;
         protocol->lpwg_ctrl[1] = 0x0;
-    
+
         protocol->gesture_ctrl[0] = 0xB;
         protocol->gesture_ctrl[1] = 0x3F;
-    
+
         protocol->phone_cover_ctrl[0] = 0xC;
         protocol->phone_cover_ctrl[1] = 0x0;
-    
+
         protocol->finger_sense_ctrl[0] = 0xF;
         protocol->finger_sense_ctrl[1] = 0x0;
 
         protocol->phone_cover_window[0] = 0xD;
-    
+
         /* Non support on v5.0 */
         // protocol->proximity_ctrl[0] = 0x10;
         // protocol->proximity_ctrl[1] = 0x0;
-    
+
         // protocol->plug_ctrl[0] = 0x11;
         // protocol->plug_ctrl[1] = 0x0;
     }
     else
     {
         protocol->func_ctrl_len = 3;
-        
+
         protocol->sense_ctrl[0] = 0x1;
         protocol->sense_ctrl[1] = 0x1;
         protocol->sense_ctrl[2] = 0x0;
-    
+
         protocol->sleep_ctrl[0] = 0x1;
         protocol->sleep_ctrl[1] = 0x2;
         protocol->sleep_ctrl[2] = 0x0;
-    
+
         protocol->glove_ctrl[0] = 0x1;
         protocol->glove_ctrl[1] = 0x6;
         protocol->glove_ctrl[2] = 0x0;
-    
+
         protocol->stylus_ctrl[0] = 0x1;
         protocol->stylus_ctrl[1] = 0x7;
         protocol->stylus_ctrl[2] = 0x0;
-    
+
         protocol->tp_scan_mode[0] = 0x1;
         protocol->tp_scan_mode[1] = 0x8;
         protocol->tp_scan_mode[2] = 0x0;
-    
+
         protocol->lpwg_ctrl[0] = 0x1;
         protocol->lpwg_ctrl[1] = 0xA;
         protocol->lpwg_ctrl[2] = 0x0;
-    
+
         protocol->gesture_ctrl[0] = 0x1;
         protocol->gesture_ctrl[1] = 0xB;
         protocol->gesture_ctrl[2] = 0x3F;
-    
+
         protocol->phone_cover_ctrl[0] = 0x1;
         protocol->phone_cover_ctrl[1] = 0xC;
         protocol->phone_cover_ctrl[2] = 0x0;
-    
+
         protocol->finger_sense_ctrl[0] = 0x1;
         protocol->finger_sense_ctrl[1] = 0xF;
         protocol->finger_sense_ctrl[2] = 0x0;
-    
+
         protocol->proximity_ctrl[0] = 0x1;
         protocol->proximity_ctrl[1] = 0x10;
         protocol->proximity_ctrl[2] = 0x0;
-    
+
         protocol->plug_ctrl[0] = 0x1;
         protocol->plug_ctrl[1] = 0x11;
         protocol->plug_ctrl[2] = 0x0;
@@ -222,7 +222,7 @@ static void config_protocol_v5_cmd(void)
     }
 
     protocol->fw_ver_len = 4;
-    
+
     if(protocol->mid >= 0x2)
         protocol->pro_ver_len = 4;
     else
@@ -352,11 +352,11 @@ int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
             protocol->major = major;
             protocol->mid = mid;
             protocol->minor = minor;
-            DBG_INFO("protocol: major = %d, mid = %d, minor = %d\n", 
+            DBG_INFO("protocol: major = %d, mid = %d, minor = %d\n",
                 protocol->major, protocol->mid, protocol->minor);
 
             if(protocol->major == 0x5)
-                config_protocol_v5_cmd(); 
+                config_protocol_v5_cmd();
 
             /* We need to recreate function controls because of the commands updated. */
             create_func_hash();

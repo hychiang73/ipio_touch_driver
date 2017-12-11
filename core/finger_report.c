@@ -75,7 +75,7 @@ struct fr_data_node *_gFRnode = NULL, *_gFRuart = NULL;
 struct core_fr_data *core_fr = NULL;
 
 /**
- * Calculate the check sum of each packet reported by firmware 
+ * Calculate the check sum of each packet reported by firmware
  *
  * @pMsg: packet come from firmware
  * @nLength : the length of its packet
@@ -96,7 +96,7 @@ static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
 /**
  *  Receive data when fw mode stays at i2cuart mode.
  *
- *  the first is to receive N bytes depending on the mode that firmware stays 
+ *  the first is to receive N bytes depending on the mode that firmware stays
  *  before going in this function, and it would check with i2c buffer if it
  *  remains the rest of data.
  */
@@ -106,7 +106,7 @@ static void i2cuart_recv_packet(void)
 	int type = _gFRnode->data[3] & 0x0F;
 	int actual_len = _gFRnode->len - 5;
 
-	DBG(DEBUG_FINGER_REPORT, "pid = %x, data[3] = %x, type = %x, actual_len = %d\n", 
+	DBG(DEBUG_FINGER_REPORT, "pid = %x, data[3] = %x, type = %x, actual_len = %d\n",
 			_gFRnode->data[0], _gFRnode->data[3], type, actual_len);
 
 	need_read_len = _gFRnode->data[1] * _gFRnode->data[2];
@@ -124,9 +124,9 @@ static void i2cuart_recv_packet(void)
 		one_data_bytes = 4;
 	}
 
-	DBG(DEBUG_FINGER_REPORT, "need_read_len = %d  one_data_bytes = %d\n", 
+	DBG(DEBUG_FINGER_REPORT, "need_read_len = %d  one_data_bytes = %d\n",
 			need_read_len, one_data_bytes);
-	
+
 	need_read_len = need_read_len * one_data_bytes + 1;
 
 	if (need_read_len > actual_len)
@@ -206,10 +206,10 @@ void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 
 #ifdef MT_B_TYPE
 	input_mt_slot(core_fr->input_device, id);
-	input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);	
+	input_mt_report_slot_state(core_fr->input_device, MT_TOOL_FINGER, false);
 #else
 	input_report_key(core_fr->input_device, BTN_TOUCH, 0);
-	input_mt_sync(core_fr->input_device);	
+	input_mt_sync(core_fr->input_device);
 #endif /* MT_B_TYPE */
 }
 EXPORT_SYMBOL(core_fr_touch_release);
@@ -369,7 +369,7 @@ out:
 }
 
 /*
- * The function is called by an interrupt and used to handle packet of finger 
+ * The function is called by an interrupt and used to handle packet of finger
  * touch from firmware. A differnece in the process of the data is acorrding to the protocol
  */
 static int finger_report_ver_5_0(void)
@@ -393,7 +393,7 @@ static int finger_report_ver_5_0(void)
 
 	pid = _gFRnode->data[0];
 	DBG(DEBUG_FINGER_REPORT, "PID = 0x%x\n", pid);
-	
+
 	if(pid == protocol->i2cuart_pid)
 	{
 		DBG(DEBUG_FINGER_REPORT, "I2CUART(0x%x): prepare to receive rest of data\n", pid);
@@ -536,7 +536,7 @@ void core_fr_mode_control(uint8_t *from_user)
 			}
 			else
 			{
-				core_fr->actual_fw_mode = mode;				
+				core_fr->actual_fw_mode = mode;
 			}
 		}
 		else if(mode == protocol->test_mode)
@@ -571,7 +571,7 @@ void core_fr_mode_control(uint8_t *from_user)
 				{
 					/* FW enter to Test Mode */
 					if(core_mp_move_code() == 0)
-						core_fr->actual_fw_mode = mode;	
+						core_fr->actual_fw_mode = mode;
 				}
 				else
 					DBG_INFO("checksume error (0x%x), FW doesn't support test mode.\n", (-checksum & 0XFF));
@@ -639,7 +639,7 @@ static uint16_t calc_packet_length(void)
 		{
 			if(ERR_ALLOC_MEM(core_config->tp_info))
 			{
-				rlen = protocol->debug_len;	
+				rlen = protocol->debug_len;
 			}
 			else
 			{
@@ -700,7 +700,7 @@ void core_fr_handler(void)
 		_gTotalLength = calc_packet_length();
 		if(_gTotalLength)
 		{
-			_gFRnode = kmalloc(sizeof(*_gFRnode), GFP_ATOMIC);	
+			_gFRnode = kmalloc(sizeof(*_gFRnode), GFP_ATOMIC);
 			if(ERR_ALLOC_MEM(_gFRnode))
 			{
 				DBG_ERR("Failed to allocate _gFRnode memory %ld\n", PTR_ERR(_gFRnode));

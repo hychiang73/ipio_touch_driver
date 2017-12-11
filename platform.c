@@ -196,33 +196,33 @@ void ilitek_regulator_power_on(bool status)
 
 	if (status)
 	{
-		if (ipd->vdd) 
+		if (ipd->vdd)
 		{
 			res = regulator_enable(ipd->vdd);
 			if (res < 0)
 				DBG_ERR("regulator_enable vdd fail\n");
-		}	
-		if (ipd->vdd_i2c) 
+		}
+		if (ipd->vdd_i2c)
 		{
 			res = regulator_enable(ipd->vdd_i2c);
-			if (res < 0) 
+			if (res < 0)
 				DBG_ERR("regulator_enable vdd_i2c fail\n");
-		}	
+		}
 	}
-	else 
+	else
 	{
-		if (ipd->vdd) 
+		if (ipd->vdd)
 		{
 			res = regulator_disable(ipd->vdd);
-			if (res < 0) 
+			if (res < 0)
 				DBG_ERR("regulator_enable vdd fail\n");
-		}	
+		}
 		if (ipd->vdd_i2c)
 		 {
 			res = regulator_disable(ipd->vdd_i2c);
-			if (res < 0) 
+			if (res < 0)
 				DBG_ERR("regulator_enable vdd_i2c fail\n");
-		}	
+		}
 	}
 
 	mdelay(5);
@@ -301,7 +301,7 @@ static void read_power_status(uint8_t *buf)
 
 	f->f_op->llseek(f, 0, SEEK_SET);
 	byte = f->f_op->read(f, buf, 20, &f->f_pos);
-	
+
 	DBG(DEBUG_BATTERY, "Read %d bytes\n", (int)byte);
 
 	set_fs(old_fs);
@@ -317,7 +317,7 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 	read_power_status(charge_status);
 	DBG(DEBUG_BATTERY, "Batter Status: %s\n", charge_status);
 
-	if(strstr(charge_status, "Charging") != NULL || strstr(charge_status, "Full") != NULL 
+	if(strstr(charge_status, "Charging") != NULL || strstr(charge_status, "Full") != NULL
 			|| strstr(charge_status, "Fully charged") != NULL)
 	{
 		if(charge_mode != 1)
@@ -374,8 +374,8 @@ static void tpd_suspend(struct device *h)
 
 		if(ipd->isEnablePollCheckPower)
 			cancel_delayed_work_sync(&ipd->check_power_status_work);
-	
-		core_config_ic_suspend();		
+
+		core_config_ic_suspend();
 	}
 }
 #elif defined CONFIG_FB
@@ -405,7 +405,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 
 			if(!core_firmware->isUpgrading)
 			{
-				if(!core_config->isEnableGesture)	
+				if(!core_config->isEnableGesture)
 				ilitek_platform_disable_irq();
 
 				if(ipd->isEnablePollCheckPower)
@@ -426,7 +426,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self,
 			{
 				core_config_ic_resume();
 				ilitek_platform_enable_irq();
-	
+
 				if(ipd->isEnablePollCheckPower)
 					queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 			}
@@ -448,7 +448,7 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 	core_fr->isEnableFR = false;
 
-	if(!core_config->isEnableGesture)		
+	if(!core_config->isEnableGesture)
 		ilitek_platform_disable_irq();
 
 	if(ipd->isEnablePollCheckPower)
@@ -493,7 +493,7 @@ static int ilitek_platform_reg_power_check(void)
 
 		if(ipd->isEnablePollCheckPower)
 		{
-			queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);	
+			queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 			ipd->vpower_reg_nb = true;
 		}
 	}
@@ -542,7 +542,7 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 
 	if (!ipd->isEnableIRQ)
 		ilitek_platform_enable_irq();
-	
+
 	core_fr_handler();
 }
 #endif /* USE_KTHREAD */
@@ -700,7 +700,7 @@ static int ilitek_platform_read_tp_info(void)
 		goto out;
 	if(core_config_get_key_info() < 0)
 		goto out;
-	
+
 	res = 0;
 out:
 	return res;
@@ -771,7 +771,7 @@ static void ilitek_platform_core_remove(void)
 	core_fr_remove();
 	core_config_remove();
 	core_i2c_remove();
-	core_protocol_remove();	
+	core_protocol_remove();
 	core_mp_remove();
 }
 
@@ -942,7 +942,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		DBG_ERR("regulator_get vdd fail\n");
 		ipd->vdd = NULL;
 	}
-	else 
+	else
 	{
 		if (regulator_set_voltage(ipd->vdd, 1800000, 1800000) < 0)
 			DBG_ERR("Failed to set vdd 1800mv.\n");
@@ -956,7 +956,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	}
 	else
 	{
-		if (regulator_set_voltage(ipd->vdd_i2c, 1800000, 1800000) < 0) 
+		if (regulator_set_voltage(ipd->vdd_i2c, 1800000, 1800000) < 0)
 			DBG_ERR("Failed to set vdd_i2c 1800mv.\n");
 	}
 	ilitek_regulator_power_on(true);
@@ -1001,7 +1001,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	/* Create nodes for users */
 	ilitek_proc_init();
-		
+
 #if (TP_PLATFORM == PT_MTK)
 		tpd_load_status = 1;
 #endif /* PT_MTK */
@@ -1070,7 +1070,7 @@ static int tpd_local_init(void)
 		DBG_ERR("Unable to add i2c driver\n");
 		return -1;
 	}
-	if (tpd_load_status == 0) 
+	if (tpd_load_status == 0)
 	{
 		DBG_ERR("Add error touch panel driver\n");
 
@@ -1086,7 +1086,7 @@ static int tpd_local_init(void)
 
 	tpd_type_cap = 1;
 
-	return 0; 
+	return 0;
 }
 
 static struct tpd_driver_t tpd_device_driver = {
@@ -1106,7 +1106,7 @@ static int __init ilitek_platform_init(void)
 #if (TP_PLATFORM == PT_MTK)
 	tpd_get_dts_info();
 	res = tpd_driver_add(&tpd_device_driver);
-	if (res < 0) 
+	if (res < 0)
 	{
 		DBG_ERR("TPD add TP driver failed\n");
 		tpd_driver_remove(&tpd_device_driver);

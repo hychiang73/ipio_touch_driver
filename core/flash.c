@@ -30,9 +30,9 @@
 #include "../common.h"
 #include "flash.h"
 
-/* 
+/*
  * The table contains fundamental data used to program our flash, which
- * would be different according to the vendors. 
+ * would be different according to the vendors.
  */
 struct flash_table ft[] = {
 	{0xEF, 0x6011, (128*1024), 256, (4*1024), (64*1024)},//W25Q10EW

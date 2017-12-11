@@ -80,7 +80,7 @@ struct mp_test_items tItems[] = {
     {"mutual_no_bk", "Untouch Raw Data(No BK) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
     {"mutual_has_bk", "Untouch Raw Data(Have BK) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
     {"mutual_bk_dac", "Manual BK Data(Mutual)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-    
+
     {"self_dac", "Untouch Calibration Data(DAC) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
     {"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
     {"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
@@ -109,7 +109,7 @@ struct mp_test_items tItems[] = {
     {"cs_data", "Untouch Cs Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
     {"tx_rx_delta", "Tx/Rx Delta", "FAIL", TX_RX_DELTA, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
- 
+
     {"p2p", "Untouch Peak to Peak", "FAIL", UNTOUCH_P2P, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
 
     {"pixel_no_bk", "Pixel Raw (No BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
@@ -134,23 +134,23 @@ static void dump_data(void *data, int type, int len)
         if(data == NULL)
         {
             DBG_ERR("The data going to dump is NULL\n");
-            return;        
+            return;
         }
-    
+
         pr_info("\n  Original Data: \n");
-    
+
         if(type == 8)
         p8 = (uint8_t *)data;
         if(type == 32)
             p32 = (int32_t *)data;
-    
+
         for(i = 0; i < len; i++)
-        {   
+        {
             if(type == 8)
                 pr_info(" %4x ", p8[i]);
             else if(type == 32)
                 pr_info(" %4x ", p32[i]);
-    
+
             if((i % 32) == 0)
                 pr_info("\n");
         }
@@ -173,7 +173,7 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
                 tmp = core_mp->tx_max_buf;
             else
                 tmp = core_mp->tx_min_buf;
-            
+
             max_ts = core_mp->TxDeltaMax;
             min_ts = core_mp->TxDeltaMin;
         }
@@ -183,9 +183,9 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
                 tmp = core_mp->rx_max_buf;
             else
                 tmp = core_mp->rx_min_buf;
-            
+
             max_ts = core_mp->RxDeltaMax;
-            min_ts = core_mp->RxDeltaMin;           
+            min_ts = core_mp->RxDeltaMin;
         }
     }
     else
@@ -198,18 +198,18 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
         max_ts = tItems[index].max;
         min_ts = tItems[index].min;
     }
-    
+
     /* print X raw only */
     for(x = 0; x < core_mp->xch_len; x++)
     {
         if(x == 0)
         {
             DUMP(DEBUG_MP_TEST,"           ");
-            tmp_len += sprintf(csv + tmp_len, ",");                   
+            tmp_len += sprintf(csv + tmp_len, ",");
         }
 
         DUMP(DEBUG_MP_TEST,"X%02d      ", x);
-        tmp_len += sprintf(csv + tmp_len, "X%02d, ", x); 
+        tmp_len += sprintf(csv + tmp_len, "X%02d, ", x);
     }
 
     DUMP(DEBUG_MP_TEST, "\n");
@@ -236,7 +236,7 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
                 {
                     DUMP(DEBUG_MP_TEST," *%7d ",tmp[shift]);
                     tmp_len += sprintf(csv + tmp_len, " %7d ", tmp[shift]);
-                    
+
                 }
                 else
                 {
@@ -263,7 +263,7 @@ static int create_mp_test_frame_buffer(int index)
 {
     if(tItems[index].catalog == TX_RX_DELTA)
     {
-        /* 
+        /*
          * Because tx/rx have their own buffer to store data speparately, I allocate both buffers
          *  in outside instead of creating it in their strcture.
          */
@@ -287,7 +287,7 @@ static int create_mp_test_frame_buffer(int index)
             DBG_ERR("Failed to allocate TX Max buffer, %ld\n", PTR_ERR(core_mp->tx_max_buf));
             return -ENOMEM;
         }
-    
+
         core_mp->tx_min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(core_mp->tx_min_buf))
         {
@@ -301,13 +301,13 @@ static int create_mp_test_frame_buffer(int index)
             DBG_ERR("Failed to allocate RX Max buffer, %ld\n", PTR_ERR(core_mp->rx_max_buf));
             return -ENOMEM;
         }
-    
+
         core_mp->rx_min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(core_mp->rx_min_buf))
         {
             DBG_ERR("Failed to allocate RX Min buffer, %ld\n", PTR_ERR(core_mp->rx_min_buf));
             return -ENOMEM;
-        } 
+        }
     }
     else
     {
@@ -317,14 +317,14 @@ static int create_mp_test_frame_buffer(int index)
             DBG_ERR("Failed to allocate FRAME buffer, %ld\n", PTR_ERR(tItems[index].buf));
             return -ENOMEM;
         }
-    
+
         tItems[index].max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(tItems[index].max_buf))
         {
             DBG_ERR("Failed to allocate MAX buffer, %ld\n", PTR_ERR(tItems[index].max_buf));
             return -ENOMEM;
         }
-    
+
         tItems[index].min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
         if (ERR_ALLOC_MEM(tItems[index].min_buf))
         {
@@ -352,7 +352,7 @@ static int allnode_key_cdc_data(int index)
     if(res < 0)
     {
         DBG_ERR("I2C Write Error while initialising cdc \n");
-        goto out;        
+        goto out;
     }
 
     /* Check busy */
@@ -360,7 +360,7 @@ static int allnode_key_cdc_data(int index)
     {
         DBG_ERR("Check busy is timout !\n");
         res = -1;
-        goto out;         
+        goto out;
     }
 
     /* Prepare to get cdc data */
@@ -371,7 +371,7 @@ static int allnode_key_cdc_data(int index)
     if(res < 0)
     {
         DBG_ERR("I2C Read Error \n");
-        goto out;        
+        goto out;
     }
 
     len = core_mp->key_len * 2;
@@ -399,7 +399,7 @@ static int allnode_key_cdc_data(int index)
     if(res < 0)
     {
         DBG_ERR("I2C Read Error while getting original cdc data \n");
-        goto out;        
+        goto out;
     }
 
     dump_data(ori, 8, len);
@@ -423,7 +423,7 @@ static int allnode_key_cdc_data(int index)
             if(((ori[(2 * i) + 1] & 0x80) >> 7) == 1)
             {
                 /* Negative */
-                inDACp = 0 - (int)(ori[(2 * i) + 1] & 0x7F); 
+                inDACp = 0 - (int)(ori[(2 * i) + 1] & 0x7F);
             }
             else
             {
@@ -473,7 +473,7 @@ static int allnode_mutual_cdc_data(int index)
     if(res < 0)
     {
         DBG_ERR("I2C Write Error while initialising cdc \n");
-        goto out;        
+        goto out;
     }
 
     /* Check busy */
@@ -481,7 +481,7 @@ static int allnode_mutual_cdc_data(int index)
     {
         DBG_ERR("Check busy is timout !\n");
         res = -1;
-        goto out;         
+        goto out;
     }
 
     /* Prepare to get cdc data */
@@ -492,7 +492,7 @@ static int allnode_mutual_cdc_data(int index)
     if(res < 0)
     {
         DBG_ERR("I2C Read Error \n");
-        goto out;        
+        goto out;
     }
 
     /* Multipling by 2 is due to the 16 bit in each node */
@@ -521,7 +521,7 @@ static int allnode_mutual_cdc_data(int index)
     if(res < 0)
     {
         DBG_ERR("I2C Read Error while getting original cdc data \n");
-        goto out;        
+        goto out;
     }
 
     dump_data(ori, 8, len);
@@ -549,7 +549,7 @@ static int allnode_mutual_cdc_data(int index)
             if(((ori[(2 * i) + 1] & 0x80) >> 7) == 1)
             {
                 /* Negative */
-                inDACp = 0 - (int)(ori[(2 * i) + 1] & 0x7F); 
+                inDACp = 0 - (int)(ori[(2 * i) + 1] & 0x7F);
             }
             else
             {
@@ -573,7 +573,7 @@ static int allnode_mutual_cdc_data(int index)
         {
              /* H byte + L byte */
             int32_t tmp = (ori[(2 * i) + 1] << 8) +  ori[(1 + (2 * i)) + 1];
-         
+
             if((tmp & 0x8000) == 0x8000)
                 frame_buf[i] = tmp - 65536;
             else
@@ -601,7 +601,7 @@ static void run_pixel_test(int index)
             int shift = y * core_mp->xch_len;
             int centre = p_comb[shift + x];
 
-            /* if its position is in corner, the number of point 
+            /* if its position is in corner, the number of point
                 we have to minus is around 2 to 3.  */
             if(y == 0 && x == 0)
             {
@@ -698,13 +698,13 @@ static int run_open_test(int index)
                     tmp[0] = p_comb[(shift+1)+x]; // down
                     tmp[1] = p_comb[shift+(x+1)]; // right
                     tmp[2] = p_comb[(shift+1)+(x+1)]; // lower right
-                    count = 3;                   
+                    count = 3;
                 }
                 else if(y == (core_mp->ych_len - 1) && x == 0)
                 {
                     tmp[0] = p_comb[(shift-1)+x]; // up
                     tmp[1] = p_comb[shift+(x+1)]; // right
-                    tmp[2] = p_comb[(shift-1)+(x+1)]; // upper right                   
+                    tmp[2] = p_comb[(shift-1)+(x+1)]; // upper right
                     count = 3;
                 }
                 else if(y == 0 && x == (core_mp->xch_len - 1))
@@ -738,16 +738,16 @@ static int run_open_test(int index)
                     tmp[3] = p_comb[(shift-1)+(x+1)]; // upper right
                     tmp[4] = p_comb[(shift+1)+(x+1)]; // lower right
 
-                    count = 5;                        
+                    count = 5;
                 }
                 else if(y == (core_mp->ych_len - 1) && x != 0 )
                 {
                     tmp[0] = p_comb[(shift-1)+x]; // up
                     tmp[1] = p_comb[shift+(x+1)]; // right
                     tmp[2] = p_comb[shift+(x-1)]; // left
-                    tmp[3] = p_comb[(shift-1)+(x-1)]; // upper left 
-                    tmp[4] = p_comb[(shift-1)+(x+1)]; // upper right                       
-                    count = 5;                                                
+                    tmp[3] = p_comb[(shift-1)+(x-1)]; // upper left
+                    tmp[4] = p_comb[(shift-1)+(x+1)]; // upper right
+                    count = 5;
                 }
                 else if(y != 0 && x == (core_mp->xch_len - 1) )
                 {
@@ -756,14 +756,14 @@ static int run_open_test(int index)
                     tmp[2] = p_comb[(shift+1)+x]; // down
                     tmp[3] = p_comb[(shift-1)+(x-1)]; // upper left
                     tmp[4] = p_comb[(shift+1)+(x-1)]; // lower left
-                    count = 5;                                                
+                    count = 5;
                 }
                 else
                 {
                     tmp[0] = p_comb[(shift-1)+x]; // up
-                    tmp[1] = p_comb[(shift-1)+(x-1)]; // upper left                        
+                    tmp[1] = p_comb[(shift-1)+(x-1)]; // upper left
                     tmp[2] = p_comb[shift+(x-1)]; // left
-                    tmp[3] = p_comb[(shift+1)+(x-1)]; // lower left                        
+                    tmp[3] = p_comb[(shift+1)+(x-1)]; // lower left
                     tmp[4] = p_comb[(shift+1)+x]; // down
                     tmp[5] = p_comb[shift+(x+1)]; // right
                     tmp[6] = p_comb[(shift-1)+(x+1)]; // upper right
@@ -786,7 +786,7 @@ static void run_tx_rx_delta_test(int index)
 {
     int x, y;
     int32_t *p_comb = frame_buf;
-   
+
     for(y = 0; y < core_mp->ych_len; y++)
     {
         for(x = 0; x < core_mp->xch_len; x++)
@@ -853,7 +853,7 @@ static void compare_MaxMin_result(int index, int32_t *data)
                 {
                     core_mp->tx_max_buf[shift+x] = data[shift+x];
                 }
-                
+
                 if(core_mp->tx_delta_buf[shift+x] > data[shift+x])
                 {
                     core_mp->tx_min_buf[shift+x] = data[shift+x];
@@ -864,7 +864,7 @@ static void compare_MaxMin_result(int index, int32_t *data)
                 {
                     core_mp->rx_max_buf[shift+x] = data[shift+x];
                 }
-                
+
                 if(core_mp->rx_delta_buf[shift+x] > data[shift+x])
                 {
                     core_mp->rx_min_buf[shift+x] = data[shift+x];
@@ -876,7 +876,7 @@ static void compare_MaxMin_result(int index, int32_t *data)
                 {
                     tItems[index].max_buf[shift+x] = tItems[index].buf[shift+x];
                 }
-                
+
                 if(tItems[index].min_buf[shift+x] > tItems[index].buf[shift+x])
                 {
                     tItems[index].min_buf[shift+x] = tItems[index].buf[shift+x];
@@ -890,7 +890,7 @@ static int mutual_test(int index)
 {
     int i = 0, j = 0, x = 0, y = 0, res = 0;
 
-    DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x, Frame Count = %d\n", 
+    DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x, Frame Count = %d\n",
     tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
     if(tItems[index].frame_count == 0)
@@ -954,7 +954,7 @@ static int mutual_test(int index)
     }
 
     compare_MaxMin_result(index, tItems[index].buf);
-        
+
 out:
     return res;
 }
@@ -963,7 +963,7 @@ static int key_test(int index)
 {
     int i, j = 0, res = 0;
 
-    DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x, Frame Count = %d\n", 
+    DBG(DEBUG_MP_TEST,"Item = %s, CMD = 0x%x, Frame Count = %d\n",
     tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
     if(tItems[index].frame_count == 0)
@@ -972,11 +972,11 @@ static int key_test(int index)
         res = -EINVAL;
         goto out;
     }
- 
+
     res = create_mp_test_frame_buffer(index);
     if(res < 0)
         goto out;
-    
+
     for(i = 0; i < tItems[index].frame_count; i++)
     {
         res = allnode_key_cdc_data(index);
@@ -993,19 +993,19 @@ static int key_test(int index)
     compare_MaxMin_result(index, tItems[index].buf);
 
 out:
-    return res;    
+    return res;
 }
 
 static int self_test(int index)
 {
     DBG_ERR("TDDI has no self to be tested currently \n");
-    return -1; 
+    return -1;
 }
 
 static int st_test(int index)
 {
     DBG_ERR("ST Test is not suppored by the driver\n");
-    return -1; 
+    return -1;
 }
 
 static void mp_test_init_item(void)
@@ -1019,25 +1019,25 @@ static void mp_test_init_item(void)
     {
         if(tItems[i].catalog == MUTUAL_TEST)
             tItems[i].do_test = mutual_test;
-       
+
         if(tItems[i].catalog == TX_RX_DELTA)
            tItems[i].do_test = mutual_test;
-      
+
         if(tItems[i].catalog == UNTOUCH_P2P)
             tItems[i].do_test = mutual_test;
-        
+
         if(tItems[i].catalog == PIXEL)
             tItems[i].do_test = mutual_test;
-        
+
         if(tItems[i].catalog == OPEN_TEST)
             tItems[i].do_test = mutual_test;
-                 
+
         if(tItems[i].catalog == KEY_TEST)
             tItems[i].do_test = key_test;
 
         if(tItems[i].catalog == SELF_TEST)
             tItems[i].do_test = self_test;
-         
+
         if(tItems[i].catalog == ST_TEST)
             tItems[i].do_test = st_test;
     }
@@ -1085,7 +1085,7 @@ void core_mp_test_free(void)
     int i;
 
     DBG_INFO("Free all allocated mem \n");
-     
+
     for(i = 0; i < ARRAY_SIZE(tItems); i++)
     {
         tItems[i].run = false;
@@ -1119,7 +1119,7 @@ void core_mp_test_free(void)
             }
         }
     }
-    
+
     if(frame_buf != NULL)
     {
         kfree(frame_buf);
@@ -1161,7 +1161,7 @@ void core_mp_show_result(void)
                 if(ERR_ALLOC_MEM(core_mp->rx_delta_buf) || ERR_ALLOC_MEM(core_mp->tx_delta_buf))
                 {
                     DBG_ERR("This test item (%s) has no data inside its buffer \n", tItems[i].desp);
-                    continue;                   
+                    continue;
                 }
             }
             else
@@ -1177,8 +1177,8 @@ void core_mp_show_result(void)
             {
                 for(x = 0; x < core_mp->key_len; x++)
                 {
-                    DUMP(DEBUG_MP_TEST,"KEY_%02d ",x);     
-                    csv_len += sprintf(csv + csv_len, "KEY_%02d,", x);                     
+                    DUMP(DEBUG_MP_TEST,"KEY_%02d ",x);
+                    csv_len += sprintf(csv + csv_len, "KEY_%02d,", x);
                 }
 
                 DUMP(DEBUG_MP_TEST, "\n");
@@ -1186,8 +1186,8 @@ void core_mp_show_result(void)
 
                 for(y = 0; y < core_mp->key_len; y++)
                 {
-                    DUMP(DEBUG_MP_TEST," %3d   ",tItems[i].buf[y]);     
-                    csv_len += sprintf(csv + csv_len, " %3d, ", tItems[i].buf[y]);          
+                    DUMP(DEBUG_MP_TEST," %3d   ",tItems[i].buf[y]);
+                    csv_len += sprintf(csv + csv_len, " %3d, ", tItems[i].buf[y]);
                 }
 
                 DUMP(DEBUG_MP_TEST, "\n");
@@ -1196,35 +1196,35 @@ void core_mp_show_result(void)
             else if(tItems[i].catalog == TX_RX_DELTA)
             {
                 DUMP(DEBUG_MP_TEST," %s ", "TX Max Hold");
-                csv_len += sprintf(csv + csv_len, "  %s ", "TX Max Hold"); 
+                csv_len += sprintf(csv + csv_len, "  %s ", "TX Max Hold");
 
                 DUMP(DEBUG_MP_TEST, "\n");
                 csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
-    
+
                 print_cdc_data(i, true, true, csv, &csv_len);
-    
+
                 DUMP(DEBUG_MP_TEST," %s ", "TX Min Hold");
                 csv_len += sprintf(csv + csv_len, "  %s ", "TX Min Hold");
 
                 DUMP(DEBUG_MP_TEST, "\n");
-                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);   
-    
+                csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
+
                 print_cdc_data(i, false, true, csv, &csv_len);
-                
+
                 DUMP(DEBUG_MP_TEST," %s ", "RX Max Hold");
                 csv_len += sprintf(csv + csv_len, "  %s ", "RX Max Hold");
 
                 DUMP(DEBUG_MP_TEST, "\n");
                 csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
-    
+
                 print_cdc_data(i, true, false, csv, &csv_len);
-    
+
                 DUMP(DEBUG_MP_TEST," %s ", "RX Min Hold");
                 csv_len += sprintf(csv + csv_len, "  %s ", "RX Min Hold");
 
                 DUMP(DEBUG_MP_TEST, "\n");
                 csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
-    
+
                 print_cdc_data(i, false, false, csv, &csv_len);
             }
             else
@@ -1234,15 +1234,15 @@ void core_mp_show_result(void)
 
                 DUMP(DEBUG_MP_TEST, "\n");
                 csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
-    
+
                 print_cdc_data(i, true, false, csv, &csv_len);
-    
+
                 DUMP(DEBUG_MP_TEST," %s ", "Min Hold");
                 csv_len += sprintf(csv + csv_len, "  %s ", "Min Hold");
 
                 DUMP(DEBUG_MP_TEST, "\n");
                 csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
-    
+
                 print_cdc_data(i, false, false, csv, &csv_len);
             }
 
@@ -1273,7 +1273,7 @@ void core_mp_show_result(void)
 
 fail_open:
     kfree(csv);
-    return;    
+    return;
 }
 EXPORT_SYMBOL(core_mp_show_result);
 
@@ -1287,10 +1287,10 @@ int core_mp_run_test(void)
 
     /* update key's length if they're changed */
     core_mp->key_len = core_config->tp_info->nKeyCount;
-        
+
     /* compute the total length in one frame */
     core_mp->frame_len = core_mp->xch_len * core_mp->ych_len;
-    
+
 	for(i = 0; i < ARRAY_SIZE(tItems); i++)
 	{
         if(tItems[i].run)
@@ -1327,7 +1327,7 @@ int core_mp_move_code(void)
 
     mdelay(30);
 
-    /* 
+    /*
 	 * We add CS high command to solve the bug that ic didn't pull it as high,
 	 * which may cause some pluses didn't be catached up when moving code or programming.
 	 */

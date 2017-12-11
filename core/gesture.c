@@ -59,7 +59,7 @@ int core_gesture_key(uint8_t gdata)
 {
     int gcode;
 
-	switch (gdata) 
+	switch (gdata)
     {
         case GESTURE_LEFT:
             gcode = KEY_GESTURE_LEFT;
