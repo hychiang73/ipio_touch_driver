@@ -57,7 +57,7 @@
 #define DUMP(level, fmt, arg...) \
 do { \
     if (level & ipio_debug_level) \
-        pr_info( fmt, ##arg); \
+        printk( fmt, ##arg); \
 } while (0)
 
 enum mp_test_catalog
@@ -137,7 +137,7 @@ static void dump_data(void *data, int type, int len)
             return;
         }
 
-        pr_info("\n  Original Data: \n");
+        printk("\n  Original Data: \n");
 
         if(type == 8)
         p8 = (uint8_t *)data;
@@ -147,21 +147,21 @@ static void dump_data(void *data, int type, int len)
         for(i = 0; i < len; i++)
         {
             if(type == 8)
-                pr_info(" %4x ", p8[i]);
+                printk(" %4x ", p8[i]);
             else if(type == 32)
-                pr_info(" %4x ", p32[i]);
+                printk(" %4x ", p32[i]);
 
             if((i % 32) == 0)
-                pr_info("\n");
+                printk("\n");
         }
-        pr_info("\n\n");
+        printk("\n\n");
     }
 }
 
 static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len)
 {
     int x, y, tmp_len = *csv_len;
-    int max_ts, min_ts, mp_result;
+    int max_ts, min_ts, mp_result = 1;
     char *line_breaker = "\n";
     int32_t *tmp = NULL;
 
@@ -228,22 +228,20 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
             {
                 DUMP(DEBUG_MP_TEST," %7d ", tmp[shift]);
                 tmp_len += sprintf(csv + tmp_len, " %7d ", tmp[shift]);
-                mp_result = 1;
             }
             else
             {
                 if(tmp[shift] > max_ts)
                 {
                     DUMP(DEBUG_MP_TEST," *%7d ",tmp[shift]);
-                    tmp_len += sprintf(csv + tmp_len, " %7d ", tmp[shift]);
-
+                    tmp_len += sprintf(csv + tmp_len, "*%7d", tmp[shift]);
                 }
                 else
                 {
                     DUMP(DEBUG_MP_TEST," #%7d ",tmp[shift]);
                     tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
                 }
-                mp_result = -1;
+                mp_result = -1;              
             }
         }
 
@@ -251,10 +249,10 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
         tmp_len += sprintf(csv + tmp_len ,"%s",  line_breaker);
     }
 
-    if(mp_result)
-        sprintf(tItems[index].result, "%s", "PASS");
-    else
+    if(mp_result < 0)
         sprintf(tItems[index].result, "%s", "FAIL");
+    else
+        sprintf(tItems[index].result, "%s", "PASS");
 
     *csv_len = tmp_len;
 }
@@ -343,6 +341,18 @@ static int allnode_key_cdc_data(int index)
     uint8_t cmd[3] = {0};
     uint8_t *ori = NULL;
 
+    len = core_mp->key_len * 2;
+
+    DBG(DEBUG_MP_TEST,"Read key's length = %d\n", len);
+    DBG(DEBUG_MP_TEST,"core_mp->key_len = %d\n",core_mp->key_len);
+
+    if(len <= 0)
+    {
+        DBG_ERR("Length is invalid \n");
+        res = -1;
+        goto out;
+    }
+
     /* CDC init */
     cmd[0] = protocol->cmd_cdc;
     cmd[1] = tItems[index].cmd;
@@ -366,23 +376,18 @@ static int allnode_key_cdc_data(int index)
     /* Prepare to get cdc data */
     cmd[0] = protocol->cmd_read_ctrl;
     cmd[1] = protocol->cmd_get_cdc;
-    DBG(DEBUG_MP_TEST,"R: cmd[0] = 0x%x, cmd[1] = 0x%x\n",cmd[0],cmd[1]);
+
     res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
     if(res < 0)
     {
-        DBG_ERR("I2C Read Error \n");
+        DBG_ERR("I2C Write Error \n");
         goto out;
     }
 
-    len = core_mp->key_len * 2;
-
-    DBG(DEBUG_MP_TEST,"Read key's length = %d\n", len);
-    DBG(DEBUG_MP_TEST,"core_mp->key_len = %d\n",core_mp->key_len);
-
-    if(len <= 0)
+    res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+    if(res < 0)
     {
-        DBG_ERR("Length is invalid \n");
-        res = -1;
+        DBG_ERR("I2C Write Error \n");
         goto out;
     }
 
@@ -459,6 +464,19 @@ static int allnode_mutual_cdc_data(int index)
     uint8_t cmd[3] = {0};
     uint8_t *ori = NULL;
 
+    /* Multipling by 2 is due to the 16 bit in each node */
+    len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
+
+    DBG(DEBUG_MP_TEST,"Read X/Y Channel length = %d\n", len);
+    DBG(DEBUG_MP_TEST,"core_mp->frame_len = %d \n", core_mp->frame_len);
+
+    if(len <= 2)
+    {
+        DBG_ERR("Length is invalid \n");
+        res = -1;
+        goto out;
+    }
+
     /* CDC init */
     cmd[0] = protocol->cmd_cdc;
     cmd[1] = tItems[index].cmd;
@@ -487,24 +505,18 @@ static int allnode_mutual_cdc_data(int index)
     /* Prepare to get cdc data */
     cmd[0] = protocol->cmd_read_ctrl;
     cmd[1] = protocol->cmd_get_cdc;
-    DBG(DEBUG_MP_TEST,"R: cmd[0] = 0x%x, cmd[1] = 0x%x\n",cmd[0],cmd[1]);
+
     res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
     if(res < 0)
     {
-        DBG_ERR("I2C Read Error \n");
+        DBG_ERR("I2C Write Error \n");
         goto out;
     }
 
-    /* Multipling by 2 is due to the 16 bit in each node */
-    len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
-
-    DBG(DEBUG_MP_TEST,"Read X/Y Channel length = %d\n", len);
-    DBG(DEBUG_MP_TEST,"core_mp->frame_len = %d \n", core_mp->frame_len);
-
-    if(len <= 2)
+    res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+    if(res < 0)
     {
-        DBG_ERR("Length is invalid \n");
-        res = -1;
+        DBG_ERR("I2C Write Error \n");
         goto out;
     }
 
@@ -824,7 +836,7 @@ static void run_untouch_p2p_test(int index)
                 tItems[index].max_buf[shift+x] = p_comb[shift+x];
             }
 
-            if(p_comb[shift+x] < tItems[index].min_buf[shift+y])
+            if(p_comb[shift+x] < tItems[index].min_buf[shift+x])
             {
                 tItems[index].min_buf[shift+x] = p_comb[shift+x];
             }
@@ -1042,8 +1054,10 @@ static void mp_test_init_item(void)
             tItems[i].do_test = st_test;
     }
 
-    /* assign protocol command written into firmware via I2C,
-    which might be differnet if the version of protocol was changed. */
+    /* 
+     * assign protocol command written into firmware via I2C,
+     * which might be differnet if the version of protocol was changed.
+     */
     tItems[0].cmd = protocol->mutual_dac;
     tItems[1].cmd = protocol->mutual_bg;
     tItems[2].cmd = protocol->mutual_signal;
@@ -1246,7 +1260,7 @@ void core_mp_show_result(void)
                 print_cdc_data(i, false, false, csv, &csv_len);
             }
 
-            pr_info("\n%s : %s ", tItems[i].desp, tItems[i].result);
+            pr_info("\n %s : %s \n", tItems[i].desp, tItems[i].result);
             csv_len += sprintf(csv + csv_len," %s : %s ", tItems[i].desp, tItems[i].result);
         }
     }
