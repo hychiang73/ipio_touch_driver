@@ -92,7 +92,6 @@ extern int core_cmd_len;
 /* R/W with Touch ICs */
 extern uint32_t core_config_ice_mode_read(uint32_t addr);
 extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);
-extern uint32_t vfIceRegRead(uint32_t addr);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);
 extern int core_config_ice_mode_disable(void);
 extern int core_config_ice_mode_enable(void);

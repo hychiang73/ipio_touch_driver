@@ -67,19 +67,19 @@ static void read_flash_info(uint8_t cmd, int len)
 		mdelay(25);
 	}
 
-	core_config_ice_mode_write(0x41000, 0x0, 1);// CS LOW
-	core_config_ice_mode_write(0x41004, 0x66aa55, 3);
-	core_config_ice_mode_write(0x41008, cmd, 1);
+	core_config_ice_mode_write(0x41000, 0x0, 1); /* CS high */
+	core_config_ice_mode_write(0x41004, 0x66aa55, 3); /* Key */
 
+	core_config_ice_mode_write(0x41008, cmd, 1);
 	for(i = 0; i < len; i++)
 	{
 		core_config_ice_mode_write(0x041008, 0xFF, 1);
 		buf[i] = core_config_ice_mode_read(0x41010);
 	}
 
-	core_config_ice_mode_write(0x041000, 0x1, 1);// CS High
+	core_config_ice_mode_write(0x041000, 0x1, 1); /* CS high */
 
-	// look up flash info and init its struct after obtained flash id.
+	/* look up flash info and init its struct after obtained flash id. */
 	flash_mid = buf[0];
 	flash_id = buf[1] << 8 | buf[2];
 	core_flash_init(flash_mid, flash_id);
@@ -214,29 +214,6 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 	return res;
 }
 EXPORT_SYMBOL(core_config_ice_mode_write);
-
-uint32_t vfIceRegRead(uint32_t addr)
-{
-	int i, nInTimeCount = 100;
-	uint8_t szBuf[4] = {0};
-
-	core_config_ice_mode_write(0x41000, 0x3B | (addr << 8), 4);
-	core_config_ice_mode_write(0x041004, 0x66AA5500, 4);
-
-	for (i = 0; i < nInTimeCount; i++)
-	{
-		szBuf[0] = core_config_read_write_onebyte(0x41011);
-
-		if ((szBuf[0] & 0x01) == 0)
-		{
-			break;
-		}
-		mdelay(5);
-	}
-
-	return core_config_read_write_onebyte(0x41012);
-}
-EXPORT_SYMBOL(vfIceRegRead);
 
 /*
  * Doing soft reset on ic.

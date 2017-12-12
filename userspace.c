@@ -43,6 +43,7 @@
 #include "core/mp_test.h"
 #include "core/parser.h"
 
+#define USER_STR_BUFF	128
 #define ILITEK_IOCTL_MAGIC	100
 #define ILITEK_IOCTL_MAXNR	18
 
@@ -72,6 +73,8 @@
 #define ILITEK_IOCTL_TP_MODE_STATUS			_IOWR(ILITEK_IOCTL_MAGIC, 18, int*)
 
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
+
+unsigned char _gTmpBuf[USER_STR_BUFF] = {0};
 
 static int katoi(char *string)
 {
@@ -143,15 +146,55 @@ static int str2hex(char *str)
 
 static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
 {
+	int res = 0;
+
     if (*pPos != 0)
         return 0;
 
+	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+
 	ipd->debug_node_open = !ipd->debug_node_open;
+
 	DBG_INFO(" %s debug_flag message(%X). \n", ipd->debug_node_open ? "Enabled" : "Disabled",ipd->debug_node_open);
-	nCount = sprintf(buff, "ipd->debug_node_open %s\n", ipd->debug_node_open?"Enabled":"Disabled");
+
+	nCount = sprintf(_gTmpBuf, "ipd->debug_node_open : %s\n", ipd->debug_node_open?"Enabled":"Disabled");
+
     *pPos += nCount;
 
+	res = copy_to_user(buff, _gTmpBuf, nCount);
+	if (res < 0)
+	{
+		DBG_ERR("Failed to copy data to user space");
+	}
+
 	return nCount;
+}
+
+static ssize_t ilitek_proc_debug_message_write(struct file *filp, const char *buff, size_t size, loff_t *pPos) 
+{
+	int ret = 0;
+	unsigned char buffer[512]={0};
+
+	/* check the buffer size whether it exceeds the local buffer size or not */
+	if (size > 512) 
+	{
+		DBG_ERR("buffer exceed 512 bytes \n");
+		size = 512;
+	}
+
+	ret = copy_from_user(buffer, buff, size-1);
+	if (ret < 0) 
+	{
+		DBG_ERR("copy data from user space, failed");
+		return -1;
+	}
+
+	if(strcmp(buffer, "dbg_flag") == 0)
+	{
+		ipd->debug_node_open = !ipd->debug_node_open;
+		DBG_INFO(" %s debug_flag message(%X).\n", ipd->debug_node_open?"Enabled":"Disabled",ipd->debug_node_open);
+	}
+	return size;
 }
 
 static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
@@ -302,8 +345,6 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	if (*pPos != 0)
 		return 0;
 
-	DBG_INFO();
-
 	mp_ini = (char **)kmalloc(mp_num, GFP_KERNEL);
 
 	for(i = 0; i < mp_num; i++)
@@ -403,6 +444,79 @@ ini_err:
 	return len;
 }
 
+static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int i, res = 0, count = 0;
+	char cmd[64] = {0};
+	char *token = NULL, *cur = NULL;	
+	uint8_t *va = NULL;
+	uint8_t test_cmd[2] = {0};
+
+	if(buff != NULL)
+	{
+		res = copy_from_user(cmd, buff, size - 1);
+		if(res < 0)
+		{
+			DBG_INFO("copy data from user space, failed\n");
+			return -1;
+		}
+	}
+
+	DBG_INFO("size = %d, cmd = %s\n", (int)size, cmd);
+
+	if(size > 64)
+	{
+		DBG_ERR("The size of string is too long\n");
+		return size;
+	}
+
+	token = cur = cmd;
+
+	va = kmalloc(64 * sizeof(uint8_t), GFP_KERNEL);
+	memset(va, 0, 64);
+
+	while((token = strsep(&cur, ",")) != NULL)
+	{
+		va[count] = katoi(token);
+		DBG_INFO("data[%d] = %x \n",count, va[count]);	
+		count++;
+	}
+
+	DBG_INFO("cmd = %s\n", cmd);
+
+	/* Switch to Test mode */
+	test_cmd[0] = 0x1;
+	core_fr_mode_control(test_cmd);
+	
+	ilitek_platform_disable_irq();
+
+	for(i = 0; i < core_mp->mp_items; i++)
+	{
+		if(strcmp(cmd, tItems[i].name) == 0)
+		{
+			 tItems[i].run = va[1];
+			 tItems[i].max = va[2];
+			 tItems[i].min = va[3];
+			 tItems[i].frame_count = va[4];
+
+			DBG_INFO("%s: run = %d, max = %d, min = %d, frame_count = %d\n"
+					,tItems[i].desp, tItems[i].run,tItems[i].max,tItems[i].min,tItems[i].frame_count);
+
+			core_mp_run_test();
+			core_mp_show_result();
+			core_mp_test_free();
+		}
+	}
+
+	/* Switch to DEMO mode */
+	test_cmd[0] = 0x0;
+	core_fr_mode_control(test_cmd);
+
+	ilitek_platform_enable_irq();
+
+	return size;
+}
+
 static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
@@ -411,7 +525,9 @@ static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff
 	if (*pPos != 0)
 		return 0;
 
-	len = sprintf(buff, "%d", ipio_debug_level);
+	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+
+	len = sprintf(_gTmpBuf, "%d", ipio_debug_level);
 
 	DBG_INFO("Current DEBUG Level = %d\n", ipio_debug_level);
 	DBG_INFO("You can set one of levels for debug as below:\n");
@@ -468,7 +584,9 @@ static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user *buff, si
 	if (*pPos != 0)
 		return 0;
 
-	len = sprintf(buff, "%d", core_config->isEnableGesture );
+	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+
+	len = sprintf(_gTmpBuf, "%d", core_config->isEnableGesture );
 
 	DBG_INFO("isEnableGesture = %d\n", core_config->isEnableGesture);
 
@@ -524,7 +642,9 @@ static ssize_t ilitek_proc_check_battery_read(struct file *filp, char __user *bu
 	if (*pPos != 0)
 		return 0;
 
-	len = sprintf(buff, "%d", ipd->isEnablePollCheckPower );
+	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+
+	len = sprintf(_gTmpBuf, "%d", ipd->isEnablePollCheckPower );
 
 	DBG_INFO("isEnablePollCheckPower = %d\n", ipd->isEnablePollCheckPower);
 
@@ -583,12 +703,16 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 	int res = 0;
 	uint32_t len = 0;
 
-	// If file position is non-zero,  we assume the string has been read
-	// and indicates that there is no more data to be read.
+	/*
+	 * If file position is non-zero,  we assume the string has been read 
+	 * and indicates that there is no more data to be read.
+	 */
 	if (*pPos != 0)
 		return 0;
 
-	len = sprintf(buff, "%02d", core_firmware->update_status);
+	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+
+	len = sprintf(_gTmpBuf, "%02d", core_firmware->update_status);
 
 	DBG_INFO("update status = %d\n", core_firmware->update_status);
 
@@ -1227,10 +1351,12 @@ struct file_operations proc_debug_level_fops = {
 };
 
 struct file_operations proc_mp_test_fops = {
+	.write = ilitek_proc_mp_test_write,
 	.read = ilitek_proc_mp_test_read,
 };
 
 struct file_operations proc_debug_message_fops = {
+	.write = ilitek_proc_debug_message_write,
 	.read = ilitek_proc_debug_message_read,
 };
 
@@ -1269,12 +1395,10 @@ proc_node_t proc_table[] = {
 };
 
 #define NETLINK_USER 21
-
-struct sock *nl_sk;
-struct nlmsghdr *nlh;
-struct sk_buff *skb_out;
-
-int pid;
+struct sock *_gNetLinkSkb;
+struct nlmsghdr *_gNetLinkHead;
+struct sk_buff *_gSkbOut;
+int _gPID;
 
 void netlink_reply_msg(void *raw, int size)
 {
@@ -1283,26 +1407,26 @@ void netlink_reply_msg(void *raw, int size)
 	uint8_t *data = (uint8_t *)raw;
 
 	DBG(DEBUG_NETLINK, "The size of data being sent to user = %d\n", msg_size);
-	DBG(DEBUG_NETLINK, "pid = %d\n", pid);
+	DBG(DEBUG_NETLINK, "pid = %d\n", _gPID);
 	DBG(DEBUG_NETLINK, "Netlink is enable = %d\n", core_fr->isEnableNetlink);
 
 	if (core_fr->isEnableNetlink)
 	{
-		skb_out = nlmsg_new(msg_size, 0);
+		_gSkbOut = nlmsg_new(msg_size, 0);
 
-		if (!skb_out)
+		if (!_gSkbOut)
 		{
 			DBG_ERR("Failed to allocate new skb\n");
 			return;
 		}
 
-		nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, msg_size, 0);
-		NETLINK_CB(skb_out).dst_group = 0; /* not in mcast group */
+		_gNetLinkHead = nlmsg_put(_gSkbOut, 0, 0, NLMSG_DONE, msg_size, 0);
+		NETLINK_CB(_gSkbOut).dst_group = 0; /* not in mcast group */
 
-		//strncpy(NLMSG_DATA(nlh), data, msg_size);
-		memcpy(nlmsg_data(nlh), data, msg_size);
+		//strncpy(NLMSG_DATA(_gNetLinkHead), data, msg_size);
+		memcpy(nlmsg_data(_gNetLinkHead), data, msg_size);
 
-		res = nlmsg_unicast(nl_sk, skb_out, pid);
+		res = nlmsg_unicast(_gNetLinkSkb, _gSkbOut, _gPID);
 		if (res < 0)
 			DBG_ERR("Failed to send data back to user\n");
 	}
@@ -1311,22 +1435,22 @@ EXPORT_SYMBOL(netlink_reply_msg);
 
 static void netlink_recv_msg(struct sk_buff *skb)
 {
-	pid = 0;
+	_gPID = 0;
 
 	DBG(DEBUG_NETLINK, "Netlink is enable = %d\n", core_fr->isEnableNetlink);
 
-	nlh = (struct nlmsghdr *)skb->data;
+	_gNetLinkHead = (struct nlmsghdr *)skb->data;
 
 	DBG(DEBUG_NETLINK, "Received a request from client: %s, %d\n",
-		(char *)NLMSG_DATA(nlh), (int)strlen((char *)NLMSG_DATA(nlh)));
+		(char *)NLMSG_DATA(_gNetLinkHead), (int)strlen((char *)NLMSG_DATA(_gNetLinkHead)));
 
 	/* pid of sending process */
-	pid = nlh->nlmsg_pid;
+	_gPID = _gNetLinkHead->nlmsg_pid;
 
-	DBG(DEBUG_NETLINK, "the pid of sending process = %d\n", pid);
+	DBG(DEBUG_NETLINK, "the pid of sending process = %d\n", _gPID);
 
 	/* TODO: may do something if there's not receiving msg from user. */
-	if (pid != 0)
+	if (_gPID != 0)
 	{
 		DBG_ERR("The channel of Netlink has been established successfully !\n");
 		core_fr->isEnableNetlink = true;
@@ -1343,18 +1467,18 @@ static int netlink_init(void)
 	int res = 0;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
-	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, netlink_recv_msg, NULL, THIS_MODULE);
+	_gNetLinkSkb = netlink_kernel_create(&init_net, NETLINK_USER, netlink_recv_msg, NULL, THIS_MODULE);
 #else
 	struct netlink_kernel_cfg cfg = {
 		.input = netlink_recv_msg,
 	};
 
-	nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
+	_gNetLinkSkb = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
 #endif
 
 	DBG_INFO("Initialise Netlink and create its socket\n");
 
-	if (!nl_sk)
+	if (!_gNetLinkSkb)
 	{
 		DBG_ERR("Failed to create nelink socket\n");
 		res = -EFAULT;
@@ -1406,6 +1530,6 @@ void ilitek_proc_remove(void)
 	}
 
 	remove_proc_entry("ilitek", NULL);
-	netlink_kernel_release(nl_sk);
+	netlink_kernel_release(_gNetLinkSkb);
 }
 EXPORT_SYMBOL(ilitek_proc_remove);
