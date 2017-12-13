@@ -244,6 +244,8 @@ void core_config_ic_reset(void)
 		core_config_ice_mode_write(core_config->ic_reset_addr, key, 4);
 		core_config->do_ic_reset = false;
 	}
+
+	msleep(300);
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
@@ -523,7 +525,7 @@ int core_config_check_cdc_busy(void)
 		core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 		mdelay(1);
 		core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
-		mdelay(10);
+		mdelay(1);
 		core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
 		DBG(DEBUG_CONFIG, "CDC busy state = 0x%x\n", busy);
 		if(busy == 0x41 || busy == 0x51)

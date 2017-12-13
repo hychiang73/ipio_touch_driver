@@ -269,11 +269,10 @@ static int get_ini_key_value(char * section, char * key, char * value)
 
 	for(i = 0; i < _gINIItems; i++)
 	{
-			if(strncmp(section, ilitek_ini_file_data[i].pSectionName,
-                ilitek_ini_file_data[i].iSectionNameLen) != 0)
+			if(strcmp(section, ilitek_ini_file_data[i].pSectionName) != 0)
                  continue;
 
-			if(strncmp(key, ilitek_ini_file_data[i].pKeyName, len) == 0)
+			if(strcmp(key, ilitek_ini_file_data[i].pKeyName) == 0)
 			{
 				memcpy(value, ilitek_ini_file_data[i].pKeyValue, ilitek_ini_file_data[i].iKeyValueLen);
                 DBG(DEBUG_PARSER," value:%s , pKeyValue: %s \n",value, ilitek_ini_file_data[i].pKeyValue);

@@ -163,7 +163,7 @@ extern uint32_t ipio_chip_list[2];
 /*
  * Other settings
  */
-#define CSV_NAME_PATH	"/sdcard/ilitek_mp_test.csv"
+#define CSV_PATH	"/sdcard"
 #define INI_NAME_PATH	"/sdcard/mp.ini"
 
  /* define the width and heigth of a screen. */

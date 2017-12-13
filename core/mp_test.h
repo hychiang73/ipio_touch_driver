@@ -65,6 +65,7 @@ struct core_mp_test_data
     int st_len;
     int frame_len;
     int mp_items;
+    bool final_result;
 
     /* Tx/Rx threshold & buffer */
     int TxDeltaMax;

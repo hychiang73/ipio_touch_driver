@@ -430,9 +430,9 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_mp_show_result();
 	core_mp_test_free();
 
-	/* Switch to DEMO mode */
-	test_cmd[0] = 0x0;
-	core_fr_mode_control(test_cmd);
+	/* Code reset */
+	core_config_ice_mode_enable();
+	core_config_ic_reset();
 
 	ilitek_platform_enable_irq();
 
@@ -441,6 +441,7 @@ ini_err:
 		kfree(mp_ini[i]);
 	kfree(mp_ini);
 	*pPos = len;
+	DBG_INFO("MP Test DONE \n");
 	return len;
 }
 
@@ -508,12 +509,13 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 		}
 	}
 
-	/* Switch to DEMO mode */
-	test_cmd[0] = 0x0;
-	core_fr_mode_control(test_cmd);
+	/* Code reset */
+	core_config_ice_mode_enable();
+	core_config_ic_reset();
 
 	ilitek_platform_enable_irq();
 
+	DBG_INFO("MP Test DONE \n");
 	return size;
 }
 
