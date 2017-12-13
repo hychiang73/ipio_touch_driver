@@ -227,14 +227,14 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
             if(tmp[shift] <= max_ts && tmp[shift] >= min_ts)
             {
                 DUMP(DEBUG_MP_TEST," %7d ", tmp[shift]);
-                tmp_len += sprintf(csv + tmp_len, " %7d ", tmp[shift]);
+                tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);
             }
             else
             {
                 if(tmp[shift] > max_ts)
                 {
                     DUMP(DEBUG_MP_TEST," *%7d ",tmp[shift]);
-                    tmp_len += sprintf(csv + tmp_len, "*%7d", tmp[shift]);
+                    tmp_len += sprintf(csv + tmp_len, "*%7d,", tmp[shift]);
                 }
                 else
                 {
@@ -365,6 +365,8 @@ static int allnode_key_cdc_data(int index)
         goto out;
     }
 
+    mdelay(1);
+
     /* Check busy */
     if(core_config_check_cdc_busy() < 0)
     {
@@ -372,6 +374,8 @@ static int allnode_key_cdc_data(int index)
         res = -1;
         goto out;
     }
+
+    mdelay(1);
 
     /* Prepare to get cdc data */
     cmd[0] = protocol->cmd_read_ctrl;
@@ -383,6 +387,8 @@ static int allnode_key_cdc_data(int index)
         DBG_ERR("I2C Write Error \n");
         goto out;
     }
+
+    mdelay(1);
 
     res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
     if(res < 0)
@@ -398,6 +404,8 @@ static int allnode_key_cdc_data(int index)
         DBG_ERR("Failed to allocate ori mem (%ld) \n", PTR_ERR(ori));
         goto out;
     }
+
+    mdelay(1);
 
     /* Get original frame(cdc) data */
     res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
@@ -494,6 +502,8 @@ static int allnode_mutual_cdc_data(int index)
         goto out;
     }
 
+    mdelay(1);
+
     /* Check busy */
     if(core_config_check_cdc_busy() < 0)
     {
@@ -513,12 +523,16 @@ static int allnode_mutual_cdc_data(int index)
         goto out;
     }
 
+    mdelay(1);
+
     res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
     if(res < 0)
     {
         DBG_ERR("I2C Write Error \n");
         goto out;
     }
+
+    mdelay(1);
 
     /* Allocate a buffer for the original */
     ori = kzalloc(len * sizeof(uint8_t), GFP_KERNEL);
@@ -1100,6 +1114,8 @@ void core_mp_test_free(void)
 
     DBG_INFO("Free all allocated mem \n");
 
+    core_mp->final_result = true;
+
     for(i = 0; i < ARRAY_SIZE(tItems); i++)
     {
         tItems[i].run = false;
@@ -1152,6 +1168,7 @@ void core_mp_show_result(void)
 {
     int i, x, y, csv_len = 0;
     char *csv = NULL;
+    char csv_name[128] = {0};
     char *line_breaker = "\n";
     struct file *f = NULL;
     mm_segment_t fs;
@@ -1168,7 +1185,11 @@ void core_mp_show_result(void)
 	{
         if(tItems[i].run)
         {
+            pr_info("%s \n", tItems[i].desp);
+            csv_len += sprintf(csv + csv_len," %s ", tItems[i].desp);
+
             pr_info("\n");
+            csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
 
             if(tItems[i].catalog == TX_RX_DELTA)
             {
@@ -1260,17 +1281,32 @@ void core_mp_show_result(void)
                 print_cdc_data(i, false, false, csv, &csv_len);
             }
 
-            pr_info("\n %s : %s \n", tItems[i].desp, tItems[i].result);
-            csv_len += sprintf(csv + csv_len," %s : %s ", tItems[i].desp, tItems[i].result);
+            pr_info("\n Result : %s \n", tItems[i].result);
+            csv_len += sprintf(csv + csv_len," Result : %s ", tItems[i].result);
+
+            pr_info("\n");
+            csv_len += sprintf(csv + csv_len,"%s",  line_breaker);
+
+            if(strcmp(tItems[i].result, "FAIL") == 0)
+                core_mp->final_result = false;
         }
     }
 
+    memset(csv_name, 0, 128 * sizeof(char));
+
+    if(core_mp->final_result)
+        sprintf(csv_name, "%s/%s.csv", CSV_PATH,"mp_pass");
+    else
+        sprintf(csv_name, "%s/%s.csv", CSV_PATH,"mp_fail");
+
+    DBG_INFO("Open CSV : %s \n", csv_name);
+
     if(f == NULL)
-        f = filp_open(CSV_NAME_PATH, O_CREAT | O_RDWR , 0644);
+        f = filp_open(csv_name, O_CREAT | O_RDWR , 0644);
 
     if(ERR_ALLOC_MEM(f))
     {
-        DBG_ERR("Failed to open CSV file %s\n", CSV_NAME_PATH);
+        DBG_ERR("Failed to open CSV file");
         goto fail_open;
     }
 
@@ -1389,6 +1425,8 @@ int core_mp_init(void)
 
             core_mp->key_len = core_config->tp_info->nKeyCount;
             core_mp->st_len = core_config->tp_info->side_touch_type;
+
+            core_mp->final_result = true;
 
 			mp_test_init_item();
        }
