@@ -22,10 +22,10 @@
  *
  */
 
- #ifndef __GESTURE_H
- #define __GESTURE_H
+#ifndef __GESTURE_H
+#define __GESTURE_H
 
- extern int core_gesture_key(uint8_t gid);
- extern void core_gesture_init(struct core_fr_data *fr_data);
+extern int core_gesture_key(uint8_t gid);
+extern void core_gesture_init(struct core_fr_data *fr_data);
 
- #endif
+#endif

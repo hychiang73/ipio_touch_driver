@@ -25,8 +25,7 @@
 #ifndef __FIRMWARE_H
 #define __FIRMWARE_H
 
-struct core_firmware_data
-{
+struct core_firmware_data {
 	uint8_t new_fw_ver[4];
 	uint8_t old_fw_ver[4];
 
@@ -45,7 +44,7 @@ struct core_firmware_data
 	bool isboot;
 	bool hasBlockInfo;
 
-	int (*upgrade_func)(bool isIRAM);
+	int (*upgrade_func) (bool isIRAM);
 };
 
 extern struct core_firmware_data *core_firmware;

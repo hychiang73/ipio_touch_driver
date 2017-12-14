@@ -22,8 +22,8 @@
  *
  */
 
- #ifndef __COMMON_H
- #define __COMMON_H
+#ifndef __COMMON_H
+#define __COMMON_H
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -118,7 +118,7 @@ enum {
 	DEBUG_I2C = BIT(4),
 	DEBUG_BATTERY = BIT(5),
 	DEBUG_MP_TEST = BIT(6),
-	DEBUG_IOCTL= BIT(7),
+	DEBUG_IOCTL = BIT(7),
 	DEBUG_NETLINK = BIT(8),
 	DEBUG_PARSER = BIT(9),
 	DEBUG_GESTURE = BIT(10),

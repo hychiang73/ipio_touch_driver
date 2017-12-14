@@ -25,59 +25,57 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
-struct mp_test_items
-{
-    char *name;
-    /* The description must be the same as ini's section name */
-    char *desp;
-    char *result;
-    int catalog;
-    uint8_t cmd;
-    bool run;
-    int max;
-    int min;
-    int frame_count;
-    int32_t* buf;
-    int32_t* max_buf;
-    int32_t* min_buf;
-	int (*do_test)(int index);
+struct mp_test_items {
+	char *name;
+	/* The description must be the same as ini's section name */
+	char *desp;
+	char *result;
+	int catalog;
+	uint8_t cmd;
+	bool run;
+	int max;
+	int min;
+	int frame_count;
+	int32_t *buf;
+	int32_t *max_buf;
+	int32_t *min_buf;
+	int (*do_test) (int index);
 };
 
-struct core_mp_test_data
-{
-    /* A flag shows a test run in particular */
-    bool m_signal;
-    bool m_dac;
+struct core_mp_test_data {
+	/* A flag shows a test run in particular */
+	bool m_signal;
+	bool m_dac;
 	bool s_signal;
 	bool s_dac;
 	bool key_dac;
-    bool st_dac;
-    bool p_no_bk;
-    bool p_has_bk;
-    bool open_integ;
-    bool open_cap;
+	bool st_dac;
+	bool p_no_bk;
+	bool p_has_bk;
+	bool open_integ;
+	bool open_cap;
 
-    int xch_len;
-    int ych_len;
-    int stx_len;
-    int srx_len;
-    int key_len;
-    int st_len;
-    int frame_len;
-    int mp_items;
-    bool final_result;
+	int xch_len;
+	int ych_len;
+	int stx_len;
+	int srx_len;
+	int key_len;
+	int st_len;
+	int frame_len;
+	int mp_items;
+	bool final_result;
 
-    /* Tx/Rx threshold & buffer */
-    int TxDeltaMax;
-    int TxDeltaMin;
-    int RxDeltaMax;
-    int RxDeltaMin;
-    int32_t *tx_delta_buf;
-    int32_t *rx_delta_buf;
-    int32_t *tx_max_buf;
-    int32_t *tx_min_buf;
-    int32_t *rx_max_buf;
-    int32_t *rx_min_buf;
+	/* Tx/Rx threshold & buffer */
+	int TxDeltaMax;
+	int TxDeltaMin;
+	int RxDeltaMax;
+	int RxDeltaMin;
+	int32_t *tx_delta_buf;
+	int32_t *rx_delta_buf;
+	int32_t *tx_max_buf;
+	int32_t *tx_min_buf;
+	int32_t *rx_max_buf;
+	int32_t *rx_min_buf;
 };
 
 extern struct core_mp_test_data *core_mp;

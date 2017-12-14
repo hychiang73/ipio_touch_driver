@@ -57,95 +57,95 @@
 
 int core_gesture_key(uint8_t gdata)
 {
-    int gcode;
+	int gcode;
 
-	switch (gdata)
-    {
-        case GESTURE_LEFT:
-            gcode = KEY_GESTURE_LEFT;
-            break;
-        case GESTURE_RIGHT:
-            gcode = KEY_GESTURE_RIGHT;
-            break;
-        case GESTURE_UP:
-            gcode = KEY_GESTURE_UP;
-            break;
-        case GESTURE_DOWN:
-            gcode = KEY_GESTURE_DOWN;
-            break;
-        case GESTURE_DOUBLECLICK:
-            gcode = KEY_GESTURE_D;
-            break;
-        case GESTURE_O:
-            gcode = KEY_GESTURE_O;
-            break;
-        case GESTURE_W:
-            gcode = KEY_GESTURE_W;
-            break;
-        case GESTURE_M:
-            gcode = KEY_GESTURE_M;
-            break;
-        case GESTURE_E:
-            gcode = KEY_GESTURE_E;
-            break;
-        case GESTURE_S:
-            gcode = KEY_GESTURE_S;
-            break;
-        case GESTURE_V:
-            gcode = KEY_GESTURE_V;
-            break;
-        case GESTURE_Z:
-            gcode = KEY_GESTURE_Z;
-            break;
-        case  GESTURE_C:
-            gcode = KEY_GESTURE_C;
-            break;
-        default:
-            gcode = -1;
-            break;
-    }
+	switch (gdata) {
+	case GESTURE_LEFT:
+		gcode = KEY_GESTURE_LEFT;
+		break;
+	case GESTURE_RIGHT:
+		gcode = KEY_GESTURE_RIGHT;
+		break;
+	case GESTURE_UP:
+		gcode = KEY_GESTURE_UP;
+		break;
+	case GESTURE_DOWN:
+		gcode = KEY_GESTURE_DOWN;
+		break;
+	case GESTURE_DOUBLECLICK:
+		gcode = KEY_GESTURE_D;
+		break;
+	case GESTURE_O:
+		gcode = KEY_GESTURE_O;
+		break;
+	case GESTURE_W:
+		gcode = KEY_GESTURE_W;
+		break;
+	case GESTURE_M:
+		gcode = KEY_GESTURE_M;
+		break;
+	case GESTURE_E:
+		gcode = KEY_GESTURE_E;
+		break;
+	case GESTURE_S:
+		gcode = KEY_GESTURE_S;
+		break;
+	case GESTURE_V:
+		gcode = KEY_GESTURE_V;
+		break;
+	case GESTURE_Z:
+		gcode = KEY_GESTURE_Z;
+		break;
+	case GESTURE_C:
+		gcode = KEY_GESTURE_C;
+		break;
+	default:
+		gcode = -1;
+		break;
+	}
 
-    DBG(DEBUG_GESTURE,"gcode = %d\n", gcode);
-    return gcode;
+	DBG(DEBUG_GESTURE, "gcode = %d\n", gcode);
+	return gcode;
 }
+
 EXPORT_SYMBOL(core_gesture_key);
 
 void core_gesture_init(struct core_fr_data *fr_data)
 {
-    struct input_dev *input_dev = fr_data->input_device;
+	struct input_dev *input_dev = fr_data->input_device;
 
-    if(input_dev != NULL)
-    {
-        input_set_capability(input_dev, EV_KEY, KEY_POWER);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_UP);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_DOWN);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_LEFT);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_RIGHT);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_O);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_E);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_M);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_W);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_S);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_V);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_Z);
-        input_set_capability(input_dev, EV_KEY, KEY_GESTURE_C);
+	if (input_dev != NULL) {
+		input_set_capability(input_dev, EV_KEY, KEY_POWER);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_UP);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_DOWN);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_LEFT);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_RIGHT);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_O);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_E);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_M);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_W);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_S);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_V);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_Z);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_C);
 
-        __set_bit(KEY_POWER, input_dev->keybit);
-        __set_bit(KEY_GESTURE_UP, input_dev->keybit);
-        __set_bit(KEY_GESTURE_DOWN, input_dev->keybit);
-        __set_bit(KEY_GESTURE_LEFT, input_dev->keybit);
-        __set_bit(KEY_GESTURE_RIGHT, input_dev->keybit);
-        __set_bit(KEY_GESTURE_O, input_dev->keybit);
-        __set_bit(KEY_GESTURE_E, input_dev->keybit);
-        __set_bit(KEY_GESTURE_M, input_dev->keybit);
-        __set_bit(KEY_GESTURE_W, input_dev->keybit);
-        __set_bit(KEY_GESTURE_S, input_dev->keybit);
-        __set_bit(KEY_GESTURE_V, input_dev->keybit);
-        __set_bit(KEY_GESTURE_Z, input_dev->keybit);
-        __set_bit(KEY_GESTURE_C, input_dev->keybit);
-        return;
-    }
+		__set_bit(KEY_POWER, input_dev->keybit);
+		__set_bit(KEY_GESTURE_UP, input_dev->keybit);
+		__set_bit(KEY_GESTURE_DOWN, input_dev->keybit);
+		__set_bit(KEY_GESTURE_LEFT, input_dev->keybit);
+		__set_bit(KEY_GESTURE_RIGHT, input_dev->keybit);
+		__set_bit(KEY_GESTURE_O, input_dev->keybit);
+		__set_bit(KEY_GESTURE_E, input_dev->keybit);
+		__set_bit(KEY_GESTURE_M, input_dev->keybit);
+		__set_bit(KEY_GESTURE_W, input_dev->keybit);
+		__set_bit(KEY_GESTURE_S, input_dev->keybit);
+		__set_bit(KEY_GESTURE_V, input_dev->keybit);
+		__set_bit(KEY_GESTURE_Z, input_dev->keybit);
+		__set_bit(KEY_GESTURE_C, input_dev->keybit);
+		return;
+	}
 
-    DBG_ERR("GESTURE: input dev is NULL \n");
+	DBG_ERR("GESTURE: input dev is NULL \n");
 }
+
 EXPORT_SYMBOL(core_gesture_init);

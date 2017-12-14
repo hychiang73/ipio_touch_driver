@@ -59,114 +59,113 @@
 #define P5_0_DEBUG_MODE_PACKET_LENGTH  	1280
 #define P5_0_TEST_MODE_PACKET_LENGTH  	1180
 
-struct protocol_cmd_list
-{
-    /* version of protocol */
-    uint8_t major;
-    uint8_t mid;
+struct protocol_cmd_list {
+	/* version of protocol */
+	uint8_t major;
+	uint8_t mid;
 	uint8_t minor;
 
-    /* Length of command */
-    int fw_ver_len;
-    int pro_ver_len;
-    int tp_info_len;
-    int key_info_len;
-    int core_ver_len;
-    int func_ctrl_len;
-    int window_len;
-    int cdc_len;
-    int cdc_raw_len;
+	/* Length of command */
+	int fw_ver_len;
+	int pro_ver_len;
+	int tp_info_len;
+	int key_info_len;
+	int core_ver_len;
+	int func_ctrl_len;
+	int window_len;
+	int cdc_len;
+	int cdc_raw_len;
 
-    /* TP information */
-    uint8_t cmd_read_ctrl;
-    uint8_t cmd_get_tp_info;
-    uint8_t cmd_get_key_info;
-    uint8_t cmd_get_fw_ver;
-    uint8_t cmd_get_pro_ver;
-    uint8_t cmd_get_core_ver;
-    uint8_t cmd_mode_ctrl;
-    uint8_t cmd_i2cuart;
-    uint8_t cmd_cdc_busy;
+	/* TP information */
+	uint8_t cmd_read_ctrl;
+	uint8_t cmd_get_tp_info;
+	uint8_t cmd_get_key_info;
+	uint8_t cmd_get_fw_ver;
+	uint8_t cmd_get_pro_ver;
+	uint8_t cmd_get_core_ver;
+	uint8_t cmd_mode_ctrl;
+	uint8_t cmd_i2cuart;
+	uint8_t cmd_cdc_busy;
 
-    /* Function control */
-    uint8_t sense_ctrl[3];
-    uint8_t sleep_ctrl[3];
-    uint8_t glove_ctrl[3];
-    uint8_t stylus_ctrl[3];
-    uint8_t tp_scan_mode[3];
-    uint8_t lpwg_ctrl[3];
-    uint8_t gesture_ctrl[3];
-    uint8_t phone_cover_ctrl[3];
-    uint8_t finger_sense_ctrl[3];
-    uint8_t proximity_ctrl[3];
-    uint8_t plug_ctrl[3];
-    uint8_t phone_cover_window[9];
+	/* Function control */
+	uint8_t sense_ctrl[3];
+	uint8_t sleep_ctrl[3];
+	uint8_t glove_ctrl[3];
+	uint8_t stylus_ctrl[3];
+	uint8_t tp_scan_mode[3];
+	uint8_t lpwg_ctrl[3];
+	uint8_t gesture_ctrl[3];
+	uint8_t phone_cover_ctrl[3];
+	uint8_t finger_sense_ctrl[3];
+	uint8_t proximity_ctrl[3];
+	uint8_t plug_ctrl[3];
+	uint8_t phone_cover_window[9];
 
-    /* firmware mode */
-    uint8_t unknow_mode;
-    uint8_t demo_mode;
-    uint8_t debug_mode;
-    uint8_t test_mode;
-    uint8_t i2cuart_mode;
+	/* firmware mode */
+	uint8_t unknow_mode;
+	uint8_t demo_mode;
+	uint8_t debug_mode;
+	uint8_t test_mode;
+	uint8_t i2cuart_mode;
 
-    /* Pakcet ID reported by FW */
-    uint8_t demo_pid;
-    uint8_t debug_pid;
-    uint8_t i2cuart_pid;
-    uint8_t test_pid;
-    uint8_t ges_pid;
+	/* Pakcet ID reported by FW */
+	uint8_t demo_pid;
+	uint8_t debug_pid;
+	uint8_t i2cuart_pid;
+	uint8_t test_pid;
+	uint8_t ges_pid;
 
-    /* Length of finger report */
-    int demo_len;
-    int debug_len;
-    int test_len;
+	/* Length of finger report */
+	int demo_len;
+	int debug_len;
+	int test_len;
 
-    /* MP Test with cdc commands*/
-    uint8_t cmd_cdc;
-    uint8_t cmd_get_cdc;
+	/* MP Test with cdc commands */
+	uint8_t cmd_cdc;
+	uint8_t cmd_get_cdc;
 
-    uint8_t cm_data;
-    uint8_t cs_data;
+	uint8_t cm_data;
+	uint8_t cs_data;
 
-    uint8_t rx_short;
-    uint8_t rx_open;
-    uint8_t tx_short;
+	uint8_t rx_short;
+	uint8_t rx_open;
+	uint8_t tx_short;
 
-    uint8_t mutual_dac;
-    uint8_t mutual_bg;
-    uint8_t mutual_signal;
-    uint8_t mutual_no_bk;
-    uint8_t mutual_bk_dac;
-    uint8_t mutual_has_bk;
+	uint8_t mutual_dac;
+	uint8_t mutual_bg;
+	uint8_t mutual_signal;
+	uint8_t mutual_no_bk;
+	uint8_t mutual_bk_dac;
+	uint8_t mutual_has_bk;
 
-    uint8_t self_dac;
-    uint8_t self_bk_dac;
-    uint8_t self_has_bk;
-    uint8_t self_no_bk;
-    uint8_t self_signal;
-    uint8_t self_bg;
+	uint8_t self_dac;
+	uint8_t self_bk_dac;
+	uint8_t self_has_bk;
+	uint8_t self_no_bk;
+	uint8_t self_signal;
+	uint8_t self_bg;
 
-    uint8_t key_dac;
-    uint8_t key_has_bk;
-    uint8_t key_bg;
-    uint8_t key_no_bk;
-    uint8_t key_open;
-    uint8_t key_short;
+	uint8_t key_dac;
+	uint8_t key_has_bk;
+	uint8_t key_bg;
+	uint8_t key_no_bk;
+	uint8_t key_open;
+	uint8_t key_short;
 
-    uint8_t st_no_bk;
-    uint8_t st_open;
-    uint8_t st_dac;
-    uint8_t st_has_bk;
-    uint8_t st_bg;
+	uint8_t st_no_bk;
+	uint8_t st_open;
+	uint8_t st_dac;
+	uint8_t st_has_bk;
+	uint8_t st_bg;
 
-    uint8_t tx_rx_delta;
+	uint8_t tx_rx_delta;
 
-    uint8_t trcrq_pin;
-    uint8_t resx2_pin;
-    uint8_t mutual_integra_time;
-    uint8_t self_integra_time;
-    uint8_t key_integra_time;
-    uint8_t st_integra_time;
+	uint8_t trcrq_pin;
+	uint8_t resx2_pin;
+	uint8_t mutual_integra_time;
+	uint8_t self_integra_time;
+	uint8_t key_integra_time;
+	uint8_t st_integra_time;
 };
 
 extern struct protocol_cmd_list *protocol;

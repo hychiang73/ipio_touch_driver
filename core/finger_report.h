@@ -25,8 +25,7 @@
 #ifndef __FINGER_REPORT_H
 #define __FINGER_REPORT_H
 
-struct core_fr_data
-{
+struct core_fr_data {
 	struct input_dev *input_device;
 
 	/* the default of finger report is enabled */
@@ -35,7 +34,7 @@ struct core_fr_data
 	bool isEnableNetlink;
 	/* allow input dev to report the value of physical touch */
 	bool isEnablePressure;
-	/* get screen resloution from fw if it's true*/
+	/* get screen resloution from fw if it's true */
 	bool isSetResolution;
 	/* used to change I2C Uart Mode when fw mode is in this mode */
 	uint8_t i2cuart_mode;
@@ -61,7 +60,7 @@ extern struct core_fr_data *core_fr;
 
 extern void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id);
 extern void core_fr_touch_release(int32_t x, int32_t y, int32_t id);
-extern void core_fr_mode_control(uint8_t *from_user);
+extern void core_fr_mode_control(uint8_t * from_user);
 extern void core_fr_handler(void);
 extern void core_fr_input_set_param(struct input_dev *input_device);
 extern int core_fr_init(struct i2c_client *);

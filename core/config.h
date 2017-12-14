@@ -25,8 +25,7 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-typedef struct
-{
+typedef struct {
 	int nId;
 	int nX;
 	int nY;
@@ -34,8 +33,7 @@ typedef struct
 	int nFlag;
 } VIRTUAL_KEYS;
 
-typedef struct
-{
+typedef struct {
 	uint16_t nMaxX;
 	uint16_t nMaxY;
 	uint16_t nMinX;
@@ -61,8 +59,7 @@ typedef struct
 
 } TP_INFO;
 
-struct core_config_data
-{
+struct core_config_data {
 	uint32_t chip_id;
 	uint32_t chip_type;
 
@@ -115,7 +112,7 @@ extern void core_config_phone_cover_ctrl(bool enable);
 extern void core_config_finger_sense_ctrl(bool enable);
 extern void core_config_proximity_ctrl(bool enable);
 extern void core_config_plug_ctrl(bool out);
-extern void core_config_set_phone_cover(uint8_t *pattern);
+extern void core_config_set_phone_cover(uint8_t * pattern);
 
 /* Touch IC information */
 extern int core_config_get_core_ver(void);
