@@ -80,7 +80,7 @@ struct protocol_cmd_list
     /* TP information */
     uint8_t cmd_read_ctrl;
     uint8_t cmd_get_tp_info;
-    uint8_t cmd_get_key_info;    
+    uint8_t cmd_get_key_info;
     uint8_t cmd_get_fw_ver;
     uint8_t cmd_get_pro_ver;
     uint8_t cmd_get_core_ver;
@@ -124,7 +124,7 @@ struct protocol_cmd_list
     /* MP Test with cdc commands*/
     uint8_t cmd_cdc;
     uint8_t cmd_get_cdc;
-    
+
     uint8_t cm_data;
     uint8_t cs_data;
 
@@ -137,16 +137,16 @@ struct protocol_cmd_list
     uint8_t mutual_signal;
     uint8_t mutual_no_bk;
     uint8_t mutual_bk_dac;
-    uint8_t mutual_has_bk; 
-    
+    uint8_t mutual_has_bk;
+
     uint8_t self_dac;
     uint8_t self_bk_dac;
     uint8_t self_has_bk;
     uint8_t self_no_bk;
     uint8_t self_signal;
     uint8_t self_bg;
-    
-    uint8_t key_dac; 
+
+    uint8_t key_dac;
     uint8_t key_has_bk;
     uint8_t key_bg;
     uint8_t key_no_bk;

@@ -70,7 +70,7 @@
 #ifdef CONFIG_FB
 #include <linux/notifier.h>
 #include <linux/fb.h>
-#else 
+#else
 #include <linux/earlysuspend.h>
 #endif
 
@@ -80,16 +80,16 @@
 /* Touch IC support */
 #define CHIP_TYPE_ILI7807	0x7807
 #define CHIP_TYPE_ILI9881	0x9881
-#define TP_TOUCH_IC		CHIP_TYPE_ILI9881	
+#define TP_TOUCH_IC		CHIP_TYPE_ILI9881
 
 /* Platform support */
-#define PT_RK	1 
+#define PT_RK	1
 #define PT_MTK	2
 #define PT_SPRD	3
 #define TP_PLATFORM PT_RK
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.1.2"
+#define DRIVER_VERSION	"1.0.1.3"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
@@ -184,8 +184,8 @@ extern uint32_t ipio_chip_list[2];
 #define BR_X_LOW	0
 #define BR_X_HIGH	100
 #define BR_Y_LOW	0
-#define BR_Y_HIGH	100	
- 
+#define BR_Y_HIGH	100
+
 /* How many numbers of touch are supported by IC. */
 #define MAX_TOUCH_NUM	10
 
@@ -193,7 +193,7 @@ extern uint32_t ipio_chip_list[2];
 #define MT_B_TYPE
 
 /* Enable the support of regulator power. */
-#define REGULATOR_POWER_ON 
+#define REGULATOR_POWER_ON
 
 /* Either an interrupt event handled by kthread or work queue. */
 #define USE_KTHREAD

@@ -241,7 +241,7 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
                     DUMP(DEBUG_MP_TEST," #%7d ",tmp[shift]);
                     tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
                 }
-                mp_result = -1;              
+                mp_result = -1;
             }
         }
 
@@ -1068,7 +1068,7 @@ static void mp_test_init_item(void)
             tItems[i].do_test = st_test;
     }
 
-    /* 
+    /*
      * assign protocol command written into firmware via I2C,
      * which might be differnet if the version of protocol was changed.
      */

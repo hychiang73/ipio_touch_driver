@@ -170,20 +170,20 @@ static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user *bu
 	return nCount;
 }
 
-static ssize_t ilitek_proc_debug_message_write(struct file *filp, const char *buff, size_t size, loff_t *pPos) 
+static ssize_t ilitek_proc_debug_message_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int ret = 0;
 	unsigned char buffer[512]={0};
 
 	/* check the buffer size whether it exceeds the local buffer size or not */
-	if (size > 512) 
+	if (size > 512)
 	{
 		DBG_ERR("buffer exceed 512 bytes \n");
 		size = 512;
 	}
 
 	ret = copy_from_user(buffer, buff, size-1);
-	if (ret < 0) 
+	if (ret < 0)
 	{
 		DBG_ERR("copy data from user space, failed");
 		return -1;
@@ -449,7 +449,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 {
 	int i, res = 0, count = 0;
 	char cmd[64] = {0};
-	char *token = NULL, *cur = NULL;	
+	char *token = NULL, *cur = NULL;
 	uint8_t *va = NULL;
 	uint8_t test_cmd[2] = {0};
 
@@ -479,7 +479,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	while((token = strsep(&cur, ",")) != NULL)
 	{
 		va[count] = katoi(token);
-		DBG_INFO("data[%d] = %x \n",count, va[count]);	
+		DBG_INFO("data[%d] = %x \n",count, va[count]);
 		count++;
 	}
 
@@ -488,7 +488,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	/* Switch to Test mode */
 	test_cmd[0] = 0x1;
 	core_fr_mode_control(test_cmd);
-	
+
 	ilitek_platform_disable_irq();
 
 	for(i = 0; i < core_mp->mp_items; i++)
@@ -706,7 +706,7 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 	uint32_t len = 0;
 
 	/*
-	 * If file position is non-zero,  we assume the string has been read 
+	 * If file position is non-zero,  we assume the string has been read
 	 * and indicates that there is no more data to be read.
 	 */
 	if (*pPos != 0)

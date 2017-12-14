@@ -46,7 +46,7 @@ struct ilitek_platform_data {
 	int int_gpio;
 	int reset_gpio;
 	int isr_gpio;
-	
+
 	int delay_time_high;
 	int delay_time_low;
 	int edge_delay;
