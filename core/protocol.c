@@ -84,7 +84,7 @@ static void insert_func(int key, int len, uint8_t *cmd, char *name)
     }
 
     hashArray[hashIndex] = func;
-    //DBG_INFO("hashArray[%d] = %p \n",hashIndex, hashArray[hashIndex]);
+    /* DBG_INFO("hashArray[%d] = %p \n",hashIndex, hashArray[hashIndex]); */
 }
 
 
@@ -164,11 +164,11 @@ static void config_protocol_v5_cmd(void)
         protocol->phone_cover_window[0] = 0xD;
 
         /* Non support on v5.0 */
-        // protocol->proximity_ctrl[0] = 0x10;
-        // protocol->proximity_ctrl[1] = 0x0;
+        /* protocol->proximity_ctrl[0] = 0x10; */
+        /* protocol->proximity_ctrl[1] = 0x0; */
 
-        // protocol->plug_ctrl[0] = 0x11;
-        // protocol->plug_ctrl[1] = 0x0;
+        /* protocol->plug_ctrl[0] = 0x11; */
+        /* protocol->plug_ctrl[1] = 0x0; */
     }
     else
     {

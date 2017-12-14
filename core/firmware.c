@@ -903,12 +903,12 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		nAddr = HexToDec(&pBuf[i + 3], 4);
 		nType = HexToDec(&pBuf[i + 7], 2);
 
-		// calculate checksum
+		/* calculate checksum */
 		for (j = 8; j < (2 + 4 + 2 + (nLength * 2)); j += 2)
 		{
 			if (nType == 0x00)
 			{
-				// for ice mode write method
+				/* for ice mode write method */
 				nChecksum = nChecksum + HexToDec(&pBuf[i + 1 + j], 2);
 			}
 		}
@@ -965,7 +965,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 				nEndAddr = nAddr + nLength;
 			}
 
-			// fill data
+			/* fill data */
 			for (j = 0, k = 0; j < (nLength * 2); j += 2, k++)
 			{
 				if (isIRAM)

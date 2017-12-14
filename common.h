@@ -199,15 +199,15 @@ extern uint32_t ipio_chip_list[2];
 #define USE_KTHREAD
 
 /* Enable DMA with I2C. */
-//#define I2C_DMA
+/* #define I2C_DMA */
 
 /* Split the length written to or read from IC via I2C. */
-//#define I2C_SEGMENT
+/* #define I2C_SEGMENT */
 
 /* Be able to upgrade fw at boot stage */
-//#define BOOT_FW_UPGRADE
+/* #define BOOT_FW_UPGRADE */
 
 /* Check battery's status in order to avoid some effects from charge. */
-//#define BATTERY_CHECK
+/* #define BATTERY_CHECK */
 
 #endif /* __COMMON_H */

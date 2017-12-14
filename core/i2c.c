@@ -82,7 +82,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     {
         {
             .addr = nSlaveId,
-            .flags = 0, // write flag.
+            .flags = 0, /* write flag. */
             .len = nSize,
             .buf = pBuf,
         },
@@ -131,7 +131,7 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
     {
         {
             .addr = nSlaveId,
-            .flags = I2C_M_RD, // read flag
+            .flags = I2C_M_RD, /* read flag */
             .len = nSize,
             .buf = pBuf,
         },
@@ -185,7 +185,7 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
             .addr = nSlaveId,
             .flags = I2C_M_RD,
             .len = nSize,
-//            .buf = pBuf,
+/* .buf = pBuf, */
         },
     };
 
@@ -237,7 +237,7 @@ int core_i2c_init(struct i2c_client *client)
     }
 
     core_i2c->client = client;
-    core_i2c->seg_len = 256; // length of segment
+    core_i2c->seg_len = 256; /* length of segment */
 
 #ifdef I2C_DMA
     if(dma_alloc(core_i2c->client) < 0)

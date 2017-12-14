@@ -603,7 +603,7 @@ EXPORT_SYMBOL(core_fr_mode_control);
 static uint16_t calc_packet_length(void)
 {
 	uint16_t xch = 0, ych = 0, stx = 0, srx = 0;
-	//FIXME: self_key not defined by firmware yet
+	/* FIXME: self_key not defined by firmware yet */
 	uint16_t self_key = 2;
 	uint16_t rlen = 0;
 

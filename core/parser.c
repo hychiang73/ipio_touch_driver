@@ -75,7 +75,7 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 	for(i=0, j=0; i<maxlen; j++) {
         ch1 = data[j];
 		iRetNum = j+1;
-		if(ch1 == '\n' || ch1 == '\r') //line end
+		if(ch1 == '\n' || ch1 == '\r') /* line end */
 		{
 			ch1 = data[j+1];
 			if(ch1 == '\n' || ch1 == '\r')
@@ -87,7 +87,7 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 		}else if(ch1 == 0x00)
 		{
 			iRetNum = -1;
-			break; //file end
+			break; /* file end */
 		}
 		else
 		{
@@ -106,7 +106,7 @@ static int get_ini_phy_data(char *data)
     char *ini_buf = NULL, *tmpSectionName = NULL;
     char M_CFG_SSL = '[';
     char M_CFG_SSR = ']';
-//    char M_CFG_NIS = ':';
+/* char M_CFG_NIS = ':'; */
     char M_CFG_NTS = '#';
     char M_CFG_EQS = '=';
 
@@ -204,7 +204,7 @@ static int get_ini_phy_data(char *data)
         ilitek_ini_file_data[_gINIItems].iKeyNameLen = isEqualSign;
 		if(PARSER_MAX_KEY_NAME_LEN < ilitek_ini_file_data[_gINIItems].iKeyNameLen)
 		{
-				//ret = CFG_ERR_OUT_OF_LEN;
+				/* ret = CFG_ERR_OUT_OF_LEN; */
                 DBG_ERR("MAX_KEY_NAME_LEN: Out Of Length\n");
                 res = INI_ERR_OUT_OF_LINE;
                 goto out;

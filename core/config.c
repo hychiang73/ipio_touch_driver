@@ -267,7 +267,7 @@ EXPORT_SYMBOL(core_config_sleep_ctrl);
 
 void core_config_glove_ctrl(bool enable, bool seamless)
 {
-	int cmd = 0x2; // default as semaless
+	int cmd = 0x2; /* default as semaless */
 
 	if(!seamless)
 	{
@@ -285,7 +285,7 @@ EXPORT_SYMBOL(core_config_glove_ctrl);
 
 void core_config_stylus_ctrl(bool enable, bool seamless)
 {
-	int cmd = 0x2; // default as semaless
+	int cmd = 0x2; /* default as semaless */
 
 	if(!seamless)
 	{

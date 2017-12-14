@@ -631,56 +631,56 @@ static void run_pixel_test(int index)
                 we have to minus is around 2 to 3.  */
             if(y == 0 && x == 0)
             {
-                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); // down
-                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); /* down */
+                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); /* right */
             }
             else if(y == (core_mp->ych_len - 1) && x == 0)
             {
-                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
-                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); /* up */
+                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); /* right */
             }
             else if(y == 0 && x == (core_mp->xch_len - 1))
             {
-                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); // down
-                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
+                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); /* down */
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); /* left */
             }
             else if(y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1) )
             {
-                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
-                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); /* up */
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); /* left */
             }
             else if (y == 0 && x != 0)
             {
-                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); // down
-                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
-                tmp[2] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+                tmp[0] = Mathabs(centre - p_comb[(shift+1)+x]); /* down */
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); /* left */
+                tmp[2] = Mathabs(centre - p_comb[shift+(x+1)]); /* right */
             }
             else if (y != 0 && x == 0)
             {
-                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
-                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); // right
-                tmp[2] = Mathabs(centre - p_comb[(shift+1)+x]); // down
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); /* up */
+                tmp[1] = Mathabs(centre - p_comb[shift+(x+1)]); /* right */
+                tmp[2] = Mathabs(centre - p_comb[(shift+1)+x]); /* down */
 
             }
             else if(y == (core_mp->ych_len - 1) && x != 0 )
             {
-                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
-                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
-                tmp[2] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); /* up */
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); /* left */
+                tmp[2] = Mathabs(centre - p_comb[shift+(x+1)]); /* right */
             }
             else if(y != 0 && x == (core_mp->xch_len - 1) )
             {
-                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
-                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); // left
-                tmp[2] = Mathabs(centre - p_comb[(shift+1)+x]); // down
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); /* up */
+                tmp[1] = Mathabs(centre - p_comb[shift+(x-1)]); /* left */
+                tmp[2] = Mathabs(centre - p_comb[(shift+1)+x]); /* down */
             }
             else
             {
                 /* middle minus four directions */
-                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); // up
-                tmp[1] = Mathabs(centre - p_comb[(shift+1)+x]); // down
-                tmp[2] = Mathabs(centre - p_comb[shift+(x-1)]); // left
-                tmp[3] = Mathabs(centre - p_comb[shift+(x+1)]); // right
+                tmp[0] = Mathabs(centre - p_comb[(shift-1)+x]); /* up */
+                tmp[1] = Mathabs(centre - p_comb[(shift+1)+x]); /* down */
+                tmp[2] = Mathabs(centre - p_comb[shift+(x-1)]); /* left */
+                tmp[3] = Mathabs(centre - p_comb[shift+(x+1)]); /* right */
             }
 
             max = tmp[0];
@@ -721,86 +721,86 @@ static int run_open_test(int index)
 
                 if(y == 0 && x == 0)
                 {
-                    tmp[0] = p_comb[(shift+1)+x]; // down
-                    tmp[1] = p_comb[shift+(x+1)]; // right
-                    tmp[2] = p_comb[(shift+1)+(x+1)]; // lower right
+                    tmp[0] = p_comb[(shift+1)+x]; /* down */
+                    tmp[1] = p_comb[shift+(x+1)]; /* right */
+                    tmp[2] = p_comb[(shift+1)+(x+1)]; /* lower right */
                     count = 3;
                 }
                 else if(y == (core_mp->ych_len - 1) && x == 0)
                 {
-                    tmp[0] = p_comb[(shift-1)+x]; // up
-                    tmp[1] = p_comb[shift+(x+1)]; // right
-                    tmp[2] = p_comb[(shift-1)+(x+1)]; // upper right
+                    tmp[0] = p_comb[(shift-1)+x]; /* up */
+                    tmp[1] = p_comb[shift+(x+1)]; /* right */
+                    tmp[2] = p_comb[(shift-1)+(x+1)]; /* upper right */
                     count = 3;
                 }
                 else if(y == 0 && x == (core_mp->xch_len - 1))
                 {
-                    tmp[0] = p_comb[(shift+1)+x]; // down
-                    tmp[1] = p_comb[shift+(x-1)]; // left
-                    tmp[2] = p_comb[(shift+1)+(x+1)]; // lower right
+                    tmp[0] = p_comb[(shift+1)+x]; /* down */
+                    tmp[1] = p_comb[shift+(x-1)]; /* left */
+                    tmp[2] = p_comb[(shift+1)+(x+1)]; /* lower right */
                     count = 3;
                 }
                 else if(y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1) )
                 {
-                    tmp[0] = p_comb[(shift-1)+x]; // up
-                    tmp[1] = p_comb[shift+(x-1)]; // left
-                    tmp[2] = p_comb[(shift-1)+(x-1)]; // upper left
+                    tmp[0] = p_comb[(shift-1)+x]; /* up */
+                    tmp[1] = p_comb[shift+(x-1)]; /* left */
+                    tmp[2] = p_comb[(shift-1)+(x-1)]; /* upper left */
                     count = 3;
                 }
                 else if (y == 0 && x != 0)
                 {
-                    tmp[0] = p_comb[(shift+1)+x]; // down
-                    tmp[1] = p_comb[shift+(x-1)]; // left
-                    tmp[2] = p_comb[shift+(x+1)]; // right
-                    tmp[3] = p_comb[(shift+1)+(x-1)]; // lower left
-                    tmp[4] = p_comb[(shift+1)+(x+1)]; // lower right
+                    tmp[0] = p_comb[(shift+1)+x]; /* down */
+                    tmp[1] = p_comb[shift+(x-1)]; /* left */
+                    tmp[2] = p_comb[shift+(x+1)]; /* right */
+                    tmp[3] = p_comb[(shift+1)+(x-1)]; /* lower left */
+                    tmp[4] = p_comb[(shift+1)+(x+1)]; /* lower right */
                     count = 5;
                 }
                 else if (y != 0 && x == 0)
                 {
-                    tmp[0] = p_comb[(shift-1)+x]; // up
-                    tmp[1] = p_comb[shift+(x+1)]; // right
-                    tmp[2] = p_comb[(shift+1)+x]; // down
-                    tmp[3] = p_comb[(shift-1)+(x+1)]; // upper right
-                    tmp[4] = p_comb[(shift+1)+(x+1)]; // lower right
+                    tmp[0] = p_comb[(shift-1)+x]; /* up */
+                    tmp[1] = p_comb[shift+(x+1)]; /* right */
+                    tmp[2] = p_comb[(shift+1)+x]; /* down */
+                    tmp[3] = p_comb[(shift-1)+(x+1)]; /* upper right */
+                    tmp[4] = p_comb[(shift+1)+(x+1)]; /* lower right */
 
                     count = 5;
                 }
                 else if(y == (core_mp->ych_len - 1) && x != 0 )
                 {
-                    tmp[0] = p_comb[(shift-1)+x]; // up
-                    tmp[1] = p_comb[shift+(x+1)]; // right
-                    tmp[2] = p_comb[shift+(x-1)]; // left
-                    tmp[3] = p_comb[(shift-1)+(x-1)]; // upper left
-                    tmp[4] = p_comb[(shift-1)+(x+1)]; // upper right
+                    tmp[0] = p_comb[(shift-1)+x]; /* up */
+                    tmp[1] = p_comb[shift+(x+1)]; /* right */
+                    tmp[2] = p_comb[shift+(x-1)]; /* left */
+                    tmp[3] = p_comb[(shift-1)+(x-1)]; /* upper left */
+                    tmp[4] = p_comb[(shift-1)+(x+1)]; /* upper right */
                     count = 5;
                 }
                 else if(y != 0 && x == (core_mp->xch_len - 1) )
                 {
-                    tmp[0] = p_comb[(shift-1)+x]; // up
-                    tmp[1] = p_comb[shift+(x-1)]; // left
-                    tmp[2] = p_comb[(shift+1)+x]; // down
-                    tmp[3] = p_comb[(shift-1)+(x-1)]; // upper left
-                    tmp[4] = p_comb[(shift+1)+(x-1)]; // lower left
+                    tmp[0] = p_comb[(shift-1)+x]; /* up */
+                    tmp[1] = p_comb[shift+(x-1)]; /* left */
+                    tmp[2] = p_comb[(shift+1)+x]; /* down */
+                    tmp[3] = p_comb[(shift-1)+(x-1)]; /* upper left */
+                    tmp[4] = p_comb[(shift+1)+(x-1)]; /* lower left */
                     count = 5;
                 }
                 else
                 {
-                    tmp[0] = p_comb[(shift-1)+x]; // up
-                    tmp[1] = p_comb[(shift-1)+(x-1)]; // upper left
-                    tmp[2] = p_comb[shift+(x-1)]; // left
-                    tmp[3] = p_comb[(shift+1)+(x-1)]; // lower left
-                    tmp[4] = p_comb[(shift+1)+x]; // down
-                    tmp[5] = p_comb[shift+(x+1)]; // right
-                    tmp[6] = p_comb[(shift-1)+(x+1)]; // upper right
-                    tmp[7] = p_comb[(shift+1)+(x+1)]; // lower right
+                    tmp[0] = p_comb[(shift-1)+x]; /* up */
+                    tmp[1] = p_comb[(shift-1)+(x-1)]; /* upper left */
+                    tmp[2] = p_comb[shift+(x-1)]; /* left */
+                    tmp[3] = p_comb[(shift+1)+(x-1)]; /* lower left */
+                    tmp[4] = p_comb[(shift+1)+x]; /* down */
+                    tmp[5] = p_comb[shift+(x+1)]; /* right */
+                    tmp[6] = p_comb[(shift-1)+(x+1)]; /* upper right */
+                    tmp[7] = p_comb[(shift+1)+(x+1)]; /* lower right */
                     count = 8;
                 }
 
                 for(i = 0; i < 8; i++)
                     sum += tmp[i];
 
-                avg = (sum+centre)/(count+1); // plus 1 becuase of centre
+                avg = (sum+centre)/(count+1); /* plus 1 becuase of centre */
                 tItems[index].buf[shift + x] = (centre * 100) / avg;
             }
         }
@@ -1346,8 +1346,8 @@ int core_mp_run_test(void)
         if(tItems[i].run)
         {
             DBG_INFO("Runing Test Item : %s \n", tItems[i].desp);
-            //if(tItems[i].do_test(i) < 0)
-            //    return -1;
+            /* if(tItems[i].do_test(i) < 0) */
+            /* return -1; */
             tItems[i].do_test(i);
         }
     }

@@ -258,7 +258,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 				need_read_data_len = data_count * one_data_bytes + 1 + 5;
 			}
 
-			send_data_len = 0;//ipd->debug_buf[0][1] - 2;
+			send_data_len = 0;/* ipd->debug_buf[0][1] - 2; */
 			need_read_data_len = 2040;
 			if (need_read_data_len <= 0)
 			{
@@ -318,7 +318,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 			DBG(DEBUG_FINGER_REPORT,"Read %d bytes(s) from %ld\n", count, p);
 		}
 	}
-	//DBG_ERR("send_data_len = %d\n", send_data_len);
+	/* DBG_ERR("send_data_len = %d\n", send_data_len); */
 	if (send_data_len <= 0 || send_data_len > 4096) {
 		DBG_ERR("send_data_len = %d set 2048\n", send_data_len);
 		send_data_len = 4096;
@@ -351,7 +351,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 		mp_ini[i] = (char *)kmalloc(256 * sizeof(char), GFP_KERNEL);
 
 	/* listing test items which are all corrensponding with INI section name */
-	//sprintf(mp_ini[0], "FW Ver. Check");
+	/* sprintf(mp_ini[0], "FW Ver. Check"); */
 	sprintf(mp_ini[0], "Untouch Calibration Data(DAC) - Mutual");
 	sprintf(mp_ini[1], "Untouch Signal Data(BG-Raw-4096) - Mutual");
 	sprintf(mp_ini[2], "Untouch Raw Data(Have BK) - Mutual");
@@ -364,11 +364,11 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	sprintf(mp_ini[9], "Pixel Raw (Have BK)");
 	sprintf(mp_ini[10], "Untouch Peak to Peak");
 	sprintf(mp_ini[11], "Tx/Rx Delta");
-	// sprintf(mp_ini[12], "Key Raw Open Test");
-	// sprintf(mp_ini[13], "Key Raw Short Test");
-	// sprintf(mp_ini[14], "Key Raw Data");
-	// sprintf(mp_ini[15], "Key Raw BK DAC");
-	// sprintf(mp_ini[16], "Key Baseline Data");
+	/* sprintf(mp_ini[12], "Key Raw Open Test"); */
+	/* sprintf(mp_ini[13], "Key Raw Short Test"); */
+	/* sprintf(mp_ini[14], "Key Raw Data"); */
+	/* sprintf(mp_ini[15], "Key Raw BK DAC"); */
+	/* sprintf(mp_ini[16], "Key Baseline Data"); */
 
 	if(core_parser_path(INI_NAME_PATH) < 0)
 	{
@@ -789,7 +789,7 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 
 	if (res < 0)
 	{
-		// return the status to user space even if any error occurs.
+		/* return the status to user space even if any error occurs. */
 		core_firmware->update_status = res;
 		DBG_ERR("Failed to upgrade firwmare by IRAM, res = %d\n", res);
 	}
@@ -803,7 +803,7 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 	return len;
 }
 
-// for debug
+/* for debug */
 static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
@@ -825,7 +825,7 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 
 	DBG_INFO("size = %d, cmd = %d", (int)size, cmd[0]);
 
-	// test
+	/* test */
 	if(cmd[0] == 0x1)
 	{
 		DBG_INFO("HW Reset\n");
@@ -852,7 +852,7 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 	return len;
 }
 
-// for debug
+/* for debug */
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0, count = 0, i;
@@ -882,7 +882,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	while((token = strsep(&cur, ",")) != NULL)
 	{
 		data[count] = str2hex(token);
-		//DBG_INFO("data[%d] = %x",count, data[count]);
+		/* DBG_INFO("data[%d] = %x",count, data[count]); */
 		count++;
 	}
 
@@ -1425,7 +1425,7 @@ void netlink_reply_msg(void *raw, int size)
 		_gNetLinkHead = nlmsg_put(_gSkbOut, 0, 0, NLMSG_DONE, msg_size, 0);
 		NETLINK_CB(_gSkbOut).dst_group = 0; /* not in mcast group */
 
-		//strncpy(NLMSG_DATA(_gNetLinkHead), data, msg_size);
+		/* strncpy(NLMSG_DATA(_gNetLinkHead), data, msg_size); */
 		memcpy(nlmsg_data(_gNetLinkHead), data, msg_size);
 
 		res = nlmsg_unicast(_gNetLinkSkb, _gSkbOut, _gPID);
