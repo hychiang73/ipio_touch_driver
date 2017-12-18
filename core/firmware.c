@@ -582,7 +582,6 @@ static int tddi_fw_upgrade(bool isIRAM)
 		DBG_INFO("Data Correct !\n");
 
 out:
-	core_flash_enable_protect(true);
 	core_config_ice_mode_disable();
 	return res;
 }
