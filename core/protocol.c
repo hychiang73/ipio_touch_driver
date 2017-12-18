@@ -60,7 +60,7 @@ static struct DataItem *search_func(int key)
 	return NULL;
 }
 
-static void insert_func(int key, int len, uint8_t * cmd, char *name)
+static void insert_func(int key, int len, uint8_t *cmd, char *name)
 {
 	int i, hashIndex;
 	struct DataItem *func = kmalloc(sizeof(struct DataItem), GFP_KERNEL);
@@ -69,7 +69,7 @@ static void insert_func(int key, int len, uint8_t * cmd, char *name)
 	func->name = name;
 	func->len = len;
 
-	func->cmd = kmalloc(sizeof(uint8_t) * len, GFP_KERNEL);
+	func->cmd = kcalloc(len, sizeof(uint8_t), GFP_KERNEL);
 	for (i = 0; i < len; i++)
 		func->cmd[i] = cmd[i];
 
@@ -81,7 +81,6 @@ static void insert_func(int key, int len, uint8_t * cmd, char *name)
 	}
 
 	hashArray[hashIndex] = func;
-	/* DBG_INFO("hashArray[%d] = %p \n",hashIndex, hashArray[hashIndex]); */
 }
 
 static void free_func_hash(void)
@@ -235,7 +234,7 @@ static void config_protocol_v5_cmd(void)
 	protocol->cmd_i2cuart = P5_0_I2C_UART;
 
 	/* The commands about the packets of finger report from FW */
-	protocol->unknow_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
+	protocol->unknown_mode = P5_0_FIRMWARE_UNKNOWN_MODE;
 	protocol->demo_mode = P5_0_FIRMWARE_DEMO_MODE;
 	protocol->debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
 	protocol->test_mode = P5_0_FIRMWARE_TEST_MODE;
@@ -315,9 +314,8 @@ void core_protocol_func_control(int key, int ctrl)
 		return;
 	}
 
-	DBG_INFO("Can't find any main functions \n");
+	DBG_INFO("Can't find any main functions\n");
 }
-
 EXPORT_SYMBOL(core_protocol_func_control);
 
 int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
@@ -354,7 +352,6 @@ int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
 	DBG_ERR("Doesn't support this version of protocol\n");
 	return -1;
 }
-
 EXPORT_SYMBOL(core_protocol_update_ver);
 
 int core_protocol_init(void)
@@ -372,7 +369,6 @@ int core_protocol_init(void)
 	core_protocol_update_ver(PROTOCOL_MAJOR, PROTOCOL_MID, PROTOCOL_MINOR);
 	return 0;
 }
-
 EXPORT_SYMBOL(core_protocol_init);
 
 void core_protocol_remove(void)
@@ -386,5 +382,4 @@ void core_protocol_remove(void)
 
 	free_func_hash();
 }
-
 EXPORT_SYMBOL(core_protocol_remove);

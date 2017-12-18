@@ -97,11 +97,11 @@
 #define PROTOCOL_MINOR		0x0
 
 /* Normal debug messages */
-#define DBG_INFO(fmt, arg...) \
-			pr_info("ILITEK: (%s, %d): " fmt , __func__, __LINE__, ##arg);
+#define DBG_INFO(fmt, arg...)	\
+	pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);
 
-#define DBG_ERR(fmt, arg...) \
-			pr_err("ILITEK: (%s, %d): " fmt , __func__, __LINE__, ##arg);
+#define DBG_ERR(fmt, arg...)	\
+	pr_err("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);
 
 /* Detailed debug messages */
 #ifdef BIT
@@ -125,18 +125,18 @@ enum {
 	DEBUG_ALL = ~0,
 };
 
-#define DBG(level, fmt, arg...) \
-			do { \
-				if (level & ipio_debug_level) \
-				pr_info( "ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg); \
-			} while (0)
+#define DBG(level, fmt, arg...)											\
+	do {																\
+		if (level & ipio_debug_level)									\
+		pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
+	} while (0)
 
 /* Distributed to all core functions */
 extern uint32_t ipio_debug_level;
 extern uint32_t ipio_chip_list[2];
 
 /* Macros */
-#define CHECK_EQUAL(X,Y) ((X==Y) ? 0 : -1 )
+#define CHECK_EQUAL(X, Y) ((X == Y) ? 0 : -1)
 #define ERR_ALLOC_MEM(X)	((IS_ERR(X) || X == NULL) ? 1 : 0)
 #define USEC	1
 #define MSEC	(USEC * 1000)

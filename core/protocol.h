@@ -55,9 +55,9 @@
 #define P5_0_GESTURE_PACKET_ID	        0xAA
 #define P5_0_I2CUART_PACKET_ID	        0x7A
 
-#define P5_0_DEMO_MODE_PACKET_LENGTH  	43
-#define P5_0_DEBUG_MODE_PACKET_LENGTH  	1280
-#define P5_0_TEST_MODE_PACKET_LENGTH  	1180
+#define P5_0_DEMO_MODE_PACKET_LENGTH	43
+#define P5_0_DEBUG_MODE_PACKET_LENGTH	1280
+#define P5_0_TEST_MODE_PACKET_LENGTH	1180
 
 struct protocol_cmd_list {
 	/* version of protocol */
@@ -102,7 +102,7 @@ struct protocol_cmd_list {
 	uint8_t phone_cover_window[9];
 
 	/* firmware mode */
-	uint8_t unknow_mode;
+	uint8_t unknown_mode;
 	uint8_t demo_mode;
 	uint8_t debug_mode;
 	uint8_t test_mode;

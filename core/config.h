@@ -112,7 +112,7 @@ extern void core_config_phone_cover_ctrl(bool enable);
 extern void core_config_finger_sense_ctrl(bool enable);
 extern void core_config_proximity_ctrl(bool enable);
 extern void core_config_plug_ctrl(bool out);
-extern void core_config_set_phone_cover(uint8_t * pattern);
+extern void core_config_set_phone_cover(uint8_t *pattern);
 
 /* Touch IC information */
 extern int core_config_get_core_ver(void);

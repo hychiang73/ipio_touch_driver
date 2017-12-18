@@ -41,7 +41,7 @@ core_config->isEnableGesture = false;
 
 ## Check battery status
 
-Some specific cases with power charge may affect on our TDDI IC so that we need to protect it if the event is occuring.
+Some specific cases with power charge may affect on our TDDI IC so that we need to protect it if the event is occurring.
 
 In order to enable this function, the first you need to do is to enable its macro at **common.h**
 
@@ -67,7 +67,7 @@ ipd->isEnablePollCheckPower = true;
 
 If your platform needs to use DMA with I2C, you can open its macro from **common.h** :
 ```
-#define ENABLE_DMA 
+#define ENABLE_DMA
 ```
 Note, it is disabled as default.
 
@@ -121,7 +121,7 @@ To do so, you must firstlly ensure that the version of image is compiled for the
 
 It is important to see more details with debug messages if an error happends somehow. To look up them, you can set up debug level via a node called debug_level under /proc.
 
-At the begining, you should read its node by cat to see what the levels you can choose for.
+At the beginning, you should read its node by cat to see what the levels you can choose for.
 
 ```
 cat /proc/ilitek/debug_level
@@ -145,7 +145,7 @@ The default level is zero once you get the driver at the first time. Let's say t
 echo 4 > /proc/ilitek/debug_level
 ```
 
-The result will only print the debug message with the process of firmware. Futhermore, you can also add two or three numbers to see multiple debug levels.
+The result will only print the debug message with the process of firmware. Furthermore, you can also add two or three numbers to see multiple debug levels.
 
 ```
 echo 7 > /proc/ilitek/debug_level
@@ -182,10 +182,10 @@ In this case the function is Write, the length is 3, and the i2c command is 0x40
 Additionly, we offer a useful feature to do Write/Read at once: Delay time. In this function it will do Write first and then delay a certain time before reading data through I2C. Note that the default of delay time is 1ms
 
 ```
-# echo i2c_w_r, <length of wirte>, <length of read>, <delay time>, <data>
+# echo i2c_w_r, <length of write>, <length of read>, <delay time>, <data>
 ```
 
-# File sturcture
+# File structure
 
 ```
 ├── common.h
@@ -217,7 +217,7 @@ to write your own platform c file (like copy it to platform_mtk.c and modify gpi
 
 * If you want to create more nodes on the device driver for user space, just refer to **userspace.c**.
 
-* In **common.h** file where has a lots of definations about IC's addres and protocol commands on firmware.
+* In **common.h** file where has a lots of definations about IC's address and protocol commands on firmware.
 
 * The directory **Core** includes our touch ic settings, functions and other features.
 
@@ -233,7 +233,7 @@ To find a macro called *ON_BOARD_IC* in **chip.h** and chose one of them:
 //#define ON_BOARD_IC		0x9881
 ```
  In this case the driver now supports ILI7807.
- 
+
 ## Check your DTS file and i2c bus number
 
 The DTS file with RK3288 development platform locates at **arch/arm/boot/dts/firefly-rk3288.dts**.
@@ -271,9 +271,9 @@ static struct of_device_id tp_match_table[] = {
     {},
 };
 ```
-Change it according to your DTS file. 
+Change the name according to your DTS file.
 
-The next we should modify is the name of gpios. Find out the two macros and chang it.
+The next we should modify is the name of gpios. Find out the two macros and change it.
 
 ```
 #define DTS_INT_GPIO	"touch,irq-gpio"
@@ -312,7 +312,7 @@ static int ilitek_platform_gpio(void)
 
 * V1.0.1.1
  * Add i2c segmental read.
- * Redesign protcol structure. The protocol now became single moudle to have its own c file.
+ * Redesign protocol structure. The protocol now became single moudle to have its own c file.
  * Define macros to enable some common functions.
  * Enable IRQ before handling the event triggered by fw.
  * Add block tag at boot upgrade and reserved block for customers.
@@ -348,7 +348,7 @@ static int ilitek_platform_gpio(void)
   * Added a flag to enable if resolution is set by default or fw
   * support the length of i2cuart and send to users with one package
   * i2c error is no long showing up if doing ic reset
-  * Added a feature to check battery status 
+  * Added a feature to check battery status
   * fixed the error while programming fw (garbage data left)
 
 * V1.0.0.6
@@ -359,7 +359,7 @@ static int ilitek_platform_gpio(void)
   * Fix the error of checksum with finger report
   * Add flash table in order to get flash information dynamatically.
   * fix the error crc to calculate length instead of address.
-  * Optimise the calculation of fw upgrade 
+  * Optimise the calculation of fw upgrade
   * Remove ILI2121 from support list
   * Remove the old method of fw upgrade
   * Add the delay of 1ms after sending 0xF6 command

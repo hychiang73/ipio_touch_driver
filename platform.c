@@ -66,7 +66,7 @@ static int kthread_handler(void *arg);
 #endif
 
 #ifdef BATTERY_CHECK
-static void read_power_status(uint8_t * buf);
+static void read_power_status(uint8_t *buf);
 static void ilitek_platform_vpower_notify(struct work_struct *pWork);
 #endif
 
@@ -107,7 +107,7 @@ void ilitek_platform_disable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	DBG(DEBUG_IRQ, "IRQ = %d", ipd->isEnableIRQ);
+	DBG(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
 
@@ -123,7 +123,6 @@ void ilitek_platform_disable_irq(void)
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 }
-
 EXPORT_SYMBOL(ilitek_platform_disable_irq);
 
 void ilitek_platform_enable_irq(void)
@@ -146,12 +145,11 @@ void ilitek_platform_enable_irq(void)
 
 	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
 }
-
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
 void ilitek_platform_tp_hw_reset(bool isEnable)
 {
-	DBG_INFO("HW Reset: %d \n", isEnable);
+	DBG_INFO("HW Reset: %d\n", isEnable);
 
 	if (isEnable) {
 #if (TP_PLATFORM == PT_MTK)
@@ -177,13 +175,13 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 #endif /* PT_MTK */
 	}
 }
-
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
 
 #ifdef REGULATOR_POWER_ON
 void ilitek_regulator_power_on(bool status)
 {
 	int res = 0;
+
 	DBG_INFO("%s\n", status ? "POWER ON" : "POWER OFF");
 
 	if (status) {
@@ -211,9 +209,7 @@ void ilitek_regulator_power_on(bool status)
 	}
 
 	mdelay(5);
-	return;
 }
-
 EXPORT_SYMBOL(ilitek_regulator_power_on);
 #endif /* REGULATOR_POWER_ON */
 
@@ -231,7 +227,7 @@ static int kthread_handler(void *arg)
 #ifdef BOOT_FW_UPGRADE
 		res = core_firmware_boot_upgrade();
 		if (res < 0)
-			DBG_ERR("Failed to upgrade FW at boot stage \n");
+			DBG_ERR("Failed to upgrade FW at boot stage\n");
 #endif
 
 		ilitek_platform_enable_irq();
@@ -256,14 +252,14 @@ static int kthread_handler(void *arg)
 			core_fr_handler();
 		}
 	} else {
-		DBG_ERR("Unknown EVENT \n");
+		DBG_ERR("Unknown EVENT\n");
 	}
 
 	return res;
 }
 
 #ifdef BATTERY_CHECK
-static void read_power_status(uint8_t * buf)
+static void read_power_status(uint8_t *buf)
 {
 	struct file *f = NULL;
 	mm_segment_t old_fs;
@@ -306,15 +302,13 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 	} else {
 		if (charge_mode != 2) {
 			DBG(DEBUG_BATTERY, "Not charging mode\n");
-			core_config_plug_ctrl(true);;
+			core_config_plug_ctrl(true);
 			charge_mode = 2;
 		}
 	}
 
 	if (ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
-
-	return;
 }
 #endif
 
@@ -360,7 +354,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned lon
 
 	/*
 	 *  FB_EVENT_BLANK(0x09): A hardware display blank change occurred.
-	 *  FB_EARLY_EVENT_BLANK(0x10): A hardware display blank early change occured.
+	 *  FB_EARLY_EVENT_BLANK(0x10): A hardware display blank early change occurred.
 	 */
 	if (evdata && evdata->data && (event == FB_EVENT_BLANK || event == FB_EARLY_EVENT_BLANK)) {
 		blank = evdata->data;
@@ -389,7 +383,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned lon
 		else if (*blank == FB_BLANK_UNBLANK || *blank == FB_BLANK_NORMAL)
 #endif /* PT_SPRD */
 		{
-			DBG_INFO("TP Resuem");
+			DBG_INFO("TP Resuem\n");
 
 			if (!core_firmware->isUpgrading) {
 				core_config_ic_resume();
@@ -481,7 +475,7 @@ static int ilitek_platform_reg_suspend(void)
 	int res = 0;
 
 #if (TP_PLATFORM == PT_MTK)
-	DBG_INFO("It does nothing if platform is MTK \n");
+	DBG_INFO("It does nothing if platform is MTK\n");
 #else
 	DBG_INFO("Register suspend/resume callback function\n");
 #ifdef CONFIG_FB
@@ -664,6 +658,7 @@ static int ilitek_platform_input_init(void)
 
 #if (TP_PLATFORM == PT_MTK)
 	int i;
+
 	ipd->input_device = tpd->dev;
 
 	if (tpd_dts_data.use_tpd_button) {
@@ -731,7 +726,7 @@ static void ilitek_platform_core_remove(void)
  */
 static int ilitek_platform_core_init(void)
 {
-	DBG_INFO("Initialise core's components \n");
+	DBG_INFO("Initialise core's components\n");
 
 	if (core_config_init() < 0 || core_protocol_init() < 0 ||
 	    core_i2c_init(ipd->client) < 0 || core_firmware_init() < 0 || core_fr_init(ipd->client) < 0) {
@@ -813,7 +808,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	}
 
 	/* Set i2c slave addr if it's not configured */
-	DBG_INFO("I2C Slave address = 0x%x \n", client->addr);
+	DBG_INFO("I2C Slave address = 0x%x\n", client->addr);
 	if (client->addr != ILI7807_SLAVE_ADDR || client->addr != ILI9881_SLAVE_ADDR) {
 		client->addr = ILI9881_SLAVE_ADDR;
 		DBG_ERR("I2C Slave addr doesn't be set up, use default : 0x%x\n", client->addr);
@@ -834,8 +829,8 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ipd->vpower_reg_nb = false;
 
 	DBG_INFO("Driver Version : %s\n", DRIVER_VERSION);
-	DBG_INFO("Driver for Touch IC :  %x \n", TP_TOUCH_IC);
-	DBG_INFO("Driver on platform :  %x \n", TP_PLATFORM);
+	DBG_INFO("Driver for Touch IC :  %x\n", TP_TOUCH_IC);
+	DBG_INFO("Driver on platform :  %x\n", TP_PLATFORM);
 
 	/*
 	 * Different ICs may require different delay time for the reset.
@@ -904,7 +899,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 
 	/* get our tp ic information */
 	if (ilitek_platform_read_tp_info() < 0)
-		DBG_ERR("Failed to get TP info \n");
+		DBG_ERR("Failed to get TP info\n");
 
 	/* If it defines boot upgrade, input register will be done at boot function. */
 #ifndef BOOT_FW_UPGRADE
@@ -916,7 +911,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		DBG_ERR("Failed to register ISR\n");
 
 	/*
-	 * To make sure our ic runing well before the work,
+	 * To make sure our ic running well before the work,
 	 * pulling RESET pin as low/high once after read TP info.
 	 */
 	ilitek_platform_tp_hw_reset(true);
@@ -1023,7 +1018,7 @@ static int __init ilitek_platform_init(void)
 {
 	int res = 0;
 
-	DBG_INFO("TP driver init \n");
+	DBG_INFO("TP driver init\n");
 
 #if (TP_PLATFORM == PT_MTK)
 	tpd_get_dts_info();

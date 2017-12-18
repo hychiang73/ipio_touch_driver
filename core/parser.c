@@ -83,12 +83,12 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 		} else if (ch1 == 0x00) {
 			iRetNum = -1;
 			break;	/* file end */
-		} else {
-			buffer[i++] = ch1;
 		}
+		
+		buffer[i++] = ch1;
 	}
-	buffer[i] = '\0';
 
+	buffer[i] = '\0';
 	return iRetNum;
 }
 
@@ -125,7 +125,7 @@ static int get_ini_phy_data(char *data)
 
 	while (true) {
 		if (_gINIItems > PARSER_MAX_KEY_NUM) {
-			DBG_ERR("MAX_KEY_NUM: Out of length \n");
+			DBG_ERR("MAX_KEY_NUM: Out of length\n");
 			goto out;
 		}
 
@@ -145,13 +145,13 @@ static int get_ini_phy_data(char *data)
 
 		/* Get section names */
 		if (n > 2 && ((ini_buf[0] == M_CFG_SSL && ini_buf[n - 1] != M_CFG_SSR))) {
-			DBG_ERR("Bad Section: %s \n", ini_buf);
+			DBG_ERR("Bad Section: %s\n", ini_buf);
 			res = -EINVAL;
 			goto out;
 		} else {
 			if (ini_buf[0] == M_CFG_SSL) {
 				ilitek_ini_file_data[_gINIItems].iSectionNameLen = n - 2;
-				if (PARSER_MAX_KEY_NAME_LEN < ilitek_ini_file_data[_gINIItems].iSectionNameLen) {
+				if (ilitek_ini_file_data[_gINIItems].iSectionNameLen > PARSER_MAX_KEY_NAME_LEN) {
 					DBG_ERR("MAX_KEY_NAME_LEN: Out Of Length\n");
 					res = INI_ERR_OUT_OF_LINE;
 					goto out;
@@ -159,7 +159,7 @@ static int get_ini_phy_data(char *data)
 
 				ini_buf[n - 1] = 0x00;
 				strcpy((char *)tmpSectionName, ini_buf + 1);
-				DBG(DEBUG_PARSER, "Section Name: %s, Len: %d \n", tmpSectionName, n - 2);
+				DBG(DEBUG_PARSER, "Section Name: %s, Len: %d\n", tmpSectionName, n - 2);
 				continue;
 			}
 		}
@@ -176,12 +176,12 @@ static int get_ini_phy_data(char *data)
 			}
 		}
 
-		if (0 == isEqualSign)
+		if (isEqualSign == 0)
 			continue;
 
 		/* Get Key names */
 		ilitek_ini_file_data[_gINIItems].iKeyNameLen = isEqualSign;
-		if (PARSER_MAX_KEY_NAME_LEN < ilitek_ini_file_data[_gINIItems].iKeyNameLen) {
+		if (ilitek_ini_file_data[_gINIItems].iKeyNameLen > PARSER_MAX_KEY_NAME_LEN) {
 			/* ret = CFG_ERR_OUT_OF_LEN; */
 			DBG_ERR("MAX_KEY_NAME_LEN: Out Of Length\n");
 			res = INI_ERR_OUT_OF_LINE;
@@ -193,7 +193,7 @@ static int get_ini_phy_data(char *data)
 
 		/* Get a value assigned to a key */
 		ilitek_ini_file_data[_gINIItems].iKeyValueLen = n - isEqualSign - 1;
-		if (PARSER_MAX_KEY_VALUE_LEN < ilitek_ini_file_data[_gINIItems].iKeyValueLen) {
+		if (ilitek_ini_file_data[_gINIItems].iKeyValueLen > PARSER_MAX_KEY_VALUE_LEN) {
 			DBG_ERR("MAX_KEY_VALUE_LEN: Out Of Length\n");
 			res = INI_ERR_OUT_OF_LINE;
 			goto out;
@@ -202,7 +202,7 @@ static int get_ini_phy_data(char *data)
 		memcpy(ilitek_ini_file_data[_gINIItems].pKeyValue,
 		       ini_buf + isEqualSign + 1, ilitek_ini_file_data[_gINIItems].iKeyValueLen);
 
-		DBG(DEBUG_PARSER, "%s = %s \n", ilitek_ini_file_data[_gINIItems].pKeyName,
+		DBG(DEBUG_PARSER, "%s = %s\n", ilitek_ini_file_data[_gINIItems].pKeyName,
 		    ilitek_ini_file_data[_gINIItems].pKeyValue);
 
 		_gINIItems++;
@@ -250,7 +250,7 @@ static int get_ini_key_value(char *section, char *key, char *value)
 
 		if (strcmp(key, ilitek_ini_file_data[i].pKeyName) == 0) {
 			memcpy(value, ilitek_ini_file_data[i].pKeyValue, ilitek_ini_file_data[i].iKeyValueLen);
-			DBG(DEBUG_PARSER, " value:%s , pKeyValue: %s \n", value, ilitek_ini_file_data[i].pKeyValue);
+			DBG(DEBUG_PARSER, " value:%s , pKeyValue: %s\n", value, ilitek_ini_file_data[i].pKeyValue);
 			ret = 0;
 			break;
 		}
@@ -280,12 +280,11 @@ int core_parser_get_int_data(char *section, char *keyname, char *rv)
 	if (get_ini_key_value(section, keyname, value) < 0) {
 		sprintf(rv, "%s", value);
 		return 0;
-	} else {
-		len = sprintf(rv, "%s", value);
-		return len;
 	}
-}
 
+	len = sprintf(rv, "%s", value);
+	return len;
+}
 EXPORT_SYMBOL(core_parser_get_int_data);
 
 int core_parser_path(char *path)
@@ -297,28 +296,29 @@ int core_parser_path(char *path)
 	mm_segment_t old_fs;
 	loff_t pos = 0;
 
-	DBG_INFO("path = %s \n", path);
+	DBG_INFO("path = %s\n", path);
 	f = filp_open(path, O_RDONLY, 0);
 	if (ERR_ALLOC_MEM(f)) {
 		DBG_ERR("Failed to open the file at %ld.\n", PTR_ERR(f));
 		res = -ENOENT;
 		return res;
 	}
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(3, 18, 0)
+
+#if KERNEL_VERSION(3, 18, 0) >= LINUX_VERSION_CODE
 	inode = f->f_dentry->d_inode;
 #else
 	inode = f->f_path.dentry->d_inode;
 #endif
 
 	fsize = inode->i_size;
-	DBG_INFO("fsize = %d", fsize);
+	DBG_INFO("fsize = %d\n", fsize);
 	if (fsize <= 0) {
 		DBG_ERR("The size of file is invaild\n");
 		res = -EINVAL;
 		goto out;
 	}
 
-	tmp = kzalloc(fsize * sizeof(char), GFP_KERNEL);
+	tmp = kcalloc(fsize, sizeof(char), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tmp)) {
 		DBG_ERR("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
 		res = -ENOMEM;
@@ -335,15 +335,14 @@ int core_parser_path(char *path)
 
 	res = get_ini_phy_data(tmp);
 	if (res < 0) {
-		DBG_ERR("Failed to get physical ini data, res = %d", res);
+		DBG_ERR("Failed to get physical ini data, res = %d\n", res);
 		goto out;
 	}
 
-	DBG_INFO("Parsing INI file doen \n");
+	DBG_INFO("Parsing INI file doen\n");
 
 out:
 	kfree(tmp);
 	return res;
 }
-
 EXPORT_SYMBOL(core_parser_path);

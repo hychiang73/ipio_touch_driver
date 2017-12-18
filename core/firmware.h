@@ -44,7 +44,7 @@ struct core_firmware_data {
 	bool isboot;
 	bool hasBlockInfo;
 
-	int (*upgrade_func) (bool isIRAM);
+	int (*upgrade_func)(bool isIRAM);
 };
 
 extern struct core_firmware_data *core_firmware;

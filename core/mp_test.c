@@ -42,23 +42,23 @@
 #define EXEC_WRITE 1
 #define CSV_FILE_SIZE   (400 * 1024)
 
-#define Mathabs(x) ({					\
-    long ret;					        \
-    if (sizeof(x) == sizeof(long)) {	\
-        long __x = (x);				    \
-        ret = (__x < 0) ? -__x : __x;	\
-    } else {					        \
-        int __x = (x);				    \
-        ret = (__x < 0) ? -__x : __x;	\
-    }						            \
-    ret;						        \
-})
+#define Mathabs(x) ({						\
+		long ret;							\
+		if (sizeof(x) == sizeof(long)) {	\
+		long __x = (x);						\
+		ret = (__x < 0) ? -__x : __x;		\
+		} else {							\
+		int __x = (x);						\
+		ret = (__x < 0) ? -__x : __x;		\
+		}									\
+		ret;								\
+	})
 
-#define DUMP(level, fmt, arg...) \
-do { \
-    if (level & ipio_debug_level) \
-        printk( fmt, ##arg); \
-} while (0)
+#define DUMP(level, fmt, arg...)		\
+	do {								\
+		if(level & ipio_debug_level)	\
+		printk(fmt, ##arg);				\
+	} while (0)
 
 enum mp_test_catalog {
 	MUTUAL_TEST = 0,
@@ -143,7 +143,7 @@ static void dump_data(void *data, int type, int len)
 			return;
 		}
 
-		printk("\n  Original Data: \n");
+		printk("\n  Original Data:\n");
 
 		if (type == 8)
 			p8 = (uint8_t *) data;
@@ -249,61 +249,40 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
 static int create_mp_test_frame_buffer(int index)
 {
 	if (tItems[index].catalog == TX_RX_DELTA) {
-		/*
-		 * Because tx/rx have their own buffer to store data speparately, I allocate both buffers
-		 *  in outside instead of creating it in their strcture.
-		 */
-		core_mp->tx_delta_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(core_mp->tx_delta_buf)) {
-			DBG_ERR("Failed to allocate TX Delta buffer, %ld\n", PTR_ERR(core_mp->tx_delta_buf));
+
+		core_mp->tx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		core_mp->rx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+
+		core_mp->tx_max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		core_mp->tx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+
+		core_mp->rx_max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		core_mp->rx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+
+		if (ERR_ALLOC_MEM(core_mp->tx_delta_buf) || ERR_ALLOC_MEM(core_mp->rx_delta_buf)) {
+			DBG_ERR("Failed to allocate Tx/Rx Delta buffer\n");
 			return -ENOMEM;
 		}
 
-		core_mp->rx_delta_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(core_mp->rx_delta_buf)) {
-			DBG_ERR("Failed to allocate RX Delta buffer, %ld\n", PTR_ERR(core_mp->rx_delta_buf));
+		if (ERR_ALLOC_MEM(core_mp->tx_max_buf) || ERR_ALLOC_MEM(core_mp->tx_min_buf)) {
+			DBG_ERR("Failed to allocate Tx Max/Min buffer\n");
 			return -ENOMEM;
 		}
 
-		core_mp->tx_max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(core_mp->tx_max_buf)) {
-			DBG_ERR("Failed to allocate TX Max buffer, %ld\n", PTR_ERR(core_mp->tx_max_buf));
+		if (ERR_ALLOC_MEM(core_mp->rx_max_buf) || ERR_ALLOC_MEM(core_mp->rx_min_buf)) {
+			DBG_ERR("Failed to allocate Rx Max/Min buffe\n");
 			return -ENOMEM;
 		}
 
-		core_mp->tx_min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(core_mp->tx_min_buf)) {
-			DBG_ERR("Failed to allocate TX Min buffer, %ld\n", PTR_ERR(core_mp->tx_min_buf));
-			return -ENOMEM;
-		}
-
-		core_mp->rx_max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(core_mp->rx_max_buf)) {
-			DBG_ERR("Failed to allocate RX Max buffer, %ld\n", PTR_ERR(core_mp->rx_max_buf));
-			return -ENOMEM;
-		}
-
-		core_mp->rx_min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(core_mp->rx_min_buf)) {
-			DBG_ERR("Failed to allocate RX Min buffer, %ld\n", PTR_ERR(core_mp->rx_min_buf));
-			return -ENOMEM;
-		}
 	} else {
-		tItems[index].buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(tItems[index].buf)) {
-			DBG_ERR("Failed to allocate FRAME buffer, %ld\n", PTR_ERR(tItems[index].buf));
-			return -ENOMEM;
-		}
 
-		tItems[index].max_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(tItems[index].max_buf)) {
-			DBG_ERR("Failed to allocate MAX buffer, %ld\n", PTR_ERR(tItems[index].max_buf));
-			return -ENOMEM;
-		}
-
-		tItems[index].min_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(tItems[index].min_buf)) {
-			DBG_ERR("Failed to allocate MIN buffer, %ld\n", PTR_ERR(tItems[index].min_buf));
+		tItems[index].buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		
+		if (ERR_ALLOC_MEM(tItems[index].buf) || ERR_ALLOC_MEM(tItems[index].max_buf) ||
+				ERR_ALLOC_MEM(tItems[index].min_buf)) {
+			DBG_ERR("Failed to allocate FRAME buffer\n");
 			return -ENOMEM;
 		}
 	}
@@ -324,7 +303,7 @@ static int allnode_key_cdc_data(int index)
 	DBG(DEBUG_MP_TEST, "core_mp->key_len = %d\n", core_mp->key_len);
 
 	if (len <= 0) {
-		DBG_ERR("Length is invalid \n");
+		DBG_ERR("Length is invalid\n");
 		res = -1;
 		goto out;
 	}
@@ -336,7 +315,7 @@ static int allnode_key_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error while initialising cdc \n");
+		DBG_ERR("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
 
@@ -357,7 +336,7 @@ static int allnode_key_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error \n");
+		DBG_ERR("I2C Write Error\n");
 		goto out;
 	}
 
@@ -365,14 +344,14 @@ static int allnode_key_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error \n");
+		DBG_ERR("I2C Write Error\n");
 		goto out;
 	}
 
 	/* Allocate a buffer for the original */
-	ori = kzalloc(len * sizeof(uint8_t), GFP_KERNEL);
+	ori = kcalloc(len, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ori)) {
-		DBG_ERR("Failed to allocate ori mem (%ld) \n", PTR_ERR(ori));
+		DBG_ERR("Failed to allocate ori mem (%ld)\n", PTR_ERR(ori));
 		goto out;
 	}
 
@@ -381,16 +360,16 @@ static int allnode_key_cdc_data(int index)
 	/* Get original frame(cdc) data */
 	res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
 	if (res < 0) {
-		DBG_ERR("I2C Read Error while getting original cdc data \n");
+		DBG_ERR("I2C Read Error while getting original cdc data\n");
 		goto out;
 	}
 
 	dump_data(ori, 8, len);
 
 	if (key_buf == NULL) {
-		key_buf = kzalloc(core_mp->key_len * sizeof(int32_t), GFP_KERNEL);
+		key_buf = kcalloc(core_mp->key_len, sizeof(int32_t), GFP_KERNEL);
 		if (ERR_ALLOC_MEM(key_buf)) {
-			DBG_ERR("Failed to allocate FrameBuffer mem (%ld) \n", PTR_ERR(key_buf));
+			DBG_ERR("Failed to allocate FrameBuffer mem (%ld)\n", PTR_ERR(key_buf));
 			goto out;
 		}
 	}
@@ -436,10 +415,10 @@ static int allnode_mutual_cdc_data(int index)
 	len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
 
 	DBG(DEBUG_MP_TEST, "Read X/Y Channel length = %d\n", len);
-	DBG(DEBUG_MP_TEST, "core_mp->frame_len = %d \n", core_mp->frame_len);
+	DBG(DEBUG_MP_TEST, "core_mp->frame_len = %d\n", core_mp->frame_len);
 
 	if (len <= 2) {
-		DBG_ERR("Length is invalid \n");
+		DBG_ERR("Length is invalid\n");
 		res = -1;
 		goto out;
 	}
@@ -456,7 +435,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error while initialising cdc \n");
+		DBG_ERR("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
 
@@ -475,7 +454,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error \n");
+		DBG_ERR("I2C Write Error\n");
 		goto out;
 	}
 
@@ -483,37 +462,37 @@ static int allnode_mutual_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error \n");
+		DBG_ERR("I2C Write Error\n");
 		goto out;
 	}
 
 	mdelay(1);
 
 	/* Allocate a buffer for the original */
-	ori = kzalloc(len * sizeof(uint8_t), GFP_KERNEL);
+	ori = kcalloc(len, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ori)) {
-		DBG_ERR("Failed to allocate ori mem (%ld) \n", PTR_ERR(ori));
+		DBG_ERR("Failed to allocate ori mem (%ld)\n", PTR_ERR(ori));
 		goto out;
 	}
 
 	/* Get original frame(cdc) data */
 	res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
 	if (res < 0) {
-		DBG_ERR("I2C Read Error while getting original cdc data \n");
+		DBG_ERR("I2C Read Error while getting original cdc data\n");
 		goto out;
 	}
 
 	dump_data(ori, 8, len);
 
 	if (frame_buf == NULL) {
-		frame_buf = kzalloc(core_mp->frame_len * sizeof(int32_t), GFP_KERNEL);
+		frame_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		if (ERR_ALLOC_MEM(frame_buf)) {
-			DBG_ERR("Failed to allocate FrameBuffer mem (%ld) \n", PTR_ERR(frame_buf));
+			DBG_ERR("Failed to allocate FrameBuffer mem (%ld)\n", PTR_ERR(frame_buf));
 			goto out;
 		}
-	} else {
-		memset(frame_buf, 0, core_mp->frame_len * sizeof(int32_t));
 	}
+
+	memset(frame_buf, 0, core_mp->frame_len * sizeof(int32_t));
 
 	/* Convert original data to the physical one in each node */
 	for (i = 0; i < core_mp->frame_len; i++) {
@@ -697,7 +676,7 @@ static int run_open_test(int index)
 				for (i = 0; i < 8; i++)
 					sum += tmp[i];
 
-				avg = (sum + centre) / (count + 1);	/* plus 1 becuase of centre */
+				avg = (sum + centre) / (count + 1);	/* plus 1 because of centre */
 				tItems[index].buf[shift + x] = (centre * 100) / avg;
 			}
 		}
@@ -750,7 +729,7 @@ static void run_untouch_p2p_test(int index)
 	}
 }
 
-static void compare_MaxMin_result(int index, int32_t * data)
+static void compare_MaxMin_result(int index, int32_t *data)
 {
 	int x, y;
 
@@ -891,13 +870,13 @@ out:
 
 static int self_test(int index)
 {
-	DBG_ERR("TDDI has no self to be tested currently \n");
+	DBG_ERR("TDDI has no self to be tested currently\n");
 	return -1;
 }
 
 static int st_test(int index)
 {
-	DBG_ERR("ST Test is not suppored by the driver\n");
+	DBG_ERR("ST Test is not supported by the driver\n");
 	return -1;
 }
 
@@ -978,7 +957,7 @@ void core_mp_test_free(void)
 {
 	int i;
 
-	DBG_INFO("Free all allocated mem \n");
+	DBG_INFO("Free all allocated mem\n");
 
 	core_mp->final_result = true;
 
@@ -1021,7 +1000,6 @@ void core_mp_test_free(void)
 		key_buf = NULL;
 	}
 }
-
 EXPORT_SYMBOL(core_mp_test_free);
 
 void core_mp_show_result(void)
@@ -1036,13 +1014,13 @@ void core_mp_show_result(void)
 
 	csv = kmalloc(CSV_FILE_SIZE, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(csv)) {
-		DBG_ERR("Failed to allocate CSV mem \n");
+		DBG_ERR("Failed to allocate CSV mem\n");
 		goto fail_open;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run) {
-			pr_info("%s \n", tItems[i].desp);
+			pr_info("%s\n", tItems[i].desp);
 			csv_len += sprintf(csv + csv_len, " %s ", tItems[i].desp);
 
 			pr_info("\n");
@@ -1050,13 +1028,13 @@ void core_mp_show_result(void)
 
 			if (tItems[i].catalog == TX_RX_DELTA) {
 				if (ERR_ALLOC_MEM(core_mp->rx_delta_buf) || ERR_ALLOC_MEM(core_mp->tx_delta_buf)) {
-					DBG_ERR("This test item (%s) has no data inside its buffer \n", tItems[i].desp);
+					DBG_ERR("This test item (%s) has no data inside its buffer\n", tItems[i].desp);
 					continue;
 				}
 			} else {
-				if (ERR_ALLOC_MEM(tItems[i].buf) || ERR_ALLOC_MEM(tItems[i].max_buf)
-				    || ERR_ALLOC_MEM(tItems[i].min_buf)) {
-					DBG_ERR("This test item (%s) has no data inside its buffer \n", tItems[i].desp);
+				if (ERR_ALLOC_MEM(tItems[i].buf) || ERR_ALLOC_MEM(tItems[i].max_buf) ||
+						ERR_ALLOC_MEM(tItems[i].min_buf)) {
+					DBG_ERR("This test item (%s) has no data inside its buffer\n", tItems[i].desp);
 					continue;
 				}
 			}
@@ -1127,7 +1105,7 @@ void core_mp_show_result(void)
 				print_cdc_data(i, false, false, csv, &csv_len);
 			}
 
-			pr_info("\n Result : %s \n", tItems[i].result);
+			pr_info("\n Result : %s\n", tItems[i].result);
 			csv_len += sprintf(csv + csv_len, " Result : %s ", tItems[i].result);
 
 			pr_info("\n");
@@ -1145,7 +1123,7 @@ void core_mp_show_result(void)
 	else
 		sprintf(csv_name, "%s/%s.csv", CSV_PATH, "mp_fail");
 
-	DBG_INFO("Open CSV : %s \n", csv_name);
+	DBG_INFO("Open CSV : %s\n", csv_name);
 
 	if (f == NULL)
 		f = filp_open(csv_name, O_CREAT | O_RDWR, 0644);
@@ -1155,7 +1133,7 @@ void core_mp_show_result(void)
 		goto fail_open;
 	}
 
-	DBG_INFO("Open CSV succeed, its length = %d \n ", csv_len);
+	DBG_INFO("Open CSV succeed, its length = %d\n ", csv_len);
 
 	fs = get_fs();
 	set_fs(KERNEL_DS);
@@ -1164,13 +1142,11 @@ void core_mp_show_result(void)
 	set_fs(fs);
 	filp_close(f, NULL);
 
-	DBG_INFO("Writing Data into CSV succeed \n");
+	DBG_INFO("Writing Data into CSV succeed\n");
 
 fail_open:
 	kfree(csv);
-	return;
 }
-
 EXPORT_SYMBOL(core_mp_show_result);
 
 int core_mp_run_test(void)
@@ -1189,21 +1165,18 @@ int core_mp_run_test(void)
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run) {
-			DBG_INFO("Runing Test Item : %s \n", tItems[i].desp);
-			/* if(tItems[i].do_test(i) < 0) */
-			/* return -1; */
+			DBG_INFO("Running Test Item : %s\n", tItems[i].desp);
 			tItems[i].do_test(i);
 		}
 	}
 
 	return 0;
 }
-
 EXPORT_SYMBOL(core_mp_run_test);
 
 int core_mp_move_code(void)
 {
-	DBG_INFO("Prepaing to enter Test Mode \n");
+	DBG_INFO("Prepaing to enter Test Mode\n");
 
 	if (core_config_check_cdc_busy() < 0) {
 		DBG_ERR("Check busy is timout ! Enter Test Mode failed\n");
@@ -1238,10 +1211,9 @@ int core_mp_move_code(void)
 		return -1;
 	}
 
-	DBG_INFO("FW Test Mode ready \n");
+	DBG_INFO("FW Test Mode ready\n");
 	return 0;
 }
-
 EXPORT_SYMBOL(core_mp_move_code);
 
 int core_mp_init(void)
@@ -1271,14 +1243,13 @@ int core_mp_init(void)
 			mp_test_init_item();
 		}
 	} else {
-		DBG_ERR("Failed to allocate core_mp mem as did not find TP info \n");
+		DBG_ERR("Failed to allocate core_mp mem as did not find TP info\n");
 		res = -ENOMEM;
 	}
 
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_mp_init);
 
 void core_mp_remove(void)
@@ -1286,5 +1257,4 @@ void core_mp_remove(void)
 	DBG_INFO("Remove core-mp members\n");
 	kfree(core_mp);
 }
-
 EXPORT_SYMBOL(core_mp_remove);

@@ -104,7 +104,7 @@ static uint32_t HexToDec(char *pHex, int32_t nLength)
 	return nRetVal;
 }
 
-static uint32_t calc_crc32(uint32_t start_addr, uint32_t end_addr, uint8_t * data)
+static uint32_t calc_crc32(uint32_t start_addr, uint32_t end_addr, uint8_t *data)
 {
 	int i, j;
 	uint32_t CRC_POLY = 0x04C11DB7;
@@ -194,7 +194,7 @@ out:
 
 }
 
-static void calc_verify_data(uint32_t sa, uint32_t se, uint32_t * check)
+static void calc_verify_data(uint32_t sa, uint32_t se, uint32_t *check)
 {
 	uint32_t i = 0;
 	uint32_t tmp_ck = 0, tmp_crc = 0;
@@ -322,7 +322,7 @@ static int do_program_flash(uint32_t start_addr)
 	if (core_firmware->update_status > 90)
 		core_firmware->update_status = 90;
 
-	printk("%cUpgrading firmware ... start_addr = 0x%x, %02d%c", 0x0D, start_addr, core_firmware->update_status,
+	pr_info("%cUpgrading firmware ... start_addr = 0x%x, %02d%c", 0x0D, start_addr, core_firmware->update_status,
 	       '%');
 
 out:
@@ -406,7 +406,7 @@ static int do_erase_flash(uint32_t start_addr)
 
 	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
 
-	DBG(DEBUG_FIRMWARE, "Earsing data at start addr: %x \n", start_addr);
+	DBG(DEBUG_FIRMWARE, "Earsing data at start addr: %x\n", start_addr);
 
 out:
 	return res;
@@ -461,7 +461,7 @@ static int iram_upgrade(void)
 	    core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
 
 	/* write hex to the addr of iram */
-	DBG_INFO("Writting data into IRAM ...\n");
+	DBG_INFO("Writing data into IRAM ...\n");
 	for (i = core_firmware->start_addr; i < core_firmware->end_addr; i += upl) {
 		if ((i + 256) > core_firmware->end_addr) {
 			upl = core_firmware->end_addr % upl;
@@ -722,7 +722,7 @@ int core_firmware_boot_upgrade(void)
 	int res = 0;
 	bool power = false;
 
-	DBG_INFO("BOOT: Starting to upgrade firmware ... \n");
+	DBG_INFO("BOOT: Starting to upgrade firmware ...\n");
 
 	core_firmware->isUpgrading = true;
 	core_firmware->update_status = 0;
@@ -744,7 +744,7 @@ int core_firmware_boot_upgrade(void)
 		goto out;
 	}
 
-	flash_fw = kzalloc(sizeof(uint8_t) * flashtab->mem_size, GFP_KERNEL);
+	flash_fw = kcalloc(flashtab->mem_size, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(flash_fw)) {
 		DBG_ERR("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
 		res = -ENOMEM;
@@ -759,7 +759,7 @@ int core_firmware_boot_upgrade(void)
 		goto out;
 	}
 
-	_gFlashSector = kcalloc(_gTotalSector, sizeof(uint32_t) * _gTotalSector, GFP_KERNEL);
+	_gFlashSector = kcalloc(_gTotalSector, sizeof(uint32_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(_gFlashSector)) {
 		DBG_ERR("Failed to allocate _gFlashSector memory, %ld\n", PTR_ERR(_gFlashSector));
 		res = -ENOMEM;
@@ -804,7 +804,7 @@ out:
 }
 #endif
 
-static int convert_hex_file(uint8_t * pBuf, uint32_t nSize, bool isIRAM)
+static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t i = 0, j = 0, k = 0;
 	uint32_t nLength = 0, nAddr = 0, nType = 0;
@@ -822,6 +822,7 @@ static int convert_hex_file(uint8_t * pBuf, uint32_t nSize, bool isIRAM)
 
 	for (; i < nSize;) {
 		int32_t nOffset;
+
 		nLength = HexToDec(&pBuf[i + 1], 2);
 		nAddr = HexToDec(&pBuf[i + 3], 4);
 		nType = HexToDec(&pBuf[i + 7], 2);
@@ -978,89 +979,89 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		DBG_ERR("Failed to open the file at %s.\n", pFilePath);
 		res = -ENOENT;
 		return res;
+	}
+
+	#if KERNEL_VERSION(3, 18, 0) >= LINUX_VERSION_CODE
+	inode = pfile->f_dentry->d_inode;
+	#else
+	inode = pfile->f_path.dentry->d_inode;
+	#endif
+
+	fsize = inode->i_size;
+
+	DBG_INFO("fsize = %d\n", fsize);
+
+	if (fsize <= 0) {
+		DBG_ERR("The size of file is zero\n");
+		res = -EINVAL;
+		goto out;
 	} else {
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(3, 18, 0)
-		inode = pfile->f_dentry->d_inode;
-#else
-		inode = pfile->f_path.dentry->d_inode;
-#endif
-
-		fsize = inode->i_size;
-
-		DBG_INFO("fsize = %d\n", fsize);
-
-		if (fsize <= 0) {
-			DBG_ERR("The size of file is zero\n");
-			res = -EINVAL;
+		if (flashtab == NULL) {
+			DBG_ERR("Flash table isn't created\n");
+			res = -ENOMEM;
 			goto out;
-		} else {
-			if (flashtab == NULL) {
-				DBG_ERR("Flash table isn't created\n");
-				res = -ENOMEM;
-				goto out;
-			}
-
-			hex_buffer = kzalloc(sizeof(uint8_t) * fsize, GFP_KERNEL);
-			if (ERR_ALLOC_MEM(hex_buffer)) {
-				DBG_ERR("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
-				res = -ENOMEM;
-				goto out;
-			}
-
-			flash_fw = kzalloc(sizeof(uint8_t) * flashtab->mem_size, GFP_KERNEL);
-			if (ERR_ALLOC_MEM(flash_fw)) {
-				DBG_ERR("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
-				res = -ENOMEM;
-				goto out;
-			}
-			memset(flash_fw, 0xff, sizeof(uint8_t) * flashtab->mem_size);
-
-			_gTotalSector = flashtab->mem_size / flashtab->sector;
-			if (_gTotalSector <= 0) {
-				DBG_ERR("Flash configure is wrong\n");
-				res = -1;
-				goto out;
-			}
-
-			_gFlashSector = kcalloc(_gTotalSector, sizeof(uint32_t) * _gTotalSector, GFP_KERNEL);
-			if (ERR_ALLOC_MEM(_gFlashSector)) {
-				DBG_ERR("Failed to allocate _gFlashSector memory, %ld\n", PTR_ERR(_gFlashSector));
-				res = -ENOMEM;
-				goto out;
-			}
-
-			/* store current userspace mem segment. */
-			old_fs = get_fs();
-
-			/* set userspace mem segment equal to kernel's one. */
-			set_fs(get_ds());
-
-			/* read firmware data from userspace mem segment */
-			vfs_read(pfile, hex_buffer, fsize, &pos);
-
-			/* restore userspace mem segment after read. */
-			set_fs(old_fs);
-
-			res = convert_hex_file(hex_buffer, fsize, isIRAM);
-			if (res < 0) {
-				DBG_ERR("Failed to covert firmware data, res = %d\n", res);
-				goto out;
-			} else {
-				/* calling that function defined at init depends on chips. */
-				res = core_firmware->upgrade_func(isIRAM);
-				if (res < 0) {
-					DBG_ERR("Failed to upgrade firmware, res = %d\n", res);
-					goto out;
-				} else {
-					DBG_INFO("Update firmware information...\n");
-					core_config_get_fw_ver();
-					core_config_get_protocol_ver();
-					core_config_get_core_ver();
-					core_config_get_tp_info();
-					core_config_get_key_info();
-				}
-			}
 		}
+
+		hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(hex_buffer)) {
+			DBG_ERR("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
+			res = -ENOMEM;
+			goto out;
+		}
+
+		flash_fw = kcalloc(flashtab->mem_size, sizeof(uint8_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(flash_fw)) {
+			DBG_ERR("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
+			res = -ENOMEM;
+			goto out;
+		}
+		memset(flash_fw, 0xff, sizeof(uint8_t) * flashtab->mem_size);
+
+		_gTotalSector = flashtab->mem_size / flashtab->sector;
+		if (_gTotalSector <= 0) {
+			DBG_ERR("Flash configure is wrong\n");
+			res = -1;
+			goto out;
+		}
+
+		_gFlashSector = kcalloc(_gTotalSector, sizeof(uint32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(_gFlashSector)) {
+			DBG_ERR("Failed to allocate _gFlashSector memory, %ld\n", PTR_ERR(_gFlashSector));
+			res = -ENOMEM;
+			goto out;
+		}
+
+		/* store current userspace mem segment. */
+		old_fs = get_fs();
+
+		/* set userspace mem segment equal to kernel's one. */
+		set_fs(get_ds());
+
+		/* read firmware data from userspace mem segment */
+		vfs_read(pfile, hex_buffer, fsize, &pos);
+
+		/* restore userspace mem segment after read. */
+		set_fs(old_fs);
+
+		res = convert_hex_file(hex_buffer, fsize, isIRAM);
+		if (res < 0) {
+			DBG_ERR("Failed to covert firmware data, res = %d\n", res);
+			goto out;
+		}
+
+		/* calling that function defined at init depends on chips. */
+		res = core_firmware->upgrade_func(isIRAM);
+		if (res < 0) {
+			DBG_ERR("Failed to upgrade firmware, res = %d\n", res);
+			goto out;
+		}
+
+		DBG_INFO("Update firmware information...\n");
+		core_config_get_fw_ver();
+		core_config_get_protocol_ver();
+		core_config_get_core_ver();
+		core_config_get_tp_info();
+		core_config_get_key_info();
 	}
 
 out:

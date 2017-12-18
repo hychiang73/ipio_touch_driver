@@ -69,7 +69,6 @@ out:
 	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
 	return res;
 }
-
 EXPORT_SYMBOL(core_flash_poll_busy);
 
 int core_flash_write_enable(void)
@@ -89,12 +88,11 @@ out:
 	DBG_ERR("Write enable failed !\n");
 	return -EIO;
 }
-
 EXPORT_SYMBOL(core_flash_write_enable);
 
 void core_flash_enable_protect(bool enable)
 {
-	DBG_INFO("Set flash protect as (%d) \n", enable);
+	DBG_INFO("Set flash protect as (%d)\n", enable);
 
 	if (core_flash_write_enable() < 0) {
 		DBG_ERR("Failed to config flash's write enable\n");
@@ -128,14 +126,13 @@ void core_flash_enable_protect(bool enable)
 		}
 		break;
 	default:
-		DBG_ERR("Can't find flash id, ignore protection \n");
+		DBG_ERR("Can't find flash id, ignore protection\n");
 		break;
 	}
 
 	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
 	mdelay(5);
 }
-
 EXPORT_SYMBOL(core_flash_enable_protect);
 
 void core_flash_init(uint16_t mid, uint16_t did)
@@ -179,7 +176,6 @@ void core_flash_init(uint16_t mid, uint16_t did)
 	DBG_INFO("Sector size = %d\n", flashtab->sector);
 	DBG_INFO("Block size = %d\n", flashtab->block);
 }
-
 EXPORT_SYMBOL(core_flash_init);
 
 void core_flash_remove(void)
@@ -189,5 +185,4 @@ void core_flash_remove(void)
 	if (flashtab != NULL)
 		kfree(flashtab);
 }
-
 EXPORT_SYMBOL(core_flash_remove);

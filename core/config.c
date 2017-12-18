@@ -143,7 +143,6 @@ out:
 	DBG_ERR("Failed to read/write data in ICE mode, res = %d\n", res);
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_read_write_onebyte);
 
 uint32_t core_config_ice_mode_read(uint32_t addr)
@@ -175,7 +174,6 @@ out:
 	DBG_ERR("Failed to read data in ICE mode, res = %d\n", res);
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_ice_mode_read);
 
 /*
@@ -203,7 +201,6 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_ice_mode_write);
 
 /*
@@ -235,7 +232,6 @@ void core_config_ic_reset(void)
 
 	msleep(300);
 }
-
 EXPORT_SYMBOL(core_config_ic_reset);
 
 void core_config_sense_ctrl(bool start)
@@ -244,7 +240,6 @@ void core_config_sense_ctrl(bool start)
 
 	return core_protocol_func_control(0, start);
 }
-
 EXPORT_SYMBOL(core_config_sense_ctrl);
 
 void core_config_sleep_ctrl(bool out)
@@ -253,7 +248,6 @@ void core_config_sleep_ctrl(bool out)
 
 	return core_protocol_func_control(1, out);
 }
-
 EXPORT_SYMBOL(core_config_sleep_ctrl);
 
 void core_config_glove_ctrl(bool enable, bool seamless)
@@ -271,7 +265,6 @@ void core_config_glove_ctrl(bool enable, bool seamless)
 
 	return core_protocol_func_control(2, cmd);
 }
-
 EXPORT_SYMBOL(core_config_glove_ctrl);
 
 void core_config_stylus_ctrl(bool enable, bool seamless)
@@ -289,7 +282,6 @@ void core_config_stylus_ctrl(bool enable, bool seamless)
 
 	return core_protocol_func_control(3, cmd);
 }
-
 EXPORT_SYMBOL(core_config_stylus_ctrl);
 
 void core_config_tp_scan_mode(bool mode)
@@ -298,7 +290,6 @@ void core_config_tp_scan_mode(bool mode)
 
 	return core_protocol_func_control(4, mode);
 }
-
 EXPORT_SYMBOL(core_config_tp_scan_mode);
 
 void core_config_lpwg_ctrl(bool enable)
@@ -307,7 +298,6 @@ void core_config_lpwg_ctrl(bool enable)
 
 	return core_protocol_func_control(5, enable);
 }
-
 EXPORT_SYMBOL(core_config_lpwg_ctrl);
 
 void core_config_gesture_ctrl(uint8_t func)
@@ -326,7 +316,6 @@ void core_config_gesture_ctrl(uint8_t func)
 
 	return core_protocol_func_control(6, func);
 }
-
 EXPORT_SYMBOL(core_config_gesture_ctrl);
 
 void core_config_phone_cover_ctrl(bool enable)
@@ -335,7 +324,6 @@ void core_config_phone_cover_ctrl(bool enable)
 
 	return core_protocol_func_control(7, enable);
 }
-
 EXPORT_SYMBOL(core_config_phone_cover_ctrl);
 
 void core_config_finger_sense_ctrl(bool enable)
@@ -344,7 +332,6 @@ void core_config_finger_sense_ctrl(bool enable)
 
 	return core_protocol_func_control(0, enable);
 }
-
 EXPORT_SYMBOL(core_config_finger_sense_ctrl);
 
 void core_config_proximity_ctrl(bool enable)
@@ -353,7 +340,6 @@ void core_config_proximity_ctrl(bool enable)
 
 	return core_protocol_func_control(11, enable);
 }
-
 EXPORT_SYMBOL(core_config_proximity_ctrl);
 
 void core_config_plug_ctrl(bool out)
@@ -362,10 +348,9 @@ void core_config_plug_ctrl(bool out)
 
 	return core_protocol_func_control(12, out);
 }
-
 EXPORT_SYMBOL(core_config_plug_ctrl);
 
-void core_config_set_phone_cover(uint8_t * pattern)
+void core_config_set_phone_cover(uint8_t *pattern)
 {
 	uint8_t ul_x_l = UL_X_LOW, ul_x_h = UL_X_HIGH;
 	uint8_t ul_y_l = UL_Y_LOW, ul_y_h = UL_Y_HIGH;
@@ -404,7 +389,6 @@ void core_config_set_phone_cover(uint8_t * pattern)
 
 	core_protocol_func_control(9, 0);
 }
-
 EXPORT_SYMBOL(core_config_set_phone_cover);
 
 /*
@@ -416,7 +400,7 @@ EXPORT_SYMBOL(core_config_set_phone_cover);
  */
 void core_config_ic_suspend(void)
 {
-	DBG_INFO("Starting to suspend ... \n");
+	DBG_INFO("Starting to suspend ...\n");
 
 	/* sense stop */
 	core_config_sense_ctrl(false);
@@ -436,7 +420,6 @@ void core_config_ic_suspend(void)
 
 	DBG_INFO("Suspend done\n");
 }
-
 EXPORT_SYMBOL(core_config_ic_suspend);
 
 /*
@@ -448,7 +431,7 @@ EXPORT_SYMBOL(core_config_ic_suspend);
  */
 void core_config_ic_resume(void)
 {
-	DBG_INFO("Starting to resume ... \n");
+	DBG_INFO("Starting to resume ...\n");
 
 	/* sleep out */
 	core_config_sleep_ctrl(true);
@@ -465,9 +448,8 @@ void core_config_ic_resume(void)
 	mdelay(10);
 	core_config_ic_reset();
 
-	DBG_INFO("Resume done \n");
+	DBG_INFO("Resume done\n");
 }
-
 EXPORT_SYMBOL(core_config_ic_resume);
 
 int core_config_ice_mode_disable(void)
@@ -483,7 +465,6 @@ int core_config_ice_mode_disable(void)
 
 	    return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
 }
-
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
 int core_config_ice_mode_enable(void)
@@ -495,7 +476,6 @@ int core_config_ice_mode_enable(void)
 
 	return 0;
 }
-
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 
 int core_config_reset_watch_dog(void)
@@ -507,7 +487,6 @@ int core_config_reset_watch_dog(void)
 
 	return 0;
 }
-
 EXPORT_SYMBOL(core_config_reset_watch_dog);
 
 int core_config_check_cdc_busy(void)
@@ -535,7 +514,6 @@ int core_config_check_cdc_busy(void)
 
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_check_cdc_busy);
 
 int core_config_get_key_info(void)
@@ -592,7 +570,6 @@ int core_config_get_key_info(void)
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_get_key_info);
 
 int core_config_get_tp_info(void)
@@ -655,7 +632,6 @@ int core_config_get_tp_info(void)
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_get_tp_info);
 
 int core_config_get_protocol_ver(void)
@@ -713,7 +689,6 @@ int core_config_get_protocol_ver(void)
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_get_protocol_ver);
 
 int core_config_get_core_ver(void)
@@ -759,7 +734,6 @@ int core_config_get_core_ver(void)
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_get_core_ver);
 
 /*
@@ -808,7 +782,6 @@ int core_config_get_fw_ver(void)
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_get_fw_ver);
 
 int core_config_get_chip_id(void)
@@ -854,7 +827,6 @@ out:
 	mdelay(150);
 	return res;
 }
-
 EXPORT_SYMBOL(core_config_get_chip_id);
 
 int core_config_init(void)
@@ -899,7 +871,6 @@ int core_config_init(void)
 	DBG_ERR("Can't find this chip in support list\n");
 	return 0;
 }
-
 EXPORT_SYMBOL(core_config_init);
 
 void core_config_remove(void)
@@ -913,5 +884,4 @@ void core_config_remove(void)
 		kfree(core_config);
 	}
 }
-
 EXPORT_SYMBOL(core_config_remove);

@@ -77,7 +77,7 @@ struct core_fr_data *core_fr = NULL;
  * @pMsg: packet come from firmware
  * @nLength : the length of its packet
  */
-static uint8_t cal_fr_checksum(uint8_t * pMsg, uint32_t nLength)
+static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
 {
 	int i;
 	int32_t nCheckSum = 0;
@@ -177,7 +177,6 @@ void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id)
 	input_mt_sync(core_fr->input_device);
 #endif /* MT_B_TYPE */
 }
-
 EXPORT_SYMBOL(core_fr_touch_press);
 
 /*
@@ -200,7 +199,6 @@ void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 	input_mt_sync(core_fr->input_device);
 #endif /* MT_B_TYPE */
 }
-
 EXPORT_SYMBOL(core_fr_touch_release);
 
 static int parse_touch_package_v3_2(void)
@@ -229,7 +227,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 		DBG(DEBUG_FINGER_REPORT, "data[%d] = %x\n", i, _gFRnode->data[i]);
 
 	check_sum = cal_fr_checksum(&_gFRnode->data[0], (_gFRnode->len - 1));
-	DBG(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x \n", _gFRnode->data[_gFRnode->len - 1], check_sum);
+	DBG(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x\n", _gFRnode->data[_gFRnode->len - 1], check_sum);
 
 	if (_gFRnode->data[_gFRnode->len - 1] != check_sum) {
 		DBG_ERR("Wrong checksum\n");
@@ -328,7 +326,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			/* ignore the pid with 0x0 after enable irq at once */
 			goto out;
 		} else {
-			DBG_ERR(" **** Unkown PID : 0x%x ****\n", pid);
+			DBG_ERR(" **** Unknown PID : 0x%x ****\n", pid);
 			res = -1;
 			goto out;
 		}
@@ -445,7 +443,7 @@ out:
 	return res;
 }
 
-void core_fr_mode_control(uint8_t * from_user)
+void core_fr_mode_control(uint8_t *from_user)
 {
 	int mode, res = 0;
 	uint8_t cmd[4] = { 0 };
@@ -525,9 +523,7 @@ void core_fr_mode_control(uint8_t * from_user)
 
 out:
 	ilitek_platform_enable_irq();
-	return;
 }
-
 EXPORT_SYMBOL(core_fr_mode_control);
 
 /**
@@ -571,7 +567,7 @@ static uint16_t calc_packet_length(void)
 				rlen += 35;
 			}
 		} else {
-			DBG_ERR("Unknow firmware mode : %d\n", core_fr->actual_fw_mode);
+			DBG_ERR("Unknown firmware mode : %d\n", core_fr->actual_fw_mode);
 			rlen = 0;
 		}
 	} else {
@@ -594,7 +590,7 @@ static uint16_t calc_packet_length(void)
 typedef struct {
 	uint8_t protocol_marjor_ver;
 	uint8_t protocol_minor_ver;
-	int (*finger_report) (void);
+	int (*finger_report)(void);
 } fr_hashtable;
 
 fr_hashtable fr_t[] = {
@@ -623,7 +619,7 @@ void core_fr_handler(void)
 				goto out;
 			}
 
-			_gFRnode->data = kmalloc(sizeof(uint8_t) * _gTotalLength, GFP_ATOMIC);
+			_gFRnode->data = kcalloc(_gTotalLength, sizeof(uint8_t), GFP_ATOMIC);
 			if (ERR_ALLOC_MEM(_gFRnode->data)) {
 				DBG_ERR("Failed to allocate _gFRnode memory %ld\n", PTR_ERR(_gFRnode->data));
 				goto out;
@@ -652,7 +648,7 @@ void core_fr_handler(void)
 						if (_gFRuart != NULL)
 							memcpy(tdata + _gFRnode->len, _gFRuart->data, _gFRuart->len);
 					} else {
-						DBG_ERR("total lenght (%d) is too long than user can handle\n",
+						DBG_ERR("total length (%d) is too long than user can handle\n",
 							_gTotalLength);
 						goto out;
 					}
@@ -692,7 +688,7 @@ void core_fr_handler(void)
 	}
 
 out:
-	DBG(DEBUG_IRQ, "handle INT done \n\n");
+	DBG(DEBUG_IRQ, "handle INT done\n\n");
 	_gTotalLength = 0;
 	if (tdata != NULL) {
 		kfree(tdata);
@@ -714,9 +710,7 @@ out:
 		kfree(_gFRuart);
 		_gFRuart = NULL;
 	}
-	return;
 }
-
 EXPORT_SYMBOL(core_fr_handler);
 
 void core_fr_input_set_param(struct input_dev *input_device)
@@ -763,11 +757,11 @@ void core_fr_input_set_param(struct input_dev *input_device)
 		input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
 
 #ifdef MT_B_TYPE
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
+	#if KERNEL_VERSION(3, 7, 0) <= LINUX_VERSION_CODE
 	input_mt_init_slots(core_fr->input_device, max_tp, INPUT_MT_DIRECT);
-#else
+	#else
 	input_mt_init_slots(core_fr->input_device, max_tp);
-#endif /* LINUX_VERSION_CODE */
+	#endif /* LINUX_VERSION_CODE */
 #else
 	input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
 #endif /* MT_B_TYPE */
@@ -777,10 +771,7 @@ void core_fr_input_set_param(struct input_dev *input_device)
 
 	if (core_fr->isSetPhoneCover)
 		core_config_set_phone_cover(NULL);
-
-	return;
 }
-
 EXPORT_SYMBOL(core_fr_input_set_param);
 
 int core_fr_init(struct i2c_client *pClient)
@@ -810,7 +801,6 @@ int core_fr_init(struct i2c_client *pClient)
 	DBG_ERR("Can't find this chip in support list\n");
 	return 0;
 }
-
 EXPORT_SYMBOL(core_fr_init);
 
 void core_fr_remove(void)
@@ -820,5 +810,4 @@ void core_fr_remove(void)
 	if (core_fr != NULL)
 		kfree(core_fr);
 }
-
 EXPORT_SYMBOL(core_fr_remove);

@@ -107,7 +107,6 @@ int core_gesture_key(uint8_t gdata)
 	DBG(DEBUG_GESTURE, "gcode = %d\n", gcode);
 	return gcode;
 }
-
 EXPORT_SYMBOL(core_gesture_key);
 
 void core_gesture_init(struct core_fr_data *fr_data)
@@ -145,7 +144,6 @@ void core_gesture_init(struct core_fr_data *fr_data)
 		return;
 	}
 
-	DBG_ERR("GESTURE: input dev is NULL \n");
+	DBG_ERR("GESTURE: input dev is NULL\n");
 }
-
 EXPORT_SYMBOL(core_gesture_init);

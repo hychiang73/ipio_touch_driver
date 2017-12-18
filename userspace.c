@@ -108,22 +108,25 @@ static int katoi(char *string)
 static int str2hex(char *str)
 {
 	int strlen, result, intermed, intermedtop;
-	char *s;
-	s = str;
+	char *s = str;
+
 	while (*s != 0x0) {
 		s++;
 	}
+
 	strlen = (int)(s - str);
 	s = str;
 	if (*s != 0x30) {
 		return -1;
-	} else {
-		s++;
-		if (*s != 0x78 && *s != 0x58) {
-			return -1;
-		}
-		s++;
 	}
+
+	s++;
+
+	if (*s != 0x78 && *s != 0x58) {
+		return -1;
+	}
+	s++;
+
 	strlen = strlen - 3;
 	result = 0;
 	while (*s != 0x0) {
@@ -140,7 +143,7 @@ static int str2hex(char *str)
 	return result;
 }
 
-static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user * buff, size_t nCount, loff_t * pPos)
+static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
 {
 	int res = 0;
 
@@ -151,7 +154,7 @@ static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user * b
 
 	ipd->debug_node_open = !ipd->debug_node_open;
 
-	DBG_INFO(" %s debug_flag message(%X). \n", ipd->debug_node_open ? "Enabled" : "Disabled", ipd->debug_node_open);
+	DBG_INFO(" %s debug_flag message = %x\n", ipd->debug_node_open ? "Enabled" : "Disabled", ipd->debug_node_open);
 
 	nCount = sprintf(_gTmpBuf, "ipd->debug_node_open : %s\n", ipd->debug_node_open ? "Enabled" : "Disabled");
 
@@ -165,14 +168,14 @@ static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user * b
 	return nCount;
 }
 
-static ssize_t ilitek_proc_debug_message_write(struct file *filp, const char *buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_debug_message_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int ret = 0;
 	unsigned char buffer[512] = { 0 };
 
 	/* check the buffer size whether it exceeds the local buffer size or not */
 	if (size > 512) {
-		DBG_ERR("buffer exceed 512 bytes \n");
+		DBG_ERR("buffer exceed 512 bytes\n");
 		size = 512;
 	}
 
@@ -190,7 +193,7 @@ static ssize_t ilitek_proc_debug_message_write(struct file *filp, const char *bu
 	return size;
 }
 
-static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	unsigned long p = *pPos;
 	unsigned int count = size;
@@ -215,11 +218,11 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user * b
 
 	mutex_lock(&ipd->ilitek_debug_mutex);
 
-	tmpbuf = (unsigned char *)vmalloc(4096);	/* buf size if even */
+	tmpbuf = vmalloc(4096);	/* buf size if even */
 	if (ERR_ALLOC_MEM(tmpbuf)) {
 		DBG_ERR("buffer vmalloc error\n");
 		send_data_len += sprintf(tmpbufback + send_data_len, "buffer vmalloc error\n");
-		ret = copy_to_user(buff, tmpbufback /*ipd->debug_buf[0] */ , send_data_len);
+		ret = copy_to_user(buff, tmpbufback, send_data_len); /*ipd->debug_buf[0] */
 	} else {
 		if (ipd->debug_data_frame > 0) {
 			if (ipd->debug_buf[0][0] == 0x5A) {
@@ -275,9 +278,9 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user * b
 
 		/* Preparing to send data to user */
 		if (size == 4096)
-			ret = copy_to_user(buff, tmpbuf /*ipd->debug_buf[0] */ , send_data_len);
+			ret = copy_to_user(buff, tmpbuf, send_data_len);
 		else
-			ret = copy_to_user(buff, tmpbuf /*ipd->debug_buf[0] */  + p, send_data_len - p);
+			ret = copy_to_user(buff, tmpbuf + p, send_data_len - p);
 
 		if (ret) {
 			DBG_ERR("copy_to_user err\n");
@@ -303,7 +306,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user * b
 	return send_data_len;
 }
 
-static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int i, j, mp_num = 12;
 	uint32_t len = 0;
@@ -314,10 +317,10 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user * buff, s
 	if (*pPos != 0)
 		return 0;
 
-	mp_ini = (char **)kmalloc(mp_num, GFP_KERNEL);
+	mp_ini = kmalloc(mp_num, GFP_KERNEL);
 
 	for (i = 0; i < mp_num; i++)
-		mp_ini[i] = (char *)kmalloc(256 * sizeof(char), GFP_KERNEL);
+		mp_ini[i] = kcalloc(256, sizeof(char), GFP_KERNEL);
 
 	/* listing test items which are all corrensponding with INI section name */
 	/* sprintf(mp_ini[0], "FW Ver. Check"); */
@@ -340,7 +343,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user * buff, s
 	/* sprintf(mp_ini[16], "Key Baseline Data"); */
 
 	if (core_parser_path(INI_NAME_PATH) < 0) {
-		DBG_ERR("Failed to parsing INI file \n");
+		DBG_ERR("Failed to parsing INI file\n");
 		goto ini_err;
 	}
 
@@ -403,11 +406,11 @@ ini_err:
 		kfree(mp_ini[i]);
 	kfree(mp_ini);
 	*pPos = len;
-	DBG_INFO("MP Test DONE \n");
+	DBG_INFO("MP Test DONE\n");
 	return len;
 }
 
-static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int i, res = 0, count = 0;
 	char cmd[64] = { 0 };
@@ -432,12 +435,12 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	token = cur = cmd;
 
-	va = kmalloc(64 * sizeof(uint8_t), GFP_KERNEL);
+	va = kcalloc(64, sizeof(uint8_t), GFP_KERNEL);
 	memset(va, 0, 64);
 
 	while ((token = strsep(&cur, ",")) != NULL) {
 		va[count] = katoi(token);
-		DBG_INFO("data[%d] = %x \n", count, va[count]);
+		DBG_INFO("data[%d] = %x\n", count, va[count]);
 		count++;
 	}
 
@@ -471,11 +474,11 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	ilitek_platform_enable_irq();
 
-	DBG_INFO("MP Test DONE \n");
+	DBG_INFO("MP Test DONE\n");
 	return size;
 }
 
-static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
@@ -511,7 +514,7 @@ static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user * buf
 	return len;
 }
 
-static ssize_t ilitek_proc_debug_level_write(struct file *filp, const char *buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_debug_level_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	char cmd[10] = { 0 };
@@ -531,7 +534,7 @@ static ssize_t ilitek_proc_debug_level_write(struct file *filp, const char *buff
 	return size;
 }
 
-static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
@@ -555,7 +558,7 @@ static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user * buff, s
 	return len;
 }
 
-static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	char cmd[10] = { 0 };
@@ -582,7 +585,7 @@ static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, si
 	return size;
 }
 
-static ssize_t ilitek_proc_check_battery_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_check_battery_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
@@ -606,7 +609,7 @@ static ssize_t ilitek_proc_check_battery_read(struct file *filp, char __user * b
 	return len;
 }
 
-static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	char cmd[10] = { 0 };
@@ -633,13 +636,13 @@ static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *bu
 	} else
 		DBG_ERR("Unknown command\n");
 #else
-	DBG_ERR("You need to enable its MACRO before operate it. \n");
+	DBG_ERR("You need to enable its MACRO before operate it.\n");
 #endif
 
 	return size;
 }
 
-static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
@@ -671,7 +674,7 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user * buff
  * To avoid the restriction of selinux, we assigned a fixed path where locates firmware file,
  * reading (cat) this node to notify driver running the upgrade process from user space.
  */
-static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
@@ -706,7 +709,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user * buff
 	return len;
 }
 
-static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
@@ -736,7 +739,7 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user * bu
 }
 
 /* for debug */
-static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user * buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int res = 0;
 	uint32_t len = 0;
@@ -776,7 +779,7 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user * buff, siz
 }
 
 /* for debug */
-static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t * pPos)
+static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0, count = 0, i;
 	int w_len = 0, r_len = 0, i2c_delay = 0;
@@ -1245,7 +1248,6 @@ void netlink_reply_msg(void *raw, int size)
 			DBG_ERR("Failed to send data back to user\n");
 	}
 }
-
 EXPORT_SYMBOL(netlink_reply_msg);
 
 static void netlink_recv_msg(struct sk_buff *skb)
@@ -1278,7 +1280,7 @@ static int netlink_init(void)
 {
 	int res = 0;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+#if KERNEL_VERSION(3, 4, 0) > LINUX_VERSION_CODE
 	_gNetLinkSkb = netlink_kernel_create(&init_net, NETLINK_USER, netlink_recv_msg, NULL, THIS_MODULE);
 #else
 	struct netlink_kernel_cfg cfg = {
@@ -1321,7 +1323,6 @@ int ilitek_proc_init(void)
 
 	return res;
 }
-
 EXPORT_SYMBOL(ilitek_proc_init);
 
 void ilitek_proc_remove(void)
@@ -1338,5 +1339,4 @@ void ilitek_proc_remove(void)
 	remove_proc_entry("ilitek", NULL);
 	netlink_kernel_release(_gNetLinkSkb);
 }
-
 EXPORT_SYMBOL(ilitek_proc_remove);

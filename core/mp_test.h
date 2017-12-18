@@ -39,7 +39,7 @@ struct mp_test_items {
 	int32_t *buf;
 	int32_t *max_buf;
 	int32_t *min_buf;
-	int (*do_test) (int index);
+	int (*do_test)(int index);
 };
 
 struct core_mp_test_data {

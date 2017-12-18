@@ -50,10 +50,10 @@ static int dma_alloc(struct core_i2c_data *i2c)
 		memset(ilitek_dma_va, 0, DMA_VA_BUFFER);
 		i2c->client->ext_flag |= I2C_DMA_FLAG;
 		return 0;
-	} else {
-		DBG_ERR("i2c->client is NULL, return fail \n");
-		return -ENODEV;
 	}
+
+	DBG_ERR("i2c->client is NULL, return fail\n");
+	return -ENODEV;
 }
 
 static void dma_free(void)
@@ -69,7 +69,7 @@ static void dma_free(void)
 }
 #endif /* I2C_DMA */
 
-int core_i2c_write(uint8_t nSlaveId, uint8_t * pBuf, uint16_t nSize)
+int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
 	int res = 0;
 
@@ -110,10 +110,9 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t * pBuf, uint16_t nSize)
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_i2c_write);
 
-int core_i2c_read(uint8_t nSlaveId, uint8_t * pBuf, uint16_t nSize)
+int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
 	int res = 0;
 
@@ -155,10 +154,9 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t * pBuf, uint16_t nSize)
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_i2c_read);
 
-int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t * pBuf, uint16_t nSize)
+int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
 	int res = 0;
 	int offset = 0;
@@ -200,7 +198,6 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t * pBuf, uint16_t nSize)
 out:
 	return res;
 }
-
 EXPORT_SYMBOL(core_i2c_segmental_read);
 
 int core_i2c_init(struct i2c_client *client)
@@ -244,7 +241,6 @@ int core_i2c_init(struct i2c_client *client)
 	DBG_ERR("Can't find this chip in support list\n");
 	return 0;
 }
-
 EXPORT_SYMBOL(core_i2c_init);
 
 void core_i2c_remove(void)
@@ -258,5 +254,4 @@ void core_i2c_remove(void)
 	if (core_i2c != NULL)
 		kfree(core_i2c);
 }
-
 EXPORT_SYMBOL(core_i2c_remove);
