@@ -102,7 +102,7 @@ static void free_func_hash(void)
 
 static void create_func_hash(void)
 {
-	/* if protocol is updated, we free its allocated mem at all after create new ones. */
+	/* if protocol is updated, we free its allocated mem at all before create new ones. */
 	free_func_hash();
 
 	insert_func(0, protocol->func_ctrl_len, protocol->sense_ctrl, "sense_ctrl");

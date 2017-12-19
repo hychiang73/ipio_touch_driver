@@ -318,7 +318,7 @@ int core_parser_path(char *path)
 		goto out;
 	}
 
-	tmp = kcalloc(fsize, sizeof(char), GFP_KERNEL);
+	tmp = kmalloc(fsize, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tmp)) {
 		DBG_ERR("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
 		res = -ENOMEM;

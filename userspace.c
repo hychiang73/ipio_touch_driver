@@ -320,7 +320,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	mp_ini = kmalloc(mp_num, GFP_KERNEL);
 
 	for (i = 0; i < mp_num; i++)
-		mp_ini[i] = kcalloc(256, sizeof(char), GFP_KERNEL);
+		mp_ini[i] = kmalloc(256, GFP_KERNEL);
 
 	/* listing test items which are all corrensponding with INI section name */
 	/* sprintf(mp_ini[0], "FW Ver. Check"); */

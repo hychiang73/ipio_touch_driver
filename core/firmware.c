@@ -322,7 +322,7 @@ static int do_program_flash(uint32_t start_addr)
 	if (core_firmware->update_status > 90)
 		core_firmware->update_status = 90;
 
-	pr_info("%cUpgrading firmware ... start_addr = 0x%x, %02d%c", 0x0D, start_addr, core_firmware->update_status,
+	printk("%cUpgrading firmware ... start_addr = 0x%x, %02d%c", 0x0D, start_addr, core_firmware->update_status,
 	       '%');
 
 out:
@@ -1023,7 +1023,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 			goto out;
 		}
 
-		_gFlashSector = kcalloc(_gTotalSector, sizeof(uint32_t), GFP_KERNEL);
+		_gFlashSector = kcalloc(_gTotalSector, sizeof(*_gFlashSector), GFP_KERNEL);
 		if (ERR_ALLOC_MEM(_gFlashSector)) {
 			DBG_ERR("Failed to allocate _gFlashSector memory, %ld\n", PTR_ERR(_gFlashSector));
 			res = -ENOMEM;

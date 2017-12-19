@@ -372,6 +372,8 @@ static int allnode_key_cdc_data(int index)
 			DBG_ERR("Failed to allocate FrameBuffer mem (%ld)\n", PTR_ERR(key_buf));
 			goto out;
 		}
+	} else {
+		memset(key_buf, 0x0, core_mp->key_len);
 	}
 
 	/* Convert original data to the physical one in each node */
@@ -490,9 +492,9 @@ static int allnode_mutual_cdc_data(int index)
 			DBG_ERR("Failed to allocate FrameBuffer mem (%ld)\n", PTR_ERR(frame_buf));
 			goto out;
 		}
+	} else {
+		memset(frame_buf, 0x0, core_mp->frame_len);
 	}
-
-	memset(frame_buf, 0, core_mp->frame_len * sizeof(int32_t));
 
 	/* Convert original data to the physical one in each node */
 	for (i = 0; i < core_mp->frame_len; i++) {
