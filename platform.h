@@ -22,8 +22,8 @@
  *
  */
 
- #ifndef __PLATFORM_H
- #define __PLATFORM_H
+#ifndef __PLATFORM_H
+#define __PLATFORM_H
 
 struct ilitek_platform_data {
 
@@ -46,7 +46,7 @@ struct ilitek_platform_data {
 	int int_gpio;
 	int reset_gpio;
 	int isr_gpio;
-	
+
 	int delay_time_high;
 	int delay_time_low;
 	int edge_delay;
@@ -69,7 +69,7 @@ struct ilitek_platform_data {
 #endif
 
 #ifdef BOOT_FW_UPGRADE
-	struct task_struct * update_thread;
+	struct task_struct *update_thread;
 #endif
 
 	/* obtain msg when battery status has changed */

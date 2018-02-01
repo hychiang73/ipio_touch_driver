@@ -25,8 +25,7 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-typedef struct
-{
+typedef struct {
 	int nId;
 	int nX;
 	int nY;
@@ -34,8 +33,7 @@ typedef struct
 	int nFlag;
 } VIRTUAL_KEYS;
 
-typedef struct
-{
+typedef struct {
 	uint16_t nMaxX;
 	uint16_t nMaxY;
 	uint16_t nMinX;
@@ -61,8 +59,7 @@ typedef struct
 
 } TP_INFO;
 
-struct core_config_data
-{
+struct core_config_data {
 	uint32_t chip_id;
 	uint32_t chip_type;
 
@@ -92,7 +89,6 @@ extern int core_cmd_len;
 /* R/W with Touch ICs */
 extern uint32_t core_config_ice_mode_read(uint32_t addr);
 extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);
-extern uint32_t vfIceRegRead(uint32_t addr);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);
 extern int core_config_ice_mode_disable(void);
 extern int core_config_ice_mode_enable(void);

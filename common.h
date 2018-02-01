@@ -22,8 +22,8 @@
  *
  */
 
- #ifndef __COMMON_H
- #define __COMMON_H
+#ifndef __COMMON_H
+#define __COMMON_H
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -44,6 +44,17 @@
 #include <linux/power_supply.h>
 #include <linux/fs.h>
 #include <asm/uaccess.h>
+
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/proc_fs.h>
+#include <linux/string.h>
+#include <linux/ctype.h>
+
+#include <linux/netlink.h>
+#include <linux/skbuff.h>
+#include <linux/socket.h>
+#include <net/sock.h>
 
 #include <linux/sched.h>
 #include <linux/kthread.h>
@@ -70,7 +81,7 @@
 #ifdef CONFIG_FB
 #include <linux/notifier.h>
 #include <linux/fb.h>
-#else 
+#else
 #include <linux/earlysuspend.h>
 #endif
 
@@ -78,32 +89,27 @@
  * Relative Driver with Touch IC
  */
 
-/* Touch IC */
-//#define ON_BOARD_IC		0x7807
-#define ON_BOARD_IC		0x9881
+/* An Touch IC currently supported by driver */
+#define CHIP_TYPE_ILI7807	0x7807
+#define CHIP_TYPE_ILI9881	0x9881
+#define TP_TOUCH_IC		CHIP_TYPE_ILI9881
 
-extern uint32_t ipio_chip_list[2];
-
-/* Platform */
-//#define PLATFORM_MTK 
-#define PLATFORM_RK 
+/* A platform currently supported by driver */
+#define PT_RK	1
+#define PT_MTK	2
+#define PT_SPRD	3
+#define PT_QCOM	4
+#define TP_PLATFORM PT_RK
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.1.2"
+#define DRIVER_VERSION	"1.0.1.3"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
 #define PROTOCOL_MID		0x1
 #define PROTOCOL_MINOR		0x0
 
-/* Normal debug messages */
-#define DBG_INFO(fmt, arg...) \
-			pr_info("ILITEK: (%s, %d): " fmt , __func__, __LINE__, ##arg);
-
-#define DBG_ERR(fmt, arg...) \
-			pr_err("ILITEK: (%s, %d): " fmt , __func__, __LINE__, ##arg);
-
-/* Detailed debug messages */
+/*  Debug messages */
 #ifdef BIT
 #undef BIT
 #endif
@@ -118,23 +124,31 @@ enum {
 	DEBUG_I2C = BIT(4),
 	DEBUG_BATTERY = BIT(5),
 	DEBUG_MP_TEST = BIT(6),
-	DEBUG_IOCTL= BIT(7),
+	DEBUG_IOCTL = BIT(7),
 	DEBUG_NETLINK = BIT(8),
 	DEBUG_PARSER = BIT(9),
 	DEBUG_GESTURE = BIT(10),
 	DEBUG_ALL = ~0,
 };
 
-extern uint32_t ipio_debug_level;
+#define ipio_info(fmt, arg...)	\
+	pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);
 
-#define DBG(level, fmt, arg...) \
-			do { \
-				if (level & ipio_debug_level) \
-				pr_info( "ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg); \
-			} while (0)
+#define ipio_err(fmt, arg...)	\
+	pr_err("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);
+
+#define ipio_debug(level, fmt, arg...)									\
+	do {																\
+		if (level & ipio_debug_level)									\
+		pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
+	} while (0)
+
+/* Distributed to all core functions */
+extern uint32_t ipio_debug_level;
+extern uint32_t ipio_chip_list[2];
 
 /* Macros */
-#define CHECK_EQUAL(X,Y) ((X==Y) ? 0 : -1 )
+#define CHECK_EQUAL(X, Y) ((X == Y) ? 0 : -1)
 #define ERR_ALLOC_MEM(X)	((IS_ERR(X) || X == NULL) ? 1 : 0)
 #define USEC	1
 #define MSEC	(USEC * 1000)
@@ -145,8 +159,6 @@ extern uint32_t ipio_debug_level;
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
 
 /* ILI7807 Series */
-#define CHIP_TYPE_ILI7807		0x7807
-
 #define ILI7807_TYPE_F_AA		0x0000
 #define ILI7807_TYPE_F_AB		0x0001
 #define ILI7807_TYPE_H			0x1100
@@ -156,8 +168,6 @@ extern uint32_t ipio_debug_level;
 #define ILI7807_PID_ADDR		0x4009C
 
 /* ILI9881 Series */
-#define CHIP_TYPE_ILI9881		0x9881
-
 #define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
 #define ILI9881_PID_ADDR		0x4009C
@@ -165,8 +175,13 @@ extern uint32_t ipio_debug_level;
 /*
  * Other settings
  */
-#define CSV_NAME_PATH	"/sdcard/ilitek_mp_test.csv"
-#define INI_NAME_PATH	"/sdcard/mp.ini"
+#define CSV_PATH			"/sdcard"
+#define INI_NAME_PATH		"/sdcard/mp.ini"
+#define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
+#define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
+#define CHECK_BATTERY_TIME  2000
+#define VDD_VOLTAGE			1800000
+#define VDD_I2C_VOLTAGE		1800000
 
  /* define the width and heigth of a screen. */
 #define TOUCH_SCREEN_X_MIN 0
@@ -186,8 +201,8 @@ extern uint32_t ipio_debug_level;
 #define BR_X_LOW	0
 #define BR_X_HIGH	100
 #define BR_Y_LOW	0
-#define BR_Y_HIGH	100	
- 
+#define BR_Y_HIGH	100
+
 /* How many numbers of touch are supported by IC. */
 #define MAX_TOUCH_NUM	10
 
@@ -195,21 +210,21 @@ extern uint32_t ipio_debug_level;
 #define MT_B_TYPE
 
 /* Enable the support of regulator power. */
-#define REGULATOR_POWER_ON 
+#define REGULATOR_POWER_ON
 
 /* Either an interrupt event handled by kthread or work queue. */
 #define USE_KTHREAD
 
 /* Enable DMA with I2C. */
-//#define I2C_DMA
+/* #define I2C_DMA */
 
 /* Split the length written to or read from IC via I2C. */
-//#define I2C_SEGMENT
+/* #define I2C_SEGMENT */
 
 /* Be able to upgrade fw at boot stage */
-//#define BOOT_FW_UPGRADE
+/* #define BOOT_FW_UPGRADE */
 
 /* Check battery's status in order to avoid some effects from charge. */
-//#define BATTERY_CHECK
+/* #define BATTERY_CHECK */
 
 #endif /* __COMMON_H */
