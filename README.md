@@ -303,6 +303,12 @@ static int ilitek_platform_gpio(void)
 
 # Release Note
 
+* V1.0.1.3
+ * Fixed many errors in mp test.
+ * Adjusted code style as unix-like.
+ * Support SPRD platform.
+ * Won't set protect bit in flash register after firmware upgraded.
+
 * V1.0.1.2
  * Introduce Test Mode and MP Test function.
  * Add gesture code.
