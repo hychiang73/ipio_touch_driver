@@ -46,7 +46,7 @@ uint32_t ipio_chip_list[] = {
 	CHIP_TYPE_ILI9881,
 };
 
-uint8_t _gReadBuf[128] = { 0 };
+uint8_t g_read_buf[128] = { 0 };
 
 struct core_config_data *core_config = NULL;
 
@@ -521,7 +521,7 @@ int core_config_get_key_info(void)
 	int res = 0, i;
 	uint8_t cmd[2] = { 0 };
 
-	memset(_gReadBuf, 0, sizeof(_gReadBuf));
+	memset(g_read_buf, 0, sizeof(g_read_buf));
 
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_key_info;
@@ -542,7 +542,7 @@ int core_config_get_key_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &_gReadBuf[0], protocol->key_info_len);
+	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
 	if (res < 0) {
 		DBG_ERR("Failed to read data via I2C, %d\n", res);
 		goto out;
@@ -550,16 +550,16 @@ int core_config_get_key_info(void)
 
 	if (core_config->tp_info->nKeyCount) {
 		/* NOTE: Firmware not ready yet */
-		core_config->tp_info->nKeyAreaXLength = (_gReadBuf[0] << 8) + _gReadBuf[1];
-		core_config->tp_info->nKeyAreaYLength = (_gReadBuf[2] << 8) + _gReadBuf[3];
+		core_config->tp_info->nKeyAreaXLength = (g_read_buf[0] << 8) + g_read_buf[1];
+		core_config->tp_info->nKeyAreaYLength = (g_read_buf[2] << 8) + g_read_buf[3];
 
 		DBG_INFO("key: length of X area = %x\n", core_config->tp_info->nKeyAreaXLength);
 		DBG_INFO("key: length of Y area = %x\n", core_config->tp_info->nKeyAreaYLength);
 
 		for (i = 0; i < core_config->tp_info->nKeyCount; i++) {
-			core_config->tp_info->virtual_key[i].nId = _gReadBuf[i * 5 + 4];
-			core_config->tp_info->virtual_key[i].nX = (_gReadBuf[i * 5 + 5] << 8) + _gReadBuf[i * 5 + 6];
-			core_config->tp_info->virtual_key[i].nY = (_gReadBuf[i * 5 + 7] << 8) + _gReadBuf[i * 5 + 8];
+			core_config->tp_info->virtual_key[i].nId = g_read_buf[i * 5 + 4];
+			core_config->tp_info->virtual_key[i].nX = (g_read_buf[i * 5 + 5] << 8) + g_read_buf[i * 5 + 6];
+			core_config->tp_info->virtual_key[i].nY = (g_read_buf[i * 5 + 7] << 8) + g_read_buf[i * 5 + 8];
 			core_config->tp_info->virtual_key[i].nStatus = 0;
 
 			DBG_INFO("key: id = %d, X = %d, Y = %d\n", core_config->tp_info->virtual_key[i].nId,
@@ -577,7 +577,7 @@ int core_config_get_tp_info(void)
 	int res = 0;
 	uint8_t cmd[2] = { 0 };
 
-	memset(_gReadBuf, 0, sizeof(_gReadBuf));
+	memset(g_read_buf, 0, sizeof(g_read_buf));
 
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_tp_info;
@@ -598,24 +598,24 @@ int core_config_get_tp_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &_gReadBuf[0], protocol->tp_info_len);
+	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
 	if (res < 0) {
 		DBG_ERR("Failed to read data via I2C, %d\n", res);
 		goto out;
 	}
 
 	/* in protocol v5, ignore the first btye because of a header. */
-	core_config->tp_info->nMinX = _gReadBuf[1];
-	core_config->tp_info->nMinY = _gReadBuf[2];
-	core_config->tp_info->nMaxX = (_gReadBuf[4] << 8) + _gReadBuf[3];
-	core_config->tp_info->nMaxY = (_gReadBuf[6] << 8) + _gReadBuf[5];
-	core_config->tp_info->nXChannelNum = _gReadBuf[7];
-	core_config->tp_info->nYChannelNum = _gReadBuf[8];
-	core_config->tp_info->self_tx_channel_num = _gReadBuf[11];
-	core_config->tp_info->self_rx_channel_num = _gReadBuf[12];
-	core_config->tp_info->side_touch_type = _gReadBuf[13];
-	core_config->tp_info->nMaxTouchNum = _gReadBuf[9];
-	core_config->tp_info->nKeyCount = _gReadBuf[10];
+	core_config->tp_info->nMinX = g_read_buf[1];
+	core_config->tp_info->nMinY = g_read_buf[2];
+	core_config->tp_info->nMaxX = (g_read_buf[4] << 8) + g_read_buf[3];
+	core_config->tp_info->nMaxY = (g_read_buf[6] << 8) + g_read_buf[5];
+	core_config->tp_info->nXChannelNum = g_read_buf[7];
+	core_config->tp_info->nYChannelNum = g_read_buf[8];
+	core_config->tp_info->self_tx_channel_num = g_read_buf[11];
+	core_config->tp_info->self_rx_channel_num = g_read_buf[12];
+	core_config->tp_info->side_touch_type = g_read_buf[13];
+	core_config->tp_info->nMaxTouchNum = g_read_buf[9];
+	core_config->tp_info->nKeyCount = g_read_buf[10];
 
 	core_config->tp_info->nMaxKeyButtonNum = 5;
 
@@ -640,7 +640,7 @@ int core_config_get_protocol_ver(void)
 	int major, mid, minor;
 	uint8_t cmd[2] = { 0 };
 
-	memset(_gReadBuf, 0, sizeof(_gReadBuf));
+	memset(g_read_buf, 0, sizeof(g_read_buf));
 	memset(core_config->protocol_ver, 0x0, sizeof(core_config->protocol_ver));
 
 	cmd[0] = protocol->cmd_read_ctrl;
@@ -662,7 +662,7 @@ int core_config_get_protocol_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &_gReadBuf[0], protocol->pro_ver_len);
+	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
 	if (res < 0) {
 		DBG_ERR("Failed to read data via I2C, %d\n", res);
 		goto out;
@@ -670,7 +670,7 @@ int core_config_get_protocol_ver(void)
 
 	/* ignore the first btye because of a header. */
 	for (; i < protocol->pro_ver_len; i++)
-		core_config->protocol_ver[i] = _gReadBuf[i + 1];
+		core_config->protocol_ver[i] = g_read_buf[i + 1];
 
 	DBG_INFO("Procotol Version = %d.%d.%d\n",
 		 core_config->protocol_ver[0], core_config->protocol_ver[1], core_config->protocol_ver[2]);
@@ -696,7 +696,7 @@ int core_config_get_core_ver(void)
 	int res = 0, i = 0;
 	uint8_t cmd[2] = { 0 };
 
-	memset(_gReadBuf, 0, sizeof(_gReadBuf));
+	memset(g_read_buf, 0, sizeof(g_read_buf));
 
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_core_ver;
@@ -717,14 +717,14 @@ int core_config_get_core_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &_gReadBuf[0], protocol->core_ver_len);
+	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
 	if (res < 0) {
 		DBG_ERR("Failed to read data via I2C, %d\n", res);
 		goto out;
 	}
 
 	for (; i < protocol->core_ver_len; i++)
-		core_config->core_ver[i] = _gReadBuf[i];
+		core_config->core_ver[i] = g_read_buf[i];
 
 	/* in protocol v5, ignore the first btye because of a header. */
 	DBG_INFO("Core Version = %d.%d.%d.%d\n",
@@ -745,7 +745,7 @@ int core_config_get_fw_ver(void)
 	int res = 0, i = 0;
 	uint8_t cmd[2] = { 0 };
 
-	memset(_gReadBuf, 0, sizeof(_gReadBuf));
+	memset(g_read_buf, 0, sizeof(g_read_buf));
 
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_fw_ver;
@@ -766,14 +766,14 @@ int core_config_get_fw_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &_gReadBuf[0], protocol->fw_ver_len);
+	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->fw_ver_len);
 	if (res < 0) {
 		DBG_ERR("Failed to read fw version %d\n", res);
 		goto out;
 	}
 
 	for (; i < protocol->fw_ver_len; i++)
-		core_config->firmware_ver[i] = _gReadBuf[i];
+		core_config->firmware_ver[i] = g_read_buf[i];
 
 	/* in protocol v5, ignore the first btye because of a header. */
 	DBG_INFO("Firmware Version = %d.%d.%d\n",

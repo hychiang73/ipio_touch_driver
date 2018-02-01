@@ -443,7 +443,7 @@ static int ilitek_platform_reg_power_check(void)
 #ifdef BATTERY_CHECK
 	INIT_DELAYED_WORK(&ipd->check_power_status_work, ilitek_platform_vpower_notify);
 	ipd->check_power_status_queue = create_workqueue("ili_power_check");
-	ipd->work_delay = msecs_to_jiffies(2000);
+	ipd->work_delay = msecs_to_jiffies(CHECK_BATTERY_TIME);
 	if (!ipd->check_power_status_queue) {
 		DBG_ERR("Failed to create a work thread to check power status\n");
 		ipd->vpower_reg_nb = false;
@@ -871,8 +871,8 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		DBG_ERR("regulator_get vdd fail\n");
 		ipd->vdd = NULL;
 	} else {
-		if (regulator_set_voltage(ipd->vdd, 1800000, 1800000) < 0)
-			DBG_ERR("Failed to set vdd 1800mv.\n");
+		if (regulator_set_voltage(ipd->vdd, VDD_VOLTAGE, VDD_VOLTAGE) < 0)
+			DBG_ERR("Failed to set vdd %d.\n", VDD_VOLTAGE);
 	}
 
 	ipd->vdd_i2c = regulator_get(&ipd->client->dev, vcc_i2c_name);
@@ -880,8 +880,8 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		DBG_ERR("regulator_get vdd_i2c fail.\n");
 		ipd->vdd_i2c = NULL;
 	} else {
-		if (regulator_set_voltage(ipd->vdd_i2c, 1800000, 1800000) < 0)
-			DBG_ERR("Failed to set vdd_i2c 1800mv.\n");
+		if (regulator_set_voltage(ipd->vdd_i2c, VDD_I2C_VOLTAGE, VDD_I2C_VOLTAGE) < 0)
+			DBG_ERR("Failed to set vdd_i2c %d\n", VDD_I2C_VOLTAGE);
 	}
 	ilitek_regulator_power_on(true);
 #endif /* REGULATOR_POWER_ON */

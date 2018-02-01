@@ -21,16 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#include <linux/cdev.h>
-#include <linux/device.h>
-#include <linux/proc_fs.h>
-#include <linux/string.h>
-#include <linux/ctype.h>
-
-#include <linux/netlink.h>
-#include <linux/skbuff.h>
-#include <linux/socket.h>
-#include <net/sock.h>
 
 #include "common.h"
 #include "platform.h"
@@ -72,9 +62,7 @@
 #define ILITEK_IOCTL_TP_MODE_CTRL			_IOWR(ILITEK_IOCTL_MAGIC, 17, uint8_t*)
 #define ILITEK_IOCTL_TP_MODE_STATUS			_IOWR(ILITEK_IOCTL_MAGIC, 18, int*)
 
-#define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
-
-unsigned char _gTmpBuf[USER_STR_BUFF] = { 0 };
+unsigned char g_user_buf[USER_STR_BUFF] = { 0 };
 
 static int katoi(char *string)
 {
@@ -150,17 +138,17 @@ static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user *bu
 	if (*pPos != 0)
 		return 0;
 
-	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
 	ipd->debug_node_open = !ipd->debug_node_open;
 
 	DBG_INFO(" %s debug_flag message = %x\n", ipd->debug_node_open ? "Enabled" : "Disabled", ipd->debug_node_open);
 
-	nCount = sprintf(_gTmpBuf, "ipd->debug_node_open : %s\n", ipd->debug_node_open ? "Enabled" : "Disabled");
+	nCount = sprintf(g_user_buf, "ipd->debug_node_open : %s\n", ipd->debug_node_open ? "Enabled" : "Disabled");
 
 	*pPos += nCount;
 
-	res = copy_to_user(buff, _gTmpBuf, nCount);
+	res = copy_to_user(buff, g_user_buf, nCount);
 	if (res < 0) {
 		DBG_ERR("Failed to copy data to user space");
 	}
@@ -486,9 +474,9 @@ static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff
 	if (*pPos != 0)
 		return 0;
 
-	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(_gTmpBuf, "%d", ipio_debug_level);
+	len = sprintf(g_user_buf, "%d", ipio_debug_level);
 
 	DBG_INFO("Current DEBUG Level = %d\n", ipio_debug_level);
 	DBG_INFO("You can set one of levels for debug as below:\n");
@@ -542,9 +530,9 @@ static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user *buff, si
 	if (*pPos != 0)
 		return 0;
 
-	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(_gTmpBuf, "%d", core_config->isEnableGesture);
+	len = sprintf(g_user_buf, "%d", core_config->isEnableGesture);
 
 	DBG_INFO("isEnableGesture = %d\n", core_config->isEnableGesture);
 
@@ -593,9 +581,9 @@ static ssize_t ilitek_proc_check_battery_read(struct file *filp, char __user *bu
 	if (*pPos != 0)
 		return 0;
 
-	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(_gTmpBuf, "%d", ipd->isEnablePollCheckPower);
+	len = sprintf(g_user_buf, "%d", ipd->isEnablePollCheckPower);
 
 	DBG_INFO("isEnablePollCheckPower = %d\n", ipd->isEnablePollCheckPower);
 
@@ -654,9 +642,9 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 	if (*pPos != 0)
 		return 0;
 
-	memset(_gTmpBuf, 0, USER_STR_BUFF * sizeof(unsigned char));
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(_gTmpBuf, "%02d", core_firmware->update_status);
+	len = sprintf(g_user_buf, "%02d", core_firmware->update_status);
 
 	DBG_INFO("update status = %d\n", core_firmware->update_status);
 

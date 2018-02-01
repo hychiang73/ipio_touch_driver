@@ -61,14 +61,14 @@ struct fr_data_node {
 };
 
 /* record the status of touch being pressed or released currently and previosuly */
-uint8_t _gCurrentTouch[MAX_TOUCH_NUM];
-uint8_t _gPreviousTouch[MAX_TOUCH_NUM];
+uint8_t g_current_touch[MAX_TOUCH_NUM];
+uint8_t g_previous_touch[MAX_TOUCH_NUM];
 
 /* the total length of finger report packet */
-uint16_t _gTotalLength = 0;
+uint16_t g_total_len = 0;
 
 struct mutual_touch_info _gMti;
-struct fr_data_node *_gFRnode = NULL, *_gFRuart = NULL;
+struct fr_data_node *g_fr_node = NULL, *g_fr_uart = NULL;
 struct core_fr_data *core_fr = NULL;
 
 /**
@@ -99,13 +99,13 @@ static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
 static void i2cuart_recv_packet(void)
 {
 	int res = 0, need_read_len = 0, one_data_bytes = 0;
-	int type = _gFRnode->data[3] & 0x0F;
-	int actual_len = _gFRnode->len - 5;
+	int type = g_fr_node->data[3] & 0x0F;
+	int actual_len = g_fr_node->len - 5;
 
 	DBG(DEBUG_FINGER_REPORT, "pid = %x, data[3] = %x, type = %x, actual_len = %d\n",
-	    _gFRnode->data[0], _gFRnode->data[3], type, actual_len);
+	    g_fr_node->data[0], g_fr_node->data[3], type, actual_len);
 
-	need_read_len = _gFRnode->data[1] * _gFRnode->data[2];
+	need_read_len = g_fr_node->data[1] * g_fr_node->data[2];
 
 	if (type == 0 || type == 1 || type == 6) {
 		one_data_bytes = 1;
@@ -120,21 +120,21 @@ static void i2cuart_recv_packet(void)
 	need_read_len = need_read_len * one_data_bytes + 1;
 
 	if (need_read_len > actual_len) {
-		_gFRuart = kmalloc(sizeof(*_gFRuart), GFP_ATOMIC);
-		if (ERR_ALLOC_MEM(_gFRuart)) {
-			DBG_ERR("Failed to allocate _gFRuart memory %ld\n", PTR_ERR(_gFRuart));
+		g_fr_uart = kmalloc(sizeof(*g_fr_uart), GFP_ATOMIC);
+		if (ERR_ALLOC_MEM(g_fr_uart)) {
+			DBG_ERR("Failed to allocate g_fr_uart memory %ld\n", PTR_ERR(g_fr_uart));
 			return;
 		}
 
-		_gFRuart->len = need_read_len - actual_len;
-		_gFRuart->data = kzalloc(_gFRuart->len, GFP_ATOMIC);
-		if (ERR_ALLOC_MEM(_gFRuart->data)) {
-			DBG_ERR("Failed to allocate _gFRuart memory %ld\n", PTR_ERR(_gFRuart->data));
+		g_fr_uart->len = need_read_len - actual_len;
+		g_fr_uart->data = kzalloc(g_fr_uart->len, GFP_ATOMIC);
+		if (ERR_ALLOC_MEM(g_fr_uart->data)) {
+			DBG_ERR("Failed to allocate g_fr_uart memory %ld\n", PTR_ERR(g_fr_uart->data));
 			return;
 		}
 
-		_gTotalLength += _gFRuart->len;
-		res = core_i2c_read(core_config->slave_i2c_addr, _gFRuart->data, _gFRuart->len);
+		g_total_len += g_fr_uart->len;
+		res = core_i2c_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
 		if (res < 0)
 			DBG_ERR("Failed to read finger report packet\n");
 
@@ -224,12 +224,12 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	uint32_t nX = 0, nY = 0;
 
 	for (i = 0; i < 9; i++)
-		DBG(DEBUG_FINGER_REPORT, "data[%d] = %x\n", i, _gFRnode->data[i]);
+		DBG(DEBUG_FINGER_REPORT, "data[%d] = %x\n", i, g_fr_node->data[i]);
 
-	check_sum = cal_fr_checksum(&_gFRnode->data[0], (_gFRnode->len - 1));
-	DBG(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x\n", _gFRnode->data[_gFRnode->len - 1], check_sum);
+	check_sum = cal_fr_checksum(&g_fr_node->data[0], (g_fr_node->len - 1));
+	DBG(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x\n", g_fr_node->data[g_fr_node->len - 1], check_sum);
 
-	if (_gFRnode->data[_gFRnode->len - 1] != check_sum) {
+	if (g_fr_node->data[g_fr_node->len - 1] != check_sum) {
 		DBG_ERR("Wrong checksum\n");
 		res = -1;
 		goto out;
@@ -240,16 +240,16 @@ static int parse_touch_package_v5_0(uint8_t pid)
 		DBG(DEBUG_FINGER_REPORT, " **** Parsing DEMO packets : 0x%x ****\n", pid);
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++) {
-			if ((_gFRnode->data[(4 * i) + 1] == 0xFF) && (_gFRnode->data[(4 * i) + 2] && 0xFF)
-			    && (_gFRnode->data[(4 * i) + 3] == 0xFF)) {
+			if ((g_fr_node->data[(4 * i) + 1] == 0xFF) && (g_fr_node->data[(4 * i) + 2] && 0xFF)
+			    && (g_fr_node->data[(4 * i) + 3] == 0xFF)) {
 #ifdef MT_B_TYPE
-				_gCurrentTouch[i] = 0;
+				g_current_touch[i] = 0;
 #endif
 				continue;
 			}
 
-			nX = (((_gFRnode->data[(4 * i) + 1] & 0xF0) << 4) | (_gFRnode->data[(4 * i) + 2]));
-			nY = (((_gFRnode->data[(4 * i) + 1] & 0x0F) << 8) | (_gFRnode->data[(4 * i) + 3]));
+			nX = (((g_fr_node->data[(4 * i) + 1] & 0xF0) << 4) | (g_fr_node->data[(4 * i) + 2]));
+			nY = (((g_fr_node->data[(4 * i) + 1] & 0x0F) << 8) | (g_fr_node->data[(4 * i) + 3]));
 
 			if (!core_fr->isSetResolution) {
 				_gMti.mtp[_gMti.touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
@@ -262,7 +262,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			}
 
 			if (core_fr->isEnablePressure)
-				_gMti.mtp[_gMti.touch_num].pressure = _gFRnode->data[(4 * i) + 4];
+				_gMti.mtp[_gMti.touch_num].pressure = g_fr_node->data[(4 * i) + 4];
 			else
 				_gMti.mtp[_gMti.touch_num].pressure = 1;
 
@@ -275,24 +275,24 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			_gMti.touch_num++;
 
 #ifdef MT_B_TYPE
-			_gCurrentTouch[i] = 1;
+			g_current_touch[i] = 1;
 #endif
 		}
 	} else if (pid == protocol->debug_pid) {
 		DBG(DEBUG_FINGER_REPORT, " **** Parsing DEBUG packets : 0x%x ****\n", pid);
-		DBG(DEBUG_FINGER_REPORT, "Length = %d\n", (_gFRnode->data[1] << 8 | _gFRnode->data[2]));
+		DBG(DEBUG_FINGER_REPORT, "Length = %d\n", (g_fr_node->data[1] << 8 | g_fr_node->data[2]));
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++) {
-			if ((_gFRnode->data[(3 * i) + 5] == 0xFF) && (_gFRnode->data[(3 * i) + 6] && 0xFF)
-			    && (_gFRnode->data[(3 * i) + 7] == 0xFF)) {
+			if ((g_fr_node->data[(3 * i) + 5] == 0xFF) && (g_fr_node->data[(3 * i) + 6] && 0xFF)
+			    && (g_fr_node->data[(3 * i) + 7] == 0xFF)) {
 #ifdef MT_B_TYPE
-				_gCurrentTouch[i] = 0;
+				g_current_touch[i] = 0;
 #endif
 				continue;
 			}
 
-			nX = (((_gFRnode->data[(3 * i) + 5] & 0xF0) << 4) | (_gFRnode->data[(3 * i) + 6]));
-			nY = (((_gFRnode->data[(3 * i) + 5] & 0x0F) << 8) | (_gFRnode->data[(3 * i) + 7]));
+			nX = (((g_fr_node->data[(3 * i) + 5] & 0xF0) << 4) | (g_fr_node->data[(3 * i) + 6]));
+			nY = (((g_fr_node->data[(3 * i) + 5] & 0x0F) << 8) | (g_fr_node->data[(3 * i) + 7]));
 
 			if (!core_fr->isSetResolution) {
 				_gMti.mtp[_gMti.touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
@@ -305,7 +305,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			}
 
 			if (core_fr->isEnablePressure)
-				_gMti.mtp[_gMti.touch_num].pressure = _gFRnode->data[(4 * i) + 4];
+				_gMti.mtp[_gMti.touch_num].pressure = g_fr_node->data[(4 * i) + 4];
 			else
 				_gMti.mtp[_gMti.touch_num].pressure = 1;
 
@@ -318,7 +318,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			_gMti.touch_num++;
 
 #ifdef MT_B_TYPE
-			_gCurrentTouch[i] = 1;
+			g_current_touch[i] = 1;
 #endif
 		}
 	} else {
@@ -349,16 +349,16 @@ static int finger_report_ver_5_0(void)
 	memset(&_gMti, 0x0, sizeof(struct mutual_touch_info));
 
 #ifdef I2C_SEGMENT
-	res = core_i2c_segmental_read(core_config->slave_i2c_addr, _gFRnode->data, _gFRnode->len);
+	res = core_i2c_segmental_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #else
-	res = core_i2c_read(core_config->slave_i2c_addr, _gFRnode->data, _gFRnode->len);
+	res = core_i2c_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #endif
 	if (res < 0) {
 		DBG_ERR("Failed to read finger report packet\n");
 		goto out;
 	}
 
-	pid = _gFRnode->data[0];
+	pid = g_fr_node->data[0];
 	DBG(DEBUG_FINGER_REPORT, "PID = 0x%x\n", pid);
 
 	if (pid == protocol->i2cuart_pid) {
@@ -368,8 +368,8 @@ static int finger_report_ver_5_0(void)
 	}
 
 	if (pid == protocol->ges_pid && core_config->isEnableGesture) {
-		DBG(DEBUG_FINGER_REPORT, "pid = 0x%x, code = %x\n", pid, _gFRnode->data[1]);
-		gesture = core_gesture_key(_gFRnode->data[1]);
+		DBG(DEBUG_FINGER_REPORT, "pid = 0x%x, code = %x\n", pid, g_fr_node->data[1]);
+		gesture = core_gesture_key(g_fr_node->data[1]);
 		if (gesture != -1) {
 			input_report_key(core_fr->input_device, gesture, 1);
 			input_sync(core_fr->input_device);
@@ -398,14 +398,14 @@ static int finger_report_ver_5_0(void)
 		}
 
 		for (i = 0; i < MAX_TOUCH_NUM; i++) {
-			DBG(DEBUG_FINGER_REPORT, "_gPreviousTouch[%d]=%d, _gCurrentTouch[%d]=%d\n", i,
-			    _gPreviousTouch[i], i, _gCurrentTouch[i]);
+			DBG(DEBUG_FINGER_REPORT, "g_previous_touch[%d]=%d, g_current_touch[%d]=%d\n", i,
+			    g_previous_touch[i], i, g_current_touch[i]);
 
-			if (_gCurrentTouch[i] == 0 && _gPreviousTouch[i] == 1) {
+			if (g_current_touch[i] == 0 && g_previous_touch[i] == 1) {
 				core_fr_touch_release(0, 0, i);
 			}
 
-			_gPreviousTouch[i] = _gCurrentTouch[i];
+			g_previous_touch[i] = g_current_touch[i];
 		}
 #else
 		for (i = 0; i < _gMti.touch_num; i++) {
@@ -419,13 +419,13 @@ static int finger_report_ver_5_0(void)
 		if (last_touch > 0) {
 #ifdef MT_B_TYPE
 			for (i = 0; i < MAX_TOUCH_NUM; i++) {
-				DBG(DEBUG_FINGER_REPORT, "_gPreviousTouch[%d]=%d, _gCurrentTouch[%d]=%d\n", i,
-				    _gPreviousTouch[i], i, _gCurrentTouch[i]);
+				DBG(DEBUG_FINGER_REPORT, "g_previous_touch[%d]=%d, g_current_touch[%d]=%d\n", i,
+				    g_previous_touch[i], i, g_current_touch[i]);
 
-				if (_gCurrentTouch[i] == 0 && _gPreviousTouch[i] == 1) {
+				if (g_current_touch[i] == 0 && g_previous_touch[i] == 1) {
 					core_fr_touch_release(0, 0, i);
 				}
-				_gPreviousTouch[i] = _gCurrentTouch[i];
+				g_previous_touch[i] = g_current_touch[i];
 			}
 			input_report_key(core_fr->input_device, BTN_TOUCH, 0);
 			input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
@@ -611,22 +611,22 @@ void core_fr_handler(void)
 	uint8_t *tdata = NULL;
 
 	if (core_fr->isEnableFR) {
-		_gTotalLength = calc_packet_length();
-		if (_gTotalLength) {
-			_gFRnode = kmalloc(sizeof(*_gFRnode), GFP_ATOMIC);
-			if (ERR_ALLOC_MEM(_gFRnode)) {
-				DBG_ERR("Failed to allocate _gFRnode memory %ld\n", PTR_ERR(_gFRnode));
+		g_total_len = calc_packet_length();
+		if (g_total_len) {
+			g_fr_node = kmalloc(sizeof(*g_fr_node), GFP_ATOMIC);
+			if (ERR_ALLOC_MEM(g_fr_node)) {
+				DBG_ERR("Failed to allocate g_fr_node memory %ld\n", PTR_ERR(g_fr_node));
 				goto out;
 			}
 
-			_gFRnode->data = kcalloc(_gTotalLength, sizeof(uint8_t), GFP_ATOMIC);
-			if (ERR_ALLOC_MEM(_gFRnode->data)) {
-				DBG_ERR("Failed to allocate _gFRnode memory %ld\n", PTR_ERR(_gFRnode->data));
+			g_fr_node->data = kcalloc(g_total_len, sizeof(uint8_t), GFP_ATOMIC);
+			if (ERR_ALLOC_MEM(g_fr_node->data)) {
+				DBG_ERR("Failed to allocate g_fr_node memory %ld\n", PTR_ERR(g_fr_node->data));
 				goto out;
 			}
 
-			_gFRnode->len = _gTotalLength;
-			memset(_gFRnode->data, 0xFF, (uint8_t) sizeof(uint8_t) * _gTotalLength);
+			g_fr_node->len = g_total_len;
+			memset(g_fr_node->data, 0xFF, (uint8_t) sizeof(uint8_t) * g_total_len);
 
 			while (i < ARRAY_SIZE(fr_t)) {
 				if (protocol->major == fr_t[i].protocol_marjor_ver) {
@@ -635,32 +635,32 @@ void core_fr_handler(void)
 					mutex_unlock(&ipd->MUTEX);
 
 					/* 2048 is referred to the defination by user */
-					if (_gTotalLength < 2048) {
-						tdata = kmalloc(_gTotalLength, GFP_ATOMIC);
+					if (g_total_len < 2048) {
+						tdata = kmalloc(g_total_len, GFP_ATOMIC);
 						if (ERR_ALLOC_MEM(tdata)) {
-							DBG_ERR("Failed to allocate _gFRnode memory %ld\n",
+							DBG_ERR("Failed to allocate g_fr_node memory %ld\n",
 								PTR_ERR(tdata));
 							goto out;
 						}
 
-						memcpy(tdata, _gFRnode->data, _gFRnode->len);
+						memcpy(tdata, g_fr_node->data, g_fr_node->len);
 						/* merge uart data if it's at i2cuart mode */
-						if (_gFRuart != NULL)
-							memcpy(tdata + _gFRnode->len, _gFRuart->data, _gFRuart->len);
+						if (g_fr_uart != NULL)
+							memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len);
 					} else {
 						DBG_ERR("total length (%d) is too long than user can handle\n",
-							_gTotalLength);
+							g_total_len);
 						goto out;
 					}
 
 					if (core_fr->isEnableNetlink)
-						netlink_reply_msg(tdata, _gTotalLength);
+						netlink_reply_msg(tdata, g_total_len);
 
 					if (ipd->debug_node_open) {
 						mutex_lock(&ipd->ilitek_debug_mutex);
 						memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
 						       (uint8_t) sizeof(uint8_t) * 2048);
-						memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, _gTotalLength);
+						memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len);
 						ipd->debug_data_frame++;
 						if (ipd->debug_data_frame > 1) {
 							DBG_INFO("ipd->debug_data_frame = %d\n", ipd->debug_data_frame);
@@ -689,26 +689,26 @@ void core_fr_handler(void)
 
 out:
 	DBG(DEBUG_IRQ, "handle INT done\n\n");
-	_gTotalLength = 0;
+	g_total_len = 0;
 	if (tdata != NULL) {
 		kfree(tdata);
 		tdata = NULL;
 	}
-	if (_gFRnode != NULL) {
-		if (_gFRnode->data != NULL) {
-			kfree(_gFRnode->data);
-			_gFRnode->data = NULL;
+	if (g_fr_node != NULL) {
+		if (g_fr_node->data != NULL) {
+			kfree(g_fr_node->data);
+			g_fr_node->data = NULL;
 		}
-		kfree(_gFRnode);
-		_gFRnode = NULL;
+		kfree(g_fr_node);
+		g_fr_node = NULL;
 	}
-	if (_gFRuart != NULL) {
-		if (_gFRuart->data != NULL) {
-			kfree(_gFRuart->data);
-			_gFRuart->data = NULL;
+	if (g_fr_uart != NULL) {
+		if (g_fr_uart->data != NULL) {
+			kfree(g_fr_uart->data);
+			g_fr_uart->data = NULL;
 		}
-		kfree(_gFRuart);
-		_gFRuart = NULL;
+		kfree(g_fr_uart);
+		g_fr_uart = NULL;
 	}
 }
 EXPORT_SYMBOL(core_fr_handler);

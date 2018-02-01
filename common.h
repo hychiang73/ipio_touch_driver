@@ -45,6 +45,17 @@
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/proc_fs.h>
+#include <linux/string.h>
+#include <linux/ctype.h>
+
+#include <linux/netlink.h>
+#include <linux/skbuff.h>
+#include <linux/socket.h>
+#include <net/sock.h>
+
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/wait.h>
@@ -163,8 +174,12 @@ extern uint32_t ipio_chip_list[2];
 /*
  * Other settings
  */
-#define CSV_PATH	"/sdcard"
-#define INI_NAME_PATH	"/sdcard/mp.ini"
+#define CSV_PATH			"/sdcard"
+#define INI_NAME_PATH		"/sdcard/mp.ini"
+#define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
+#define CHECK_BATTERY_TIME  2000
+#define VDD_VOLTAGE			1800000
+#define VDD_I2C_VOLTAGE		1800000
 
  /* define the width and heigth of a screen. */
 #define TOUCH_SCREEN_X_MIN 0
