@@ -21,11 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#include <linux/errno.h>
-#include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/delay.h>
-#include <linux/slab.h>
 
 #include "../common.h"
 #include "config.h"
@@ -63,7 +58,7 @@ int core_flash_poll_busy(void)
 		timer--;
 	}
 
-	DBG_ERR("Polling busy Time out !\n");
+	ipio_err("Polling busy Time out !\n");
 	res = -1;
 out:
 	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
@@ -85,17 +80,17 @@ int core_flash_write_enable(void)
 	return 0;
 
 out:
-	DBG_ERR("Write enable failed !\n");
+	ipio_err("Write enable failed !\n");
 	return -EIO;
 }
 EXPORT_SYMBOL(core_flash_write_enable);
 
 void core_flash_enable_protect(bool enable)
 {
-	DBG_INFO("Set flash protect as (%d)\n", enable);
+	ipio_info("Set flash protect as (%d)\n", enable);
 
 	if (core_flash_write_enable() < 0) {
-		DBG_ERR("Failed to config flash's write enable\n");
+		ipio_err("Failed to config flash's write enable\n");
 		return;
 	}
 
@@ -126,7 +121,7 @@ void core_flash_enable_protect(bool enable)
 		}
 		break;
 	default:
-		DBG_ERR("Can't find flash id, ignore protection\n");
+		ipio_err("Can't find flash id, ignore protection\n");
 		break;
 	}
 
@@ -139,17 +134,17 @@ void core_flash_init(uint16_t mid, uint16_t did)
 {
 	int i = 0;
 
-	DBG_INFO("M_ID = %x, DEV_ID = %x", mid, did);
+	ipio_info("M_ID = %x, DEV_ID = %x", mid, did);
 
 	flashtab = kzalloc(sizeof(ft), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(flashtab)) {
-		DBG_ERR("Failed to allocate flashtab memory, %ld\n", PTR_ERR(flashtab));
+		ipio_err("Failed to allocate flashtab memory, %ld\n", PTR_ERR(flashtab));
 		return;
 	}
 
 	for (; i < ARRAY_SIZE(ft); i++) {
 		if (mid == ft[i].mid && did == ft[i].dev_id) {
-			DBG_INFO("Find them in flash table\n");
+			ipio_info("Find them in flash table\n");
 
 			flashtab->mid = mid;
 			flashtab->dev_id = did;
@@ -162,7 +157,7 @@ void core_flash_init(uint16_t mid, uint16_t did)
 	}
 
 	if (i >= ARRAY_SIZE(ft)) {
-		DBG_ERR("Can't find them in flash table, apply default flash config\n");
+		ipio_err("Can't find them in flash table, apply default flash config\n");
 		flashtab->mid = mid;
 		flashtab->dev_id = did;
 		flashtab->mem_size = (256 * 1024);
@@ -171,16 +166,16 @@ void core_flash_init(uint16_t mid, uint16_t did)
 		flashtab->block = (64 * 1024);
 	}
 
-	DBG_INFO("Max Memory size = %d\n", flashtab->mem_size);
-	DBG_INFO("Per program page = %d\n", flashtab->program_page);
-	DBG_INFO("Sector size = %d\n", flashtab->sector);
-	DBG_INFO("Block size = %d\n", flashtab->block);
+	ipio_info("Max Memory size = %d\n", flashtab->mem_size);
+	ipio_info("Per program page = %d\n", flashtab->program_page);
+	ipio_info("Sector size = %d\n", flashtab->sector);
+	ipio_info("Block size = %d\n", flashtab->block);
 }
 EXPORT_SYMBOL(core_flash_init);
 
 void core_flash_remove(void)
 {
-	DBG_INFO("Remove core-flash memebers\n");
+	ipio_info("Remove core-flash memebers\n");
 
 	if (flashtab != NULL)
 		kfree(flashtab);

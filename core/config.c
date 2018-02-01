@@ -105,7 +105,7 @@ static uint32_t check_chip_id(uint32_t pid_data)
 		id = pid_data >> 16;
 		core_config->ic_reset_addr = 0x040050;
 	} else {
-		DBG_ERR("The Chip isn't supported by the driver\n");
+		ipio_err("The Chip isn't supported by the driver\n");
 	}
 
 	return id;
@@ -140,7 +140,7 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 	return data;
 
 out:
-	DBG_ERR("Failed to read/write data in ICE mode, res = %d\n", res);
+	ipio_err("Failed to read/write data in ICE mode, res = %d\n", res);
 	return res;
 }
 EXPORT_SYMBOL(core_config_read_write_onebyte);
@@ -171,7 +171,7 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 	return data;
 
 out:
-	DBG_ERR("Failed to read data in ICE mode, res = %d\n", res);
+	ipio_err("Failed to read data in ICE mode, res = %d\n", res);
 	return res;
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
@@ -197,7 +197,7 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
 
 	if (res < 0)
-		DBG_ERR("Failed to write data in ICE mode, res = %d\n", res);
+		ipio_err("Failed to write data in ICE mode, res = %d\n", res);
 
 	return res;
 }
@@ -223,7 +223,7 @@ void core_config_ic_reset(void)
 		key = 0x00019881;
 	}
 
-	DBG(DEBUG_CONFIG, "key = 0x%x\n", key);
+	ipio_debug(DEBUG_CONFIG, "key = 0x%x\n", key);
 	if (key != 0) {
 		core_config->do_ic_reset = true;
 		core_config_ice_mode_write(core_config->ic_reset_addr, key, 4);
@@ -236,7 +236,7 @@ EXPORT_SYMBOL(core_config_ic_reset);
 
 void core_config_sense_ctrl(bool start)
 {
-	DBG_INFO("sense start = %d\n", start);
+	ipio_info("sense start = %d\n", start);
 
 	return core_protocol_func_control(0, start);
 }
@@ -244,7 +244,7 @@ EXPORT_SYMBOL(core_config_sense_ctrl);
 
 void core_config_sleep_ctrl(bool out)
 {
-	DBG_INFO("Sleep Out = %d\n", out);
+	ipio_info("Sleep Out = %d\n", out);
 
 	return core_protocol_func_control(1, out);
 }
@@ -261,7 +261,7 @@ void core_config_glove_ctrl(bool enable, bool seamless)
 			cmd = 0x0;
 	}
 
-	DBG_INFO("Glove = %d, seamless = %d, cmd = %d\n", enable, seamless, cmd);
+	ipio_info("Glove = %d, seamless = %d, cmd = %d\n", enable, seamless, cmd);
 
 	return core_protocol_func_control(2, cmd);
 }
@@ -278,7 +278,7 @@ void core_config_stylus_ctrl(bool enable, bool seamless)
 			cmd = 0x0;
 	}
 
-	DBG_INFO("stylus = %d, seamless = %d, cmd = %x\n", enable, seamless, cmd);
+	ipio_info("stylus = %d, seamless = %d, cmd = %x\n", enable, seamless, cmd);
 
 	return core_protocol_func_control(3, cmd);
 }
@@ -286,7 +286,7 @@ EXPORT_SYMBOL(core_config_stylus_ctrl);
 
 void core_config_tp_scan_mode(bool mode)
 {
-	DBG_INFO("TP Scan mode = %d\n", mode);
+	ipio_info("TP Scan mode = %d\n", mode);
 
 	return core_protocol_func_control(4, mode);
 }
@@ -294,7 +294,7 @@ EXPORT_SYMBOL(core_config_tp_scan_mode);
 
 void core_config_lpwg_ctrl(bool enable)
 {
-	DBG_INFO("LPWG = %d\n", enable);
+	ipio_info("LPWG = %d\n", enable);
 
 	return core_protocol_func_control(5, enable);
 }
@@ -304,13 +304,13 @@ void core_config_gesture_ctrl(uint8_t func)
 {
 	uint8_t max_byte = 0x0, min_byte = 0x0;
 
-	DBG_INFO("Gesture function = 0x%x\n", func);
+	ipio_info("Gesture function = 0x%x\n", func);
 
 	max_byte = 0x3F;
 	min_byte = 0x20;
 
 	if (func > max_byte || func < min_byte) {
-		DBG_ERR("Gesture ctrl error, 0x%x\n", func);
+		ipio_err("Gesture ctrl error, 0x%x\n", func);
 		return;
 	}
 
@@ -320,7 +320,7 @@ EXPORT_SYMBOL(core_config_gesture_ctrl);
 
 void core_config_phone_cover_ctrl(bool enable)
 {
-	DBG_INFO("Phone Cover = %d\n", enable);
+	ipio_info("Phone Cover = %d\n", enable);
 
 	return core_protocol_func_control(7, enable);
 }
@@ -328,7 +328,7 @@ EXPORT_SYMBOL(core_config_phone_cover_ctrl);
 
 void core_config_finger_sense_ctrl(bool enable)
 {
-	DBG_INFO("Finger sense = %d\n", enable);
+	ipio_info("Finger sense = %d\n", enable);
 
 	return core_protocol_func_control(0, enable);
 }
@@ -336,7 +336,7 @@ EXPORT_SYMBOL(core_config_finger_sense_ctrl);
 
 void core_config_proximity_ctrl(bool enable)
 {
-	DBG_INFO("Proximity = %d\n", enable);
+	ipio_info("Proximity = %d\n", enable);
 
 	return core_protocol_func_control(11, enable);
 }
@@ -344,7 +344,7 @@ EXPORT_SYMBOL(core_config_proximity_ctrl);
 
 void core_config_plug_ctrl(bool out)
 {
-	DBG_INFO("Plug Out = %d\n", out);
+	ipio_info("Plug Out = %d\n", out);
 
 	return core_protocol_func_control(12, out);
 }
@@ -357,10 +357,10 @@ void core_config_set_phone_cover(uint8_t *pattern)
 	uint8_t br_x_l = BR_X_LOW, br_x_h = BR_X_HIGH;
 	uint8_t br_y_l = BR_Y_LOW, br_y_h = BR_Y_HIGH;
 
-	DBG_INFO("pattern = 0x%x\n", *pattern);
+	ipio_info("pattern = 0x%x\n", *pattern);
 
 	if (*pattern < 0 || pattern == NULL) {
-		DBG_ERR("Invaild width or height\n");
+		ipio_err("Invaild width or height\n");
 		return;
 	}
 
@@ -377,14 +377,14 @@ void core_config_set_phone_cover(uint8_t *pattern)
 		/* TODO */
 	}
 
-	DBG_INFO("window: cmd = 0x%x\n", protocol->phone_cover_window[0]);
-	DBG_INFO("window: ul_x_l = 0x%x, ul_x_h = 0x%x\n", protocol->phone_cover_window[1],
+	ipio_info("window: cmd = 0x%x\n", protocol->phone_cover_window[0]);
+	ipio_info("window: ul_x_l = 0x%x, ul_x_h = 0x%x\n", protocol->phone_cover_window[1],
 		 protocol->phone_cover_window[2]);
-	DBG_INFO("window: ul_y_l = 0x%x, ul_y_l = 0x%x\n", protocol->phone_cover_window[3],
+	ipio_info("window: ul_y_l = 0x%x, ul_y_l = 0x%x\n", protocol->phone_cover_window[3],
 		 protocol->phone_cover_window[4]);
-	DBG_INFO("window: br_x_l = 0x%x, br_x_l = 0x%x\n", protocol->phone_cover_window[5],
+	ipio_info("window: br_x_l = 0x%x, br_x_l = 0x%x\n", protocol->phone_cover_window[5],
 		 protocol->phone_cover_window[6]);
-	DBG_INFO("window: br_y_l = 0x%x, br_y_l = 0x%x\n", protocol->phone_cover_window[7],
+	ipio_info("window: br_y_l = 0x%x, br_y_l = 0x%x\n", protocol->phone_cover_window[7],
 		 protocol->phone_cover_window[8]);
 
 	core_protocol_func_control(9, 0);
@@ -400,16 +400,16 @@ EXPORT_SYMBOL(core_config_set_phone_cover);
  */
 void core_config_ic_suspend(void)
 {
-	DBG_INFO("Starting to suspend ...\n");
+	ipio_info("Starting to suspend ...\n");
 
 	/* sense stop */
 	core_config_sense_ctrl(false);
 
 	/* check system busy */
 	if (core_config_check_cdc_busy() < 0)
-		DBG_ERR("Check busy is timout !\n");
+		ipio_err("Check busy is timout !\n");
 
-	DBG_INFO("Enabled Gesture = %d\n", core_config->isEnableGesture);
+	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
 
 	if (core_config->isEnableGesture) {
 		core_config_lpwg_ctrl(true);
@@ -418,7 +418,7 @@ void core_config_ic_suspend(void)
 		core_config_sleep_ctrl(false);
 	}
 
-	DBG_INFO("Suspend done\n");
+	ipio_info("Suspend done\n");
 }
 EXPORT_SYMBOL(core_config_ic_suspend);
 
@@ -431,14 +431,14 @@ EXPORT_SYMBOL(core_config_ic_suspend);
  */
 void core_config_ic_resume(void)
 {
-	DBG_INFO("Starting to resume ...\n");
+	ipio_info("Starting to resume ...\n");
 
 	/* sleep out */
 	core_config_sleep_ctrl(true);
 
 	/* check system busy */
 	if (core_config_check_cdc_busy() < 0)
-		DBG_ERR("Check busy is timout !\n");
+		ipio_err("Check busy is timout !\n");
 
 	/* sense start for TP */
 	core_config_sense_ctrl(true);
@@ -448,7 +448,7 @@ void core_config_ic_resume(void)
 	mdelay(10);
 	core_config_ic_reset();
 
-	DBG_INFO("Resume done\n");
+	ipio_info("Resume done\n");
 }
 EXPORT_SYMBOL(core_config_ic_resume);
 
@@ -461,7 +461,7 @@ int core_config_ice_mode_disable(void)
 	cmd[2] = 0x10;
 	cmd[3] = 0x18;
 
-	DBG_INFO("ICE Mode disabled\n")
+	ipio_info("ICE Mode disabled\n")
 
 	    return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
 }
@@ -469,7 +469,7 @@ EXPORT_SYMBOL(core_config_ice_mode_disable);
 
 int core_config_ice_mode_enable(void)
 {
-	DBG_INFO("ICE Mode enabled\n");
+	ipio_info("ICE Mode enabled\n");
 
 	if (core_config_ice_mode_write(0x181062, 0x0, 0) < 0)
 		return -1;
@@ -504,7 +504,7 @@ int core_config_check_cdc_busy(void)
 		core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		mdelay(1);
 		core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
-		DBG(DEBUG_CONFIG, "CDC busy state = 0x%x\n", busy);
+		ipio_debug(DEBUG_CONFIG, "CDC busy state = 0x%x\n", busy);
 		if (busy == 0x41 || busy == 0x51) {
 			res = 0;
 			break;
@@ -528,7 +528,7 @@ int core_config_get_key_info(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -536,7 +536,7 @@ int core_config_get_key_info(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -544,7 +544,7 @@ int core_config_get_key_info(void)
 
 	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
 	if (res < 0) {
-		DBG_ERR("Failed to read data via I2C, %d\n", res);
+		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -553,8 +553,8 @@ int core_config_get_key_info(void)
 		core_config->tp_info->nKeyAreaXLength = (g_read_buf[0] << 8) + g_read_buf[1];
 		core_config->tp_info->nKeyAreaYLength = (g_read_buf[2] << 8) + g_read_buf[3];
 
-		DBG_INFO("key: length of X area = %x\n", core_config->tp_info->nKeyAreaXLength);
-		DBG_INFO("key: length of Y area = %x\n", core_config->tp_info->nKeyAreaYLength);
+		ipio_info("key: length of X area = %x\n", core_config->tp_info->nKeyAreaXLength);
+		ipio_info("key: length of Y area = %x\n", core_config->tp_info->nKeyAreaYLength);
 
 		for (i = 0; i < core_config->tp_info->nKeyCount; i++) {
 			core_config->tp_info->virtual_key[i].nId = g_read_buf[i * 5 + 4];
@@ -562,7 +562,7 @@ int core_config_get_key_info(void)
 			core_config->tp_info->virtual_key[i].nY = (g_read_buf[i * 5 + 7] << 8) + g_read_buf[i * 5 + 8];
 			core_config->tp_info->virtual_key[i].nStatus = 0;
 
-			DBG_INFO("key: id = %d, X = %d, Y = %d\n", core_config->tp_info->virtual_key[i].nId,
+			ipio_info("key: id = %d, X = %d, Y = %d\n", core_config->tp_info->virtual_key[i].nId,
 				 core_config->tp_info->virtual_key[i].nX, core_config->tp_info->virtual_key[i].nY);
 		}
 	}
@@ -584,7 +584,7 @@ int core_config_get_tp_info(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -592,7 +592,7 @@ int core_config_get_tp_info(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -600,7 +600,7 @@ int core_config_get_tp_info(void)
 
 	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
 	if (res < 0) {
-		DBG_ERR("Failed to read data via I2C, %d\n", res);
+		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -619,13 +619,13 @@ int core_config_get_tp_info(void)
 
 	core_config->tp_info->nMaxKeyButtonNum = 5;
 
-	DBG_INFO("minX = %d, minY = %d, maxX = %d, maxY = %d\n",
+	ipio_info("minX = %d, minY = %d, maxX = %d, maxY = %d\n",
 		 core_config->tp_info->nMinX, core_config->tp_info->nMinY,
 		 core_config->tp_info->nMaxX, core_config->tp_info->nMaxY);
-	DBG_INFO("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d\n",
+	ipio_info("xchannel = %d, ychannel = %d, self_tx = %d, self_rx = %d\n",
 		 core_config->tp_info->nXChannelNum, core_config->tp_info->nYChannelNum,
 		 core_config->tp_info->self_tx_channel_num, core_config->tp_info->self_rx_channel_num);
-	DBG_INFO("side_touch_type = %d, max_touch_num= %d, touch_key_num = %d, max_key_num = %d\n",
+	ipio_info("side_touch_type = %d, max_touch_num= %d, touch_key_num = %d, max_key_num = %d\n",
 		 core_config->tp_info->side_touch_type, core_config->tp_info->nMaxTouchNum,
 		 core_config->tp_info->nKeyCount, core_config->tp_info->nMaxKeyButtonNum);
 
@@ -648,7 +648,7 @@ int core_config_get_protocol_ver(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -656,7 +656,7 @@ int core_config_get_protocol_ver(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -664,7 +664,7 @@ int core_config_get_protocol_ver(void)
 
 	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
 	if (res < 0) {
-		DBG_ERR("Failed to read data via I2C, %d\n", res);
+		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -672,7 +672,7 @@ int core_config_get_protocol_ver(void)
 	for (; i < protocol->pro_ver_len; i++)
 		core_config->protocol_ver[i] = g_read_buf[i + 1];
 
-	DBG_INFO("Procotol Version = %d.%d.%d\n",
+	ipio_info("Procotol Version = %d.%d.%d\n",
 		 core_config->protocol_ver[0], core_config->protocol_ver[1], core_config->protocol_ver[2]);
 
 	major = core_config->protocol_ver[0];
@@ -683,7 +683,7 @@ int core_config_get_protocol_ver(void)
 	if (major != PROTOCOL_MAJOR || mid != PROTOCOL_MID || minor != PROTOCOL_MINOR) {
 		res = core_protocol_update_ver(major, mid, minor);
 		if (res < 0)
-			DBG_ERR("Protocol version is invalid\n");
+			ipio_err("Protocol version is invalid\n");
 	}
 
 out:
@@ -703,7 +703,7 @@ int core_config_get_core_ver(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -711,7 +711,7 @@ int core_config_get_core_ver(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -719,7 +719,7 @@ int core_config_get_core_ver(void)
 
 	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
 	if (res < 0) {
-		DBG_ERR("Failed to read data via I2C, %d\n", res);
+		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -727,7 +727,7 @@ int core_config_get_core_ver(void)
 		core_config->core_ver[i] = g_read_buf[i];
 
 	/* in protocol v5, ignore the first btye because of a header. */
-	DBG_INFO("Core Version = %d.%d.%d.%d\n",
+	ipio_info("Core Version = %d.%d.%d.%d\n",
 		 core_config->core_ver[1], core_config->core_ver[2],
 		 core_config->core_ver[3], core_config->core_ver[4]);
 
@@ -752,7 +752,7 @@ int core_config_get_fw_ver(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -760,7 +760,7 @@ int core_config_get_fw_ver(void)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("Failed to write data via I2C, %d\n", res);
+		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
 	}
 
@@ -768,7 +768,7 @@ int core_config_get_fw_ver(void)
 
 	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->fw_ver_len);
 	if (res < 0) {
-		DBG_ERR("Failed to read fw version %d\n", res);
+		ipio_err("Failed to read fw version %d\n", res);
 		goto out;
 	}
 
@@ -776,7 +776,7 @@ int core_config_get_fw_ver(void)
 		core_config->firmware_ver[i] = g_read_buf[i];
 
 	/* in protocol v5, ignore the first btye because of a header. */
-	DBG_INFO("Firmware Version = %d.%d.%d\n",
+	ipio_info("Firmware Version = %d.%d.%d\n",
 		 core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3]);
 
 out:
@@ -792,7 +792,7 @@ int core_config_get_chip_id(void)
 
 	res = core_config_ice_mode_enable();
 	if (res < 0) {
-		DBG_ERR("Failed to enter ICE mode, res = %d\n", res);
+		ipio_err("Failed to enter ICE mode, res = %d\n", res);
 		goto out;
 	}
 
@@ -803,15 +803,15 @@ int core_config_get_chip_id(void)
 	if (PIDData) {
 		RealID = check_chip_id(PIDData);
 
-		DBG_INFO("CHIP ID = 0x%x, CHIP TYPE = %04x\n", RealID, core_config->chip_type);
+		ipio_info("CHIP ID = 0x%x, CHIP TYPE = %04x\n", RealID, core_config->chip_type);
 
 		if (RealID != core_config->chip_id) {
-			DBG_ERR("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", RealID, TP_TOUCH_IC);
+			ipio_err("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", RealID, TP_TOUCH_IC);
 			res = -ENODEV;
 			goto out;
 		}
 	} else {
-		DBG_ERR("PID DATA error : 0x%x\n", PIDData);
+		ipio_err("PID DATA error : 0x%x\n", PIDData);
 		res = -EINVAL;
 		goto out;
 	}
@@ -835,14 +835,14 @@ int core_config_init(void)
 
 	core_config = kzalloc(sizeof(*core_config) * sizeof(uint8_t) * 6, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_config)) {
-		DBG_ERR("Failed to allocate core_config mem, %ld\n", PTR_ERR(core_config));
+		ipio_err("Failed to allocate core_config mem, %ld\n", PTR_ERR(core_config));
 		core_config_remove();
 		return -ENOMEM;
 	}
 
 	core_config->tp_info = kzalloc(sizeof(*core_config->tp_info), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_config->tp_info)) {
-		DBG_ERR("Failed to allocate core_config->tp_info mem, %ld\n", PTR_ERR(core_config->tp_info));
+		ipio_err("Failed to allocate core_config->tp_info mem, %ld\n", PTR_ERR(core_config->tp_info));
 		core_config_remove();
 		return -ENOMEM;
 	}
@@ -868,14 +868,14 @@ int core_config_init(void)
 		}
 	}
 
-	DBG_ERR("Can't find this chip in support list\n");
+	ipio_err("Can't find this chip in support list\n");
 	return 0;
 }
 EXPORT_SYMBOL(core_config_init);
 
 void core_config_remove(void)
 {
-	DBG_INFO("Remove core-config memebers\n");
+	ipio_info("Remove core-config memebers\n");
 
 	if (core_config != NULL) {
 		if (core_config->tp_info != NULL)

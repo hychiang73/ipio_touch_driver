@@ -304,7 +304,7 @@ void core_protocol_func_control(int key, int ctrl)
 	struct DataItem *tmp = search_func(key);
 
 	if (tmp != NULL) {
-		DBG_INFO("Found func's name: %s, key = %d\n", tmp->name, key);
+		ipio_info("Found func's name: %s, key = %d\n", tmp->name, key);
 
 		/* last element is used to control this func */
 		if (tmp->key != 9)
@@ -314,7 +314,7 @@ void core_protocol_func_control(int key, int ctrl)
 		return;
 	}
 
-	DBG_INFO("Can't find any main functions\n");
+	ipio_info("Can't find any main functions\n");
 }
 EXPORT_SYMBOL(core_protocol_func_control);
 
@@ -337,7 +337,7 @@ int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
 			protocol->major = major;
 			protocol->mid = mid;
 			protocol->minor = minor;
-			DBG_INFO("protocol: major = %d, mid = %d, minor = %d\n",
+			ipio_info("protocol: major = %d, mid = %d, minor = %d\n",
 				 protocol->major, protocol->mid, protocol->minor);
 
 			if (protocol->major == 0x5)
@@ -349,7 +349,7 @@ int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
 		}
 	}
 
-	DBG_ERR("Doesn't support this version of protocol\n");
+	ipio_err("Doesn't support this version of protocol\n");
 	return -1;
 }
 EXPORT_SYMBOL(core_protocol_update_ver);
@@ -359,7 +359,7 @@ int core_protocol_init(void)
 	if (protocol == NULL) {
 		protocol = kzalloc(sizeof(*protocol), GFP_KERNEL);
 		if (ERR_ALLOC_MEM(protocol)) {
-			DBG_ERR("Failed to allocate protocol mem, %ld\n", PTR_ERR(protocol));
+			ipio_err("Failed to allocate protocol mem, %ld\n", PTR_ERR(protocol));
 			core_protocol_remove();
 			return -ENOMEM;
 		}
@@ -373,7 +373,7 @@ EXPORT_SYMBOL(core_protocol_init);
 
 void core_protocol_remove(void)
 {
-	DBG_INFO("Remove core-protocol memebers\n");
+	ipio_info("Remove core-protocol memebers\n");
 
 	if (protocol != NULL) {
 		kfree(protocol);

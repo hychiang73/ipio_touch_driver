@@ -88,15 +88,17 @@
 /*
  * Relative Driver with Touch IC
  */
-/* Touch IC support */
+
+/* An Touch IC currently supported by driver */
 #define CHIP_TYPE_ILI7807	0x7807
 #define CHIP_TYPE_ILI9881	0x9881
 #define TP_TOUCH_IC		CHIP_TYPE_ILI9881
 
-/* Platform support */
+/* A platform currently supported by driver */
 #define PT_RK	1
 #define PT_MTK	2
 #define PT_SPRD	3
+#define PT_QCOM	4
 #define TP_PLATFORM PT_RK
 
 /* Driver version */
@@ -107,14 +109,7 @@
 #define PROTOCOL_MID		0x1
 #define PROTOCOL_MINOR		0x0
 
-/* Normal debug messages */
-#define DBG_INFO(fmt, arg...)	\
-	pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);
-
-#define DBG_ERR(fmt, arg...)	\
-	pr_err("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);
-
-/* Detailed debug messages */
+/*  Debug messages */
 #ifdef BIT
 #undef BIT
 #endif
@@ -136,7 +131,13 @@ enum {
 	DEBUG_ALL = ~0,
 };
 
-#define DBG(level, fmt, arg...)											\
+#define ipio_info(fmt, arg...)	\
+	pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);
+
+#define ipio_err(fmt, arg...)	\
+	pr_err("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);
+
+#define ipio_debug(level, fmt, arg...)									\
 	do {																\
 		if (level & ipio_debug_level)									\
 		pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
@@ -177,6 +178,7 @@ extern uint32_t ipio_chip_list[2];
 #define CSV_PATH			"/sdcard"
 #define INI_NAME_PATH		"/sdcard/mp.ini"
 #define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
+#define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
 #define CHECK_BATTERY_TIME  2000
 #define VDD_VOLTAGE			1800000
 #define VDD_I2C_VOLTAGE		1800000

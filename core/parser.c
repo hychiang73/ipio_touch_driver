@@ -104,35 +104,35 @@ static int get_ini_phy_data(char *data)
 	char M_CFG_EQS = '=';
 
 	if (data == NULL) {
-		DBG_ERR("INI data is NULL\n");
+		ipio_err("INI data is NULL\n");
 		res = -EINVAL;
 		goto out;
 	}
 
 	ini_buf = kzalloc((PARSER_MAX_CFG_BUF + 1) * sizeof(char), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ini_buf)) {
-		DBG_ERR("Failed to allocate ini_buf memory, %ld\n", PTR_ERR(ini_buf));
+		ipio_err("Failed to allocate ini_buf memory, %ld\n", PTR_ERR(ini_buf));
 		res = -ENOMEM;
 		goto out;
 	}
 
 	tmpSectionName = kzalloc((PARSER_MAX_CFG_BUF + 1) * sizeof(char), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tmpSectionName)) {
-		DBG_ERR("Failed to allocate tmpSectionName memory, %ld\n", PTR_ERR(tmpSectionName));
+		ipio_err("Failed to allocate tmpSectionName memory, %ld\n", PTR_ERR(tmpSectionName));
 		res = -ENOMEM;
 		goto out;
 	}
 
 	while (true) {
 		if (g_ini_items > PARSER_MAX_KEY_NUM) {
-			DBG_ERR("MAX_KEY_NUM: Out of length\n");
+			ipio_err("MAX_KEY_NUM: Out of length\n");
 			goto out;
 		}
 
 		n = get_ini_phy_line(data + offset, ini_buf, PARSER_MAX_CFG_BUF);
 
 		if (n < 0) {
-			DBG_ERR("End of Line\n");
+			ipio_err("End of Line\n");
 			goto out;
 		}
 
@@ -145,21 +145,21 @@ static int get_ini_phy_data(char *data)
 
 		/* Get section names */
 		if (n > 2 && ((ini_buf[0] == M_CFG_SSL && ini_buf[n - 1] != M_CFG_SSR))) {
-			DBG_ERR("Bad Section: %s\n", ini_buf);
+			ipio_err("Bad Section: %s\n", ini_buf);
 			res = -EINVAL;
 			goto out;
 		} else {
 			if (ini_buf[0] == M_CFG_SSL) {
 				ilitek_ini_file_data[g_ini_items].iSectionNameLen = n - 2;
 				if (ilitek_ini_file_data[g_ini_items].iSectionNameLen > PARSER_MAX_KEY_NAME_LEN) {
-					DBG_ERR("MAX_KEY_NAME_LEN: Out Of Length\n");
+					ipio_err("MAX_KEY_NAME_LEN: Out Of Length\n");
 					res = INI_ERR_OUT_OF_LINE;
 					goto out;
 				}
 
 				ini_buf[n - 1] = 0x00;
 				strcpy((char *)tmpSectionName, ini_buf + 1);
-				DBG(DEBUG_PARSER, "Section Name: %s, Len: %d\n", tmpSectionName, n - 2);
+				ipio_debug(DEBUG_PARSER, "Section Name: %s, Len: %d\n", tmpSectionName, n - 2);
 				continue;
 			}
 		}
@@ -183,7 +183,7 @@ static int get_ini_phy_data(char *data)
 		ilitek_ini_file_data[g_ini_items].iKeyNameLen = isEqualSign;
 		if (ilitek_ini_file_data[g_ini_items].iKeyNameLen > PARSER_MAX_KEY_NAME_LEN) {
 			/* ret = CFG_ERR_OUT_OF_LEN; */
-			DBG_ERR("MAX_KEY_NAME_LEN: Out Of Length\n");
+			ipio_err("MAX_KEY_NAME_LEN: Out Of Length\n");
 			res = INI_ERR_OUT_OF_LINE;
 			goto out;
 		}
@@ -194,7 +194,7 @@ static int get_ini_phy_data(char *data)
 		/* Get a value assigned to a key */
 		ilitek_ini_file_data[g_ini_items].iKeyValueLen = n - isEqualSign - 1;
 		if (ilitek_ini_file_data[g_ini_items].iKeyValueLen > PARSER_MAX_KEY_VALUE_LEN) {
-			DBG_ERR("MAX_KEY_VALUE_LEN: Out Of Length\n");
+			ipio_err("MAX_KEY_VALUE_LEN: Out Of Length\n");
 			res = INI_ERR_OUT_OF_LINE;
 			goto out;
 		}
@@ -202,7 +202,7 @@ static int get_ini_phy_data(char *data)
 		memcpy(ilitek_ini_file_data[g_ini_items].pKeyValue,
 		       ini_buf + isEqualSign + 1, ilitek_ini_file_data[g_ini_items].iKeyValueLen);
 
-		DBG(DEBUG_PARSER, "%s = %s\n", ilitek_ini_file_data[g_ini_items].pKeyName,
+		ipio_debug(DEBUG_PARSER, "%s = %s\n", ilitek_ini_file_data[g_ini_items].pKeyName,
 		    ilitek_ini_file_data[g_ini_items].pKeyValue);
 
 		g_ini_items++;
@@ -250,7 +250,7 @@ static int get_ini_key_value(char *section, char *key, char *value)
 
 		if (strcmp(key, ilitek_ini_file_data[i].pKeyName) == 0) {
 			memcpy(value, ilitek_ini_file_data[i].pKeyValue, ilitek_ini_file_data[i].iKeyValueLen);
-			DBG(DEBUG_PARSER, " value:%s , pKeyValue: %s\n", value, ilitek_ini_file_data[i].pKeyValue);
+			ipio_debug(DEBUG_PARSER, " value:%s , pKeyValue: %s\n", value, ilitek_ini_file_data[i].pKeyValue);
 			ret = 0;
 			break;
 		}
@@ -272,7 +272,7 @@ int core_parser_get_int_data(char *section, char *keyname, char *rv)
 	char value[512] = { 0 };
 
 	if (rv == NULL || section == NULL || keyname == NULL) {
-		DBG_ERR("Parameters are invalid\n");
+		ipio_err("Parameters are invalid\n");
 		return -EINVAL;
 	}
 
@@ -296,10 +296,10 @@ int core_parser_path(char *path)
 	mm_segment_t old_fs;
 	loff_t pos = 0;
 
-	DBG_INFO("path = %s\n", path);
+	ipio_info("path = %s\n", path);
 	f = filp_open(path, O_RDONLY, 0);
 	if (ERR_ALLOC_MEM(f)) {
-		DBG_ERR("Failed to open the file at %ld.\n", PTR_ERR(f));
+		ipio_err("Failed to open the file at %ld.\n", PTR_ERR(f));
 		res = -ENOENT;
 		return res;
 	}
@@ -311,16 +311,16 @@ int core_parser_path(char *path)
 #endif
 
 	fsize = inode->i_size;
-	DBG_INFO("fsize = %d\n", fsize);
+	ipio_info("fsize = %d\n", fsize);
 	if (fsize <= 0) {
-		DBG_ERR("The size of file is invaild\n");
+		ipio_err("The size of file is invaild\n");
 		res = -EINVAL;
 		goto out;
 	}
 
 	tmp = kmalloc(fsize, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tmp)) {
-		DBG_ERR("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
+		ipio_err("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
 		res = -ENOMEM;
 		goto out;
 	}
@@ -335,11 +335,11 @@ int core_parser_path(char *path)
 
 	res = get_ini_phy_data(tmp);
 	if (res < 0) {
-		DBG_ERR("Failed to get physical ini data, res = %d\n", res);
+		ipio_err("Failed to get physical ini data, res = %d\n", res);
 		goto out;
 	}
 
-	DBG_INFO("Parsing INI file doen\n");
+	ipio_info("Parsing INI file doen\n");
 
 out:
 	kfree(tmp);

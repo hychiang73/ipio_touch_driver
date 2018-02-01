@@ -139,7 +139,7 @@ static void dump_data(void *data, int type, int len)
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
 		if (data == NULL) {
-			DBG_ERR("The data going to dump is NULL\n");
+			ipio_err("The data going to dump is NULL\n");
 			return;
 		}
 
@@ -260,17 +260,17 @@ static int create_mp_test_frame_buffer(int index)
 		core_mp->rx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 
 		if (ERR_ALLOC_MEM(core_mp->tx_delta_buf) || ERR_ALLOC_MEM(core_mp->rx_delta_buf)) {
-			DBG_ERR("Failed to allocate Tx/Rx Delta buffer\n");
+			ipio_err("Failed to allocate Tx/Rx Delta buffer\n");
 			return -ENOMEM;
 		}
 
 		if (ERR_ALLOC_MEM(core_mp->tx_max_buf) || ERR_ALLOC_MEM(core_mp->tx_min_buf)) {
-			DBG_ERR("Failed to allocate Tx Max/Min buffer\n");
+			ipio_err("Failed to allocate Tx Max/Min buffer\n");
 			return -ENOMEM;
 		}
 
 		if (ERR_ALLOC_MEM(core_mp->rx_max_buf) || ERR_ALLOC_MEM(core_mp->rx_min_buf)) {
-			DBG_ERR("Failed to allocate Rx Max/Min buffe\n");
+			ipio_err("Failed to allocate Rx Max/Min buffe\n");
 			return -ENOMEM;
 		}
 
@@ -282,7 +282,7 @@ static int create_mp_test_frame_buffer(int index)
 		
 		if (ERR_ALLOC_MEM(tItems[index].buf) || ERR_ALLOC_MEM(tItems[index].max_buf) ||
 				ERR_ALLOC_MEM(tItems[index].min_buf)) {
-			DBG_ERR("Failed to allocate FRAME buffer\n");
+			ipio_err("Failed to allocate FRAME buffer\n");
 			return -ENOMEM;
 		}
 	}
@@ -299,11 +299,11 @@ static int allnode_key_cdc_data(int index)
 
 	len = core_mp->key_len * 2;
 
-	DBG(DEBUG_MP_TEST, "Read key's length = %d\n", len);
-	DBG(DEBUG_MP_TEST, "core_mp->key_len = %d\n", core_mp->key_len);
+	ipio_debug(DEBUG_MP_TEST, "Read key's length = %d\n", len);
+	ipio_debug(DEBUG_MP_TEST, "core_mp->key_len = %d\n", core_mp->key_len);
 
 	if (len <= 0) {
-		DBG_ERR("Length is invalid\n");
+		ipio_err("Length is invalid\n");
 		res = -1;
 		goto out;
 	}
@@ -315,7 +315,7 @@ static int allnode_key_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error while initialising cdc\n");
+		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
 
@@ -323,7 +323,7 @@ static int allnode_key_cdc_data(int index)
 
 	/* Check busy */
 	if (core_config_check_cdc_busy() < 0) {
-		DBG_ERR("Check busy is timout !\n");
+		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
 	}
@@ -336,7 +336,7 @@ static int allnode_key_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error\n");
+		ipio_err("I2C Write Error\n");
 		goto out;
 	}
 
@@ -344,14 +344,14 @@ static int allnode_key_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error\n");
+		ipio_err("I2C Write Error\n");
 		goto out;
 	}
 
 	/* Allocate a buffer for the original */
 	ori = kcalloc(len, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ori)) {
-		DBG_ERR("Failed to allocate ori mem (%ld)\n", PTR_ERR(ori));
+		ipio_err("Failed to allocate ori mem (%ld)\n", PTR_ERR(ori));
 		goto out;
 	}
 
@@ -360,7 +360,7 @@ static int allnode_key_cdc_data(int index)
 	/* Get original frame(cdc) data */
 	res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
 	if (res < 0) {
-		DBG_ERR("I2C Read Error while getting original cdc data\n");
+		ipio_err("I2C Read Error while getting original cdc data\n");
 		goto out;
 	}
 
@@ -369,7 +369,7 @@ static int allnode_key_cdc_data(int index)
 	if (key_buf == NULL) {
 		key_buf = kcalloc(core_mp->key_len, sizeof(int32_t), GFP_KERNEL);
 		if (ERR_ALLOC_MEM(key_buf)) {
-			DBG_ERR("Failed to allocate FrameBuffer mem (%ld)\n", PTR_ERR(key_buf));
+			ipio_err("Failed to allocate FrameBuffer mem (%ld)\n", PTR_ERR(key_buf));
 			goto out;
 		}
 	} else {
@@ -416,11 +416,11 @@ static int allnode_mutual_cdc_data(int index)
 	/* Multipling by 2 is due to the 16 bit in each node */
 	len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
 
-	DBG(DEBUG_MP_TEST, "Read X/Y Channel length = %d\n", len);
-	DBG(DEBUG_MP_TEST, "core_mp->frame_len = %d\n", core_mp->frame_len);
+	ipio_debug(DEBUG_MP_TEST, "Read X/Y Channel length = %d\n", len);
+	ipio_debug(DEBUG_MP_TEST, "core_mp->frame_len = %d\n", core_mp->frame_len);
 
 	if (len <= 2) {
-		DBG_ERR("Length is invalid\n");
+		ipio_err("Length is invalid\n");
 		res = -1;
 		goto out;
 	}
@@ -437,7 +437,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error while initialising cdc\n");
+		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
 
@@ -445,7 +445,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	/* Check busy */
 	if (core_config_check_cdc_busy() < 0) {
-		DBG_ERR("Check busy is timout !\n");
+		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
 	}
@@ -456,7 +456,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error\n");
+		ipio_err("I2C Write Error\n");
 		goto out;
 	}
 
@@ -464,7 +464,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
-		DBG_ERR("I2C Write Error\n");
+		ipio_err("I2C Write Error\n");
 		goto out;
 	}
 
@@ -473,14 +473,14 @@ static int allnode_mutual_cdc_data(int index)
 	/* Allocate a buffer for the original */
 	ori = kcalloc(len, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ori)) {
-		DBG_ERR("Failed to allocate ori mem (%ld)\n", PTR_ERR(ori));
+		ipio_err("Failed to allocate ori mem (%ld)\n", PTR_ERR(ori));
 		goto out;
 	}
 
 	/* Get original frame(cdc) data */
 	res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
 	if (res < 0) {
-		DBG_ERR("I2C Read Error while getting original cdc data\n");
+		ipio_err("I2C Read Error while getting original cdc data\n");
 		goto out;
 	}
 
@@ -489,7 +489,7 @@ static int allnode_mutual_cdc_data(int index)
 	if (frame_buf == NULL) {
 		frame_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		if (ERR_ALLOC_MEM(frame_buf)) {
-			DBG_ERR("Failed to allocate FrameBuffer mem (%ld)\n", PTR_ERR(frame_buf));
+			ipio_err("Failed to allocate FrameBuffer mem (%ld)\n", PTR_ERR(frame_buf));
 			goto out;
 		}
 	} else {
@@ -776,11 +776,11 @@ static int mutual_test(int index)
 {
 	int i = 0, j = 0, x = 0, y = 0, res = 0;
 
-	DBG(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
+	ipio_debug(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
 	    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
 	if (tItems[index].frame_count == 0) {
-		DBG_ERR("Frame count is zero, which at least sets as 1\n");
+		ipio_err("Frame count is zero, which at least sets as 1\n");
 		goto out;
 	}
 
@@ -806,7 +806,7 @@ static int mutual_test(int index)
 	for (i = 0; i < tItems[index].frame_count; i++) {
 		res = allnode_mutual_cdc_data(index);
 		if (res < 0) {
-			DBG_ERR("Failed to initialise CDC data, %d\n", res);
+			ipio_err("Failed to initialise CDC data, %d\n", res);
 			goto out;
 		}
 
@@ -840,11 +840,11 @@ static int key_test(int index)
 {
 	int i, j = 0, res = 0;
 
-	DBG(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
+	ipio_debug(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
 	    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
 	if (tItems[index].frame_count == 0) {
-		DBG_ERR("Frame count is zero, which at least sets as 1\n");
+		ipio_err("Frame count is zero, which at least sets as 1\n");
 		res = -EINVAL;
 		goto out;
 	}
@@ -856,7 +856,7 @@ static int key_test(int index)
 	for (i = 0; i < tItems[index].frame_count; i++) {
 		res = allnode_key_cdc_data(index);
 		if (res < 0) {
-			DBG_ERR("Failed to initialise CDC data, %d\n", res);
+			ipio_err("Failed to initialise CDC data, %d\n", res);
 			goto out;
 		}
 
@@ -872,13 +872,13 @@ out:
 
 static int self_test(int index)
 {
-	DBG_ERR("TDDI has no self to be tested currently\n");
+	ipio_err("TDDI has no self to be tested currently\n");
 	return -1;
 }
 
 static int st_test(int index)
 {
-	DBG_ERR("ST Test is not supported by the driver\n");
+	ipio_err("ST Test is not supported by the driver\n");
 	return -1;
 }
 
@@ -913,6 +913,9 @@ static void mp_test_init_item(void)
 
 		if (tItems[i].catalog == ST_TEST)
 			tItems[i].do_test = st_test;
+
+		tItems[i].result = kmalloc(16, GFP_KERNEL);
+        sprintf(tItems[i].result, "%s", "FAIL");
 	}
 
 	/*
@@ -959,13 +962,13 @@ void core_mp_test_free(void)
 {
 	int i;
 
-	DBG_INFO("Free all allocated mem\n");
+	ipio_info("Free all allocated mem\n");
 
 	core_mp->final_result = true;
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		tItems[i].run = false;
-		tItems[i].result = "FAIL";
+		sprintf(tItems[i].result, "%s", "FAIL");
 
 		if (tItems[i].buf != NULL) {
 			if (tItems[i].catalog == TX_RX_DELTA) {
@@ -1014,9 +1017,11 @@ void core_mp_show_result(void)
 	mm_segment_t fs;
 	loff_t pos;
 
-	csv = kmalloc(CSV_FILE_SIZE, GFP_KERNEL);
+	ipio_info("****************************************************************\n");
+
+	csv = vmalloc(CSV_FILE_SIZE);
 	if (ERR_ALLOC_MEM(csv)) {
-		DBG_ERR("Failed to allocate CSV mem\n");
+		ipio_err("Failed to allocate CSV mem\n");
 		goto fail_open;
 	}
 
@@ -1030,13 +1035,13 @@ void core_mp_show_result(void)
 
 			if (tItems[i].catalog == TX_RX_DELTA) {
 				if (ERR_ALLOC_MEM(core_mp->rx_delta_buf) || ERR_ALLOC_MEM(core_mp->tx_delta_buf)) {
-					DBG_ERR("This test item (%s) has no data inside its buffer\n", tItems[i].desp);
+					ipio_err("This test item (%s) has no data inside its buffer\n", tItems[i].desp);
 					continue;
 				}
 			} else {
 				if (ERR_ALLOC_MEM(tItems[i].buf) || ERR_ALLOC_MEM(tItems[i].max_buf) ||
 						ERR_ALLOC_MEM(tItems[i].min_buf)) {
-					DBG_ERR("This test item (%s) has no data inside its buffer\n", tItems[i].desp);
+					ipio_err("This test item (%s) has no data inside its buffer\n", tItems[i].desp);
 					continue;
 				}
 			}
@@ -1118,6 +1123,8 @@ void core_mp_show_result(void)
 		}
 	}
 
+	ipio_info("****************************************************************\n");
+
 	memset(csv_name, 0, 128 * sizeof(char));
 
 	if (core_mp->final_result)
@@ -1125,17 +1132,22 @@ void core_mp_show_result(void)
 	else
 		sprintf(csv_name, "%s/%s.csv", CSV_PATH, "mp_fail");
 
-	DBG_INFO("Open CSV : %s\n", csv_name);
+	ipio_info("Open CSV : %s\n", csv_name);
 
 	if (f == NULL)
 		f = filp_open(csv_name, O_CREAT | O_RDWR, 0644);
 
 	if (ERR_ALLOC_MEM(f)) {
-		DBG_ERR("Failed to open CSV file");
+		ipio_err("Failed to open CSV file");
 		goto fail_open;
 	}
 
-	DBG_INFO("Open CSV succeed, its length = %d\n ", csv_len);
+	ipio_info("Open CSV succeed, its length = %d\n ", csv_len);
+
+	if (csv_len >= CSV_FILE_SIZE) {
+		ipio_err("The length saved to CSV is too long !\n");
+		goto fail_open;
+	}
 
 	fs = get_fs();
 	set_fs(KERNEL_DS);
@@ -1144,10 +1156,11 @@ void core_mp_show_result(void)
 	set_fs(fs);
 	filp_close(f, NULL);
 
-	DBG_INFO("Writing Data into CSV succeed\n");
+	ipio_info("Writing Data into CSV succeed\n");
 
 fail_open:
-	kfree(csv);
+	if(csv != NULL)
+		vfree(csv);
 }
 EXPORT_SYMBOL(core_mp_show_result);
 
@@ -1167,7 +1180,7 @@ int core_mp_run_test(void)
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run) {
-			DBG_INFO("Running Test Item : %s\n", tItems[i].desp);
+			ipio_info("Running Test Item : %s\n", tItems[i].desp);
 			tItems[i].do_test(i);
 		}
 	}
@@ -1178,15 +1191,15 @@ EXPORT_SYMBOL(core_mp_run_test);
 
 int core_mp_move_code(void)
 {
-	DBG_INFO("Prepaing to enter Test Mode\n");
+	ipio_info("Prepaing to enter Test Mode\n");
 
 	if (core_config_check_cdc_busy() < 0) {
-		DBG_ERR("Check busy is timout ! Enter Test Mode failed\n");
+		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
 
 	if (core_config_ice_mode_enable() < 0) {
-		DBG_ERR("Failed to enter ICE mode\n");
+		ipio_err("Failed to enter ICE mode\n");
 		return -1;
 	}
 
@@ -1209,11 +1222,11 @@ int core_mp_move_code(void)
 	core_config_ice_mode_disable();
 
 	if (core_config_check_cdc_busy() < 0) {
-		DBG_ERR("Check busy is timout ! Enter Test Mode failed\n");
+		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
 
-	DBG_INFO("FW Test Mode ready\n");
+	ipio_info("FW Test Mode ready\n");
 	return 0;
 }
 EXPORT_SYMBOL(core_mp_move_code);
@@ -1226,7 +1239,7 @@ int core_mp_init(void)
 		if (core_mp == NULL) {
 			core_mp = kzalloc(sizeof(*core_mp), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_mp)) {
-				DBG_ERR("Failed to init core_mp, %ld\n", PTR_ERR(core_mp));
+				ipio_err("Failed to init core_mp, %ld\n", PTR_ERR(core_mp));
 				res = -ENOMEM;
 				goto out;
 			}
@@ -1245,7 +1258,7 @@ int core_mp_init(void)
 			mp_test_init_item();
 		}
 	} else {
-		DBG_ERR("Failed to allocate core_mp mem as did not find TP info\n");
+		ipio_err("Failed to allocate core_mp mem as did not find TP info\n");
 		res = -ENOMEM;
 	}
 
@@ -1256,7 +1269,7 @@ EXPORT_SYMBOL(core_mp_init);
 
 void core_mp_remove(void)
 {
-	DBG_INFO("Remove core-mp members\n");
+	ipio_info("Remove core-mp members\n");
 	kfree(core_mp);
 }
 EXPORT_SYMBOL(core_mp_remove);
