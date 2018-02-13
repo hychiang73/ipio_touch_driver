@@ -877,11 +877,7 @@ void core_config_remove(void)
 {
 	ipio_info("Remove core-config memebers\n");
 
-	if (core_config != NULL) {
-		if (core_config->tp_info != NULL)
-			kfree(core_config->tp_info);
-
-		kfree(core_config);
-	}
+	ipio_kfree(core_config->tp_info);
+	ipio_kfree(core_config);
 }
 EXPORT_SYMBOL(core_config_remove);

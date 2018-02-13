@@ -227,4 +227,12 @@ extern uint32_t ipio_chip_list[2];
 /* Check battery's status in order to avoid some effects from charge. */
 /* #define BATTERY_CHECK */
 
+static inline void ipio_kfree(void *mem)
+{
+	if(mem != NULL) {
+		kfree(mem);
+		mem = NULL;
+	}
+}
+
 #endif /* __COMMON_H */

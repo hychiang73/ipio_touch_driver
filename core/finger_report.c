@@ -630,9 +630,9 @@ void core_fr_handler(void)
 
 			while (i < ARRAY_SIZE(fr_t)) {
 				if (protocol->major == fr_t[i].protocol_marjor_ver) {
-					mutex_lock(&ipd->MUTEX);
+					mutex_lock(&ipd->plat_mutex);
 					fr_t[i].finger_report();
-					mutex_unlock(&ipd->MUTEX);
+					mutex_unlock(&ipd->plat_mutex);
 
 					/* 2048 is referred to the defination by user */
 					if (g_total_len < 2048) {
@@ -689,27 +689,12 @@ void core_fr_handler(void)
 
 out:
 	ipio_debug(DEBUG_IRQ, "handle INT done\n\n");
+	ipio_kfree(tdata);
+	ipio_kfree(g_fr_node->data);
+	ipio_kfree(g_fr_node);
+	ipio_kfree(g_fr_uart->data);
+	ipio_kfree(g_fr_uart);
 	g_total_len = 0;
-	if (tdata != NULL) {
-		kfree(tdata);
-		tdata = NULL;
-	}
-	if (g_fr_node != NULL) {
-		if (g_fr_node->data != NULL) {
-			kfree(g_fr_node->data);
-			g_fr_node->data = NULL;
-		}
-		kfree(g_fr_node);
-		g_fr_node = NULL;
-	}
-	if (g_fr_uart != NULL) {
-		if (g_fr_uart->data != NULL) {
-			kfree(g_fr_uart->data);
-			g_fr_uart->data = NULL;
-		}
-		kfree(g_fr_uart);
-		g_fr_uart = NULL;
-	}
 }
 EXPORT_SYMBOL(core_fr_handler);
 
@@ -806,8 +791,6 @@ EXPORT_SYMBOL(core_fr_init);
 void core_fr_remove(void)
 {
 	ipio_info("Remove core-FingerReport members\n");
-
-	if (core_fr != NULL)
-		kfree(core_fr);
+	ipio_kfree(core_fr);
 }
 EXPORT_SYMBOL(core_fr_remove);

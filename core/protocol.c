@@ -87,17 +87,10 @@ static void free_func_hash(void)
 {
 	int i;
 
-	if (func != NULL || hashArray != NULL) {
-		kfree(func);
-		func = NULL;
+	ipio_kfree(func);
 
-		for (i = 0; i < FUNC_NUM; i++) {
-			if (hashArray[i] != NULL) {
-				kfree(hashArray[i]);
-				hashArray[i] = NULL;
-			}
-		}
-	}
+	for (i = 0; i < FUNC_NUM; i++)
+		ipio_kfree(hashArray[i]);
 }
 
 static void create_func_hash(void)
@@ -374,12 +367,7 @@ EXPORT_SYMBOL(core_protocol_init);
 void core_protocol_remove(void)
 {
 	ipio_info("Remove core-protocol memebers\n");
-
-	if (protocol != NULL) {
-		kfree(protocol);
-		protocol = NULL;
-	}
-
+	ipio_kfree(protocol);
 	free_func_hash();
 }
 EXPORT_SYMBOL(core_protocol_remove);

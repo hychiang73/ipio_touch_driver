@@ -793,11 +793,8 @@ out:
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
 
-	kfree(flash_fw);
-	flash_fw = NULL;
-	kfree(g_flash_sector);
-	g_flash_sector = NULL;
-
+	ipio_kfree(flash_fw);
+	ipio_kfree(g_flash_sector);
 	core_firmware->isUpgrading = false;
 	return res;
 }
@@ -1070,13 +1067,9 @@ out:
 	}
 
 	filp_close(pfile, NULL);
-	kfree(hex_buffer);
-	hex_buffer = NULL;
-	kfree(flash_fw);
-	flash_fw = NULL;
-	kfree(g_flash_sector);
-	g_flash_sector = NULL;
-
+	ipio_kfree(hex_buffer);
+	ipio_kfree(flash_fw);
+	ipio_kfree(g_flash_sector);
 	core_firmware->isUpgrading = false;
 	return res;
 }
@@ -1124,7 +1117,5 @@ int core_firmware_init(void)
 void core_firmware_remove(void)
 {
 	ipio_info("Remove core-firmware members\n");
-
-	if (core_firmware != NULL)
-		kfree(core_firmware);
+	ipio_kfree(core_firmware);
 }

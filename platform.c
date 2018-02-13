@@ -109,7 +109,7 @@ void ilitek_platform_disable_irq(void)
 
 	ipio_debug(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
 
-	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_lock_irqsave(&ipd->plat_spinlock, nIrqFlag);
 
 	if (ipd->isEnableIRQ) {
 		if (ipd->isr_gpio) {
@@ -121,7 +121,7 @@ void ilitek_platform_disable_irq(void)
 	} else
 		ipio_debug(DEBUG_IRQ, "IRQ was already disabled\n");
 
-	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_unlock_irqrestore(&ipd->plat_spinlock, nIrqFlag);
 }
 EXPORT_SYMBOL(ilitek_platform_disable_irq);
 
@@ -131,7 +131,7 @@ void ilitek_platform_enable_irq(void)
 
 	ipio_debug(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
 
-	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_lock_irqsave(&ipd->plat_spinlock, nIrqFlag);
 
 	if (!ipd->isEnableIRQ) {
 		if (ipd->isr_gpio) {
@@ -143,7 +143,7 @@ void ilitek_platform_enable_irq(void)
 	} else
 		ipio_debug(DEBUG_IRQ, "IRQ was already enabled\n");
 
-	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_unlock_irqrestore(&ipd->plat_spinlock, nIrqFlag);
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
@@ -778,7 +778,7 @@ static int ilitek_platform_remove(struct i2c_client *client)
 		destroy_workqueue(ipd->check_power_status_queue);
 	}
 
-	kfree(ipd);
+	ipio_kfree(ipd);
 	ilitek_platform_core_remove();
 
 	return 0;
@@ -850,8 +850,8 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		ipd->edge_delay = 10;
 	}
 
-	mutex_init(&ipd->MUTEX);
-	spin_lock_init(&ipd->SPIN_LOCK);
+	mutex_init(&ipd->plat_mutex);
+	spin_lock_init(&ipd->plat_spinlock);
 
 	/* Init members for debug */
 	mutex_init(&ipd->ilitek_debug_mutex);
