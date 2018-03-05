@@ -402,7 +402,7 @@ static int allnode_key_cdc_data(int index)
 	dump_data(key_buf, 32, core_mp->frame_len);
 
 out:
-	ipio_kfree(ori);
+	ipio_kfree((void **)&ori);
 	return res;
 }
 
@@ -530,7 +530,7 @@ static int allnode_mutual_cdc_data(int index)
 	dump_data(frame_buf, 32, core_mp->frame_len);
 
 out:
-	ipio_kfree(ori);
+	ipio_kfree((void **)&ori);
 	return res;
 }
 
@@ -971,23 +971,23 @@ void core_mp_test_free(void)
 		sprintf(tItems[i].result, "%s", "FAIL");
 
 		if (tItems[i].catalog == TX_RX_DELTA) {
-			ipio_kfree(core_mp->rx_delta_buf);
-			ipio_kfree(core_mp->tx_delta_buf);
-			ipio_kfree(core_mp->tx_max_buf);
-			ipio_kfree(core_mp->tx_min_buf);
-			ipio_kfree(core_mp->rx_max_buf);
-			ipio_kfree(core_mp->rx_max_buf);
-			ipio_kfree(core_mp->rx_max_buf);
-			ipio_kfree(core_mp->rx_min_buf);
+			ipio_kfree((void **)&core_mp->rx_delta_buf);
+			ipio_kfree((void **)&core_mp->tx_delta_buf);
+			ipio_kfree((void **)&core_mp->tx_max_buf);
+			ipio_kfree((void **)&core_mp->tx_min_buf);
+			ipio_kfree((void **)&core_mp->rx_max_buf);
+			ipio_kfree((void **)&core_mp->rx_max_buf);
+			ipio_kfree((void **)&core_mp->rx_max_buf);
+			ipio_kfree((void **)&core_mp->rx_min_buf);
 		} else {
-			ipio_kfree(tItems[i].buf);
-			ipio_kfree(tItems[i].max_buf);
-			ipio_kfree(tItems[i].min_buf);
+			ipio_kfree((void **)&tItems[i].buf);
+			ipio_kfree((void **)&tItems[i].max_buf);
+			ipio_kfree((void **)&tItems[i].min_buf);
 		}
 	}
 
-	ipio_kfree(frame_buf);
-	ipio_kfree(key_buf);
+	ipio_kfree((void **)&frame_buf);
+	ipio_kfree((void **)&key_buf);
 }
 EXPORT_SYMBOL(core_mp_test_free);
 
@@ -1254,6 +1254,6 @@ EXPORT_SYMBOL(core_mp_init);
 void core_mp_remove(void)
 {
 	ipio_info("Remove core-mp members\n");
-	ipio_kfree(core_mp);
+	ipio_kfree((void **)&core_mp);
 }
 EXPORT_SYMBOL(core_mp_remove);

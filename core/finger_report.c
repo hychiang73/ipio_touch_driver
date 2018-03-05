@@ -137,7 +137,6 @@ static void i2cuart_recv_packet(void)
 		res = core_i2c_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
 		if (res < 0)
 			ipio_err("Failed to read finger report packet\n");
-
 	}
 }
 
@@ -322,13 +321,10 @@ static int parse_touch_package_v5_0(uint8_t pid)
 #endif
 		}
 	} else {
-		if (pid == 0) {
+		if (pid != 0) {
 			/* ignore the pid with 0x0 after enable irq at once */
-			goto out;
-		} else {
 			ipio_err(" **** Unknown PID : 0x%x ****\n", pid);
 			res = -1;
-			goto out;
 		}
 	}
 
@@ -685,16 +681,24 @@ void core_fr_handler(void)
 		}
 	} else {
 		ipio_err("The figner report was disabled\n");
+		return;
 	}
 
 out:
-	ipio_debug(DEBUG_IRQ, "handle INT done\n\n");
-	ipio_kfree(tdata);
-	ipio_kfree(g_fr_node->data);
-	ipio_kfree(g_fr_node);
-	ipio_kfree(g_fr_uart->data);
-	ipio_kfree(g_fr_uart);
+	ipio_kfree((void **)&tdata);
+
+	if(g_fr_node != NULL) {
+		ipio_kfree((void **)&g_fr_node->data);
+		ipio_kfree((void **)&g_fr_node);
+	}
+
+	if(g_fr_uart != NULL) {
+		ipio_kfree((void **)&g_fr_uart->data);
+		ipio_kfree((void **)&g_fr_uart);
+	}
+
 	g_total_len = 0;
+	ipio_debug(DEBUG_IRQ, "handle INT done\n\n");
 }
 EXPORT_SYMBOL(core_fr_handler);
 
@@ -791,6 +795,6 @@ EXPORT_SYMBOL(core_fr_init);
 void core_fr_remove(void)
 {
 	ipio_info("Remove core-FingerReport members\n");
-	ipio_kfree(core_fr);
+	ipio_kfree((void **)&core_fr);
 }
 EXPORT_SYMBOL(core_fr_remove);

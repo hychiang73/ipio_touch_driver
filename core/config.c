@@ -21,17 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#include <linux/errno.h>
-#include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/delay.h>
-#include <linux/slab.h>
-#include <linux/i2c.h>
-
-#ifdef CONFIG_OF
-#include <linux/of_gpio.h>
-#include <linux/gpio.h>
-#endif
 
 #include "../common.h"
 #include "../platform.h"
@@ -463,7 +452,7 @@ int core_config_ice_mode_disable(void)
 
 	ipio_info("ICE Mode disabled\n")
 
-	    return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
+	return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
@@ -877,7 +866,9 @@ void core_config_remove(void)
 {
 	ipio_info("Remove core-config memebers\n");
 
-	ipio_kfree(core_config->tp_info);
-	ipio_kfree(core_config);
+	if (core_config != NULL) {
+		ipio_kfree((void **)&core_config->tp_info);
+		ipio_kfree((void **)&core_config);
+	}
 }
 EXPORT_SYMBOL(core_config_remove);

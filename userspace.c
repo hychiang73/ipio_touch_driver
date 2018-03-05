@@ -390,9 +390,13 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	ilitek_platform_enable_irq();
 
 ini_err:
-	for (i = 0; i < mp_num; i++)
-		ipio_kfree(mp_ini[i]);
-	ipio_kfree(mp_ini);
+	for (i = 0; i < mp_num; i++) {
+		if(mp_ini[i] != NULL)
+			kfree(mp_ini[i]);
+		mp_ini[i] = NULL;
+	}
+	kfree(mp_ini);
+	mp_ini = NULL;
 	*pPos = len;
 	ipio_info("MP Test DONE\n");
 	return len;
@@ -895,7 +899,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		ipio_err("Unknown command\n");
 	}
 
-	ipio_kfree(data);
+	ipio_kfree((void **)&data);
 	return size;
 }
 

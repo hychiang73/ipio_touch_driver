@@ -94,6 +94,8 @@
 #define CHIP_TYPE_ILI9881	0x9881
 #define TP_TOUCH_IC		CHIP_TYPE_ILI9881
 
+#define CHIP_ID_ERR	(-100)
+
 /* A platform currently supported by driver */
 #define PT_RK	1
 #define PT_MTK	2
@@ -227,11 +229,11 @@ extern uint32_t ipio_chip_list[2];
 /* Check battery's status in order to avoid some effects from charge. */
 /* #define BATTERY_CHECK */
 
-static inline void ipio_kfree(void *mem)
+static inline void ipio_kfree(void **mem)
 {
-	if(mem != NULL) {
-		kfree(mem);
-		mem = NULL;
+	if(*mem != NULL) {
+		kfree(*mem);
+		*mem = NULL;
 	}
 }
 

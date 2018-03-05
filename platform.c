@@ -101,7 +101,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 static int __init ilitek_platform_init(void);
 static void __exit ilitek_platform_exit(void);
 
-struct ilitek_platform_data *ipd;
+struct ilitek_platform_data *ipd = NULL;
 
 void ilitek_platform_disable_irq(void)
 {
@@ -632,24 +632,20 @@ out:
 
 static int ilitek_platform_read_tp_info(void)
 {
-	int res = -1;
-
 	if (core_config_get_chip_id() < 0)
-		goto out;
+		return CHIP_ID_ERR;
 	if (core_config_get_protocol_ver() < 0)
-		goto out;
+		return -1;
 	if (core_config_get_fw_ver() < 0)
-		goto out;
+		return -1;
 	if (core_config_get_core_ver() < 0)
-		goto out;
+		return -1;
 	if (core_config_get_tp_info() < 0)
-		goto out;
+		return -1;
 	if (core_config_get_key_info() < 0)
-		goto out;
+		return -1;
 
-	res = 0;
-out:
-	return res;
+	return 0;
 }
 
 static int ilitek_platform_input_init(void)
@@ -778,7 +774,7 @@ static int ilitek_platform_remove(struct i2c_client *client)
 		destroy_workqueue(ipd->check_power_status_queue);
 	}
 
-	ipio_kfree(ipd);
+	ipio_kfree((void **)&ipd);
 	ilitek_platform_core_remove();
 
 	return 0;
@@ -793,6 +789,8 @@ static int ilitek_platform_remove(struct i2c_client *client)
  */
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
+	int ret;
+
 #ifdef REGULATOR_POWER_ON
 #if (TP_PLATFORM == PT_MTK)
 	const char *vdd_name = "vtouch";
@@ -898,10 +896,15 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ilitek_platform_tp_hw_reset(true);
 
 	/* get our tp ic information */
-	if (ilitek_platform_read_tp_info() < 0)
-		ipio_err("Failed to get TP info\n");
+	ret = ilitek_platform_read_tp_info();
+	if (ret == CHIP_ID_ERR) {
+		ipio_err("CHIP ID is incorrect, need to rebuild driver\n");
+		return -ENODEV;
+	} else if (ret < 0) {
+		ipio_err("Failed to get TP info, need to upgrade a correct FW\n");
+	}
 
-	/* If it defines boot upgrade, input register will be done at boot function. */
+	/* If it defines boot upgrade, input register will be done inside boot function. */
 #ifndef BOOT_FW_UPGRADE
 	if (ilitek_platform_input_init() < 0)
 		ipio_err("Failed to init input device in kernel\n");

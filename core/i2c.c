@@ -248,6 +248,6 @@ void core_i2c_remove(void)
 	dma_free();
 #endif /* I2C_DMA */
 
-	ipio_kfree(core_i2c);
+	ipio_kfree((void **)&core_i2c);
 }
 EXPORT_SYMBOL(core_i2c_remove);

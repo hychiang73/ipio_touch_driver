@@ -36,8 +36,6 @@ struct DataItem {
 };
 
 struct DataItem *hashArray[FUNC_NUM];
-struct DataItem *func;
-
 struct protocol_cmd_list *protocol = NULL;
 
 static int hashCode(int key)
@@ -63,15 +61,21 @@ static struct DataItem *search_func(int key)
 static void insert_func(int key, int len, uint8_t *cmd, char *name)
 {
 	int i, hashIndex;
-	struct DataItem *func = kmalloc(sizeof(struct DataItem), GFP_KERNEL);
+	struct DataItem *tmp = NULL;
 
-	func->key = key;
-	func->name = name;
-	func->len = len;
+	tmp = kmalloc(sizeof(struct DataItem), GFP_KERNEL);
+	if(ERR_ALLOC_MEM(tmp)) {
+		ipio_err("Failed to allocate memory\n");
+		return;
+	}
 
-	func->cmd = kcalloc(len, sizeof(uint8_t), GFP_KERNEL);
+	tmp->key = key;
+	tmp->name = name;
+	tmp->len = len;
+
+	tmp->cmd = kcalloc(len, sizeof(uint8_t), GFP_KERNEL);
 	for (i = 0; i < len; i++)
-		func->cmd[i] = cmd[i];
+		tmp->cmd[i] = cmd[i];
 
 	hashIndex = hashCode(key);
 
@@ -80,17 +84,20 @@ static void insert_func(int key, int len, uint8_t *cmd, char *name)
 		hashIndex %= FUNC_NUM;
 	}
 
-	hashArray[hashIndex] = func;
+	hashArray[hashIndex] = tmp;
+
+	if(tmp != NULL) {
+		ipio_kfree((void **)&tmp->cmd);
+		ipio_kfree((void **)&tmp);
+	}
 }
 
 static void free_func_hash(void)
 {
 	int i;
 
-	ipio_kfree(func);
-
 	for (i = 0; i < FUNC_NUM; i++)
-		ipio_kfree(hashArray[i]);
+		ipio_kfree((void **)&hashArray[i]);
 }
 
 static void create_func_hash(void)
@@ -367,7 +374,7 @@ EXPORT_SYMBOL(core_protocol_init);
 void core_protocol_remove(void)
 {
 	ipio_info("Remove core-protocol memebers\n");
-	ipio_kfree(protocol);
+	ipio_kfree((void **)&protocol);
 	free_func_hash();
 }
 EXPORT_SYMBOL(core_protocol_remove);

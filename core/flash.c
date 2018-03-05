@@ -177,6 +177,6 @@ void core_flash_remove(void)
 {
 	ipio_info("Remove core-flash memebers\n");
 
-	ipio_kfree(flashtab);
+	ipio_kfree((void **)&flashtab);
 }
 EXPORT_SYMBOL(core_flash_remove);
