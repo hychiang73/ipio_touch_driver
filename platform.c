@@ -51,7 +51,7 @@ static DECLARE_WAIT_QUEUE_HEAD(waiter);
 #endif
 
 /* Debug level */
-uint32_t ipio_debug_level = DEBUG_NONE;
+uint32_t ipio_debug_level = DEBUG_ALL;
 EXPORT_SYMBOL(ipio_debug_level);
 
 void ilitek_platform_disable_irq(void);

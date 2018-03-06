@@ -129,8 +129,11 @@ static uint32_t calc_crc32(uint32_t start_addr, uint32_t end_addr, uint8_t *data
 static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 {
 	int timer = 500;
+	uint32_t busy = 0;
 	uint32_t write_len = 0;
 	uint32_t iram_check = 0;
+	uint32_t id = core_config->chip_id;
+	uint32_t type = core_config->chip_type;
 
 	write_len = end_addr;
 
@@ -160,15 +163,36 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 	else if (core_firmware->max_count == 0x1FFFF)
 		core_config_ice_mode_write(0x04100C, write_len, 3);
 
-	core_config_ice_mode_write(0x041014, 0x10000, 3);	/* Checksum enable */
-	core_config_ice_mode_write(0x041010, 0xFF, 1);	/* Start to receive */
+	if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_F) {
+		/* Checksum_En */
+		core_config_ice_mode_write(0x041014, 0x10000, 3);
+	} else if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_H) {
+		/* Clear Int Flag */
+		core_config_ice_mode_write(0x048007, 0x02, 1);
 
-	mdelay(1);
+		/* Checksum_En */
+		core_config_ice_mode_write(0x041016, 0x00, 1);
+		core_config_ice_mode_write(0x041016, 0x01, 1);
+	}
+
+	/* Start to receive */
+	core_config_ice_mode_write(0x041010, 0xFF, 1);
 
 	while (timer > 0) {
+
 		mdelay(1);
 
-		if ((core_config_read_write_onebyte(0x041014) & 0x01) == 0x01)
+		if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_F)
+			busy = core_config_read_write_onebyte(0x041014);
+		else if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_H) {
+			busy = core_config_read_write_onebyte(0x041014);
+			busy = busy >> 1;
+		} else {
+			ipio_err("Unknow chip type\n");
+			break;
+		}
+
+		if ((busy & 0x01) == 0x01)
 			break;
 
 		timer--;
@@ -179,8 +203,7 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 	if (timer >= 0) {
 		/* Disable dio_Rx_dual */
 		core_config_ice_mode_write(0x041003, 0x0, 1);
-		iram_check =
-		    core_firmware->isCRC ? core_config_ice_mode_read(0x4101C) : core_config_ice_mode_read(0x041018);
+		iram_check =  core_firmware->isCRC ? core_config_ice_mode_read(0x4101C) : core_config_ice_mode_read(0x041018);
 	} else {
 		ipio_err("TIME OUT\n");
 		goto out;
