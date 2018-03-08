@@ -332,11 +332,17 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	if (core_parser_path(INI_NAME_PATH) < 0) {
 		ipio_err("Failed to parsing INI file\n");
-		goto ini_err;
+		goto out;
+	}
+
+	/* Init MP structure */
+	if(core_mp_init() < 0) {
+		ipio_err("Failed to init mp\n");
+		goto out;
 	}
 
 	/* Switch to Test mode */
-	test_cmd[0] = 0x1;
+	test_cmd[0] = protocol->debug_mode;
 	core_fr_mode_control(test_cmd);
 
 	ilitek_platform_disable_irq();
@@ -387,9 +393,13 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_config_ice_mode_enable();
 	core_config_ic_reset();
 
+	/* Switch to Demo mode it prevents if fw fails to be switched */
+	test_cmd[0] = protocol->demo_mode;
+	core_fr_mode_control(test_cmd);
+
 	ilitek_platform_enable_irq();
 
-ini_err:
+out:
 	for (i = 0; i < mp_num; i++) {
 		if(mp_ini[i] != NULL)
 			kfree(mp_ini[i]);

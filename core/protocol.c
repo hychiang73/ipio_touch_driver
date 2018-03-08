@@ -85,11 +85,6 @@ static void insert_func(int key, int len, uint8_t *cmd, char *name)
 	}
 
 	hashArray[hashIndex] = tmp;
-
-	if(tmp != NULL) {
-		ipio_kfree((void **)&tmp->cmd);
-		ipio_kfree((void **)&tmp);
-	}
 }
 
 static void free_func_hash(void)
