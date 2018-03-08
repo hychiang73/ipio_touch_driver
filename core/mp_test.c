@@ -248,8 +248,9 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
 
 static int create_mp_test_frame_buffer(int index)
 {
-	if (tItems[index].catalog == TX_RX_DELTA) {
+	ipio_debug(DEBUG_MP_TEST, "Create MP frame buffers (index = %d)\n",index);
 
+	if (tItems[index].catalog == TX_RX_DELTA) {
 		core_mp->tx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		core_mp->rx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 
@@ -275,7 +276,6 @@ static int create_mp_test_frame_buffer(int index)
 		}
 
 	} else {
-
 		tItems[index].buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
@@ -886,6 +886,8 @@ static void mp_test_init_item(void)
 {
 	int i;
 
+	ipio_debug(DEBUG_MP_TEST, "Init MP Test Items\n");
+
 	core_mp->mp_items = ARRAY_SIZE(tItems);
 
 	/* assign test functions run on MP flow according to their catalog */
@@ -976,8 +978,6 @@ void core_mp_test_free(void)
 			ipio_kfree((void **)&core_mp->tx_max_buf);
 			ipio_kfree((void **)&core_mp->tx_min_buf);
 			ipio_kfree((void **)&core_mp->rx_max_buf);
-			ipio_kfree((void **)&core_mp->rx_max_buf);
-			ipio_kfree((void **)&core_mp->rx_max_buf);
 			ipio_kfree((void **)&core_mp->rx_min_buf);
 		} else {
 			ipio_kfree((void **)&tItems[i].buf);
@@ -988,6 +988,7 @@ void core_mp_test_free(void)
 
 	ipio_kfree((void **)&frame_buf);
 	ipio_kfree((void **)&key_buf);
+	ipio_kfree((void **)&core_mp);
 }
 EXPORT_SYMBOL(core_mp_test_free);
 
@@ -1250,10 +1251,3 @@ out:
 	return res;
 }
 EXPORT_SYMBOL(core_mp_init);
-
-void core_mp_remove(void)
-{
-	ipio_info("Remove core-mp members\n");
-	ipio_kfree((void **)&core_mp);
-}
-EXPORT_SYMBOL(core_mp_remove);

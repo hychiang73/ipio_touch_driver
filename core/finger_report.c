@@ -441,7 +441,9 @@ out:
 
 void core_fr_mode_control(uint8_t *from_user)
 {
-	int mode, res = 0;
+	int i, mode;
+	int checksum = 0, codeLength = 8;
+	uint8_t mp_code[8] = { 0 };
 	uint8_t cmd[4] = { 0 };
 
 	ilitek_platform_disable_irq();
@@ -464,52 +466,55 @@ void core_fr_mode_control(uint8_t *from_user)
 
 			ipio_info("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x\n", cmd[0], cmd[1], cmd[2]);
 
-			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
-			if (res < 0)
+			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
 				ipio_err("Failed to switch I2CUART mode\n");
+				goto out;
+			}
+
 		} else if (mode == protocol->demo_mode || mode == protocol->debug_mode) {
 			cmd[0] = protocol->cmd_mode_ctrl;
 			cmd[1] = mode;
 
 			ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
-			if (res < 0) {
+			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
 				ipio_err("Failed to switch Demo/Debug mode\n");
-			} else {
-				core_fr->actual_fw_mode = mode;
+				goto out;
 			}
+
+			core_fr->actual_fw_mode = mode;
+
 		} else if (mode == protocol->test_mode) {
 			cmd[0] = protocol->cmd_mode_ctrl;
 			cmd[1] = mode;
 
 			ipio_info("Switch to Test mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
-			if (res < 0) {
+			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
 				ipio_err("Failed to switch Test mode\n");
-			} else {
-				int i, checksum = 0, codeLength = 8;
-				uint8_t mp_code[8] = { 0 };
-
-				cmd[0] = 0xFE;
-
-				/* Read MP Test information to ensure if fw supports test mode. */
-				core_i2c_write(core_config->slave_i2c_addr, cmd, 1);
-				mdelay(10);
-				core_i2c_read(core_config->slave_i2c_addr, mp_code, codeLength);
-
-				for (i = 0; i < codeLength - 1; i++)
-					checksum += mp_code[i];
-
-				if (((-checksum & 0xFF) == mp_code[codeLength - 1]) ? true : false) {
-					/* FW enter to Test Mode */
-					if (core_mp_move_code() == 0)
-						core_fr->actual_fw_mode = mode;
-				} else
-					ipio_info("checksume error (0x%x), FW doesn't support test mode.\n",
-						 (-checksum & 0XFF));
+				goto out;
 			}
+
+			cmd[0] = 0xFE;
+
+			/* Read MP Test information to ensure if fw supports test mode. */
+			core_i2c_write(core_config->slave_i2c_addr, cmd, 1);
+			mdelay(10);
+			core_i2c_read(core_config->slave_i2c_addr, mp_code, codeLength);
+
+			for (i = 0; i < codeLength - 1; i++)
+				checksum += mp_code[i];
+
+			if ((-checksum & 0xFF) != mp_code[codeLength - 1]) {
+				ipio_info("checksume error (0x%x), FW doesn't support test mode.\n",
+						(-checksum & 0XFF));
+				goto out;
+			}
+
+			/* FW enter to Test Mode */
+			if (core_mp_move_code() == 0)
+				core_fr->actual_fw_mode = mode;
+
 		} else {
 			ipio_err("Unknown firmware mode: %x\n", mode);
 		}

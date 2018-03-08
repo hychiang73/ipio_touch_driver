@@ -86,6 +86,5 @@ extern void core_mp_show_result(void);
 extern int core_mp_run_test(void);
 extern int core_mp_move_code(void);
 extern int core_mp_init(void);
-extern void core_mp_remove(void);
 
 #endif
