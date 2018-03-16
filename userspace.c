@@ -342,7 +342,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	}
 
 	/* Switch to Test mode */
-	test_cmd[0] = protocol->debug_mode;
+	test_cmd[0] = protocol->test_mode;
 	core_fr_mode_control(test_cmd);
 
 	ilitek_platform_disable_irq();

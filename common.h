@@ -104,7 +104,7 @@
 #define TP_PLATFORM PT_RK
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.1.3"
+#define DRIVER_VERSION	"1.0.1.4"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
