@@ -410,7 +410,7 @@ void core_config_ic_suspend(void)
 	core_config_sense_ctrl(false);
 
 	/* check system busy */
-	if (core_config_check_cdc_busy() < 0)
+	if (core_config_check_cdc_busy(50) < 0)
 		ipio_err("Check busy is timout !\n");
 
 	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
@@ -441,7 +441,7 @@ void core_config_ic_resume(void)
 	core_config_sleep_ctrl(true);
 
 	/* check system busy */
-	if (core_config_check_cdc_busy() < 0)
+	if (core_config_check_cdc_busy(50) < 0)
 		ipio_err("Check busy is timout !\n");
 
 	/* sense start for TP */
@@ -493,9 +493,9 @@ int core_config_reset_watch_dog(void)
 }
 EXPORT_SYMBOL(core_config_reset_watch_dog);
 
-int core_config_check_cdc_busy(void)
+int core_config_check_cdc_busy(int delay)
 {
-	int timer = 50, res = -1;
+	int timer = delay, res = -1;
 	uint8_t cmd[2] = { 0 };
 	uint8_t busy = 0;
 

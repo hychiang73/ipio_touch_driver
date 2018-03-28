@@ -322,7 +322,7 @@ static int allnode_key_cdc_data(int index)
 	mdelay(1);
 
 	/* Check busy */
-	if (core_config_check_cdc_busy() < 0) {
+	if (core_config_check_cdc_busy(50) < 0) {
 		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
@@ -444,7 +444,7 @@ static int allnode_mutual_cdc_data(int index)
 	mdelay(1);
 
 	/* Check busy */
-	if (core_config_check_cdc_busy() < 0) {
+	if (core_config_check_cdc_busy(50) < 0) {
 		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
@@ -1178,7 +1178,7 @@ int core_mp_move_code(void)
 {
 	ipio_info("Prepaing to enter Test Mode\n");
 
-	if (core_config_check_cdc_busy() < 0) {
+	if (core_config_check_cdc_busy(50) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
@@ -1193,20 +1193,17 @@ int core_mp_move_code(void)
 
 	mdelay(30);
 
-	/*
-	 * We add CS high command to solve the bug that ic didn't pull it as high,
-	 * which may cause some pluses didn't be catached up when moving code or programming.
-	 */
-	usleep_range(MSEC, MSEC * 10);
-	if (core_config_ice_mode_write(0x041000, 0x1, 1) < 0)
-		return -1;
+	/* CS High */
+	core_config_ice_mode_write(0x041000, 0x1, 1);
+
+	mdelay(60);
 
 	/* Code reset */
 	core_config_ice_mode_write(0x40040, 0xAE, 1);
 
 	core_config_ice_mode_disable();
 
-	if (core_config_check_cdc_busy() < 0) {
+	if (core_config_check_cdc_busy(300) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
