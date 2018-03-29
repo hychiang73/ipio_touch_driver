@@ -83,7 +83,7 @@ extern struct mp_test_items tItems[];
 
 extern void core_mp_test_free(void);
 extern void core_mp_show_result(void);
-extern int core_mp_run_test(void);
+extern void core_mp_run_test(void);
 extern int core_mp_move_code(void);
 extern int core_mp_init(void);
 

@@ -386,14 +386,12 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	}
 
 	core_mp_run_test();
-	core_mp_show_result();
-	core_mp_test_free();
 
 	/* Code reset */
 	core_config_ice_mode_enable();
 	core_config_ic_reset();
 
-	/* Switch to Demo mode it prevents if fw fails to be switched */
+	/* Switch to Demo mode */
 	test_cmd[0] = protocol->demo_mode;
 	core_fr_mode_control(test_cmd);
 
@@ -468,12 +466,12 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 			ipio_info("%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp, tItems[i].run,
 				 tItems[i].max, tItems[i].min, tItems[i].frame_count);
+
+			break;
 		}
 	}
 
 	core_mp_run_test();
-	core_mp_show_result();
-	core_mp_test_free();
 
 	/* Code reset */
 	core_config_ice_mode_enable();

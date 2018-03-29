@@ -1174,7 +1174,7 @@ fail_open:
 }
 EXPORT_SYMBOL(core_mp_show_result);
 
-int core_mp_run_test(void)
+void core_mp_run_test(void)
 {
 	int i = 0;
 
@@ -1195,7 +1195,8 @@ int core_mp_run_test(void)
 		}
 	}
 
-	return 0;
+	core_mp_show_result();
+	core_mp_test_free();
 }
 EXPORT_SYMBOL(core_mp_run_test);
 
