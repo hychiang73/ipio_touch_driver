@@ -438,7 +438,6 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	token = cur = cmd;
 
 	va = kcalloc(64, sizeof(uint8_t), GFP_KERNEL);
-	memset(va, 0, 64);
 
 	while ((token = strsep(&cur, ",")) != NULL) {
 		va[count] = katoi(token);
@@ -448,8 +447,14 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	ipio_info("cmd = %s\n", cmd);
 
+	/* Init MP structure */
+	if(core_mp_init() < 0) {
+		ipio_err("Failed to init mp\n");
+		return size;
+	}
+
 	/* Switch to Test mode */
-	test_cmd[0] = 0x1;
+	test_cmd[0] = protocol->test_mode;
 	core_fr_mode_control(test_cmd);
 
 	ilitek_platform_disable_irq();
@@ -463,20 +468,25 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 			ipio_info("%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp, tItems[i].run,
 				 tItems[i].max, tItems[i].min, tItems[i].frame_count);
-
-			core_mp_run_test();
-			core_mp_show_result();
-			core_mp_test_free();
 		}
 	}
+
+	core_mp_run_test();
+	core_mp_show_result();
+	core_mp_test_free();
 
 	/* Code reset */
 	core_config_ice_mode_enable();
 	core_config_ic_reset();
 
+	/* Switch to Demo mode it prevents if fw fails to be switched */
+	test_cmd[0] = protocol->demo_mode;
+	core_fr_mode_control(test_cmd);
+
 	ilitek_platform_enable_irq();
 
 	ipio_info("MP Test DONE\n");
+	ipio_kfree((void **)&va);
 	return size;
 }
 

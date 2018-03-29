@@ -779,9 +779,13 @@ static int mutual_test(int index)
 	ipio_debug(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
 	    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
-	if (tItems[index].frame_count == 0) {
-		ipio_err("Frame count is zero, which at least sets as 1\n");
-		goto out;
+	/*
+	 * We assume that users who are calling the test forget to config frame count
+	 * as 1, so we just help them to set it up.
+	 */
+	if (tItems[index].frame_count <= 0) {
+		ipio_err("Frame count is zero, which is at least set as 1\n");
+		tItems[index].frame_count = 1;
 	}
 
 	res = create_mp_test_frame_buffer(index);
@@ -1018,6 +1022,24 @@ void core_mp_show_result(void)
 			pr_info("\n");
 			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 
+			pr_info("Max = %d\n",tItems[i].max);
+			csv_len += sprintf(csv + csv_len, "Max = %d", tItems[i].max);
+
+			pr_info("\n");
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+
+			pr_info("Min = %d\n",tItems[i].min);
+			csv_len += sprintf(csv + csv_len, "Max = %d", tItems[i].max);
+
+			pr_info("\n");
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+
+			pr_info("Frame count = %d\n",tItems[i].frame_count);
+			csv_len += sprintf(csv + csv_len, "Frame count = %d", tItems[i].frame_count);
+
+			pr_info("\n");
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+
 			if (tItems[i].catalog == TX_RX_DELTA) {
 				if (ERR_ALLOC_MEM(core_mp->rx_delta_buf) || ERR_ALLOC_MEM(core_mp->tx_delta_buf)) {
 					ipio_err("This test item (%s) has no data inside its buffer\n", tItems[i].desp);
@@ -1105,6 +1127,9 @@ void core_mp_show_result(void)
 
 			if (strcmp(tItems[i].result, "FAIL") == 0)
 				core_mp->final_result = false;
+
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 		}
 	}
 
