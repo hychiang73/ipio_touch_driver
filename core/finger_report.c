@@ -762,9 +762,6 @@ void core_fr_input_set_param(struct input_dev *input_device)
 
 	/* Set up virtual key with gesture code */
 	core_gesture_init(core_fr);
-
-	if (core_fr->isSetPhoneCover)
-		core_config_set_phone_cover(NULL);
 }
 EXPORT_SYMBOL(core_fr_input_set_param);
 
@@ -785,8 +782,6 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnableNetlink = false;
 			core_fr->isEnablePressure = false;
 			core_fr->isSetResolution = false;
-			core_fr->isSetPhoneCover = false;
-			core_fr->isPrint = false;
 			core_fr->actual_fw_mode = protocol->demo_mode;
 			return 0;
 		}

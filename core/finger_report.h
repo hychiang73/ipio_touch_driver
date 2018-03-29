@@ -38,10 +38,6 @@ struct core_fr_data {
 	bool isSetResolution;
 	/* used to change I2C Uart Mode when fw mode is in this mode */
 	uint8_t i2cuart_mode;
-	/* used to set phone cover window size by default */
-	bool isSetPhoneCover;
-	/* Terminal shows report data */
-	bool isPrint;
 
 	/* current firmware mode in driver */
 	uint16_t actual_fw_mode;

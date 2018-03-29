@@ -1145,7 +1145,7 @@ void core_mp_show_result(void)
 	ipio_info("Open CSV : %s\n", csv_name);
 
 	if (f == NULL)
-		f = filp_open(csv_name, O_CREAT | O_WONLY, 0666);
+		f = filp_open(csv_name, O_WRONLY | O_CREAT | O_TRUNC, 644);
 
 	if (ERR_ALLOC_MEM(f)) {
 		ipio_err("Failed to open CSV file");

@@ -204,16 +204,6 @@ enum ili9881_types
 #define TPD_HEIGHT 2048
 #define TPD_WIDTH 2048
 
-/* define the size of window of phone cover */
-#define UL_X_LOW	0
-#define UL_X_HIGH	100
-#define UL_Y_LOW	0
-#define UL_Y_HIGH	100
-#define BR_X_LOW	0
-#define BR_X_HIGH	100
-#define BR_Y_LOW	0
-#define BR_Y_HIGH	100
-
 /* How many numbers of touch are supported by IC. */
 #define MAX_TOUCH_NUM	10
 

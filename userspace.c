@@ -815,7 +815,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 
 	while ((token = strsep(&cur, ",")) != NULL) {
 		data[count] = str2hex(token);
-		/* ipio_info("data[%d] = %x",count, data[count]); */
+		ipio_info("data[%d] = %x\n",count, data[count]);
 		count++;
 	}
 
@@ -875,6 +875,9 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	} else if (strcmp(cmd, "tpscan_b") == 0) {
 		ipio_info("set TP scan as mode B\n");
 		core_config_tp_scan_mode(false);
+	} else if (strcmp(cmd, "phone_cover") == 0) {
+		ipio_info("set size of phone conver window\n");
+		core_config_set_phone_cover(data);
 	} else if (strcmp(cmd, "i2c_w") == 0) {
 		w_len = data[1];
 		ipio_info("w_len = %d\n", w_len);

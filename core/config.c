@@ -356,30 +356,15 @@ EXPORT_SYMBOL(core_config_plug_ctrl);
 
 void core_config_set_phone_cover(uint8_t *pattern)
 {
-	uint8_t ul_x_l = UL_X_LOW, ul_x_h = UL_X_HIGH;
-	uint8_t ul_y_l = UL_Y_LOW, ul_y_h = UL_Y_HIGH;
-	uint8_t br_x_l = BR_X_LOW, br_x_h = BR_X_HIGH;
-	uint8_t br_y_l = BR_Y_LOW, br_y_h = BR_Y_HIGH;
+	int i;
 
-	ipio_info("pattern = 0x%x\n", *pattern);
-
-	if (*pattern < 0 || pattern == NULL) {
-		ipio_err("Invaild width or height\n");
+	if (pattern == NULL) {
+		ipio_err("Invaild pattern\n");
 		return;
 	}
 
-	if (*pattern == 0) {
-		protocol->phone_cover_window[1] = ul_x_l;
-		protocol->phone_cover_window[2] = ul_x_h;
-		protocol->phone_cover_window[3] = ul_y_l;
-		protocol->phone_cover_window[4] = ul_y_h;
-		protocol->phone_cover_window[5] = br_x_l;
-		protocol->phone_cover_window[6] = br_x_h;
-		protocol->phone_cover_window[7] = br_y_l;
-		protocol->phone_cover_window[8] = br_y_h;
-	} else {
-		/* TODO */
-	}
+	for(i = 0; i < 8; i++)
+		protocol->phone_cover_window[i+1] = pattern[i];
 
 	ipio_info("window: cmd = 0x%x\n", protocol->phone_cover_window[0]);
 	ipio_info("window: ul_x_l = 0x%x, ul_x_h = 0x%x\n", protocol->phone_cover_window[1],
