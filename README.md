@@ -9,19 +9,24 @@ The following lists which of TDDI IC types supported by the driver.
 * ILI7807F
 * ILI7807H
 * ILI9881F
+* ILI9881H
 
-# Verified platform
+# Support platform
 
 * Firefly-RK3288 (Rockchip)
 * Helio X20 (MT6797)
+* Qualcomm
+* SPRD
 
-The default in this driver works on RK3288.
-
-If you woule like to port it on MTK platforms, you must open the macro shown on the below:
+The default in this driver works on Qualcomm platform. If you'd like to port other platforms with this driver, please modify the number shown on below to fit it:
 
 **common.h**
 ```
-#define PLATFORM_MTK
+/* A platform currently supported by driver */
+#define PT_QCOM	1
+#define PT_MTK	2
+#define PT_SPRD	3
+#define TP_PLATFORM PT_QCOM
 ```
 # Functions
 
@@ -198,47 +203,48 @@ Additionly, we offer a useful feature to do Write/Read at once: Delay time. In t
 │   ├── firmware.h
 │   ├── flash.c
 │   ├── flash.h
+│   ├── gesture.c
+│   ├── gesture.h
 │   ├── i2c.c
 │   ├── i2c.h
 │   ├── Makefile
 │   ├── mp_test.c
 │   ├── mp_test.h
-│   └── sup_chip.c
+│   ├── parser.c
+│   ├── parser.h
+│   ├── protocol.c
+│   └── protocol.h
 ├── Makefile
 ├── m.sh
 ├── platform.c
 ├── platform.h
 ├── README.md
 └── userspace.c
+
 ```
 
 * The concepts of this driver is suppose to hide details, and you should ignore the core functions and follow up the example code **platform.c**
-to write your own platform c file (like copy it to platform_mtk.c and modify gpio numbers, dts's match name etc.)
+to write your own platform c file or just modify it. 
 
 * If you want to create more nodes on the device driver for user space, just refer to **userspace.c**.
 
-* In **common.h** file where has a lots of definations about IC's address and protocol commands on firmware.
-
-* The directory **Core** includes our touch ic settings, functions and other features.
+* The directory **Core** includes our touch ic settings, functions and other features. If you'd like to write an application in user space, can just copy the directory to your workspace and call those functions by including header files.
 
 # Porting
 
 ## Tell driver what IC types it should support to.
 
-To find a macro called *ON_BOARD_IC* in **chip.h** and chose one of them:
+To void any undefined exeception, you should know what types of IC on the platform and what the current type of IC this driver supports for.
 
 ```
-// This macro defines what types of chip supported by the driver.
-#define ON_BOARD_IC		0x7807
-//#define ON_BOARD_IC		0x9881
+/* An Touch IC currently supported by driver */
+#define CHIP_TYPE_ILI7807	0x7807
+#define CHIP_TYPE_ILI9881	0x9881
+#define TP_TOUCH_IC		CHIP_TYPE_ILI9881
 ```
- In this case the driver now supports ILI7807.
+In this case the driver now supports the type of ILI9881.
 
-## Check your DTS file and i2c bus number
-
-The DTS file with RK3288 development platform locates at **arch/arm/boot/dts/firefly-rk3288.dts**.
-
-Open it and add the gpio number in one of i2c buses.
+## DTS example code
 
 ```
 &i2c1 {
@@ -252,88 +258,51 @@ Open it and add the gpio number in one of i2c buses.
 
 };
 ```
-In this case the slave address is 0x41, and the name of table calls **tchip,ilitek**.
-
-**touch,irq-gpio** and **touch,reset-gpio** represent INT pin and RESET pin.
-
-## Copy **platform.c** as your platform c. file.
-
-Once you have done that, the first thing you should make sure is what the i2c name calls in your dts file:
-
-```
-/*
- * The name in the table must match the definiation
- * in a dts file.
- *
- */
-static struct of_device_id tp_match_table[] = {
-	{ .compatible = "tchip,ilitek"},
-    {},
-};
-```
-Change the name according to your DTS file.
-
-The next we should modify is the name of gpios. Find out the two macros and change it.
-
-```
-#define DTS_INT_GPIO	"touch,irq-gpio"
-#define DTS_RESET_GPIO	"touch,reset-gpio"
-```
-
-For more information about gpio settins, you can refer to the function called **ilitek_platform_gpio**
-
-```
-static int ilitek_platform_gpio(void)
-{
-	int res = 0;
-#ifdef CONFIG_OF
-	struct device_node *dev_node = TIC->client->dev.of_node;
-	uint32_t flag;
-#endif
-	uint32_t gpios[2] = {0};// 0: int, 1:reset
-
-#ifdef CONFIG_OF
-	gpios[0] = of_get_named_gpio_flags(dev_node, DTS_INT_GPIO, 0, &flag);
-	gpios[1] = of_get_named_gpio_flags(dev_node, DTS_RESET_GPIO, 0, &flag);
-#endif
-
-    ....
-}
-```
+In this case the slave address is 0x41, and the name of table calls **tchip,ilitek**. **touch,irq-gpio** and **touch,reset-gpio** represent INT pin and RESET pin separately.
 
 # Release Note
 
+* V1.0.2.0
+  * Fully support new IC type, ILI9881H.
+  * Fixed the crash due to the free func while removing driver. (Module built)
+  * Fixed the issue of timeout while switching mp mode.
+  * Fixed the calculation of open cap test.
+  * CSV can be overwriteen directly. (No necearry to delete it before test.)
+  * MP Test only runs signle test time at once. If you'd like to run multiple tests, call more !
+  * Fixed some bugs in mp test.
+  * Rmove RK platform.
+  * The setting of resolution gets from FW as default.
+
+
 * V1.0.1.3
- * Fixed many errors in mp test.
- * Adjusted code style as unix-like.
- * Support SPRD platform.
- * Won't set protect bit in flash register after firmware upgraded.
+  * Fixed many errors in mp test.
+  * Adjusted code style as unix-like.
+  * Support SPRD platform.
+  * Won't set protect bit in flash register after firmware upgraded.
 
 * V1.0.1.2
- * Introduce Test Mode and MP Test function.
- * Add gesture code.
- * Add a debug node that can be run under user-built image.
- * Rewrote Function Control.
- * Fixed several bugs.
+  * Introduce Test Mode and MP Test function.
+  * Add gesture code.
+  * Add a debug node that can be run under user-built image.
+  * Rewrote Function Control.
+  * Fixed several bugs.
 
 * V1.0.1.1
- * Add i2c segmental read.
- * Redesign protocol structure. The protocol now became single moudle to have its own c file.
- * Define macros to enable some common functions.
- * Enable IRQ before handling the event triggered by fw.
- * Add block tag at boot upgrade and reserved block for customers.
- * Support new type of version of protocol (expend to 3 byte).
- * Able to print report data if image is built for user
+  * Add i2c segmental read.
+  * Redesign protocol structure. The protocol now became single moudle to have its own c file.
+  * Define macros to enable some common functions.
+  * Enable IRQ before handling the event triggered by fw.
+  * Add block tag at boot upgrade and reserved block for customers.
+  * Support new type of version of protocol (expend to 3 byte).
+  * Able to print report data if image is built for user
 
 * V1.0.1.0 (Offical Release)
- * Fixed the size of CTPM_FW isn't subtracted by 32 before filling data into buffer.
- * FW upgrade at boot stage is disable as default.
+  * Fixed the size of CTPM_FW isn't subtracted by 32 before filling data into buffer.
+  * FW upgrade at boot stage is disable as default.
 
 * V1.0.0.10
- * Fixed the issue of I2CUart when its length of next buffer is larger
-   than previous one.
- * Add FW upgrade at boot stage. It will be actiaved when the version of FW that is going to
-   upgrade is different the previous version, otherwise it will deny to upgrade.
+  * Fixed the issue of I2CUart when its length of next buffer is larger than previous one.
+  * Add FW upgrade at boot stage. It will be actiaved when the version of FW that is going to upgrade is different the previous version, otherwise it will deny to upgrade.
 
 * V1.0.0.9
   * Add a new way to program firmware if the hex file includes block information.

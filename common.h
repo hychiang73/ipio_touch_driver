@@ -103,7 +103,7 @@
 #define TP_PLATFORM PT_QCOM
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.1.4"
+#define DRIVER_VERSION	"1.0.2.0"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
