@@ -137,7 +137,6 @@ static void i2cuart_recv_packet(void)
 		res = core_i2c_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
 		if (res < 0)
 			ipio_err("Failed to read finger report packet\n");
-
 	}
 }
 
@@ -322,13 +321,10 @@ static int parse_touch_package_v5_0(uint8_t pid)
 #endif
 		}
 	} else {
-		if (pid == 0) {
+		if (pid != 0) {
 			/* ignore the pid with 0x0 after enable irq at once */
-			goto out;
-		} else {
 			ipio_err(" **** Unknown PID : 0x%x ****\n", pid);
 			res = -1;
-			goto out;
 		}
 	}
 
@@ -445,7 +441,9 @@ out:
 
 void core_fr_mode_control(uint8_t *from_user)
 {
-	int mode, res = 0;
+	int i, mode;
+	int checksum = 0, codeLength = 8;
+	uint8_t mp_code[8] = { 0 };
 	uint8_t cmd[4] = { 0 };
 
 	ilitek_platform_disable_irq();
@@ -468,52 +466,55 @@ void core_fr_mode_control(uint8_t *from_user)
 
 			ipio_info("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x\n", cmd[0], cmd[1], cmd[2]);
 
-			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
-			if (res < 0)
+			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
 				ipio_err("Failed to switch I2CUART mode\n");
+				goto out;
+			}
+
 		} else if (mode == protocol->demo_mode || mode == protocol->debug_mode) {
 			cmd[0] = protocol->cmd_mode_ctrl;
 			cmd[1] = mode;
 
 			ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
-			if (res < 0) {
+			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
 				ipio_err("Failed to switch Demo/Debug mode\n");
-			} else {
-				core_fr->actual_fw_mode = mode;
+				goto out;
 			}
+
+			core_fr->actual_fw_mode = mode;
+
 		} else if (mode == protocol->test_mode) {
 			cmd[0] = protocol->cmd_mode_ctrl;
 			cmd[1] = mode;
 
 			ipio_info("Switch to Test mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
-			if (res < 0) {
+			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
 				ipio_err("Failed to switch Test mode\n");
-			} else {
-				int i, checksum = 0, codeLength = 8;
-				uint8_t mp_code[8] = { 0 };
-
-				cmd[0] = 0xFE;
-
-				/* Read MP Test information to ensure if fw supports test mode. */
-				core_i2c_write(core_config->slave_i2c_addr, cmd, 1);
-				mdelay(10);
-				core_i2c_read(core_config->slave_i2c_addr, mp_code, codeLength);
-
-				for (i = 0; i < codeLength - 1; i++)
-					checksum += mp_code[i];
-
-				if (((-checksum & 0xFF) == mp_code[codeLength - 1]) ? true : false) {
-					/* FW enter to Test Mode */
-					if (core_mp_move_code() == 0)
-						core_fr->actual_fw_mode = mode;
-				} else
-					ipio_info("checksume error (0x%x), FW doesn't support test mode.\n",
-						 (-checksum & 0XFF));
+				goto out;
 			}
+
+			cmd[0] = 0xFE;
+
+			/* Read MP Test information to ensure if fw supports test mode. */
+			core_i2c_write(core_config->slave_i2c_addr, cmd, 1);
+			mdelay(10);
+			core_i2c_read(core_config->slave_i2c_addr, mp_code, codeLength);
+
+			for (i = 0; i < codeLength - 1; i++)
+				checksum += mp_code[i];
+
+			if ((-checksum & 0xFF) != mp_code[codeLength - 1]) {
+				ipio_info("checksume error (0x%x), FW doesn't support test mode.\n",
+						(-checksum & 0XFF));
+				goto out;
+			}
+
+			/* FW enter to Test Mode */
+			if (core_mp_move_code() == 0)
+				core_fr->actual_fw_mode = mode;
+
 		} else {
 			ipio_err("Unknown firmware mode: %x\n", mode);
 		}
@@ -630,9 +631,9 @@ void core_fr_handler(void)
 
 			while (i < ARRAY_SIZE(fr_t)) {
 				if (protocol->major == fr_t[i].protocol_marjor_ver) {
-					mutex_lock(&ipd->MUTEX);
+					mutex_lock(&ipd->plat_mutex);
 					fr_t[i].finger_report();
-					mutex_unlock(&ipd->MUTEX);
+					mutex_unlock(&ipd->plat_mutex);
 
 					/* 2048 is referred to the defination by user */
 					if (g_total_len < 2048) {
@@ -685,31 +686,24 @@ void core_fr_handler(void)
 		}
 	} else {
 		ipio_err("The figner report was disabled\n");
+		return;
 	}
 
 out:
-	ipio_debug(DEBUG_IRQ, "handle INT done\n\n");
+	ipio_kfree((void **)&tdata);
+
+	if(g_fr_node != NULL) {
+		ipio_kfree((void **)&g_fr_node->data);
+		ipio_kfree((void **)&g_fr_node);
+	}
+
+	if(g_fr_uart != NULL) {
+		ipio_kfree((void **)&g_fr_uart->data);
+		ipio_kfree((void **)&g_fr_uart);
+	}
+
 	g_total_len = 0;
-	if (tdata != NULL) {
-		kfree(tdata);
-		tdata = NULL;
-	}
-	if (g_fr_node != NULL) {
-		if (g_fr_node->data != NULL) {
-			kfree(g_fr_node->data);
-			g_fr_node->data = NULL;
-		}
-		kfree(g_fr_node);
-		g_fr_node = NULL;
-	}
-	if (g_fr_uart != NULL) {
-		if (g_fr_uart->data != NULL) {
-			kfree(g_fr_uart->data);
-			g_fr_uart->data = NULL;
-		}
-		kfree(g_fr_uart);
-		g_fr_uart = NULL;
-	}
+	ipio_debug(DEBUG_IRQ, "handle INT done\n\n");
 }
 EXPORT_SYMBOL(core_fr_handler);
 
@@ -768,9 +762,6 @@ void core_fr_input_set_param(struct input_dev *input_device)
 
 	/* Set up virtual key with gesture code */
 	core_gesture_init(core_fr);
-
-	if (core_fr->isSetPhoneCover)
-		core_config_set_phone_cover(NULL);
 }
 EXPORT_SYMBOL(core_fr_input_set_param);
 
@@ -790,9 +781,7 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
 			core_fr->isEnablePressure = false;
-			core_fr->isSetResolution = false;
-			core_fr->isSetPhoneCover = false;
-			core_fr->isPrint = false;
+			core_fr->isSetResolution = true;
 			core_fr->actual_fw_mode = protocol->demo_mode;
 			return 0;
 		}
@@ -806,8 +795,6 @@ EXPORT_SYMBOL(core_fr_init);
 void core_fr_remove(void)
 {
 	ipio_info("Remove core-FingerReport members\n");
-
-	if (core_fr != NULL)
-		kfree(core_fr);
+	ipio_kfree((void **)&core_fr);
 }
 EXPORT_SYMBOL(core_fr_remove);

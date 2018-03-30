@@ -94,15 +94,16 @@
 #define CHIP_TYPE_ILI9881	0x9881
 #define TP_TOUCH_IC		CHIP_TYPE_ILI9881
 
+#define CHIP_ID_ERR	(-100)
+
 /* A platform currently supported by driver */
-#define PT_RK	1
+#define PT_QCOM	1
 #define PT_MTK	2
 #define PT_SPRD	3
-#define PT_QCOM	4
-#define TP_PLATFORM PT_RK
+#define TP_PLATFORM PT_QCOM
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.1.3"
+#define DRIVER_VERSION	"1.0.1.4"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
@@ -159,15 +160,24 @@ extern uint32_t ipio_chip_list[2];
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
 
 /* ILI7807 Series */
-#define ILI7807_TYPE_F_AA		0x0000
-#define ILI7807_TYPE_F_AB		0x0001
-#define ILI7807_TYPE_H			0x1100
+enum ili7881_types
+{
+	ILI7807_TYPE_F_AA = 0x0000,
+	ILI7807_TYPE_F_AB = 0x0001,
+	ILI7807_TYPE_H = 0x1100
+};
 
 #define ILI7807_SLAVE_ADDR		0x41
 #define ILI7807_ICE_MODE_ADDR	0x181062
 #define ILI7807_PID_ADDR		0x4009C
 
 /* ILI9881 Series */
+enum ili9881_types
+{
+	ILI9881_TYPE_F = 0x0F00,
+	ILI9881_TYPE_H = 0x1100
+};
+
 #define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
 #define ILI9881_PID_ADDR		0x4009C
@@ -193,16 +203,6 @@ extern uint32_t ipio_chip_list[2];
 #define TPD_HEIGHT 2048
 #define TPD_WIDTH 2048
 
-/* define the size of window of phone cover */
-#define UL_X_LOW	0
-#define UL_X_HIGH	100
-#define UL_Y_LOW	0
-#define UL_Y_HIGH	100
-#define BR_X_LOW	0
-#define BR_X_HIGH	100
-#define BR_Y_LOW	0
-#define BR_Y_HIGH	100
-
 /* How many numbers of touch are supported by IC. */
 #define MAX_TOUCH_NUM	10
 
@@ -226,5 +226,16 @@ extern uint32_t ipio_chip_list[2];
 
 /* Check battery's status in order to avoid some effects from charge. */
 /* #define BATTERY_CHECK */
+
+static inline void ipio_kfree(void **mem)
+{
+	if(*mem != NULL) {
+		kfree(*mem);
+		*mem = NULL;
+	}
+}
+
+extern int katoi(char *string);
+extern int str2hex(char *str);
 
 #endif /* __COMMON_H */

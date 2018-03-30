@@ -51,57 +51,10 @@ static DECLARE_WAIT_QUEUE_HEAD(waiter);
 #endif
 
 /* Debug level */
-uint32_t ipio_debug_level = DEBUG_NONE;
+uint32_t ipio_debug_level = DEBUG_ALL;
 EXPORT_SYMBOL(ipio_debug_level);
 
-void ilitek_platform_disable_irq(void);
-void ilitek_platform_enable_irq(void);
-void ilitek_platform_tp_hw_reset(bool isEnable);
-#ifdef REGULATOR_POWER_ON
-void ilitek_regulator_power_on(bool status);
-#endif
-
-#if defined(USE_KTHREAD) || defined(BOOT_FW_UPGRADE)
-static int kthread_handler(void *arg);
-#endif
-
-#ifdef BATTERY_CHECK
-static void read_power_status(uint8_t *buf);
-static void ilitek_platform_vpower_notify(struct work_struct *pWork);
-#endif
-
-static int ilitek_platform_input_init(void);
-
-/* The method of suspend/resume */
-#if (TP_PLATFORM == PT_MTK)
-static void tpd_resume(struct device *h);
-static void tpd_suspend(struct device *h);
-#elif defined CONFIG_FB
-static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned long event, void *data);
-#else /* CONFIG_FB */
-static void ilitek_platform_early_suspend(struct early_suspend *h);
-static void ilitek_platform_late_resume(struct early_suspend *h);
-#endif /* PT_MTK */
-
-static int ilitek_platform_reg_power_check(void);
-static int ilitek_platform_reg_suspend(void);
-
-#ifndef USE_KTHREAD
-static void ilitek_platform_work_queue(struct work_struct *work);
-#endif
-
-static int ilitek_platform_isr_register(void);
-static int ilitek_platform_gpio(void);
-static int ilitek_platform_read_tp_info(void);
-static int ilitek_platform_input_init(void);
-static void ilitek_platform_core_remove(void);
-static int ilitek_platform_core_init(void);
-static int ilitek_platform_remove(struct i2c_client *client);
-static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id);
-static int __init ilitek_platform_init(void);
-static void __exit ilitek_platform_exit(void);
-
-struct ilitek_platform_data *ipd;
+struct ilitek_platform_data *ipd = NULL;
 
 void ilitek_platform_disable_irq(void)
 {
@@ -109,7 +62,7 @@ void ilitek_platform_disable_irq(void)
 
 	ipio_debug(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
 
-	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_lock_irqsave(&ipd->plat_spinlock, nIrqFlag);
 
 	if (ipd->isEnableIRQ) {
 		if (ipd->isr_gpio) {
@@ -121,7 +74,7 @@ void ilitek_platform_disable_irq(void)
 	} else
 		ipio_debug(DEBUG_IRQ, "IRQ was already disabled\n");
 
-	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_unlock_irqrestore(&ipd->plat_spinlock, nIrqFlag);
 }
 EXPORT_SYMBOL(ilitek_platform_disable_irq);
 
@@ -131,7 +84,7 @@ void ilitek_platform_enable_irq(void)
 
 	ipio_debug(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
 
-	spin_lock_irqsave(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_lock_irqsave(&ipd->plat_spinlock, nIrqFlag);
 
 	if (!ipd->isEnableIRQ) {
 		if (ipd->isr_gpio) {
@@ -143,7 +96,7 @@ void ilitek_platform_enable_irq(void)
 	} else
 		ipio_debug(DEBUG_IRQ, "IRQ was already enabled\n");
 
-	spin_unlock_irqrestore(&ipd->SPIN_LOCK, nIrqFlag);
+	spin_unlock_irqrestore(&ipd->plat_spinlock, nIrqFlag);
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
@@ -212,51 +165,6 @@ void ilitek_regulator_power_on(bool status)
 }
 EXPORT_SYMBOL(ilitek_regulator_power_on);
 #endif /* REGULATOR_POWER_ON */
-
-static int kthread_handler(void *arg)
-{
-	int res = 0;
-	char *str = (char *)arg;
-
-	if (strcmp(str, "boot_fw") == 0) {
-		/* FW Upgrade event */
-		core_firmware->isboot = true;
-
-		ilitek_platform_disable_irq();
-
-#ifdef BOOT_FW_UPGRADE
-		res = core_firmware_boot_upgrade();
-		if (res < 0)
-			ipio_err("Failed to upgrade FW at boot stage\n");
-#endif
-
-		ilitek_platform_enable_irq();
-
-		ilitek_platform_input_init();
-
-		core_firmware->isboot = false;
-	} else if (strcmp(str, "irq") == 0) {
-		/* IRQ event */
-		struct sched_param param = {.sched_priority = 4 };
-
-		sched_setscheduler(current, SCHED_RR, &param);
-
-		while (!kthread_should_stop() && !ipd->free_irq_thread) {
-			ipio_debug(DEBUG_IRQ, "kthread: before->irq_trigger = %d\n", ipd->irq_trigger);
-			set_current_state(TASK_INTERRUPTIBLE);
-			wait_event_interruptible(waiter, ipd->irq_trigger);
-			ipd->irq_trigger = false;
-			set_current_state(TASK_RUNNING);
-			ipio_debug(DEBUG_IRQ, "kthread: after->irq_trigger = %d\n", ipd->irq_trigger);
-			ilitek_platform_enable_irq();
-			core_fr_handler();
-		}
-	} else {
-		ipio_err("Unknown EVENT\n");
-	}
-
-	return res;
-}
 
 #ifdef BATTERY_CHECK
 static void read_power_status(uint8_t *buf)
@@ -526,6 +434,103 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int ilitek_platform_input_init(void)
+{
+	int res = 0;
+
+#if (TP_PLATFORM == PT_MTK)
+	int i;
+
+	ipd->input_device = tpd->dev;
+
+	if (tpd_dts_data.use_tpd_button) {
+		for (i = 0; i < tpd_dts_data.tpd_key_num; i++) {
+			input_set_capability(ipd->input_device, EV_KEY, tpd_dts_data.tpd_key_local[i]);
+		}
+	}
+	core_fr_input_set_param(ipd->input_device);
+	return res;
+#else
+	ipd->input_device = input_allocate_device();
+
+	if (ERR_ALLOC_MEM(ipd->input_device)) {
+		ipio_err("Failed to allocate touch input device\n");
+		res = -ENOMEM;
+		goto fail_alloc;
+	}
+
+	ipd->input_device->name = ipd->client->name;
+	ipd->input_device->phys = "I2C";
+	ipd->input_device->dev.parent = &ipd->client->dev;
+	ipd->input_device->id.bustype = BUS_I2C;
+
+	core_fr_input_set_param(ipd->input_device);
+
+	/* register the input device to input sub-system */
+	res = input_register_device(ipd->input_device);
+	if (res < 0) {
+		ipio_err("Failed to register touch input device, res = %d\n", res);
+		goto out;
+	}
+
+	return res;
+
+fail_alloc:
+	input_free_device(core_fr->input_device);
+	return res;
+
+out:
+	input_unregister_device(ipd->input_device);
+	input_free_device(core_fr->input_device);
+	return res;
+#endif /* PT_MTK */
+}
+
+static int kthread_handler(void *arg)
+{
+	int res = 0;
+	char *str = (char *)arg;
+
+	if (strcmp(str, "boot_fw") == 0) {
+		/* FW Upgrade event */
+		core_firmware->isboot = true;
+
+		ilitek_platform_disable_irq();
+
+#ifdef BOOT_FW_UPGRADE
+		res = core_firmware_boot_upgrade();
+		if (res < 0)
+			ipio_err("Failed to upgrade FW at boot stage\n");
+#endif
+
+		ilitek_platform_enable_irq();
+
+		ilitek_platform_input_init();
+
+		core_firmware->isboot = false;
+	} else if (strcmp(str, "irq") == 0) {
+		/* IRQ event */
+		struct sched_param param = {.sched_priority = 4 };
+
+		sched_setscheduler(current, SCHED_RR, &param);
+
+		while (!kthread_should_stop() && !ipd->free_irq_thread) {
+			ipio_debug(DEBUG_IRQ, "kthread: before->irq_trigger = %d\n", ipd->irq_trigger);
+			set_current_state(TASK_INTERRUPTIBLE);
+			wait_event_interruptible(waiter, ipd->irq_trigger);
+			ipd->irq_trigger = false;
+			set_current_state(TASK_RUNNING);
+			ipio_debug(DEBUG_IRQ, "kthread: after->irq_trigger = %d\n", ipd->irq_trigger);
+			ilitek_platform_enable_irq();
+			core_fr_handler();
+		}
+	} else {
+		ipio_err("Unknown EVENT\n");
+	}
+
+	return res;
+}
+
 static int ilitek_platform_isr_register(void)
 {
 	int res = 0;
@@ -632,76 +637,20 @@ out:
 
 static int ilitek_platform_read_tp_info(void)
 {
-	int res = -1;
-
 	if (core_config_get_chip_id() < 0)
-		goto out;
+		return CHIP_ID_ERR;
 	if (core_config_get_protocol_ver() < 0)
-		goto out;
+		return -1;
 	if (core_config_get_fw_ver() < 0)
-		goto out;
+		return -1;
 	if (core_config_get_core_ver() < 0)
-		goto out;
+		return -1;
 	if (core_config_get_tp_info() < 0)
-		goto out;
+		return -1;
 	if (core_config_get_key_info() < 0)
-		goto out;
+		return -1;
 
-	res = 0;
-out:
-	return res;
-}
-
-static int ilitek_platform_input_init(void)
-{
-	int res = 0;
-
-#if (TP_PLATFORM == PT_MTK)
-	int i;
-
-	ipd->input_device = tpd->dev;
-
-	if (tpd_dts_data.use_tpd_button) {
-		for (i = 0; i < tpd_dts_data.tpd_key_num; i++) {
-			input_set_capability(ipd->input_device, EV_KEY, tpd_dts_data.tpd_key_local[i]);
-		}
-	}
-	core_fr_input_set_param(ipd->input_device);
-	return res;
-#else
-	ipd->input_device = input_allocate_device();
-
-	if (ERR_ALLOC_MEM(ipd->input_device)) {
-		ipio_err("Failed to allocate touch input device\n");
-		res = -ENOMEM;
-		goto fail_alloc;
-	}
-
-	ipd->input_device->name = ipd->client->name;
-	ipd->input_device->phys = "I2C";
-	ipd->input_device->dev.parent = &ipd->client->dev;
-	ipd->input_device->id.bustype = BUS_I2C;
-
-	core_fr_input_set_param(ipd->input_device);
-
-	/* register the input device to input sub-system */
-	res = input_register_device(ipd->input_device);
-	if (res < 0) {
-		ipio_err("Failed to register touch input device, res = %d\n", res);
-		goto out;
-	}
-
-	return res;
-
-fail_alloc:
-	input_free_device(core_fr->input_device);
-	return res;
-
-out:
-	input_unregister_device(ipd->input_device);
-	input_free_device(core_fr->input_device);
-	return res;
-#endif /* PT_MTK */
+	return 0;
 }
 
 /**
@@ -717,7 +666,6 @@ static void ilitek_platform_core_remove(void)
 	core_config_remove();
 	core_i2c_remove();
 	core_protocol_remove();
-	core_mp_remove();
 }
 
 /**
@@ -733,8 +681,6 @@ static int ilitek_platform_core_init(void)
 		ipio_err("Failed to initialise core components\n");
 		return -EINVAL;
 	}
-
-	core_mp_init();
 
 	return 0;
 }
@@ -778,7 +724,7 @@ static int ilitek_platform_remove(struct i2c_client *client)
 		destroy_workqueue(ipd->check_power_status_queue);
 	}
 
-	kfree(ipd);
+	ipio_kfree((void **)&ipd);
 	ilitek_platform_core_remove();
 
 	return 0;
@@ -793,6 +739,8 @@ static int ilitek_platform_remove(struct i2c_client *client)
  */
 static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
+	int ret;
+
 #ifdef REGULATOR_POWER_ON
 #if (TP_PLATFORM == PT_MTK)
 	const char *vdd_name = "vtouch";
@@ -850,8 +798,8 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 		ipd->edge_delay = 10;
 	}
 
-	mutex_init(&ipd->MUTEX);
-	spin_lock_init(&ipd->SPIN_LOCK);
+	mutex_init(&ipd->plat_mutex);
+	spin_lock_init(&ipd->plat_spinlock);
 
 	/* Init members for debug */
 	mutex_init(&ipd->ilitek_debug_mutex);
@@ -898,10 +846,15 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 	ilitek_platform_tp_hw_reset(true);
 
 	/* get our tp ic information */
-	if (ilitek_platform_read_tp_info() < 0)
-		ipio_err("Failed to get TP info\n");
+	ret = ilitek_platform_read_tp_info();
+	if (ret == CHIP_ID_ERR) {
+		ipio_err("CHIP ID is incorrect, need to rebuild driver\n");
+		return -ENODEV;
+	} else if (ret < 0) {
+		ipio_err("Failed to get TP info, need to upgrade a correct FW\n");
+	}
 
-	/* If it defines boot upgrade, input register will be done at boot function. */
+	/* If it defines boot upgrade, input register will be done inside boot function. */
 #ifndef BOOT_FW_UPGRADE
 	if (ilitek_platform_input_init() < 0)
 		ipio_err("Failed to init input device in kernel\n");

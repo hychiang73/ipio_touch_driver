@@ -38,8 +38,8 @@ struct ilitek_platform_data {
 	struct regulator *vdd_i2c;
 #endif
 
-	struct mutex MUTEX;
-	spinlock_t SPIN_LOCK;
+	struct mutex plat_mutex;
+	spinlock_t plat_spinlock;
 
 	uint32_t chip_id;
 

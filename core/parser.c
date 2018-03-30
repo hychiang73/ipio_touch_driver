@@ -209,8 +209,8 @@ static int get_ini_phy_data(char *data)
 	}
 
 out:
-	kfree(ini_buf);
-	kfree(tmpSectionName);
+	ipio_kfree((void **)&ini_buf);
+	ipio_kfree((void **)&tmpSectionName);
 	return res;
 }
 
@@ -342,7 +342,7 @@ int core_parser_path(char *path)
 	ipio_info("Parsing INI file doen\n");
 
 out:
-	kfree(tmp);
+	ipio_kfree((void **)&tmp);
 	return res;
 }
 EXPORT_SYMBOL(core_parser_path);

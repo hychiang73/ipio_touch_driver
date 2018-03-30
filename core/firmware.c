@@ -129,8 +129,11 @@ static uint32_t calc_crc32(uint32_t start_addr, uint32_t end_addr, uint8_t *data
 static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 {
 	int timer = 500;
+	uint32_t busy = 0;
 	uint32_t write_len = 0;
 	uint32_t iram_check = 0;
+	uint32_t id = core_config->chip_id;
+	uint32_t type = core_config->chip_type;
 
 	write_len = end_addr;
 
@@ -160,15 +163,36 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 	else if (core_firmware->max_count == 0x1FFFF)
 		core_config_ice_mode_write(0x04100C, write_len, 3);
 
-	core_config_ice_mode_write(0x041014, 0x10000, 3);	/* Checksum enable */
-	core_config_ice_mode_write(0x041010, 0xFF, 1);	/* Start to receive */
+	if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_F) {
+		/* Checksum_En */
+		core_config_ice_mode_write(0x041014, 0x10000, 3);
+	} else if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_H) {
+		/* Clear Int Flag */
+		core_config_ice_mode_write(0x048007, 0x02, 1);
 
-	mdelay(1);
+		/* Checksum_En */
+		core_config_ice_mode_write(0x041016, 0x00, 1);
+		core_config_ice_mode_write(0x041016, 0x01, 1);
+	}
+
+	/* Start to receive */
+	core_config_ice_mode_write(0x041010, 0xFF, 1);
 
 	while (timer > 0) {
+
 		mdelay(1);
 
-		if ((core_config_read_write_onebyte(0x041014) & 0x01) == 0x01)
+		if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_F)
+			busy = core_config_read_write_onebyte(0x041014);
+		else if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_H) {
+			busy = core_config_read_write_onebyte(0x041014);
+			busy = busy >> 1;
+		} else {
+			ipio_err("Unknow chip type\n");
+			break;
+		}
+
+		if ((busy & 0x01) == 0x01)
 			break;
 
 		timer--;
@@ -179,8 +203,7 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 	if (timer >= 0) {
 		/* Disable dio_Rx_dual */
 		core_config_ice_mode_write(0x041003, 0x0, 1);
-		iram_check =
-		    core_firmware->isCRC ? core_config_ice_mode_read(0x4101C) : core_config_ice_mode_read(0x041018);
+		iram_check =  core_firmware->isCRC ? core_config_ice_mode_read(0x4101C) : core_config_ice_mode_read(0x041018);
 	} else {
 		ipio_err("TIME OUT\n");
 		goto out;
@@ -322,6 +345,7 @@ static int do_program_flash(uint32_t start_addr)
 	if (core_firmware->update_status > 90)
 		core_firmware->update_status = 90;
 
+	/* Don't use ipio_info to print log because it needs to be kpet in the same line */
 	printk("%cUpgrading firmware ... start_addr = 0x%x, %02d%c", 0x0D, start_addr, core_firmware->update_status,
 	       '%');
 
@@ -336,7 +360,7 @@ static int flash_program_sector(void)
 	for (i = 0; i < g_section_len + 1; i++) {
 		/*
 		 * If running the boot stage, fw will only be upgrade data with the flag of block,
-		 * otherwise data with its flag will be programed.
+		 * otherwise data with the flag itself will be programed.
 		 */
 		if (core_firmware->isboot) {
 			if (!g_flash_sector[i].inside_block)
@@ -749,6 +773,7 @@ int core_firmware_boot_upgrade(void)
 		res = -ENOMEM;
 		goto out;
 	}
+
 	memset(flash_fw, 0xff, (int)sizeof(uint8_t) * flashtab->mem_size);
 
 	g_total_sector = flashtab->mem_size / flashtab->sector;
@@ -769,23 +794,23 @@ int core_firmware_boot_upgrade(void)
 	if (res < 0) {
 		ipio_err("Failed to covert firmware data, res = %d\n", res);
 		goto out;
-	} else {
-		/* calling that function defined at init depends on chips. */
-		res = core_firmware->upgrade_func(false);
-		if (res < 0) {
-			core_firmware->update_status = res;
-			ipio_err("Failed to upgrade firmware, res = %d\n", res);
-			goto out;
-		} else {
-			core_firmware->update_status = 100;
-			ipio_info("Update firmware information...\n");
-			core_config_get_fw_ver();
-			core_config_get_protocol_ver();
-			core_config_get_core_ver();
-			core_config_get_tp_info();
-			core_config_get_key_info();
-		}
 	}
+	
+	/* calling that function defined at init depends on chips. */
+	res = core_firmware->upgrade_func(false);
+	if (res < 0) {
+		core_firmware->update_status = res;
+		ipio_err("Failed to upgrade firmware, res = %d\n", res);
+		goto out;
+	}
+	
+	core_firmware->update_status = 100;
+	ipio_info("Update firmware information...\n");
+	core_config_get_fw_ver();
+	core_config_get_protocol_ver();
+	core_config_get_core_ver();
+	core_config_get_tp_info();
+	core_config_get_key_info();
 
 out:
 	if (power) {
@@ -793,15 +818,12 @@ out:
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
 
-	kfree(flash_fw);
-	flash_fw = NULL;
-	kfree(g_flash_sector);
-	g_flash_sector = NULL;
-
+	ipio_kfree((void **)&flash_fw);
+	ipio_kfree((void **)&g_flash_sector);
 	core_firmware->isUpgrading = false;
 	return res;
 }
-#endif
+#endif /* BOOT_FW_UPGRADE */
 
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
@@ -819,6 +841,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 
 	memset(g_flash_block_info, 0x0, sizeof(g_flash_block_info));
 
+	/* Parsing HEX file */
 	for (; i < nSize;) {
 		int32_t nOffset;
 
@@ -900,6 +923,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;
 	}
 
+	/* Update the length of section */
 	g_section_len = index;
 
 	if (g_flash_sector[g_section_len - 1].se_addr > flashtab->mem_size) {
@@ -960,7 +984,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	bool power = false;
 
 	struct file *pfile = NULL;
-	struct inode *inode;
 	mm_segment_t old_fs;
 	loff_t pos = 0;
 
@@ -980,13 +1003,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		return res;
 	}
 
-	#if KERNEL_VERSION(3, 18, 0) >= LINUX_VERSION_CODE
-	inode = pfile->f_dentry->d_inode;
-	#else
-	inode = pfile->f_path.dentry->d_inode;
-	#endif
-
-	fsize = inode->i_size;
+	fsize = pfile->f_inode->i_size;
 
 	ipio_info("fsize = %d\n", fsize);
 
@@ -994,74 +1011,75 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		ipio_err("The size of file is zero\n");
 		res = -EINVAL;
 		goto out;
-	} else {
-		if (flashtab == NULL) {
-			ipio_err("Flash table isn't created\n");
-			res = -ENOMEM;
-			goto out;
-		}
-
-		hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(hex_buffer)) {
-			ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
-			res = -ENOMEM;
-			goto out;
-		}
-
-		flash_fw = kcalloc(flashtab->mem_size, sizeof(uint8_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(flash_fw)) {
-			ipio_err("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
-			res = -ENOMEM;
-			goto out;
-		}
-		memset(flash_fw, 0xff, sizeof(uint8_t) * flashtab->mem_size);
-
-		g_total_sector = flashtab->mem_size / flashtab->sector;
-		if (g_total_sector <= 0) {
-			ipio_err("Flash configure is wrong\n");
-			res = -1;
-			goto out;
-		}
-
-		g_flash_sector = kcalloc(g_total_sector, sizeof(*g_flash_sector), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(g_flash_sector)) {
-			ipio_err("Failed to allocate g_flash_sector memory, %ld\n", PTR_ERR(g_flash_sector));
-			res = -ENOMEM;
-			goto out;
-		}
-
-		/* store current userspace mem segment. */
-		old_fs = get_fs();
-
-		/* set userspace mem segment equal to kernel's one. */
-		set_fs(get_ds());
-
-		/* read firmware data from userspace mem segment */
-		vfs_read(pfile, hex_buffer, fsize, &pos);
-
-		/* restore userspace mem segment after read. */
-		set_fs(old_fs);
-
-		res = convert_hex_file(hex_buffer, fsize, isIRAM);
-		if (res < 0) {
-			ipio_err("Failed to covert firmware data, res = %d\n", res);
-			goto out;
-		}
-
-		/* calling that function defined at init depends on chips. */
-		res = core_firmware->upgrade_func(isIRAM);
-		if (res < 0) {
-			ipio_err("Failed to upgrade firmware, res = %d\n", res);
-			goto out;
-		}
-
-		ipio_info("Update firmware information...\n");
-		core_config_get_fw_ver();
-		core_config_get_protocol_ver();
-		core_config_get_core_ver();
-		core_config_get_tp_info();
-		core_config_get_key_info();
 	}
+
+	if (flashtab == NULL) {
+		ipio_err("Flash table isn't created\n");
+		res = -ENOMEM;
+		goto out;
+	}
+
+	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(hex_buffer)) {
+		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
+		res = -ENOMEM;
+		goto out;
+	}
+
+	flash_fw = kcalloc(flashtab->mem_size, sizeof(uint8_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(flash_fw)) {
+		ipio_err("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
+		res = -ENOMEM;
+		goto out;
+	}
+
+	memset(flash_fw, 0xff, sizeof(uint8_t) * flashtab->mem_size);
+
+	g_total_sector = flashtab->mem_size / flashtab->sector;
+	if (g_total_sector <= 0) {
+		ipio_err("Flash configure is wrong\n");
+		res = -1;
+		goto out;
+	}
+
+	g_flash_sector = kcalloc(g_total_sector, sizeof(*g_flash_sector), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(g_flash_sector)) {
+		ipio_err("Failed to allocate g_flash_sector memory, %ld\n", PTR_ERR(g_flash_sector));
+		res = -ENOMEM;
+		goto out;
+	}
+
+	/* store current userspace mem segment. */
+	old_fs = get_fs();
+
+	/* set userspace mem segment equal to kernel's one. */
+	set_fs(get_ds());
+
+	/* read firmware data from userspace mem segment */
+	vfs_read(pfile, hex_buffer, fsize, &pos);
+
+	/* restore userspace mem segment after read. */
+	set_fs(old_fs);
+
+	res = convert_hex_file(hex_buffer, fsize, isIRAM);
+	if (res < 0) {
+		ipio_err("Failed to covert firmware data, res = %d\n", res);
+		goto out;
+	}
+
+	/* calling that function defined at init depends on chips. */
+	res = core_firmware->upgrade_func(isIRAM);
+	if (res < 0) {
+		ipio_err("Failed to upgrade firmware, res = %d\n", res);
+		goto out;
+	}
+
+	ipio_info("Update TP/Firmware information...\n");
+	core_config_get_fw_ver();
+	core_config_get_protocol_ver();
+	core_config_get_core_ver();
+	core_config_get_tp_info();
+	core_config_get_key_info();
 
 out:
 	if (power) {
@@ -1070,13 +1088,9 @@ out:
 	}
 
 	filp_close(pfile, NULL);
-	kfree(hex_buffer);
-	hex_buffer = NULL;
-	kfree(flash_fw);
-	flash_fw = NULL;
-	kfree(g_flash_sector);
-	g_flash_sector = NULL;
-
+	ipio_kfree((void **)&hex_buffer);
+	ipio_kfree((void **)&flash_fw);
+	ipio_kfree((void **)&g_flash_sector);
 	core_firmware->isUpgrading = false;
 	return res;
 }
@@ -1124,7 +1138,5 @@ int core_firmware_init(void)
 void core_firmware_remove(void)
 {
 	ipio_info("Remove core-firmware members\n");
-
-	if (core_firmware != NULL)
-		kfree(core_firmware);
+	ipio_kfree((void **)&core_firmware);
 }

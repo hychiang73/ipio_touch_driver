@@ -37,6 +37,7 @@
 #include "config.h"
 #include "mp_test.h"
 #include "protocol.h"
+#include "parser.h"
 
 #define EXEC_READ  0
 #define EXEC_WRITE 1
@@ -248,8 +249,9 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
 
 static int create_mp_test_frame_buffer(int index)
 {
-	if (tItems[index].catalog == TX_RX_DELTA) {
+	ipio_debug(DEBUG_MP_TEST, "Create MP frame buffers (index = %d)\n",index);
 
+	if (tItems[index].catalog == TX_RX_DELTA) {
 		core_mp->tx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		core_mp->rx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 
@@ -275,7 +277,6 @@ static int create_mp_test_frame_buffer(int index)
 		}
 
 	} else {
-
 		tItems[index].buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
@@ -322,7 +323,7 @@ static int allnode_key_cdc_data(int index)
 	mdelay(1);
 
 	/* Check busy */
-	if (core_config_check_cdc_busy() < 0) {
+	if (core_config_check_cdc_busy(50) < 0) {
 		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
@@ -402,7 +403,7 @@ static int allnode_key_cdc_data(int index)
 	dump_data(key_buf, 32, core_mp->frame_len);
 
 out:
-	kfree(ori);
+	ipio_kfree((void **)&ori);
 	return res;
 }
 
@@ -444,7 +445,7 @@ static int allnode_mutual_cdc_data(int index)
 	mdelay(1);
 
 	/* Check busy */
-	if (core_config_check_cdc_busy() < 0) {
+	if (core_config_check_cdc_busy(50) < 0) {
 		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
@@ -530,7 +531,7 @@ static int allnode_mutual_cdc_data(int index)
 	dump_data(frame_buf, 32, core_mp->frame_len);
 
 out:
-	kfree(ori);
+	ipio_kfree((void **)&ori);
 	return res;
 }
 
@@ -598,7 +599,9 @@ static void run_pixel_test(int index)
 
 static int run_open_test(int index)
 {
-	int i, x, y, res = 0;
+	int i, x, y, k, res = 0;
+	int border_x[] = {-1, 0, 1, 1, 1, 0, -1, -1};
+	int border_y[] = {-1, -1, -1, 0, 1, 1, 1, 0};
 	int32_t *p_comb = frame_buf;
 
 	if (strcmp(tItems[index].name, "open_integration") == 0) {
@@ -609,74 +612,17 @@ static int run_open_test(int index)
 		   So if the centre is at corner, the number of node grabbed from a grid will be different. */
 		for (y = 0; y < core_mp->ych_len; y++) {
 			for (x = 0; x < core_mp->xch_len; x++) {
-				int tmp[8] = { 0 };
 				int sum = 0, avg = 0, count = 0;
 				int shift = y * core_mp->xch_len;
 				int centre = p_comb[shift + x];
 
-				if (y == 0 && x == 0) {
-					tmp[0] = p_comb[(shift + 1) + x];	/* down */
-					tmp[1] = p_comb[shift + (x + 1)];	/* right */
-					tmp[2] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-					count = 3;
-				} else if (y == (core_mp->ych_len - 1) && x == 0) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x + 1)];	/* right */
-					tmp[2] = p_comb[(shift - 1) + (x + 1)];	/* upper right */
-					count = 3;
-				} else if (y == 0 && x == (core_mp->xch_len - 1)) {
-					tmp[0] = p_comb[(shift + 1) + x];	/* down */
-					tmp[1] = p_comb[shift + (x - 1)];	/* left */
-					tmp[2] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-					count = 3;
-				} else if (y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1)) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x - 1)];	/* left */
-					tmp[2] = p_comb[(shift - 1) + (x - 1)];	/* upper left */
-					count = 3;
-				} else if (y == 0 && x != 0) {
-					tmp[0] = p_comb[(shift + 1) + x];	/* down */
-					tmp[1] = p_comb[shift + (x - 1)];	/* left */
-					tmp[2] = p_comb[shift + (x + 1)];	/* right */
-					tmp[3] = p_comb[(shift + 1) + (x - 1)];	/* lower left */
-					tmp[4] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-					count = 5;
-				} else if (y != 0 && x == 0) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x + 1)];	/* right */
-					tmp[2] = p_comb[(shift + 1) + x];	/* down */
-					tmp[3] = p_comb[(shift - 1) + (x + 1)];	/* upper right */
-					tmp[4] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-
-					count = 5;
-				} else if (y == (core_mp->ych_len - 1) && x != 0) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x + 1)];	/* right */
-					tmp[2] = p_comb[shift + (x - 1)];	/* left */
-					tmp[3] = p_comb[(shift - 1) + (x - 1)];	/* upper left */
-					tmp[4] = p_comb[(shift - 1) + (x + 1)];	/* upper right */
-					count = 5;
-				} else if (y != 0 && x == (core_mp->xch_len - 1)) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x - 1)];	/* left */
-					tmp[2] = p_comb[(shift + 1) + x];	/* down */
-					tmp[3] = p_comb[(shift - 1) + (x - 1)];	/* upper left */
-					tmp[4] = p_comb[(shift + 1) + (x - 1)];	/* lower left */
-					count = 5;
-				} else {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[(shift - 1) + (x - 1)];	/* upper left */
-					tmp[2] = p_comb[shift + (x - 1)];	/* left */
-					tmp[3] = p_comb[(shift + 1) + (x - 1)];	/* lower left */
-					tmp[4] = p_comb[(shift + 1) + x];	/* down */
-					tmp[5] = p_comb[shift + (x + 1)];	/* right */
-					tmp[6] = p_comb[(shift - 1) + (x + 1)];	/* upper right */
-					tmp[7] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-					count = 8;
+				for (k = 0; k < 8; k++) {
+					if (((y + border_y[k] >= 0) && (y + border_y[k] < core_mp->ych_len)) &&
+								((x + border_x[k] >= 0) && (x + border_x[k] < core_mp->xch_len))) {
+						count++;
+						sum += p_comb[(y + border_y[k]) * core_mp->xch_len + (x + border_x[k])];
+					}
 				}
-
-				for (i = 0; i < 8; i++)
-					sum += tmp[i];
 
 				avg = (sum + centre) / (count + 1);	/* plus 1 because of centre */
 				tItems[index].buf[shift + x] = (centre * 100) / avg;
@@ -779,9 +725,13 @@ static int mutual_test(int index)
 	ipio_debug(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
 	    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
-	if (tItems[index].frame_count == 0) {
-		ipio_err("Frame count is zero, which at least sets as 1\n");
-		goto out;
+	/*
+	 * We assume that users who are calling the test forget to config frame count
+	 * as 1, so we just help them to set it up.
+	 */
+	if (tItems[index].frame_count <= 0) {
+		ipio_err("Frame count is zero, which is at least set as 1\n");
+		tItems[index].frame_count = 1;
 	}
 
 	res = create_mp_test_frame_buffer(index);
@@ -886,6 +836,8 @@ static void mp_test_init_item(void)
 {
 	int i;
 
+	ipio_debug(DEBUG_MP_TEST, "Init MP Test Items\n");
+
 	core_mp->mp_items = ARRAY_SIZE(tItems);
 
 	/* assign test functions run on MP flow according to their catalog */
@@ -970,40 +922,23 @@ void core_mp_test_free(void)
 		tItems[i].run = false;
 		sprintf(tItems[i].result, "%s", "FAIL");
 
-		if (tItems[i].buf != NULL) {
-			if (tItems[i].catalog == TX_RX_DELTA) {
-				kfree(core_mp->rx_delta_buf);
-				core_mp->rx_delta_buf = NULL;
-				kfree(core_mp->tx_delta_buf);
-				core_mp->tx_delta_buf = NULL;
-				kfree(core_mp->tx_max_buf);
-				core_mp->tx_max_buf = NULL;
-				kfree(core_mp->tx_min_buf);
-				core_mp->tx_min_buf = NULL;
-				kfree(core_mp->rx_max_buf);
-				core_mp->rx_max_buf = NULL;
-				kfree(core_mp->rx_min_buf);
-				core_mp->rx_min_buf = NULL;
-			} else {
-				kfree(tItems[i].buf);
-				tItems[i].buf = NULL;
-				kfree(tItems[i].max_buf);
-				tItems[i].max_buf = NULL;
-				kfree(tItems[i].min_buf);
-				tItems[i].min_buf = NULL;
-			}
+		if (tItems[i].catalog == TX_RX_DELTA) {
+			ipio_kfree((void **)&core_mp->rx_delta_buf);
+			ipio_kfree((void **)&core_mp->tx_delta_buf);
+			ipio_kfree((void **)&core_mp->tx_max_buf);
+			ipio_kfree((void **)&core_mp->tx_min_buf);
+			ipio_kfree((void **)&core_mp->rx_max_buf);
+			ipio_kfree((void **)&core_mp->rx_min_buf);
+		} else {
+			ipio_kfree((void **)&tItems[i].buf);
+			ipio_kfree((void **)&tItems[i].max_buf);
+			ipio_kfree((void **)&tItems[i].min_buf);
 		}
 	}
 
-	if (frame_buf != NULL) {
-		kfree(frame_buf);
-		frame_buf = NULL;
-	}
-
-	if (key_buf != NULL) {
-		kfree(key_buf);
-		key_buf = NULL;
-	}
+	ipio_kfree((void **)&frame_buf);
+	ipio_kfree((void **)&key_buf);
+	ipio_kfree((void **)&core_mp);
 }
 EXPORT_SYMBOL(core_mp_test_free);
 
@@ -1029,6 +964,24 @@ void core_mp_show_result(void)
 		if (tItems[i].run) {
 			pr_info("%s\n", tItems[i].desp);
 			csv_len += sprintf(csv + csv_len, " %s ", tItems[i].desp);
+
+			pr_info("\n");
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+
+			pr_info("Max = %d\n",tItems[i].max);
+			csv_len += sprintf(csv + csv_len, "Max = %d", tItems[i].max);
+
+			pr_info("\n");
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+
+			pr_info("Min = %d\n",tItems[i].min);
+			csv_len += sprintf(csv + csv_len, "Max = %d", tItems[i].max);
+
+			pr_info("\n");
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+
+			pr_info("Frame count = %d\n",tItems[i].frame_count);
+			csv_len += sprintf(csv + csv_len, "Frame count = %d", tItems[i].frame_count);
 
 			pr_info("\n");
 			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
@@ -1120,6 +1073,9 @@ void core_mp_show_result(void)
 
 			if (strcmp(tItems[i].result, "FAIL") == 0)
 				core_mp->final_result = false;
+
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 		}
 	}
 
@@ -1135,7 +1091,7 @@ void core_mp_show_result(void)
 	ipio_info("Open CSV : %s\n", csv_name);
 
 	if (f == NULL)
-		f = filp_open(csv_name, O_CREAT | O_RDWR, 0644);
+		f = filp_open(csv_name, O_WRONLY | O_CREAT | O_TRUNC, 644);
 
 	if (ERR_ALLOC_MEM(f)) {
 		ipio_err("Failed to open CSV file");
@@ -1164,9 +1120,10 @@ fail_open:
 }
 EXPORT_SYMBOL(core_mp_show_result);
 
-int core_mp_run_test(void)
+void core_mp_run_test(char *item, bool ini)
 {
 	int i = 0;
+	char str[512] = { 0 };
 
 	/* update X/Y channel length if they're changed */
 	core_mp->xch_len = core_config->tp_info->nXChannelNum;
@@ -1178,14 +1135,53 @@ int core_mp_run_test(void)
 	/* compute the total length in one frame */
 	core_mp->frame_len = core_mp->xch_len * core_mp->ych_len;
 
-	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
-		if (tItems[i].run) {
-			ipio_info("Running Test Item : %s\n", tItems[i].desp);
-			tItems[i].do_test(i);
-		}
+	if (item == NULL || strcmp(item, " ") == 0) {
+		ipio_err("Invaild string\n");
+		return;
 	}
 
-	return 0;
+	ipio_debug(DEBUG_MP_TEST, "item = %s\n", item);
+
+	for (i = 0; i < core_mp->mp_items; i++) {
+		if (strcmp(item, tItems[i].desp) == 0) {
+			if (ini) {
+				core_parser_get_int_data(item, "Enable", str);
+				tItems[i].run = katoi(str);
+
+				/* Get threshold from ini structure in parser */
+				if (strcmp(item, "Tx/Rx Delta") == 0) {
+					core_parser_get_int_data(item, "Tx Max", str);
+					core_mp->TxDeltaMax = katoi(str);
+					core_parser_get_int_data(item, "Tx Min", str);
+					core_mp->TxDeltaMin = katoi(str);
+					core_parser_get_int_data(item, "Rx Max", str);
+					core_mp->RxDeltaMax = katoi(str);
+					core_parser_get_int_data(item, "Rx Min", str);
+					core_mp->RxDeltaMin = katoi(str);
+					ipio_debug(DEBUG_MP_TEST, "%s: Tx Max = %d, Tx Min = %d, Rx Max = %d,  Rx Min = %d\n",
+							tItems[i].desp, core_mp->TxDeltaMax, core_mp->TxDeltaMin,
+							core_mp->RxDeltaMax, core_mp->RxDeltaMin);
+				} else {
+					core_parser_get_int_data(item, "Max", str);
+					tItems[i].max = katoi(str);
+					core_parser_get_int_data(item, "Min", str);
+					tItems[i].min = katoi(str);
+				}
+
+				core_parser_get_int_data(item, "Frame Count", str);
+				tItems[i].frame_count = katoi(str);
+
+				ipio_debug(DEBUG_MP_TEST, "%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp,
+						tItems[i].run, tItems[i].max, tItems[i].min, tItems[i].frame_count);
+			}
+
+			if (tItems[i].run) {
+				ipio_info("Running Test Item : %s\n", tItems[i].desp);
+				tItems[i].do_test(i);
+			}
+			break;
+		}
+	}
 }
 EXPORT_SYMBOL(core_mp_run_test);
 
@@ -1193,7 +1189,7 @@ int core_mp_move_code(void)
 {
 	ipio_info("Prepaing to enter Test Mode\n");
 
-	if (core_config_check_cdc_busy() < 0) {
+	if (core_config_check_cdc_busy(50) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
@@ -1208,20 +1204,17 @@ int core_mp_move_code(void)
 
 	mdelay(30);
 
-	/*
-	 * We add CS high command to solve the bug that ic didn't pull it as high,
-	 * which may cause some pluses didn't be catached up when moving code or programming.
-	 */
-	usleep_range(MSEC, MSEC * 10);
-	if (core_config_ice_mode_write(0x041000, 0x1, 1) < 0)
-		return -1;
+	/* CS High */
+	core_config_ice_mode_write(0x041000, 0x1, 1);
+
+	mdelay(60);
 
 	/* Code reset */
 	core_config_ice_mode_write(0x40040, 0xAE, 1);
 
 	core_config_ice_mode_disable();
 
-	if (core_config_check_cdc_busy() < 0) {
+	if (core_config_check_cdc_busy(300) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
@@ -1266,10 +1259,3 @@ out:
 	return res;
 }
 EXPORT_SYMBOL(core_mp_init);
-
-void core_mp_remove(void)
-{
-	ipio_info("Remove core-mp members\n");
-	kfree(core_mp);
-}
-EXPORT_SYMBOL(core_mp_remove);

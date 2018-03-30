@@ -21,17 +21,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#include <linux/errno.h>
-#include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/delay.h>
-#include <linux/slab.h>
-#include <linux/i2c.h>
-
-#ifdef CONFIG_OF
-#include <linux/of_gpio.h>
-#include <linux/gpio.h>
-#endif
 
 #include "../common.h"
 #include "../platform.h"
@@ -90,25 +79,40 @@ static void read_flash_info(uint8_t cmd, int len)
  */
 static uint32_t check_chip_id(uint32_t pid_data)
 {
+	int i;
 	uint32_t id = 0;
+	uint32_t type = 0;
 
-	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
-		id = pid_data >> 16;
-		core_config->chip_type = pid_data & 0x0000FFFF;
+	id = pid_data >> 16;
+	type = pid_data & 0x0000FFFF;
 
-		if (core_config->chip_type == ILI7807_TYPE_F_AB) {
-			core_config->ic_reset_addr = 0x04004C;
-		} else if (core_config->chip_type == ILI7807_TYPE_H) {
-			core_config->ic_reset_addr = 0x040050;
+	ipio_info("id = 0x%x, type = 0x%x\n", id, type);
+
+	if(id == CHIP_TYPE_ILI9881) {
+		for(i = ILI9881_TYPE_F; i <= ILI9881_TYPE_H; i++) {
+			if (i == type) {
+				core_config->chip_type = i;
+				core_config->ic_reset_addr = 0x040050;
+				return id;
+			}
 		}
-	} else if (core_config->chip_id == CHIP_TYPE_ILI9881) {
-		id = pid_data >> 16;
-		core_config->ic_reset_addr = 0x040050;
-	} else {
-		ipio_err("The Chip isn't supported by the driver\n");
 	}
 
-	return id;
+	if(id == CHIP_TYPE_ILI7807) {
+		for(i = ILI7807_TYPE_F_AA; i <= ILI7807_TYPE_H; i++) {
+			if (i == type) {
+				core_config->chip_type = i;
+				if (i == ILI7807_TYPE_F_AB)
+					core_config->ic_reset_addr = 0x04004C;
+				else if (i == ILI7807_TYPE_H)
+					core_config->ic_reset_addr = 0x040050;
+
+				return id;
+			}
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -352,30 +356,15 @@ EXPORT_SYMBOL(core_config_plug_ctrl);
 
 void core_config_set_phone_cover(uint8_t *pattern)
 {
-	uint8_t ul_x_l = UL_X_LOW, ul_x_h = UL_X_HIGH;
-	uint8_t ul_y_l = UL_Y_LOW, ul_y_h = UL_Y_HIGH;
-	uint8_t br_x_l = BR_X_LOW, br_x_h = BR_X_HIGH;
-	uint8_t br_y_l = BR_Y_LOW, br_y_h = BR_Y_HIGH;
+	int i;
 
-	ipio_info("pattern = 0x%x\n", *pattern);
-
-	if (*pattern < 0 || pattern == NULL) {
-		ipio_err("Invaild width or height\n");
+	if (pattern == NULL) {
+		ipio_err("Invaild pattern\n");
 		return;
 	}
 
-	if (*pattern == 0) {
-		protocol->phone_cover_window[1] = ul_x_l;
-		protocol->phone_cover_window[2] = ul_x_h;
-		protocol->phone_cover_window[3] = ul_y_l;
-		protocol->phone_cover_window[4] = ul_y_h;
-		protocol->phone_cover_window[5] = br_x_l;
-		protocol->phone_cover_window[6] = br_x_h;
-		protocol->phone_cover_window[7] = br_y_l;
-		protocol->phone_cover_window[8] = br_y_h;
-	} else {
-		/* TODO */
-	}
+	for(i = 0; i < 8; i++)
+		protocol->phone_cover_window[i+1] = pattern[i];
 
 	ipio_info("window: cmd = 0x%x\n", protocol->phone_cover_window[0]);
 	ipio_info("window: ul_x_l = 0x%x, ul_x_h = 0x%x\n", protocol->phone_cover_window[1],
@@ -406,7 +395,7 @@ void core_config_ic_suspend(void)
 	core_config_sense_ctrl(false);
 
 	/* check system busy */
-	if (core_config_check_cdc_busy() < 0)
+	if (core_config_check_cdc_busy(50) < 0)
 		ipio_err("Check busy is timout !\n");
 
 	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
@@ -437,7 +426,7 @@ void core_config_ic_resume(void)
 	core_config_sleep_ctrl(true);
 
 	/* check system busy */
-	if (core_config_check_cdc_busy() < 0)
+	if (core_config_check_cdc_busy(50) < 0)
 		ipio_err("Check busy is timout !\n");
 
 	/* sense start for TP */
@@ -463,7 +452,7 @@ int core_config_ice_mode_disable(void)
 
 	ipio_info("ICE Mode disabled\n")
 
-	    return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
+	return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
@@ -489,9 +478,9 @@ int core_config_reset_watch_dog(void)
 }
 EXPORT_SYMBOL(core_config_reset_watch_dog);
 
-int core_config_check_cdc_busy(void)
+int core_config_check_cdc_busy(int delay)
 {
-	int timer = 50, res = -1;
+	int timer = delay, res = -1;
 	uint8_t cmd[2] = { 0 };
 	uint8_t busy = 0;
 
@@ -800,10 +789,10 @@ int core_config_get_chip_id(void)
 
 	PIDData = core_config_ice_mode_read(core_config->pid_addr);
 
+	ipio_info("PID = 0x%x\n",PIDData);
+
 	if (PIDData) {
 		RealID = check_chip_id(PIDData);
-
-		ipio_info("CHIP ID = 0x%x, CHIP TYPE = %04x\n", RealID, core_config->chip_type);
 
 		if (RealID != core_config->chip_id) {
 			ipio_err("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", RealID, TP_TOUCH_IC);
@@ -878,10 +867,8 @@ void core_config_remove(void)
 	ipio_info("Remove core-config memebers\n");
 
 	if (core_config != NULL) {
-		if (core_config->tp_info != NULL)
-			kfree(core_config->tp_info);
-
-		kfree(core_config);
+		ipio_kfree((void **)&core_config->tp_info);
+		ipio_kfree((void **)&core_config);
 	}
 }
 EXPORT_SYMBOL(core_config_remove);
