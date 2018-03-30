@@ -37,6 +37,7 @@
 #include "config.h"
 #include "mp_test.h"
 #include "protocol.h"
+#include "parser.h"
 
 #define EXEC_READ  0
 #define EXEC_WRITE 1
@@ -598,7 +599,9 @@ static void run_pixel_test(int index)
 
 static int run_open_test(int index)
 {
-	int i, x, y, res = 0;
+	int i, x, y, k, res = 0;
+	int border_x[] = {-1, 0, 1, 1, 1, 0, -1, -1};
+	int border_y[] = {-1, -1, -1, 0, 1, 1, 1, 0};
 	int32_t *p_comb = frame_buf;
 
 	if (strcmp(tItems[index].name, "open_integration") == 0) {
@@ -609,74 +612,17 @@ static int run_open_test(int index)
 		   So if the centre is at corner, the number of node grabbed from a grid will be different. */
 		for (y = 0; y < core_mp->ych_len; y++) {
 			for (x = 0; x < core_mp->xch_len; x++) {
-				int tmp[8] = { 0 };
 				int sum = 0, avg = 0, count = 0;
 				int shift = y * core_mp->xch_len;
 				int centre = p_comb[shift + x];
 
-				if (y == 0 && x == 0) {
-					tmp[0] = p_comb[(shift + 1) + x];	/* down */
-					tmp[1] = p_comb[shift + (x + 1)];	/* right */
-					tmp[2] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-					count = 3;
-				} else if (y == (core_mp->ych_len - 1) && x == 0) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x + 1)];	/* right */
-					tmp[2] = p_comb[(shift - 1) + (x + 1)];	/* upper right */
-					count = 3;
-				} else if (y == 0 && x == (core_mp->xch_len - 1)) {
-					tmp[0] = p_comb[(shift + 1) + x];	/* down */
-					tmp[1] = p_comb[shift + (x - 1)];	/* left */
-					tmp[2] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-					count = 3;
-				} else if (y == (core_mp->ych_len - 1) && x == (core_mp->xch_len - 1)) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x - 1)];	/* left */
-					tmp[2] = p_comb[(shift - 1) + (x - 1)];	/* upper left */
-					count = 3;
-				} else if (y == 0 && x != 0) {
-					tmp[0] = p_comb[(shift + 1) + x];	/* down */
-					tmp[1] = p_comb[shift + (x - 1)];	/* left */
-					tmp[2] = p_comb[shift + (x + 1)];	/* right */
-					tmp[3] = p_comb[(shift + 1) + (x - 1)];	/* lower left */
-					tmp[4] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-					count = 5;
-				} else if (y != 0 && x == 0) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x + 1)];	/* right */
-					tmp[2] = p_comb[(shift + 1) + x];	/* down */
-					tmp[3] = p_comb[(shift - 1) + (x + 1)];	/* upper right */
-					tmp[4] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-
-					count = 5;
-				} else if (y == (core_mp->ych_len - 1) && x != 0) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x + 1)];	/* right */
-					tmp[2] = p_comb[shift + (x - 1)];	/* left */
-					tmp[3] = p_comb[(shift - 1) + (x - 1)];	/* upper left */
-					tmp[4] = p_comb[(shift - 1) + (x + 1)];	/* upper right */
-					count = 5;
-				} else if (y != 0 && x == (core_mp->xch_len - 1)) {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[shift + (x - 1)];	/* left */
-					tmp[2] = p_comb[(shift + 1) + x];	/* down */
-					tmp[3] = p_comb[(shift - 1) + (x - 1)];	/* upper left */
-					tmp[4] = p_comb[(shift + 1) + (x - 1)];	/* lower left */
-					count = 5;
-				} else {
-					tmp[0] = p_comb[(shift - 1) + x];	/* up */
-					tmp[1] = p_comb[(shift - 1) + (x - 1)];	/* upper left */
-					tmp[2] = p_comb[shift + (x - 1)];	/* left */
-					tmp[3] = p_comb[(shift + 1) + (x - 1)];	/* lower left */
-					tmp[4] = p_comb[(shift + 1) + x];	/* down */
-					tmp[5] = p_comb[shift + (x + 1)];	/* right */
-					tmp[6] = p_comb[(shift - 1) + (x + 1)];	/* upper right */
-					tmp[7] = p_comb[(shift + 1) + (x + 1)];	/* lower right */
-					count = 8;
+				for (k = 0; k < 8; k++) {
+					if (((y + border_y[k] >= 0) && (y + border_y[k] < core_mp->ych_len)) &&
+								((x + border_x[k] >= 0) && (x + border_x[k] < core_mp->xch_len))) {
+						count++;
+						sum += p_comb[(y + border_y[k]) * core_mp->xch_len + (x + border_x[k])];
+					}
 				}
-
-				for (i = 0; i < 8; i++)
-					sum += tmp[i];
 
 				avg = (sum + centre) / (count + 1);	/* plus 1 because of centre */
 				tItems[index].buf[shift + x] = (centre * 100) / avg;
@@ -1174,9 +1120,10 @@ fail_open:
 }
 EXPORT_SYMBOL(core_mp_show_result);
 
-void core_mp_run_test(void)
+void core_mp_run_test(char *item, bool ini)
 {
 	int i = 0;
+	char str[512] = { 0 };
 
 	/* update X/Y channel length if they're changed */
 	core_mp->xch_len = core_config->tp_info->nXChannelNum;
@@ -1188,15 +1135,53 @@ void core_mp_run_test(void)
 	/* compute the total length in one frame */
 	core_mp->frame_len = core_mp->xch_len * core_mp->ych_len;
 
-	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
-		if (tItems[i].run) {
-			ipio_info("Running Test Item : %s\n", tItems[i].desp);
-			tItems[i].do_test(i);
-		}
+	if (item == NULL || strcmp(item, " ") == 0) {
+		ipio_err("Invaild string\n");
+		return;
 	}
 
-	core_mp_show_result();
-	core_mp_test_free();
+	ipio_debug(DEBUG_MP_TEST, "item = %s\n", item);
+
+	for (i = 0; i < core_mp->mp_items; i++) {
+		if (strcmp(item, tItems[i].desp) == 0) {
+			if (ini) {
+				core_parser_get_int_data(item, "Enable", str);
+				tItems[i].run = katoi(str);
+
+				/* Get threshold from ini structure in parser */
+				if (strcmp(item, "Tx/Rx Delta") == 0) {
+					core_parser_get_int_data(item, "Tx Max", str);
+					core_mp->TxDeltaMax = katoi(str);
+					core_parser_get_int_data(item, "Tx Min", str);
+					core_mp->TxDeltaMin = katoi(str);
+					core_parser_get_int_data(item, "Rx Max", str);
+					core_mp->RxDeltaMax = katoi(str);
+					core_parser_get_int_data(item, "Rx Min", str);
+					core_mp->RxDeltaMin = katoi(str);
+					ipio_debug(DEBUG_MP_TEST, "%s: Tx Max = %d, Tx Min = %d, Rx Max = %d,  Rx Min = %d\n",
+							tItems[i].desp, core_mp->TxDeltaMax, core_mp->TxDeltaMin,
+							core_mp->RxDeltaMax, core_mp->RxDeltaMin);
+				} else {
+					core_parser_get_int_data(item, "Max", str);
+					tItems[i].max = katoi(str);
+					core_parser_get_int_data(item, "Min", str);
+					tItems[i].min = katoi(str);
+				}
+
+				core_parser_get_int_data(item, "Frame Count", str);
+				tItems[i].frame_count = katoi(str);
+
+				ipio_debug(DEBUG_MP_TEST, "%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp,
+						tItems[i].run, tItems[i].max, tItems[i].min, tItems[i].frame_count);
+			}
+
+			if (tItems[i].run) {
+				ipio_info("Running Test Item : %s\n", tItems[i].desp);
+				tItems[i].do_test(i);
+			}
+			break;
+		}
+	}
 }
 EXPORT_SYMBOL(core_mp_run_test);
 

@@ -64,7 +64,7 @@
 
 unsigned char g_user_buf[USER_STR_BUFF] = { 0 };
 
-static int katoi(char *string)
+int katoi(char *string)
 {
 	int result = 0;
 	unsigned int digit;
@@ -92,8 +92,9 @@ static int katoi(char *string)
 	}
 	return result;
 }
+EXPORT_SYMBOL(katoi);
 
-static int str2hex(char *str)
+int str2hex(char *str)
 {
 	int strlen, result, intermed, intermedtop;
 	char *s = str;
@@ -130,6 +131,7 @@ static int str2hex(char *str)
 	}
 	return result;
 }
+EXPORT_SYMBOL(str2hex);
 
 static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
 {
@@ -296,39 +298,11 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	int i, j, mp_num = 12;
 	uint32_t len = 0;
-	char str[512] = { 0 };
-	char **mp_ini = NULL;
 	uint8_t test_cmd[2] = { 0 };
 
 	if (*pPos != 0)
 		return 0;
-
-	mp_ini = (char **)kmalloc(mp_num  * sizeof(char *), GFP_KERNEL);
-
-	for (i = 0; i < mp_num; i++)
-		mp_ini[i] = (char *)kmalloc(256 * sizeof(char), GFP_KERNEL);
-
-	/* listing test items which are all corrensponding with INI section name */
-	/* sprintf(mp_ini[0], "FW Ver. Check"); */
-	sprintf(mp_ini[0], "Untouch Calibration Data(DAC) - Mutual");
-	sprintf(mp_ini[1], "Untouch Signal Data(BG-Raw-4096) - Mutual");
-	sprintf(mp_ini[2], "Untouch Raw Data(Have BK) - Mutual");
-	sprintf(mp_ini[3], "Untouch Raw Data(No BK) - Mutual");
-	sprintf(mp_ini[4], "Open Test(integration)");
-	sprintf(mp_ini[5], "Open Test(Cap)");
-	sprintf(mp_ini[6], "Untouch Cm Data");
-	sprintf(mp_ini[7], "Short Test (Rx)");
-	sprintf(mp_ini[8], "Pixel Raw (No BK)");
-	sprintf(mp_ini[9], "Pixel Raw (Have BK)");
-	sprintf(mp_ini[10], "Untouch Peak to Peak");
-	sprintf(mp_ini[11], "Tx/Rx Delta");
-	/* sprintf(mp_ini[12], "Key Raw Open Test"); */
-	/* sprintf(mp_ini[13], "Key Raw Short Test"); */
-	/* sprintf(mp_ini[14], "Key Raw Data"); */
-	/* sprintf(mp_ini[15], "Key Raw BK DAC"); */
-	/* sprintf(mp_ini[16], "Key Baseline Data"); */
 
 	if (core_parser_path(INI_NAME_PATH) < 0) {
 		ipio_err("Failed to parsing INI file\n");
@@ -347,45 +321,21 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	ilitek_platform_disable_irq();
 
-	for (i = 0; i < mp_num; i++) {
-		for (j = 0; j < core_mp->mp_items; j++) {
-			if (mp_ini[i] == NULL)
-				continue;
+	core_mp_run_test("Untouch Peak to Peak", true);
+	core_mp_run_test("Open Test(integration)", true);
+	core_mp_run_test("Open Test(Cap)", true);
+	core_mp_run_test("Short Test (Rx)", true);
+	core_mp_run_test("Untouch Calibration Data(DAC) - Mutual", true);
+	core_mp_run_test("Untouch Raw Data(Have BK) - Mutual", true);
+	core_mp_run_test("Untouch Raw Data(No BK) - Mutual", true);
+	core_mp_run_test("Untouch Cm Data", true);
+	core_mp_run_test("Pixel Raw (No BK)", true);
+	core_mp_run_test("Pixel Raw (Have BK)", true);
+	core_mp_run_test("Untouch Peak to Peak", true);
 
-			if (strcmp(tItems[j].desp, mp_ini[i]) == 0) {
-				core_parser_get_int_data(mp_ini[i], "Enable", str);
-				tItems[j].run = katoi(str);
+	core_mp_show_result();
 
-				/* Get threshold from ini structure in parser */
-				if (strcmp("Tx/Rx Delta", mp_ini[i]) == 0) {
-					core_parser_get_int_data(mp_ini[i], "Tx Max", str);
-					core_mp->TxDeltaMax = katoi(str);
-					core_parser_get_int_data(mp_ini[i], "Tx Min", str);
-					core_mp->TxDeltaMin = katoi(str);
-					core_parser_get_int_data(mp_ini[i], "Rx Max", str);
-					core_mp->RxDeltaMax = katoi(str);
-					core_parser_get_int_data(mp_ini[i], "Rx Min", str);
-					core_mp->RxDeltaMin = katoi(str);
-					ipio_info("%s: Tx Max = %d, Tx Min = %d, Rx Max = %d,  Rx Min = %d\n",
-						 tItems[j].desp, core_mp->TxDeltaMax, core_mp->TxDeltaMin,
-						 core_mp->RxDeltaMax, core_mp->RxDeltaMin);
-				} else {
-					core_parser_get_int_data(mp_ini[i], "Max", str);
-					tItems[j].max = katoi(str);
-					core_parser_get_int_data(mp_ini[i], "Min", str);
-					tItems[j].min = katoi(str);
-				}
-
-				core_parser_get_int_data(mp_ini[i], "Frame Count", str);
-				tItems[j].frame_count = katoi(str);
-
-				ipio_info("%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[j].desp,
-					 tItems[j].run, tItems[j].max, tItems[j].min, tItems[j].frame_count);
-			}
-		}
-	}
-
-	core_mp_run_test();
+	core_mp_test_free();
 
 	/* Code reset */
 	core_config_ice_mode_enable();
@@ -398,13 +348,6 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	ilitek_platform_enable_irq();
 
 out:
-	for (i = 0; i < mp_num; i++) {
-		if(mp_ini[i] != NULL)
-			kfree(mp_ini[i]);
-		mp_ini[i] = NULL;
-	}
-	kfree(mp_ini);
-	mp_ini = NULL;
 	*pPos = len;
 	ipio_info("MP Test DONE\n");
 	return len;
@@ -413,10 +356,10 @@ out:
 static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int i, res = 0, count = 0;
-	char cmd[64] = { 0 };
+	char cmd[64] = {0}, str[512] = {0};
 	char *token = NULL, *cur = NULL;
 	uint8_t *va = NULL;
-	uint8_t test_cmd[2] = { 0 };
+	uint8_t test_cmd[2] = {0};
 
 	if (buff != NULL) {
 		res = copy_from_user(cmd, buff, size - 1);
@@ -459,19 +402,20 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	for (i = 0; i < core_mp->mp_items; i++) {
 		if (strcmp(cmd, tItems[i].name) == 0) {
-			tItems[i].run = va[1];
-			tItems[i].max = va[2];
-			tItems[i].min = va[3];
-			tItems[i].frame_count = va[4];
-
-			ipio_info("%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp, tItems[i].run,
-				 tItems[i].max, tItems[i].min, tItems[i].frame_count);
-
+			strcpy(str, tItems[i].desp);
+			tItems[i].run = 1;
+			tItems[i].max = va[1];
+			tItems[i].min = va[2];
+			tItems[i].frame_count = va[3];
 			break;
 		}
 	}
 
-	core_mp_run_test();
+	core_mp_run_test(str, false);
+
+	core_mp_show_result();
+
+	core_mp_test_free();
 
 	/* Code reset */
 	core_config_ice_mode_enable();

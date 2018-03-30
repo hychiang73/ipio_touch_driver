@@ -236,4 +236,7 @@ static inline void ipio_kfree(void **mem)
 	}
 }
 
+extern int katoi(char *string);
+extern int str2hex(char *str);
+
 #endif /* __COMMON_H */
