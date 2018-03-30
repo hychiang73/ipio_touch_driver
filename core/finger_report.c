@@ -781,7 +781,7 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
 			core_fr->isEnablePressure = false;
-			core_fr->isSetResolution = false;
+			core_fr->isSetResolution = true;
 			core_fr->actual_fw_mode = protocol->demo_mode;
 			return 0;
 		}
