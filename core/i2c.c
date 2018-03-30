@@ -79,10 +79,6 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 		 },
 	};
 
-#if (TP_PLATFORM == PT_RK)
-	msgs[0].scl_rate = core_i2c->clk;
-#endif /* PT_RK */
-
 #ifdef I2C_DMA
 	ipio_debug(DEBUG_I2C, "DMA: size = %d\n", nSize);
 	if (nSize > 8) {
@@ -121,10 +117,6 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 		 .buf = pBuf,
 		 },
 	};
-
-#if (TP_PLATFORM == PT_RK)
-	msgs[0].scl_rate = core_i2c->clk;
-#endif /* PT_RK */
 
 #ifdef I2C_DMA
 	ipio_debug(DEBUG_I2C, "DMA: size = %d\n", nSize);
@@ -166,10 +158,6 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 /* .buf = pBuf, */
 		 },
 	};
-
-#if (TP_PLATFORM == PT_RK)
-	msgs[0].scl_rate = core_i2c->clk;
-#endif
 
 	while (nSize > 0) {
 		msgs[0].buf = &pBuf[offset];

@@ -97,11 +97,10 @@
 #define CHIP_ID_ERR	(-100)
 
 /* A platform currently supported by driver */
-#define PT_RK	1
+#define PT_QCOM	1
 #define PT_MTK	2
 #define PT_SPRD	3
-#define PT_QCOM	4
-#define TP_PLATFORM PT_RK
+#define TP_PLATFORM PT_QCOM
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.1.4"
