@@ -321,6 +321,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	ilitek_platform_disable_irq();
 
+	/* Default runing test items for MP Test */
 	core_mp_run_test("Untouch Peak to Peak", true);
 	core_mp_run_test("Open Test(integration)", true);
 	core_mp_run_test("Open Test(Cap)", true);
@@ -400,6 +401,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	ilitek_platform_disable_irq();
 
+	/* Runing a specific test  */
 	for (i = 0; i < core_mp->mp_items; i++) {
 		if (strcmp(cmd, tItems[i].name) == 0) {
 			strcpy(str, tItems[i].desp);
@@ -421,7 +423,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	core_config_ice_mode_enable();
 	core_config_ic_reset();
 
-	/* Switch to Demo mode it prevents if fw fails to be switched */
+	/* Switch to Demo mode */
 	test_cmd[0] = protocol->demo_mode;
 	core_fr_mode_control(test_cmd);
 

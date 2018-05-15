@@ -657,6 +657,12 @@ void core_fr_handler(void)
 					if (core_fr->isEnableNetlink)
 						netlink_reply_msg(tdata, g_total_len);
 
+					/*
+					 * Usually we use Netlink to communicate with upper layer as a master. However,
+					 * we won't be allowed to do this if a system is user-built or needs a privilege.
+					 * Hence in order to transmit CDC data to APK, we create a node allowing APK
+					 * access this node constantly; in this case, drive looks like a slave.
+					 */
 					if (ipd->debug_node_open) {
 						mutex_lock(&ipd->ilitek_debug_mutex);
 						memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
