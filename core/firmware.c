@@ -44,7 +44,9 @@
 #ifdef BOOT_FW_UPGRADE
 #include "ilitek_fw.h"
 #endif
-
+#ifdef HOST_DOWNLOAD
+#include "ilitek_fw.h"
+#endif
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
 extern struct core_fr_data *core_fr;
@@ -809,7 +811,7 @@ out:
 	return res;
 }
 
-#ifdef BOOT_FW_UPGRADE
+#ifdef BOOT_FW_UPGRADE  
 static int convert_hex_array(void)
 {
 	int i, j, index = 0;
@@ -994,7 +996,6 @@ int core_firmware_boot_upgrade(void)
 		ipio_err("Failed to covert firmware data, res = %d\n", res);
 		goto out;
 	}
-	
 	/* calling that function defined at init depends on chips. */
 	res = core_firmware->upgrade_func(false);
 	if (res < 0) {
@@ -1024,6 +1025,68 @@ out:
 }
 #endif /* BOOT_FW_UPGRADE */
 
+int core_firmware_boot_host_download(void)
+{
+	int res = 0, i = 0;
+	bool power = false;
+	flash_fw = kcalloc(MAX_AP_FIRMWARE_SIZE + MAX_DLM_FIRMWARE_SIZE + MAX_MP_FIRMWARE_SIZE, sizeof(uint8_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(flash_fw)) {
+		ipio_err("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
+		res = -ENOMEM;
+		goto out;
+	}
+
+	memset(flash_fw, 0xff, (int)sizeof(uint8_t) * MAX_AP_FIRMWARE_SIZE + MAX_DLM_FIRMWARE_SIZE + MAX_MP_FIRMWARE_SIZE);
+
+	ipio_info("BOOT: Starting to upgrade firmware ...\n");
+
+	core_firmware->isUpgrading = true;
+	core_firmware->update_status = 0;
+
+	if (ipd->isEnablePollCheckPower) {
+		ipd->isEnablePollCheckPower = false;
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		power = true;
+	}
+
+	/* Fill data into buffer */
+	for (i = 0; i < ARRAY_SIZE(CTPM_FW) - 64; i++) {
+		flash_fw[i] = CTPM_FW[i + 64];
+	}
+	memcpy(ap_fw, flash_fw, MAX_AP_FIRMWARE_SIZE);
+	memcpy(dlm_fw, flash_fw + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
+	gpio_direction_output(ipd->reset_gpio, 1);
+	mdelay(ipd->delay_time_high);
+	gpio_set_value(ipd->reset_gpio, 0);
+	mdelay(ipd->delay_time_low);
+	gpio_set_value(ipd->reset_gpio, 1);
+	mdelay(ipd->edge_delay);
+	res = core_firmware->upgrade_func(true);
+	if (res < 0) {
+		core_firmware->update_status = res;
+		ipio_err("Failed to upgrade firmware, res = %d\n", res);
+		goto out;
+	}
+	core_firmware->update_status = 100;
+	ipio_info("Update firmware information...\n");
+	core_config_get_fw_ver();
+	core_config_get_protocol_ver();
+	core_config_get_core_ver();
+	core_config_get_tp_info();
+	core_config_get_key_info();
+
+out:
+	if (power) {
+		ipd->isEnablePollCheckPower = true;
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+	}
+
+	ipio_kfree((void **)&flash_fw);
+	ipio_kfree((void **)&g_flash_sector);
+	core_firmware->isUpgrading = false;
+	return res;
+}
+EXPORT_SYMBOL(core_firmware_boot_host_download);
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t i = 0, j = 0, k = 0;
@@ -1365,9 +1428,12 @@ int core_firmware_init(void)
 				core_firmware->delay_after_upgrade = 100;
 			} else if (ipio_chip_list[i] == CHIP_TYPE_ILI9881) {
 				core_firmware->max_count = 0x1FFFF;
-				core_firmware->isCRC = true;
-				//core_firmware->upgrade_func = tddi_fw_upgrade;
+				core_firmware->isCRC = true;	
+			#ifdef HOST_DOWNLOAD
 				core_firmware->upgrade_func = host_download;
+			#else
+				core_firmware->upgrade_func = tddi_fw_upgrade;
+			#endif
 				core_firmware->delay_after_upgrade = 200;
 			}
 			return 0;

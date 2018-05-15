@@ -167,6 +167,89 @@ static void dump_data(void *data, int type, int len)
 	}
 }
 
+static void print_benchmark_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len)
+{
+	int x, y, tmp_len = *csv_len;
+	int  mp_result = 1;
+	char *line_breaker = "\n";
+	int32_t *tmp = NULL;
+
+	pr_info("%s\n", tItems[index].desp);
+	tmp_len += sprintf(csv + tmp_len, " %s ", tItems[index].desp);
+
+	pr_info("\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);              
+
+	pr_info("Frame count = %d\n",tItems[index].frame_count);
+	tmp_len += sprintf(csv + tmp_len, "Frame count = %d", tItems[index].frame_count);
+
+	pr_info("\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);                                                
+
+	DUMP(DEBUG_MP_TEST, " %s \n", "Bench mark data");
+	tmp_len += sprintf(csv + tmp_len, "Bench mark data\n");
+
+	tmp = tItems[index].buf;
+	/* print X raw only */
+	for (x = 0; x < core_mp->xch_len; x++) {
+		if (x == 0) {
+			DUMP(DEBUG_MP_TEST, "           ");
+			tmp_len += sprintf(csv + tmp_len, ",");
+		}
+
+		DUMP(DEBUG_MP_TEST, "X%02d      ", x);
+		tmp_len += sprintf(csv + tmp_len, "X%02d, ", x);
+	}
+
+	DUMP(DEBUG_MP_TEST, "\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+
+	for (y = 0; y < core_mp->ych_len; y++) {
+		DUMP(DEBUG_MP_TEST, " Y%02d ", y);
+		tmp_len += sprintf(csv + tmp_len, "Y%02d, ", y);
+
+		for (x = 0; x < core_mp->xch_len; x++) {
+			int shift = y * core_mp->xch_len + x;
+
+			if (tmp[shift] <= tItems[index].bench_mark_max[shift] && tmp[shift] >=  tItems[index].bench_mark_min[shift]) {
+				DUMP(DEBUG_MP_TEST, " %7d ", tmp[shift]);
+				tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);
+			} else {
+				if (tmp[shift] > tItems[index].bench_mark_max[shift]) {
+					DUMP(DEBUG_MP_TEST, " *%7d ", tmp[shift]);
+					tmp_len += sprintf(csv + tmp_len, "*%7d,", tmp[shift]);
+				} else {
+					DUMP(DEBUG_MP_TEST, " #%7d ", tmp[shift]);
+					tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
+				}
+				mp_result = -1;
+			}
+		}
+
+		DUMP(DEBUG_MP_TEST, "\n");
+		tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+	}
+
+	if (mp_result < 0)
+		sprintf(tItems[index].result, "%s", "FAIL");
+	else
+		sprintf(tItems[index].result, "%s", "PASS");
+
+
+	pr_info("\n Result : %s\n", tItems[index].result);
+	tmp_len += sprintf(csv + tmp_len, " Result : %s ", tItems[index].result);
+
+	pr_info("\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+
+	if (strcmp(tItems[index].result, "FAIL") == 0)
+		core_mp->final_result = false;
+
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);        
+
+	*csv_len = tmp_len;
+        
+}
 static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
@@ -284,6 +367,14 @@ static int create_mp_test_frame_buffer(int index)
 		tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		
+		if (strcmp(tItems[index].name, "open_integration") == 0 && tItems[index].spec_option == OPEN_BENCHMARK){
+			tItems[index].bench_mark_max = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			tItems[index].bench_mark_min = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);          
+			if (ERR_ALLOC_MEM(tItems[index].bench_mark_max) || ERR_ALLOC_MEM(tItems[index].bench_mark_min)){
+				ipio_err("Failed to allocate bench_mark FRAME buffer\n");
+				return -ENOMEM;
+			}                                    
+		}                                                                        
 		if (ERR_ALLOC_MEM(tItems[index].buf) || ERR_ALLOC_MEM(tItems[index].max_buf) ||
 				ERR_ALLOC_MEM(tItems[index].min_buf)) {
 			ipio_err("Failed to allocate FRAME buffer\n");
@@ -455,7 +546,7 @@ static int allnode_mutual_cdc_data(int index)
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
-	ipio_info("\n");
+
 	mdelay(1);
 	/* Check busy */
 	if (core_config_check_cdc_busy(check_busy_timeout) < 0) {
@@ -610,6 +701,25 @@ static void run_pixel_test(int index)
 	}
 }
 
+void print_bench_mark_max_min_buffer(int32_t* max_ptr, int32_t* min_ptr)
+{
+	int i;
+
+	printk("benchmark max\n");
+	for(i=0; i<core_mp->frame_len ; i++)
+	{
+		printk("%d, ",max_ptr[i]);
+		if(i % core_mp->xch_len == core_mp->xch_len-1)
+			printk("\n");
+	}
+	printk("benchmark min\n");                                                                                
+	for(i=0; i<core_mp->frame_len ; i++)
+	{
+		printk("%d, ",min_ptr[i]);
+		if(i % core_mp->xch_len == core_mp->xch_len-1)
+			printk("\n");
+	}
+}
 static int run_open_test(int index)
 {
 	int i, x, y, k, res = 0;
@@ -618,6 +728,12 @@ static int run_open_test(int index)
 	int32_t *p_comb = frame_buf;
 
 	if (strcmp(tItems[index].name, "open_integration") == 0) {
+		if (tItems[index].spec_option == OPEN_BENCHMARK)
+		{
+			open_test_parser_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
+			if (ipio_debug_level&&DEBUG_PARSER > 0)                               
+				print_bench_mark_max_min_buffer(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
+		}                      
 		for (i = 0; i < core_mp->frame_len; i++)
 			tItems[index].buf[i] = p_comb[i];
 	} else if (strcmp(tItems[index].name, "open_cap") == 0) {
@@ -943,6 +1059,11 @@ void core_mp_test_free(void)
 			ipio_kfree((void **)&core_mp->rx_max_buf);
 			ipio_kfree((void **)&core_mp->rx_min_buf);
 		} else {
+			if (strcmp(tItems[i].name, "Open Test(integration)") == 0 && tItems[i].spec_option == OPEN_BENCHMARK)
+			{   
+				ipio_kfree((void **)&tItems[i].bench_mark_max);
+				ipio_kfree((void **)&tItems[i].bench_mark_min);                                                
+			}      		
 			ipio_kfree((void **)&tItems[i].buf);
 			ipio_kfree((void **)&tItems[i].max_buf);
 			ipio_kfree((void **)&tItems[i].min_buf);
@@ -975,6 +1096,11 @@ void core_mp_show_result(void)
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run) {
+			if (strcmp(tItems[i].name, "open_integration") == 0 && tItems[i].spec_option == OPEN_BENCHMARK)
+			{       
+				print_benchmark_cdc_data(i, true, false, csv, &csv_len);
+				continue;
+			}
 			pr_info("%s\n", tItems[i].desp);
 			csv_len += sprintf(csv + csv_len, " %s ", tItems[i].desp);
 

@@ -645,9 +645,11 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	if (ipd->isEnablePollCheckPower)
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
-
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_tp_hw_reset(true);
+#else
 	res = core_firmware_upgrade(UPDATE_FW_PATH, false);
-
+#endif
 	ilitek_platform_enable_irq();
 
 	if (ipd->isEnablePollCheckPower)
@@ -834,12 +836,12 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
 		}
 
-		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+		core_write(core_config->slave_i2c_addr, i2c, w_len);
 	} else if (strcmp(cmd, "i2c_r") == 0) {
 		r_len = data[1];
 		ipio_info("r_len = %d\n", r_len);
 
-		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+		core_read(core_config->slave_i2c_addr, &i2c[0], r_len);
 
 		for (i = 0; i < r_len; i++)
 			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
@@ -854,12 +856,12 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
 		}
 
-		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+		core_write(core_config->slave_i2c_addr, i2c, w_len);
 
 		memset(i2c, 0, sizeof(i2c));
 		mdelay(i2c_delay);
 
-		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+		core_read(core_config->slave_i2c_addr, &i2c[0], r_len);
 
 		for (i = 0; i < r_len; i++)
 			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
@@ -897,7 +899,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		if (res < 0) {
 			ipio_err("Failed to copy data from user space\n");
 		} else {
-			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
+			res = core_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
 			if (res < 0) {
 				ipio_err("Failed to write data via i2c\n");
 			}
@@ -905,7 +907,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_I2C_READ_DATA:
-		res = core_i2c_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
+		res = core_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
 		if (res < 0) {
 			ipio_err("Failed to read data via i2c\n");
 		} else {
@@ -968,15 +970,18 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_FUNC_MODE:
+		ipio_info("\n");
 		res = copy_from_user(szBuf, (uint8_t *) arg, 3);
 		if (res < 0) {
 			ipio_err("Failed to copy data from user space\n");
 		} else {
-			core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], 3);
+			core_write(core_config->slave_i2c_addr, &szBuf[0], 3);
 		}
+		ipio_info("\n");
 		break;
 
 	case ILITEK_IOCTL_TP_FW_VER:
+		ipio_info("\n");
 		res = core_config_get_fw_ver();
 		if (res < 0) {
 			ipio_err("Failed to get firmware version\n");
@@ -986,9 +991,11 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy firmware version to user space\n");
 			}
 		}
+		ipio_info("\n");
 		break;
 
 	case ILITEK_IOCTL_TP_PL_VER:
+		ipio_info("\n");
 		res = core_config_get_protocol_ver();
 		if (res < 0) {
 			ipio_err("Failed to get protocol version\n");
@@ -998,9 +1005,11 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy protocol version to user space\n");
 			}
 		}
+		ipio_info("\n");
 		break;
 
 	case ILITEK_IOCTL_TP_CORE_VER:
+		ipio_info("\n");
 		res = core_config_get_core_ver();
 		if (res < 0) {
 			ipio_err("Failed to get core version\n");
@@ -1010,6 +1019,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy core version to user space\n");
 			}
 		}
+		ipio_info("\n");
 		break;
 
 	case ILITEK_IOCTL_TP_DRV_VER:

@@ -129,7 +129,7 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 #endif /* PT_MTK */
 	}
 	#ifdef HOST_DOWNLOAD
-		core_firmware_upgrade(FW_HEX_PATH, true);
+		core_firmware_upgrade(UPDATE_FW_PATH, true);
 	#endif
 	ilitek_platform_enable_irq();
 }
@@ -511,7 +511,6 @@ static int kthread_handler(void *arg)
 		if (res < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
 #endif
-
 		ilitek_platform_enable_irq();
 
 		ilitek_platform_input_init();
@@ -885,8 +884,11 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	}
 	// if (core_config_get_chip_id() < 0)
 	// 	return CHIP_ID_ERR;
+#ifdef HOST_DOWNLOAD
+	core_firmware_boot_host_download();
+#else
 	ilitek_platform_tp_hw_reset(true);
-	
+#endif
 	/* get our tp ic information */
 	// ret = ilitek_platform_read_tp_info();
 	// if (ret == CHIP_ID_ERR) {

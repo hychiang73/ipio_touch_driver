@@ -42,6 +42,8 @@ struct mp_test_items {
 	int32_t *buf;
 	int32_t *max_buf;
 	int32_t *min_buf;
+	int32_t *bench_mark_max;
+	int32_t *bench_mark_min;
 	int (*do_test)(int index);
 };
 

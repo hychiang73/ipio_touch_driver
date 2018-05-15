@@ -216,8 +216,10 @@ EXPORT_SYMBOL(core_config_ice_mode_write);
  */
 void core_config_ic_reset(void)
 {
-	uint32_t key = 0;
 #ifdef HOST_DOWNLOAD
+	core_config_ice_mode_disable();
+#else
+	uint32_t key = 0;
 	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
 		if (core_config->chip_type == ILI7807_TYPE_H)
 			key = 0x00117807;
@@ -661,7 +663,7 @@ int core_config_get_protocol_ver(void)
 	}
 
 	/* ignore the first btye because of a header. */
-	for (; i < protocol->pro_ver_len; i++)
+	for (; i < protocol->pro_ver_len - 1; i++)
 		core_config->protocol_ver[i] = g_read_buf[i + 1];
 
 	ipio_info("Procotol Version = %d.%d.%d\n",

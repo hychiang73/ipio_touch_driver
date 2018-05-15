@@ -325,7 +325,7 @@ void core_protocol_func_control(int key, int ctrl)
 		if (tmp->key != 9)
 			tmp->cmd[tmp->len - 1] = ctrl;
 
-		core_i2c_write(core_config->slave_i2c_addr, tmp->cmd, tmp->len);
+		core_write(core_config->slave_i2c_addr, tmp->cmd, tmp->len);
 		return;
 	}
 

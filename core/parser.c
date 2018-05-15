@@ -94,7 +94,7 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 
 static int get_ini_phy_data(char *data)
 {
-	int i, n = 0, res = 0;
+	int i, n = 0, res = 0 , banchmark_flag = 0;
 	int offset = 0, isEqualSign = 0;
 	char *ini_buf = NULL, *tmpSectionName = NULL;
 	char M_CFG_SSL = '[';
@@ -159,6 +159,7 @@ static int get_ini_phy_data(char *data)
 
 				ini_buf[n - 1] = 0x00;
 				strcpy((char *)tmpSectionName, ini_buf + 1);
+				banchmark_flag = 0;
 				ipio_debug(DEBUG_PARSER, "Section Name: %s, Len: %d\n", tmpSectionName, n - 2);
 				continue;
 			}
@@ -177,7 +178,15 @@ static int get_ini_phy_data(char *data)
 		}
 
 		if (isEqualSign == 0)
-			continue;
+		{
+			if (strcmp("Open Test(integration)_Benchmark_Data", ilitek_ini_file_data[g_ini_items].pSectionName) == 0){
+				banchmark_flag = 1;
+				isEqualSign =-1;
+			}
+			else{
+				continue;
+			}			
+		}
 
 		/* Get Key names */
 		ilitek_ini_file_data[g_ini_items].iKeyNameLen = isEqualSign;
@@ -188,11 +197,18 @@ static int get_ini_phy_data(char *data)
 			goto out;
 		}
 
-		memcpy(ilitek_ini_file_data[g_ini_items].pKeyName,
-		       ini_buf, ilitek_ini_file_data[g_ini_items].iKeyNameLen);
+		if(banchmark_flag){
+			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, BENCHMARK_KEY_NAME);
+			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;                                    
+		}
+		else{
+			memcpy(ilitek_ini_file_data[g_ini_items].pKeyName,
+			ini_buf, ilitek_ini_file_data[g_ini_items].iKeyNameLen);
+			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n - isEqualSign - 1;
+		}
 
 		/* Get a value assigned to a key */
-		ilitek_ini_file_data[g_ini_items].iKeyValueLen = n - isEqualSign - 1;
+
 		if (ilitek_ini_file_data[g_ini_items].iKeyValueLen > PARSER_MAX_KEY_VALUE_LEN) {
 			ipio_err("MAX_KEY_VALUE_LEN: Out Of Length\n");
 			res = INI_ERR_OUT_OF_LINE;
@@ -266,6 +282,44 @@ static int get_ini_key_value(char *section, char *key, char *value)
  * @keyname: Key name
  * @rv : A value as a string returning to callers depends on the key and the section.
  */
+void open_test_parser_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
+{
+
+	int i = 0, j = 0, index1 =0, temp, count = 0;
+	char str[512] = { 0 };
+	int32_t data[4];
+
+
+	for (i = 0; i < g_ini_items; i++) {
+
+		if (strcmp(ilitek_ini_file_data[i].pKeyName, BENCHMARK_KEY_NAME) == 0) {
+
+			for(j=0, index1 = 0; j<ilitek_ini_file_data[i].iKeyValueLen; j++){
+
+				if(ilitek_ini_file_data[i].pKeyValue[j] == ',' || ilitek_ini_file_data[i].pKeyValue[j] == ';' ||( j == ilitek_ini_file_data[i].iKeyValueLen-1)){
+
+					memset(str,0 ,sizeof(str));
+					memcpy(str,&ilitek_ini_file_data[i].pKeyValue[index1], (j -index1));
+					temp=katoi(str); 
+					data[count%4] = temp;
+
+					if(count%4 == 3){
+						if(data[0] == 1){
+							max_ptr[count/4] = data[1] + data[2];
+							min_ptr[count/4] = data[1] + data[3]; 
+						}
+						else{
+							max_ptr[count/4] = 65535;
+							min_ptr[count/4]= -65535; 
+						}
+					}                                        
+					count++;                                        
+					index1 = j+1;    
+				}                                        
+			}                        
+		}
+	}
+}
 int core_parser_get_int_data(char *section, char *keyname, char *rv)
 {
 	int len = 0;

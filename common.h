@@ -108,7 +108,7 @@
 #define SPI_INTERFACE 2
 #define INTERFACE SPI_INTERFACE
 /* Driver version */
-#define DRIVER_VERSION	"1.0.2.2"
+#define DRIVER_VERSION	"1.0.2.1"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
@@ -172,7 +172,7 @@ extern uint32_t ipio_chip_list[2];
 	#define DLM_HEX_ADDRESS 			0x10000
 	#define MP_HEX_ADDRESS	 			0x13000
 	#define SPI_UPGRADE_LEN	 			2048
-	#define FW_HEX_PATH					"/mnt/sdcard/hostdownload.hex"
+	extern int core_firmware_boot_host_download(void);
 #endif
 
 
@@ -239,7 +239,7 @@ enum ili9881_types
 /* #define I2C_SEGMENT */
 
 /* Be able to upgrade fw at boot stage */
-/* #define BOOT_FW_UPGRADE */
+//#define BOOT_FW_UPGRADE 
 
 /* Check battery's status in order to avoid some effects from charge. */
 /* #define BATTERY_CHECK */
