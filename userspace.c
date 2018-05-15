@@ -321,31 +321,33 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	ilitek_platform_disable_irq();
 
-	/* Default runing test items for MP Test */
 	core_mp_run_test("Untouch Peak to Peak", true);
 	core_mp_run_test("Open Test(integration)", true);
 	core_mp_run_test("Open Test(Cap)", true);
-	core_mp_run_test("Short Test (Rx)", true);
-	core_mp_run_test("Untouch Calibration Data(DAC) - Mutual", true);
-	core_mp_run_test("Untouch Raw Data(Have BK) - Mutual", true);
-	core_mp_run_test("Untouch Raw Data(No BK) - Mutual", true);
+	core_mp_run_test("Short Test -ILI9881", true);
+	core_mp_run_test("Calibration Data(DAC)", true);
+	core_mp_run_test("Raw Data(Have BK)", true);
+	core_mp_run_test("Raw Data(No BK)", true);
 	core_mp_run_test("Untouch Cm Data", true);
 	core_mp_run_test("Pixel Raw (No BK)", true);
 	core_mp_run_test("Pixel Raw (Have BK)", true);
 	core_mp_run_test("Untouch Peak to Peak", true);
-
+	core_mp_run_test("Noise Peak to Peak(IC)", true);    
+	core_mp_run_test("Noise Peak To Peak(Cut Panel)", true);        
 	core_mp_show_result();
 
 	core_mp_test_free();
-
+#ifndef HOST_DOWNLOAD
 	/* Code reset */
 	core_config_ice_mode_enable();
 	core_config_ic_reset();
-
+#endif
 	/* Switch to Demo mode */
 	test_cmd[0] = protocol->demo_mode;
 	core_fr_mode_control(test_cmd);
-
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_tp_hw_reset(true);
+#endif
 	ilitek_platform_enable_irq();
 
 out:
@@ -401,7 +403,6 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	ilitek_platform_disable_irq();
 
-	/* Runing a specific test  */
 	for (i = 0; i < core_mp->mp_items; i++) {
 		if (strcmp(cmd, tItems[i].name) == 0) {
 			strcpy(str, tItems[i].desp);
@@ -423,7 +424,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	core_config_ice_mode_enable();
 	core_config_ic_reset();
 
-	/* Switch to Demo mode */
+	/* Switch to Demo mode it prevents if fw fails to be switched */
 	test_cmd[0] = protocol->demo_mode;
 	core_fr_mode_control(test_cmd);
 

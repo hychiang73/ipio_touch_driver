@@ -70,62 +70,65 @@ enum mp_test_catalog {
 	UNTOUCH_P2P = 5,
 	PIXEL = 6,
 	OPEN_TEST = 7,
+	PEAK_TO_PEAK_TEST = 8,	
 };
 
 /* You must declare a new test at here before running a new process of mp test */
 struct mp_test_items tItems[] = {
-	{"mutual_dac", "Untouch Calibration Data(DAC) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL,
+	{"mutual_dac", "Calibration Data(DAC)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL,
 	 NULL, NULL},
-	{"mutual_bg", "Baseline Data(BG)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL,
+	{"mutual_bg", "Baseline Data(BG)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL,
 	 NULL, NULL, NULL},
-	{"mutual_no_bk", "Untouch Raw Data(No BK) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL,
+	{"mutual_no_bk", "Raw Data(No BK)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL,
 	 NULL},
-	{"mutual_has_bk", "Untouch Raw Data(Have BK) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL,
+	{"mutual_has_bk", "Raw Data(Have BK)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL,
 	 NULL, NULL},
-	{"mutual_bk_dac", "Manual BK Data(Mutual)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"mutual_bk_dac", "Manual BK Data(Mutual)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-	{"self_dac", "Untouch Calibration Data(DAC) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL,
+	{"self_dac", "Calibration Data(DAC) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL,
 	 NULL},
-	{"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL,
+	{"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL,
 	 NULL, NULL},
-	{"self_no_bk", "Untouch Raw Data(No BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL,
+	{"self_no_bk", "Raw Data(No BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL,
 	 NULL},
-	{"self_has_bk", "Untouch Raw Data(Have BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL,
+	{"self_has_bk", "Raw Data(Have BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL,
 	 NULL},
-	{"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL,
+	{"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL,
 	 NULL},
 
-	{"key_dac", "Calibration Data(DAC/ICON)", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"key_bg", "Key Baseline Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"key_no_bk", "Key Raw Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"key_has_bk", "Key Raw BK DAC", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"key_open", "Key Raw Open Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"key_short", "Key Raw Short Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"key_dac", "Calibration Data(DAC/ICON)", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"key_bg", "Key Baseline Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"key_no_bk", "Key Raw Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"key_has_bk", "Key Raw BK DAC", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"key_open", "Key Raw Open Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"key_short", "Key Raw Short Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-	{"st_dac", "ST Calibration Data(DAC)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"st_bg", "ST Baseline Data(BG)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"st_no_bk", "ST Raw Data(No BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"st_has_bk", "ST Raw(Have BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"st_open", "ST Open Data", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"st_dac", "ST Calibration Data(DAC)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"st_bg", "ST Baseline Data(BG)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"st_no_bk", "ST Raw Data(No BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"st_has_bk", "ST Raw(Have BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"st_open", "ST Open Data", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-	{"tx_short", "Tx Short Test", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"rx_short", "Short Test (Rx)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"rx_open", "RX Open", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"tx_short", "Tx Short Test", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"rx_short", "Short Test -ILI9881", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"rx_open", "RX Open", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-	{"cm_data", "Untouch Cm Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"cs_data", "Untouch Cs Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"cm_data", "Untouch Cm Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"cs_data", "Untouch Cs Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-	{"tx_rx_delta", "Tx/Rx Delta", "FAIL", TX_RX_DELTA, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"tx_rx_delta", "Tx/Rx Delta", "FAIL", TX_RX_DELTA, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-	{"p2p", "Untouch Peak to Peak", "FAIL", UNTOUCH_P2P, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"p2p", "Untouch Peak to Peak", "FAIL", UNTOUCH_P2P, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-	{"pixel_no_bk", "Pixel Raw (No BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"pixel_has_bk", "Pixel Raw (Have BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"pixel_no_bk", "Pixel Raw (No BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"pixel_has_bk", "Pixel Raw (Have BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
 
-	{"open_integration", "Open Test(integration)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
-	{"open_cap", "Open Test(Cap)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"open_integration", "Open Test(integration)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"open_cap", "Open Test(Cap)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"noise_peak_to_peak", "Noise Peak to Peak(IC)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},
+	{"noise_peak_to_peak_cut", "Noise Peak To Peak(Cut Panel)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, NULL, NULL, NULL, NULL},                
 };
 
 int32_t *frame_buf = NULL;
@@ -314,7 +317,7 @@ static int allnode_key_cdc_data(int index)
 	cmd[1] = tItems[index].cmd;
 	cmd[2] = 0;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
+	res = core_write(core_config->slave_i2c_addr, cmd, 3);
 	if (res < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
@@ -335,7 +338,7 @@ static int allnode_key_cdc_data(int index)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_cdc;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
@@ -343,7 +346,7 @@ static int allnode_key_cdc_data(int index)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
@@ -359,7 +362,7 @@ static int allnode_key_cdc_data(int index)
 	mdelay(1);
 
 	/* Get original frame(cdc) data */
-	res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
+	res = core_read(core_config->slave_i2c_addr, ori, len);
 	if (res < 0) {
 		ipio_err("I2C Read Error while getting original cdc data\n");
 		goto out;
@@ -409,9 +412,9 @@ out:
 
 static int allnode_mutual_cdc_data(int index)
 {
-	int i = 0, res = 0, len = 0;
+	int i = 0, res = 0, len = 0,check_busy_timeout=50, count=3;
 	int inDACp = 0, inDACn = 0;
-	uint8_t cmd[3] = { 0 };
+	uint8_t cmd[5] = { 0 };
 	uint8_t *ori = NULL;
 
 	/* Multipling by 2 is due to the 16 bit in each node */
@@ -436,16 +439,26 @@ static int allnode_mutual_cdc_data(int index)
 	if (strcmp(tItems[index].name, "open_cap") == 0)
 		cmd[2] = 0x3;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 3);
+             if(tItems[index].catalog == PEAK_TO_PEAK_TEST)
+             {
+                	cmd[2] = ((tItems[index].frame_count & 0xff00)>>8);
+                	cmd[3] = tItems[index].frame_count & 0xff;
+                	cmd[4] = 0;
+                	if (strcmp(tItems[index].name, "noise_peak_to_peak_cut") == 0)
+	                	cmd[4] = 0x1;                        
+                            check_busy_timeout = tItems[index].frame_count * 70;
+                            count = 5;
+             }
+              ipio_err("I2C CMD %d,%d,%d,%d,%d\n",cmd[0],cmd[1],cmd[2],cmd[3],cmd[4]);
+	res = core_write(core_config->slave_i2c_addr, cmd, count);
 	if (res < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
-
+	ipio_info("\n");
 	mdelay(1);
-
 	/* Check busy */
-	if (core_config_check_cdc_busy(50) < 0) {
+	if (core_config_check_cdc_busy(check_busy_timeout) < 0) {
 		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
@@ -455,7 +468,7 @@ static int allnode_mutual_cdc_data(int index)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_cdc;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
@@ -463,7 +476,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
@@ -479,7 +492,7 @@ static int allnode_mutual_cdc_data(int index)
 	}
 
 	/* Get original frame(cdc) data */
-	res = core_i2c_read(core_config->slave_i2c_addr, ori, len);
+	res = core_read(core_config->slave_i2c_addr, ori, len);
 	if (res < 0) {
 		ipio_err("I2C Read Error while getting original cdc data\n");
 		goto out;
@@ -720,7 +733,7 @@ static void compare_MaxMin_result(int index, int32_t *data)
 
 static int mutual_test(int index)
 {
-	int i = 0, j = 0, x = 0, y = 0, res = 0;
+	int i = 0, j = 0, x = 0, y = 0, res = 0 ,get_frame_cont =1 ;
 
 	ipio_debug(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
 	    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
@@ -753,7 +766,10 @@ static int mutual_test(int index)
 		}
 	}
 
-	for (i = 0; i < tItems[index].frame_count; i++) {
+             if(tItems[index].catalog != PEAK_TO_PEAK_TEST)
+                get_frame_cont = tItems[index].frame_count;
+
+	for (i = 0; i < get_frame_cont; i++) {
 		res = allnode_mutual_cdc_data(index);
 		if (res < 0) {
 			ipio_err("Failed to initialise CDC data, %d\n", res);
@@ -844,27 +860,22 @@ static void mp_test_init_item(void)
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].catalog == MUTUAL_TEST)
 			tItems[i].do_test = mutual_test;
-
-		if (tItems[i].catalog == TX_RX_DELTA)
+		else if (tItems[i].catalog == TX_RX_DELTA)
 			tItems[i].do_test = mutual_test;
-
-		if (tItems[i].catalog == UNTOUCH_P2P)
+		else if (tItems[i].catalog == UNTOUCH_P2P)
 			tItems[i].do_test = mutual_test;
-
-		if (tItems[i].catalog == PIXEL)
+		else if (tItems[i].catalog == PIXEL)
 			tItems[i].do_test = mutual_test;
-
-		if (tItems[i].catalog == OPEN_TEST)
+		else if (tItems[i].catalog == OPEN_TEST)
 			tItems[i].do_test = mutual_test;
-
-		if (tItems[i].catalog == KEY_TEST)
+		else if (tItems[i].catalog == KEY_TEST)
 			tItems[i].do_test = key_test;
-
-		if (tItems[i].catalog == SELF_TEST)
+		else if (tItems[i].catalog == SELF_TEST)
 			tItems[i].do_test = self_test;
-
-		if (tItems[i].catalog == ST_TEST)
+		else if (tItems[i].catalog == ST_TEST)
 			tItems[i].do_test = st_test;
+		else if (tItems[i].catalog == PEAK_TO_PEAK_TEST)
+			tItems[i].do_test = mutual_test;              
 
 		tItems[i].result = kmalloc(16, GFP_KERNEL);
         sprintf(tItems[i].result, "%s", "FAIL");
@@ -908,6 +919,8 @@ static void mp_test_init_item(void)
 	tItems[31].cmd = protocol->mutual_has_bk;
 	tItems[32].cmd = protocol->rx_open;
 	tItems[33].cmd = protocol->rx_open;
+	tItems[34].cmd = protocol->peak_to_peak;
+	tItems[35].cmd = protocol->peak_to_peak;        
 }
 
 void core_mp_test_free(void)
@@ -975,7 +988,7 @@ void core_mp_show_result(void)
 			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 
 			pr_info("Min = %d\n",tItems[i].min);
-			csv_len += sprintf(csv + csv_len, "Max = %d", tItems[i].max);
+			csv_len += sprintf(csv + csv_len, "Min = %d", tItems[i].min);
 
 			pr_info("\n");
 			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
@@ -1147,6 +1160,10 @@ void core_mp_run_test(char *item, bool ini)
 			if (ini) {
 				core_parser_get_int_data(item, "Enable", str);
 				tItems[i].run = katoi(str);
+				core_parser_get_int_data(item, "SPEC Option", str);
+				tItems[i].spec_option= katoi(str);
+ 				core_parser_get_int_data(item, "Frame Count", str);
+				tItems[i].frame_count= katoi(str);                               
 
 				/* Get threshold from ini structure in parser */
 				if (strcmp(item, "Tx/Rx Delta") == 0) {
@@ -1188,7 +1205,9 @@ EXPORT_SYMBOL(core_mp_run_test);
 int core_mp_move_code(void)
 {
 	ipio_info("Prepaing to enter Test Mode\n");
-
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_tp_hw_reset(true);
+#else
 	if (core_config_check_cdc_busy(50) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
@@ -1218,7 +1237,7 @@ int core_mp_move_code(void)
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
-
+#endif
 	ipio_info("FW Test Mode ready\n");
 	return 0;
 }

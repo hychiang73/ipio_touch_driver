@@ -77,7 +77,7 @@ struct core_fr_data *core_fr = NULL;
  * @pMsg: packet come from firmware
  * @nLength : the length of its packet
  */
-static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
+uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
 {
 	int i;
 	int32_t nCheckSum = 0;
@@ -134,7 +134,7 @@ static void i2cuart_recv_packet(void)
 		}
 
 		g_total_len += g_fr_uart->len;
-		res = core_i2c_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
+		res = core_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
 		if (res < 0)
 			ipio_err("Failed to read finger report packet\n");
 	}
@@ -347,7 +347,7 @@ static int finger_report_ver_5_0(void)
 #ifdef I2C_SEGMENT
 	res = core_i2c_segmental_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #else
-	res = core_i2c_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
+	res = core_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #endif
 	if (res < 0) {
 		ipio_err("Failed to read finger report packet\n");
@@ -466,7 +466,7 @@ void core_fr_mode_control(uint8_t *from_user)
 
 			ipio_info("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x\n", cmd[0], cmd[1], cmd[2]);
 
-			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
+			if ((core_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
 				ipio_err("Failed to switch I2CUART mode\n");
 				goto out;
 			}
@@ -477,7 +477,7 @@ void core_fr_mode_control(uint8_t *from_user)
 
 			ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
+			if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
 				ipio_err("Failed to switch Demo/Debug mode\n");
 				goto out;
 			}
@@ -490,7 +490,7 @@ void core_fr_mode_control(uint8_t *from_user)
 
 			ipio_info("Switch to Test mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
+			if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
 				ipio_err("Failed to switch Test mode\n");
 				goto out;
 			}
@@ -498,9 +498,9 @@ void core_fr_mode_control(uint8_t *from_user)
 			cmd[0] = 0xFE;
 
 			/* Read MP Test information to ensure if fw supports test mode. */
-			core_i2c_write(core_config->slave_i2c_addr, cmd, 1);
+			core_write(core_config->slave_i2c_addr, cmd, 1);
 			mdelay(10);
-			core_i2c_read(core_config->slave_i2c_addr, mp_code, codeLength);
+			core_read(core_config->slave_i2c_addr, mp_code, codeLength);
 
 			for (i = 0; i < codeLength - 1; i++)
 				checksum += mp_code[i];
@@ -512,6 +512,7 @@ void core_fr_mode_control(uint8_t *from_user)
 			}
 
 			/* FW enter to Test Mode */
+			core_fr->actual_fw_mode = mode;
 			if (core_mp_move_code() == 0)
 				core_fr->actual_fw_mode = mode;
 
@@ -657,12 +658,6 @@ void core_fr_handler(void)
 					if (core_fr->isEnableNetlink)
 						netlink_reply_msg(tdata, g_total_len);
 
-					/*
-					 * Usually we use Netlink to communicate with upper layer as a master. However,
-					 * we won't be allowed to do this if a system is user-built or needs a privilege.
-					 * Hence in order to transmit CDC data to APK, we create a node allowing APK
-					 * access this node constantly; in this case, drive looks like a slave.
-					 */
 					if (ipd->debug_node_open) {
 						mutex_lock(&ipd->ilitek_debug_mutex);
 						memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
@@ -694,6 +689,7 @@ void core_fr_handler(void)
 		ipio_err("The figner report was disabled\n");
 		return;
 	}
+	ilitek_platform_enable_irq();
 
 out:
 	ipio_kfree((void **)&tdata);
@@ -752,7 +748,7 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 #endif /* PT_MTK */
-
+	ipio_info("\n");
 	if (core_fr->isEnablePressure)
 		input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
 
@@ -765,13 +761,13 @@ void core_fr_input_set_param(struct input_dev *input_device)
 #else
 	input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
 #endif /* MT_B_TYPE */
-
+	ipio_info("\n");
 	/* Set up virtual key with gesture code */
 	core_gesture_init(core_fr);
 }
 EXPORT_SYMBOL(core_fr_input_set_param);
 
-int core_fr_init(struct i2c_client *pClient)
+int core_fr_init(void)
 {
 	int i = 0;
 

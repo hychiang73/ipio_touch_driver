@@ -25,6 +25,8 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
+#define OPEN_BENCHMARK 1
+
 struct mp_test_items {
 	char *name;
 	/* The description must be the same as ini's section name */
@@ -32,6 +34,7 @@ struct mp_test_items {
 	char *result;
 	int catalog;
 	uint8_t cmd;
+	uint8_t spec_option;        
 	bool run;
 	int max;
 	int min;
@@ -86,5 +89,5 @@ extern void core_mp_show_result(void);
 extern void core_mp_run_test(char *item, bool ini);
 extern int core_mp_move_code(void);
 extern int core_mp_init(void);
-
+extern void ilitek_platform_tp_hw_reset(bool isEnable);
 #endif

@@ -69,6 +69,7 @@
 #include <linux/dma-mapping.h>
 
 #include <linux/gpio.h>
+#include <linux/spi/spi.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_address.h>
@@ -102,8 +103,12 @@
 #define PT_SPRD	3
 #define TP_PLATFORM PT_QCOM
 
+/* A interface currently supported by driver */
+#define I2C_INTERFACE 1
+#define SPI_INTERFACE 2
+#define INTERFACE SPI_INTERFACE
 /* Driver version */
-#define DRIVER_VERSION	"1.0.2.0"
+#define DRIVER_VERSION	"1.0.2.2"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
@@ -158,6 +163,18 @@ extern uint32_t ipio_chip_list[2];
 #define MAX_HEX_FILE_SIZE			(160*1024)
 #define MAX_FLASH_FIRMWARE_SIZE		(256*1024)
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
+#define HOST_DOWNLOAD
+#ifdef HOST_DOWNLOAD
+	#define MAX_AP_FIRMWARE_SIZE		(64*1024)
+	#define MAX_DLM_FIRMWARE_SIZE		(3*1024)
+	#define MAX_MP_FIRMWARE_SIZE		(64*1024)
+	#define DLM_START_ADDRESS 			0x20610
+	#define DLM_HEX_ADDRESS 			0x10000
+	#define MP_HEX_ADDRESS	 			0x13000
+	#define SPI_UPGRADE_LEN	 			2048
+	#define FW_HEX_PATH					"/mnt/sdcard/hostdownload.hex"
+#endif
+
 
 /* ILI7807 Series */
 enum ili7881_types
@@ -210,7 +227,7 @@ enum ili9881_types
 #define MT_B_TYPE
 
 /* Enable the support of regulator power. */
-#define REGULATOR_POWER_ON
+//#define REGULATOR_POWER_ON
 
 /* Either an interrupt event handled by kthread or work queue. */
 #define USE_KTHREAD

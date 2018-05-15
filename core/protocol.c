@@ -24,6 +24,7 @@
 #include "../common.h"
 #include "config.h"
 #include "i2c.h"
+#include "spi.h"
 #include "protocol.h"
 
 #define FUNC_NUM    20
@@ -38,6 +39,24 @@ struct DataItem {
 struct DataItem *hashArray[FUNC_NUM];
 struct protocol_cmd_list *protocol = NULL;
 
+int core_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
+{
+#if (INTERFACE == I2C_INTERFACE)
+	return core_i2c_write(nSlaveId, pBuf, nSize);
+#elif (INTERFACE == SPI_INTERFACE)
+	return core_spi_write(pBuf, nSize);
+#endif
+}
+EXPORT_SYMBOL(core_write);
+int core_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
+{
+#if (INTERFACE == I2C_INTERFACE)
+	return core_i2c_read(nSlaveId, pBuf, nSize);
+#elif (INTERFACE == SPI_INTERFACE)
+	return core_spi_read(pBuf, nSize);
+#endif
+}
+EXPORT_SYMBOL(core_read);
 static int hashCode(int key)
 {
 	return key % FUNC_NUM;
@@ -292,6 +311,7 @@ static void config_protocol_v5_cmd(void)
 	protocol->self_integra_time = 0x23;
 	protocol->key_integra_time = 0x24;
 	protocol->st_integra_time = 0x25;
+	protocol->peak_to_peak = 0x1D;
 }
 
 void core_protocol_func_control(int key, int ctrl)

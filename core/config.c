@@ -129,13 +129,13 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
 	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	res = core_write(core_config->slave_i2c_addr, szOutBuf, 4);
 	if (res < 0)
 		goto out;
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
+	res = core_read(core_config->slave_i2c_addr, szOutBuf, 1);
 	if (res < 0)
 		goto out;
 
@@ -160,13 +160,13 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
 	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	res = core_write(core_config->slave_i2c_addr, szOutBuf, 4);
 	if (res < 0)
 		goto out;
 
 	mdelay(10);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
+	res = core_read(core_config->slave_i2c_addr, szOutBuf, 4);
 	if (res < 0)
 		goto out;
 
@@ -179,6 +179,7 @@ out:
 	return res;
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
+
 
 /*
  * Write commands into firmware in ICE Mode.
@@ -198,7 +199,7 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 		szOutBuf[i + 4] = (char)(data >> (8 * i));
 	}
 
-	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
+	res = core_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
 
 	if (res < 0)
 		ipio_err("Failed to write data in ICE mode, res = %d\n", res);
@@ -216,7 +217,7 @@ EXPORT_SYMBOL(core_config_ice_mode_write);
 void core_config_ic_reset(void)
 {
 	uint32_t key = 0;
-
+#ifdef HOST_DOWNLOAD
 	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
 		if (core_config->chip_type == ILI7807_TYPE_H)
 			key = 0x00117807;
@@ -235,6 +236,7 @@ void core_config_ic_reset(void)
 	}
 
 	msleep(300);
+#endif
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
@@ -443,23 +445,24 @@ EXPORT_SYMBOL(core_config_ic_resume);
 
 int core_config_ice_mode_disable(void)
 {
+	uint32_t res = 0;
 	uint8_t cmd[4];
-
 	cmd[0] = 0x1b;
 	cmd[1] = 0x62;
 	cmd[2] = 0x10;
 	cmd[3] = 0x18;
 
 	ipio_info("ICE Mode disabled\n")
-
-	return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
+	res = core_write(core_config->slave_i2c_addr, cmd, 4);
+	core_config->icemodeenable = false;
+	return res;
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
 int core_config_ice_mode_enable(void)
 {
 	ipio_info("ICE Mode enabled\n");
-
+	core_config->icemodeenable = true;
 	if (core_config_ice_mode_write(0x181062, 0x0, 0) < 0)
 		return -1;
 
@@ -488,11 +491,11 @@ int core_config_check_cdc_busy(int delay)
 	cmd[1] = protocol->cmd_cdc_busy;
 
 	while (timer > 0) {
-		core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+		core_write(core_config->slave_i2c_addr, cmd, 2);
 		mdelay(1);
-		core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+		core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		mdelay(1);
-		core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
+		core_read(core_config->slave_i2c_addr, &busy, 1);
 		ipio_debug(DEBUG_CONFIG, "CDC busy state = 0x%x\n", busy);
 		if (busy == 0x41 || busy == 0x51) {
 			res = 0;
@@ -515,7 +518,7 @@ int core_config_get_key_info(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_key_info;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -523,7 +526,7 @@ int core_config_get_key_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -531,7 +534,7 @@ int core_config_get_key_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
 	if (res < 0) {
 		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
@@ -571,7 +574,7 @@ int core_config_get_tp_info(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_tp_info;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -579,7 +582,7 @@ int core_config_get_tp_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -587,7 +590,7 @@ int core_config_get_tp_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
 	if (res < 0) {
 		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
@@ -635,7 +638,7 @@ int core_config_get_protocol_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_pro_ver;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -643,7 +646,7 @@ int core_config_get_protocol_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -651,7 +654,7 @@ int core_config_get_protocol_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
 	if (res < 0) {
 		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
@@ -690,7 +693,7 @@ int core_config_get_core_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_core_ver;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -698,7 +701,7 @@ int core_config_get_core_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -706,7 +709,7 @@ int core_config_get_core_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
 	if (res < 0) {
 		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
@@ -739,7 +742,7 @@ int core_config_get_fw_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_fw_ver;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -747,7 +750,7 @@ int core_config_get_fw_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -755,7 +758,7 @@ int core_config_get_fw_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->fw_ver_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->fw_ver_len);
 	if (res < 0) {
 		ipio_err("Failed to read fw version %d\n", res);
 		goto out;

@@ -85,6 +85,8 @@ struct ilitek_platform_data {
 	unsigned char debug_buf[1024][2048];
 	struct mutex ilitek_debug_mutex;
 	struct mutex ilitek_debug_read_mutex;
+
+	struct spi_device *spi;
 };
 
 extern struct ilitek_platform_data *ipd;

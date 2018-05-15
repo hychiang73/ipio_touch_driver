@@ -38,6 +38,8 @@
 #include "i2c.h"
 #include "firmware.h"
 #include "flash.h"
+#include "protocol.h"
+#include "finger_report.h"
 
 #ifdef BOOT_FW_UPGRADE
 #include "ilitek_fw.h"
@@ -45,14 +47,20 @@
 
 extern uint32_t SUP_CHIP_LIST[];
 extern int nums_chip;
-
+extern struct core_fr_data *core_fr;
 /*
  * the size of two arrays is different depending on
  * which of methods to upgrade firmware you choose for.
  */
 uint8_t *flash_fw = NULL;
-uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = { 0 };
 
+//#ifdef HOST_DOWNLOAD
+uint8_t ap_fw[MAX_AP_FIRMWARE_SIZE] = { 0 };
+uint8_t dlm_fw[MAX_DLM_FIRMWARE_SIZE] = { 0 };
+uint8_t mp_fw[MAX_MP_FIRMWARE_SIZE] = { 0 };
+//#else
+uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = { 0 };
+//#endif
 /* the length of array in each sector */
 int g_section_len = 0;
 int g_total_sector = 0;
@@ -326,7 +334,7 @@ static int do_program_flash(uint32_t start_addr)
 			buf[4 + k] = 0xFF;
 	}
 
-	if (core_i2c_write(core_config->slave_i2c_addr, buf, flashtab->program_page + 4) < 0) {
+	if (core_write(core_config->slave_i2c_addr, buf, flashtab->program_page + 4) < 0) {
 		ipio_err("Failed to write data at start_addr = 0x%X, k = 0x%X, addr = 0x%x\n",
 			start_addr, k, start_addr + k);
 		res = -EIO;
@@ -499,7 +507,7 @@ static int iram_upgrade(void)
 		for (j = 0; j < upl; j++)
 			buf[4 + j] = iram_fw[i + j];
 
-		if (core_i2c_write(core_config->slave_i2c_addr, buf, upl + 4)) {
+		if (core_write(core_config->slave_i2c_addr, buf, upl + 4)) {
 			ipio_err("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X\n",
 				(int)i, (int)core_firmware->start_addr, (int)core_firmware->end_addr);
 			res = -EIO;
@@ -525,6 +533,197 @@ static int iram_upgrade(void)
 
 	return res;
 }
+
+int host_download(bool isIRAM)
+{
+	int i, j, res = 0, update_status = 0;
+	uint8_t *buf, *read_ap_buf, *read_dlm_buf, *read_mp_buf;
+	int upl = SPI_UPGRADE_LEN;
+
+    read_ap_buf = (uint8_t*)kmalloc(MAX_AP_FIRMWARE_SIZE, GFP_KERNEL);   
+	memset(read_ap_buf, 0xFF, MAX_AP_FIRMWARE_SIZE);
+    read_dlm_buf = (uint8_t*)kmalloc(MAX_DLM_FIRMWARE_SIZE, GFP_KERNEL);   
+	memset(read_dlm_buf, 0xFF, MAX_DLM_FIRMWARE_SIZE);
+    read_mp_buf = (uint8_t*)kmalloc(MAX_MP_FIRMWARE_SIZE, GFP_KERNEL);   
+	memset(read_mp_buf, 0xFF, MAX_MP_FIRMWARE_SIZE);
+    buf = (uint8_t*)kmalloc(sizeof(uint8_t)*0x10000+4, GFP_KERNEL);   
+	memset(buf, 0xFF, (int)sizeof(uint8_t) * 0x10000+4);
+
+	ipio_info("Upgrade firmware written data into AP code directly\n");
+	res = core_config_ice_mode_enable();
+	if (res < 0) {
+		ipio_err("Failed to enter ICE mode, res = %d\n", res);
+		return res;
+	}
+	
+	mdelay(20);
+	core_config_ice_mode_read(core_config->pid_addr);
+	ipio_debug(DEBUG_FIRMWARE, "nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X\n",
+	    core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
+	core_config_ice_mode_write(0x5100C, 0x81, 1);
+	core_config_ice_mode_write(0x5100C, 0x98, 1);
+	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
+	{
+		/* write hex to the addr of MP code */
+		ipio_info("Writing data into MP code ...\n");
+		for (i = 0; i < MAX_MP_FIRMWARE_SIZE; i += upl) {
+
+			buf[0] = 0x25;
+			buf[3] = (char)((i & 0x00FF0000) >> 16);
+			buf[2] = (char)((i & 0x0000FF00) >> 8);
+			buf[1] = (char)((i & 0x000000FF));
+
+			for (j = 0; j < upl; j++)
+				buf[4 + j] = mp_fw[i + j];
+
+			if (core_write(core_config->slave_i2c_addr, buf, upl + 4)) {
+				ipio_err("Failed to write data via SPI, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X\n",
+					(int)i, 0, MAX_MP_FIRMWARE_SIZE);
+				res = -EIO;
+				return res;
+			}
+
+			update_status = (i * 101) / MAX_MP_FIRMWARE_SIZE;
+			printk("%cupgrade firmware(mp code), %02d%c", 0x0D, update_status, '%');
+		}
+		/* Check AP mode Buffer data */
+		// inital upgrade lenght
+		upl = SPI_UPGRADE_LEN;
+		for (i = 0; i < MAX_MP_FIRMWARE_SIZE; i += upl) {
+			if ((i + SPI_UPGRADE_LEN) > MAX_MP_FIRMWARE_SIZE) {
+				upl = MAX_MP_FIRMWARE_SIZE % upl;
+			}
+			
+			buf[0] = 0x25;
+			buf[3] = (char)((i & 0x00FF0000) >> 16);
+			buf[2] = (char)((i & 0x0000FF00) >> 8);
+			buf[1] = (char)((i & 0x000000FF));
+			if (core_write(core_config->slave_i2c_addr, buf, 4)) {
+				ipio_err("Failed to write data via SPI\n");
+				res = -EIO;
+				return res;
+			}
+			res = core_read(core_config->slave_i2c_addr, buf, upl); 
+			memcpy(read_mp_buf + i, buf, upl);
+		}
+		if(memcmp(mp_fw, read_mp_buf, MAX_MP_FIRMWARE_SIZE) == 0)
+		{
+			ipio_info("Check MP Mode upgrade: PASS\n");	
+		}
+		else
+		{
+			ipio_info("Check MP Mode upgrade: FAIL\n");
+		}
+
+	}
+	else
+	{
+		/* write hex to the addr of AP code */
+		ipio_info("Writing data into AP code ...\n");
+		for (i = 0; i < MAX_AP_FIRMWARE_SIZE; i += upl) {
+
+			buf[0] = 0x25;
+			buf[3] = (char)((i & 0x00FF0000) >> 16);
+			buf[2] = (char)((i & 0x0000FF00) >> 8);
+			buf[1] = (char)((i & 0x000000FF));
+
+			for (j = 0; j < upl; j++)
+				buf[4 + j] = ap_fw[i + j];
+
+			if (core_write(core_config->slave_i2c_addr, buf, upl + 4)) {
+				ipio_err("Failed to write data via SPI, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X\n",
+					(int)i, 0, MAX_AP_FIRMWARE_SIZE);
+				res = -EIO;
+				return res;
+			}
+
+			update_status = (i * 101) / MAX_AP_FIRMWARE_SIZE;
+			printk("%cupgrade firmware(ap code), %02d%c", 0x0D, update_status, '%');
+		}
+		/* write hex to the addr of DLM code */
+		ipio_info("Writing data into DLM code ...\n");
+		// inital upgrade lenght
+		upl = SPI_UPGRADE_LEN;
+		for (i = 0; i < MAX_DLM_FIRMWARE_SIZE; i += upl) {
+			if ((i + SPI_UPGRADE_LEN) > MAX_DLM_FIRMWARE_SIZE) {
+				upl = MAX_DLM_FIRMWARE_SIZE % upl;
+			}
+			
+			buf[0] = 0x25;
+			buf[3] = (char)(((i+DLM_START_ADDRESS) & 0x00FF0000) >> 16);
+			buf[2] = (char)(((i+DLM_START_ADDRESS) & 0x0000FF00) >> 8);
+			buf[1] = (char)((i+DLM_START_ADDRESS) & 0x000000FF);
+			for (j = 0; j < upl; j++)
+				buf[4 + j] = dlm_fw[i + j];
+			if (core_write(core_config->slave_i2c_addr, buf, upl + 4)) {
+				ipio_err("Failed to write data via SPI\n");
+				res = -EIO;
+				return res;
+			}
+		}
+		/* Check AP mode Buffer data */
+		// inital upgrade lenght
+		upl = SPI_UPGRADE_LEN;
+		for (i = 0; i < MAX_AP_FIRMWARE_SIZE; i += upl) {
+			if ((i + SPI_UPGRADE_LEN) > MAX_AP_FIRMWARE_SIZE) {
+				upl = MAX_AP_FIRMWARE_SIZE % upl;
+			}
+			
+			buf[0] = 0x25;
+			buf[3] = (char)((i & 0x00FF0000) >> 16);
+			buf[2] = (char)((i & 0x0000FF00) >> 8);
+			buf[1] = (char)(i & 0x000000FF);
+			if (core_write(core_config->slave_i2c_addr, buf, 4)) {
+				ipio_err("Failed to write data via SPI\n");
+				res = -EIO;
+				return res;
+			}
+			res = core_read(core_config->slave_i2c_addr, buf, upl); 
+			memcpy(read_ap_buf + i, buf, upl);
+		}
+		if(memcmp(ap_fw, read_ap_buf, MAX_AP_FIRMWARE_SIZE) == 0)
+		{
+			ipio_info("Check AP Mode upgrade: PASS\n");	
+		}
+		else
+		{
+			ipio_info("Check AP Mode upgrade: FAIL\n");
+		}
+		/* Check DLM mode Buffer data */
+		buf[0] = 0x25;
+		buf[3] = (char)(((DLM_START_ADDRESS) & 0x00FF0000) >> 16);
+		buf[2] = (char)(((DLM_START_ADDRESS) & 0x0000FF00) >> 8);
+		buf[1] = (char)(((DLM_START_ADDRESS) & 0x000000FF));
+		if (core_write(core_config->slave_i2c_addr, buf, 4)) {
+			ipio_err("Failed to write data via SPI, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X\n",
+				(int)i, 0, MAX_DLM_FIRMWARE_SIZE);
+			res = -EIO;
+			return res;
+		}
+		res = core_read(core_config->slave_i2c_addr, read_dlm_buf, MAX_DLM_FIRMWARE_SIZE); 
+		if(memcmp(dlm_fw, read_dlm_buf, MAX_DLM_FIRMWARE_SIZE) == 0)
+		{
+			ipio_info("Check DLM Mode upgrade: PASS\n");
+		}
+		else
+		{
+			ipio_info("Check DLM Mode upgrade: FAIL\n");
+		}
+	}
+	/* ice mode code reset */
+	ipio_info("Doing code reset ...\n");
+	core_config_ice_mode_write(0x40040, 0xAE, 1);
+
+	mdelay(10);
+	core_config_ice_mode_disable();
+	mdelay(1000);
+	kfree(buf);
+	kfree(read_ap_buf);
+	kfree(read_dlm_buf);
+	kfree(read_mp_buf);
+	return res;
+}
+EXPORT_SYMBOL(host_download);
 
 static int tddi_fw_upgrade(bool isIRAM)
 {
@@ -832,15 +1031,20 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	uint32_t nStartAddr = 0x0, nEndAddr = 0x0, nChecksum = 0x0, nExAddr = 0;
 	uint32_t tmp_addr = 0x0;
 	int index = 0, block = 0;
-
+	ipio_info("\n");
 	core_firmware->start_addr = 0;
+	ipio_info("\n");
 	core_firmware->end_addr = 0;
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
 	core_firmware->hasBlockInfo = false;
-
+	ipio_info("\n");
 	memset(g_flash_block_info, 0x0, sizeof(g_flash_block_info));
-
+#ifdef HOST_DOWNLOAD
+	memset(ap_fw, 0xFF, sizeof(ap_fw));
+	memset(dlm_fw, 0xFF, sizeof(dlm_fw));
+	memset(mp_fw, 0xFF, sizeof(mp_fw));
+#endif
 	/* Parsing HEX file */
 	for (; i < nSize;) {
 		int32_t nOffset;
@@ -897,11 +1101,28 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			if ((nAddr + nLength) > nEndAddr) {
 				nEndAddr = nAddr + nLength;
 			}
-
+			
 			/* fill data */
 			for (j = 0, k = 0; j < (nLength * 2); j += 2, k++) {
 				if (isIRAM)
+				{
+					#ifdef HOST_DOWNLOAD
+					if(nAddr < 0x10000)
+					{
+						ap_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					}
+					else if(nAddr >= DLM_HEX_ADDRESS && nAddr < 0x10C00)
+					{
+						dlm_fw[nAddr - DLM_HEX_ADDRESS + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					}
+					else if(nAddr >= MP_HEX_ADDRESS)
+					{
+						mp_fw[nAddr - MP_HEX_ADDRESS + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					}
+					#else	
 					iram_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					#endif
+				}				
 				else {
 					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 
@@ -922,7 +1143,26 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		}
 		i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;
 	}
-
+	// for (i = 0; i < MAX_AP_FIRMWARE_SIZE;) {
+	// 	if(i%16 == 0)
+	// 		printk("0x%4x:", i);
+	// 	printk("0x%2x,", ap_fw[i]);
+	// 	i++;
+	// 	if( i%16 == 0)
+	// 		printk("\n");
+	// }
+	// for (i = 0; i < MAX_DLM_FIRMWARE_SIZE;) {
+	// 	if(i%16 == 0)
+	// 		printk("0x%4x:", i);
+	// 	printk("0x%2x,", dlm_fw[i]);
+	// 	i++;
+	// 	if( i%16 == 0)
+	// 		printk("\n");
+	// }
+	#ifdef HOST_DOWNLOAD
+		return 0;
+	#endif
+	ipio_info("\n");
 	/* Update the length of section */
 	g_section_len = index;
 
@@ -952,7 +1192,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			}
 		}
 	}
-
+	ipio_info("\n");
 	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for (i = 0; i < g_total_sector; i++) {
 		ipio_debug(DEBUG_FIRMWARE,
@@ -1012,16 +1252,10 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		res = -EINVAL;
 		goto out;
 	}
-
+	ipio_info("\n");
+#ifndef HOST_DOWNLOAD
 	if (flashtab == NULL) {
 		ipio_err("Flash table isn't created\n");
-		res = -ENOMEM;
-		goto out;
-	}
-
-	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(hex_buffer)) {
-		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
 		res = -ENOMEM;
 		goto out;
 	}
@@ -1048,7 +1282,15 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		res = -ENOMEM;
 		goto out;
 	}
-
+#endif
+	ipio_info("\n");
+	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(hex_buffer)) {
+		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
+		res = -ENOMEM;
+		goto out;
+	}
+	ipio_info("\n");
 	/* store current userspace mem segment. */
 	old_fs = get_fs();
 
@@ -1060,7 +1302,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 	/* restore userspace mem segment after read. */
 	set_fs(old_fs);
-
+	ipio_info("\n");
 	res = convert_hex_file(hex_buffer, fsize, isIRAM);
 	if (res < 0) {
 		ipio_err("Failed to covert firmware data, res = %d\n", res);
@@ -1124,7 +1366,8 @@ int core_firmware_init(void)
 			} else if (ipio_chip_list[i] == CHIP_TYPE_ILI9881) {
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;
-				core_firmware->upgrade_func = tddi_fw_upgrade;
+				//core_firmware->upgrade_func = tddi_fw_upgrade;
+				core_firmware->upgrade_func = host_download;
 				core_firmware->delay_after_upgrade = 200;
 			}
 			return 0;
