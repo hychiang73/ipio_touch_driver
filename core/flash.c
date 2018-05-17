@@ -26,15 +26,21 @@
 #include "config.h"
 #include "flash.h"
 
+#define K (1024)
+#define M (K * K)
+
 /*
  * The table contains fundamental data used to program our flash, which
  * would be different according to the vendors.
  */
 struct flash_table ft[] = {
-	{0xEF, 0x6011, (128 * 1024), 256, (4 * 1024), (64 * 1024)},	/*  W25Q10EW  */
-	{0xEF, 0x6012, (256 * 1024), 256, (4 * 1024), (64 * 1024)},	/*  W25Q20EW  */
-	{0xC8, 0x6012, (256 * 1024), 256, (4 * 1024), (64 * 1024)},	/*  GD25LQ20B */
-	{0xC8, 0x6013, (512 * 1024), 256, (4 * 1024), (64 * 1024)},	/*  GD25LQ40 */
+	{0xEF, 0x6011, (128 * K), 256, (4 * K), (64 * K)},	/*  W25Q10EW  */
+	{0xEF, 0x6012, (256 * K), 256, (4 * K), (64 * K)},	/*  W25Q20EW  */
+	{0xC8, 0x6012, (256 * K), 256, (4 * K), (64 * K)},	/*  GD25LQ20B */
+	{0xC8, 0x6013, (512 * K), 256, (4 * K), (64 * K)},	/*  GD25LQ40 */
+	{0x85, 0x6013, (4 * M), 256, (4 * K), (64 * K)},
+	{0xC2, 0x2812, (256 * K), 256, (4 * K), (64 * K)},
+	{0x1C, 0x3812, (256 * K), 256, (4 * K), (64 * K)},
 };
 
 struct flash_table *flashtab = NULL;
@@ -160,10 +166,10 @@ void core_flash_init(uint16_t mid, uint16_t did)
 		ipio_err("Can't find them in flash table, apply default flash config\n");
 		flashtab->mid = mid;
 		flashtab->dev_id = did;
-		flashtab->mem_size = (256 * 1024);
+		flashtab->mem_size = (256 * K);
 		flashtab->program_page = 256;
-		flashtab->sector = (4 * 1024);
-		flashtab->block = (64 * 1024);
+		flashtab->sector = (4 * K);
+		flashtab->block = (64 * K);
 	}
 
 	ipio_info("Max Memory size = %d\n", flashtab->mem_size);
