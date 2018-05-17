@@ -414,10 +414,10 @@ static void ilitek_platform_work_queue(struct work_struct *work)
 {
 	ipio_debug(DEBUG_IRQ, "work_queue: IRQ = %d\n", ipd->isEnableIRQ);
 
+	core_fr_handler();
+
 	if (!ipd->isEnableIRQ)
 		ilitek_platform_enable_irq();
-
-	core_fr_handler();
 }
 #endif /* USE_KTHREAD */
 
@@ -495,6 +495,7 @@ out:
 #endif /* PT_MTK */
 }
 
+#ifdef USE_KTHREAD
 static int kthread_handler(void *arg)
 {
 	int res = 0;
@@ -529,8 +530,8 @@ static int kthread_handler(void *arg)
 			ipd->irq_trigger = false;
 			set_current_state(TASK_RUNNING);
 			ipio_debug(DEBUG_IRQ, "kthread: after->irq_trigger = %d\n", ipd->irq_trigger);
-			ilitek_platform_enable_irq();
 			core_fr_handler();
+			ilitek_platform_enable_irq();
 		}
 	} else {
 		ipio_err("Unknown EVENT\n");
@@ -538,6 +539,7 @@ static int kthread_handler(void *arg)
 
 	return res;
 }
+#endif
 
 static int ilitek_platform_isr_register(void)
 {

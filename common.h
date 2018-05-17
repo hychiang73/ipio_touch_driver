@@ -230,7 +230,7 @@ enum ili9881_types
 //#define REGULATOR_POWER_ON
 
 /* Either an interrupt event handled by kthread or work queue. */
-#define USE_KTHREAD
+//#define USE_KTHREAD
 
 /* Enable DMA with I2C. */
 /* #define I2C_DMA */
