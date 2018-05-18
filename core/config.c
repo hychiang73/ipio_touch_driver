@@ -437,9 +437,10 @@ void core_config_ic_resume(void)
 	core_config_sense_ctrl(true);
 
 	/* Soft reset */
-	core_config_ice_mode_enable();
-	mdelay(10);
-	core_config_ic_reset();
+	// core_config_ice_mode_enable();
+	// mdelay(10);
+	// core_config_ic_reset();
+	ilitek_platform_tp_hw_reset(true);
 
 	ipio_info("Resume done\n");
 }

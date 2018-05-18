@@ -104,7 +104,9 @@ EXPORT_SYMBOL(ilitek_platform_enable_irq);
 void ilitek_platform_tp_hw_reset(bool isEnable)
 {
 	ipio_info("HW Reset: %d\n", isEnable);
+
 	ilitek_platform_disable_irq();
+
 	if (isEnable) {
 #if (TP_PLATFORM == PT_MTK)
 		tpd_gpio_output(ipd->reset_gpio, 1);
@@ -128,9 +130,10 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 		gpio_set_value(ipd->reset_gpio, 0);
 #endif /* PT_MTK */
 	}
-	#ifdef HOST_DOWNLOAD
-		core_firmware_upgrade(UPDATE_FW_PATH, true);
-	#endif
+
+#ifdef HOST_DOWNLOAD
+	core_firmware_upgrade(UPDATE_FW_PATH, true);
+#endif
 	ilitek_platform_enable_irq();
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
@@ -269,7 +272,7 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned lon
 	 *  FB_EVENT_BLANK(0x09): A hardware display blank change occurred.
 	 *  FB_EARLY_EVENT_BLANK(0x10): A hardware display blank early change occurred.
 	 */
-	if (evdata && evdata->data && (event == FB_EVENT_BLANK || event == FB_EARLY_EVENT_BLANK)) {
+	if (evdata && evdata->data && (event == FB_EVENT_BLANK)) {
 		blank = evdata->data;
 
 #if (TP_PLATFORM == PT_SPRD)
