@@ -1361,6 +1361,9 @@ int core_mp_move_code(void)
 		return -1;
 	}
 
+	/* Disable watch dog */
+	core_config_reset_watch_dog();
+
 	/* DMA Trigger */
 	core_config_ice_mode_write(0x41010, 0xFF, 1);
 

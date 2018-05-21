@@ -472,14 +472,17 @@ int core_config_ice_mode_enable(void)
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 
-int core_config_reset_watch_dog(void)
+void core_config_reset_watch_dog(void)
 {
 	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
 		core_config_ice_mode_write(0x5100C, 0x7, 1);
 		core_config_ice_mode_write(0x5100C, 0x78, 1);
+	} else if (core_config->chip_id == CHIP_TYPE_ILI9881 ) {
+		core_config_ice_mode_write(0x05100C, 0x81, 1);
+		core_config_ice_mode_write(0x05100C, 0x98, 1);
+	} else {
+		ipio_err("Unknown CHIP type (0x%x)\n",core_config->chip_id);
 	}
-
-	return 0;
 }
 EXPORT_SYMBOL(core_config_reset_watch_dog);
 
@@ -509,6 +512,72 @@ int core_config_check_cdc_busy(int delay)
 	return res;
 }
 EXPORT_SYMBOL(core_config_check_cdc_busy);
+
+int core_config_check_int_status(bool high)
+{
+	int timer = 50, res = -1
+
+	while (timer) {
+		ipio_debug(DEBUG_CONFIG, "int gpio = %d\n", gpio_get_value(ipd->int_gpio));
+		if(high) {
+			if (gpio_get_value(ipd->int_gpio)) {
+				res = 0;
+				break;
+			}
+		} else {
+			if (!gpio_get_value(ipd->int_gpio)) {
+				res = 0;
+				break;
+			}
+		}
+
+		mdelay(10);
+		timer--;
+	}
+
+	return res;
+}
+EXPORT_SYMBOL(core_config_check_int_status);
+
+int core_config_get_project_id(uint8_t *pid_data)
+{
+	int i = 0, res = 0;
+	uint32_t pid_addr = 0x1D000, pid_size = 10;
+
+	res = core_config_ice_mode_enable();
+	if (res < 0) {
+		ipio_err("Failed to enter ICE mode, res = %d\n", res);
+		return -1;
+	}
+
+	/* Disable watch dog */
+	core_config_reset_watch_dog();
+
+	core_config_ice_mode_write(0x041000, 0x0, 1);   /* CS low */
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);  /* Key */
+
+	core_config_ice_mode_write(0x041008, 0x06, 1);
+	core_config_ice_mode_write(0x041000, 0x01, 1);
+	core_config_ice_mode_write(0x041000, 0x00, 1);
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);  /* Key */
+	core_config_ice_mode_write(0x041008, 0x03, 1);
+
+	core_config_ice_mode_write(0x041008, (pid_addr & 0xFF0000) >> 16, 1);
+	core_config_ice_mode_write(0x041008, (pid_addr & 0x00FF00) >> 8, 1);
+	core_config_ice_mode_write(0x041008, (pid_addr & 0x0000FF), 1);
+
+	for(i = 0; i < pid_size; i++) {
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+		pid_data[i] = core_config_ice_mode_read(0x41010);
+		ipio_info("pid_data[%d] = 0x%x\n", i, pid_data[i]);
+	}
+
+	core_config_ice_mode_write(0x041010, 0x1, 0);   /* CS high */
+	core_config_ic_reset();
+
+	return res;
+}
+EXPORT_SYMBOL(core_config_get_project_id);
 
 int core_config_get_key_info(void)
 {

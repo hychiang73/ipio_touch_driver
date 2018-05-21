@@ -340,6 +340,10 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 #ifndef HOST_DOWNLOAD
 	/* Code reset */
 	core_config_ice_mode_enable();
+
+	/* Disable watch dog */
+	core_config_reset_watch_dog();
+
 	core_config_ic_reset();
 #endif
 	/* Switch to Demo mode */
@@ -422,6 +426,10 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	/* Code reset */
 	core_config_ice_mode_enable();
+
+	/* Disable watch dog */
+	core_config_reset_watch_dog();
+
 	core_config_ic_reset();
 
 	/* Switch to Demo mode it prevents if fw fails to be switched */
