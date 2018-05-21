@@ -760,9 +760,8 @@ static int tddi_fw_upgrade(bool isIRAM)
 
 	mdelay(25);
 
-	/* It's not necessary to disable WTD if you're using 9881 */
-	if (core_config->chip_id != CHIP_TYPE_ILI9881)
-		core_config_reset_watch_dog();
+	/* Disable watch dog */
+	core_config_reset_watch_dog();
 
 	/* Disable flash protection from being written */
 	core_flash_enable_protect(false);
@@ -798,8 +797,8 @@ static int tddi_fw_upgrade(bool isIRAM)
 
 	mdelay(20);
 
-	if (core_config->chip_id != CHIP_TYPE_ILI9881)
-		core_config_reset_watch_dog();
+	/* Disable watch dog */
+	core_config_reset_watch_dog();
 
 	/* check the data that we've just written into the iram. */
 	res = verify_flash_data();
