@@ -180,7 +180,6 @@ out:
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
 
-
 /*
  * Write commands into firmware in ICE Mode.
  *

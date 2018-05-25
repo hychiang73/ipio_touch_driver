@@ -239,7 +239,7 @@ enum ili9881_types
 /* #define I2C_SEGMENT */
 
 /* Be able to upgrade fw at boot stage */
-//#define BOOT_FW_UPGRADE 
+/* #define BOOT_FW_UPGRADE */
 
 /* Check battery's status in order to avoid some effects from charge. */
 /* #define BATTERY_CHECK */

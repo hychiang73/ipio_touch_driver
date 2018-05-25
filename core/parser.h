@@ -26,8 +26,9 @@
 #define __PARSER_H
 
 #define BENCHMARK_KEY_NAME "Benchmark_Data"
+#define VALUE 0
 extern int core_parser_get_int_data(char *section, char *keyname, char *rv);
 extern int core_parser_path(char *path);
-extern void open_test_parser_benchmark_data(int32_t* max_ptr, int32_t* min_ptr);
+extern void parser_benchmark_data(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char *desp);
 
 #endif
