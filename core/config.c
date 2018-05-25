@@ -515,7 +515,7 @@ EXPORT_SYMBOL(core_config_check_cdc_busy);
 
 int core_config_check_int_status(bool high)
 {
-	int timer = 50, res = -1
+	int timer = 50, res = -1;
 
 	while (timer) {
 		ipio_debug(DEBUG_CONFIG, "int gpio = %d\n", gpio_get_value(ipd->int_gpio));
