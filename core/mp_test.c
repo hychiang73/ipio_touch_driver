@@ -273,6 +273,7 @@ static void print_benchmark_cdc_data(int index, bool max, bool tx, char *csv, in
 	*csv_len = tmp_len;
         
 }
+
 static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
@@ -407,6 +408,39 @@ static int create_mp_test_frame_buffer(int index)
 	}
 
 	return 0;
+}
+
+static int send_test_cmd(void)
+{
+	int ret = 0;
+	bool low = false;
+	uint8_t cmd[15] = {0};
+
+	/* Check protocol version again */
+	if (protocol->major != 5 && protocol->mid < 4) {
+		ipio_err("The version of protocol is incorrect\n");
+		ret = -1;
+		goto out;
+	}
+
+	/* TODO: get command from ini file */
+
+	ret = core_config_check_int_status(low);
+	if (ret < 0) {
+		ipio_err("Time out for checking INT status\n");
+		goto out;
+	}
+
+	ret = core_write(core_config->slave_i2c_addr, cmd, sizeof(cmd));
+	if (ret < 0) {
+		ipio_err("Failed to send test commands\n");
+		goto out;
+	}
+
+	dump_data(cmd, 8, sizeof(cmd));
+
+out:
+	return ret;
 }
 
 static int allnode_key_cdc_data(int index)
@@ -568,7 +602,7 @@ static int allnode_mutual_cdc_data(int index)
 				cmd[0],cmd[1],cmd[2],cmd[3],cmd[4]);
 	}
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, count);
+	res = core_write(core_config->slave_i2c_addr, cmd, count);
 	if (res < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
