@@ -496,6 +496,7 @@ int core_config_check_cdc_busy(int delay)
 	cmd[1] = protocol->cmd_cdc_busy;
 
 	while (timer > 0) {
+		mdelay(100);
 		core_write(core_config->slave_i2c_addr, cmd, 2);
 		mdelay(1);
 		core_write(core_config->slave_i2c_addr, &cmd[1], 1);
