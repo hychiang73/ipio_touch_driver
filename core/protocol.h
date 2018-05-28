@@ -137,6 +137,7 @@ struct protocol_cmd_list {
 	uint8_t mutual_no_bk;
 	uint8_t mutual_bk_dac;
 	uint8_t mutual_has_bk;
+	uint16_t mutual_has_bk_16;
 
 	uint8_t self_dac;
 	uint8_t self_bk_dac;

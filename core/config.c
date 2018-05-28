@@ -180,7 +180,6 @@ out:
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
 
-
 /*
  * Write commands into firmware in ICE Mode.
  *
@@ -497,6 +496,7 @@ int core_config_check_cdc_busy(int delay)
 	cmd[1] = protocol->cmd_cdc_busy;
 
 	while (timer > 0) {
+		mdelay(100);
 		core_write(core_config->slave_i2c_addr, cmd, 2);
 		mdelay(1);
 		core_write(core_config->slave_i2c_addr, &cmd[1], 1);
@@ -516,7 +516,7 @@ EXPORT_SYMBOL(core_config_check_cdc_busy);
 
 int core_config_check_int_status(bool high)
 {
-	int timer = 50, res = -1
+	int timer = 50, res = -1;
 
 	while (timer) {
 		ipio_debug(DEBUG_CONFIG, "int gpio = %d\n", gpio_get_value(ipd->int_gpio));
