@@ -287,67 +287,54 @@ static int get_ini_key_value(char *section, char *key, char *value)
 	return ret;
 }
 
-void parser_benchmark_data(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char *desp)
+void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char *desp)
 {
-
 	int i = 0, j = 0, index1 =0, temp, count = 0;
 	char str[512] = { 0 }, record = ',';
 	int32_t data[4];
-	
 
 	for (i = 0; i < g_ini_items; i++) {
-
 		if ((strstr(ilitek_ini_file_data[i].pSectionName, desp) <= 0) ||
-			strcmp(ilitek_ini_file_data[i].pKeyName, BENCHMARK_KEY_NAME) != 0) {			
+			strcmp(ilitek_ini_file_data[i].pKeyName, BENCHMARK_KEY_NAME) != 0) {
 				continue;
-			}
+		}
 		
 		record = ',';
-		for(j=0, index1 = 0; j<ilitek_ini_file_data[i].iKeyValueLen; j++){
+		for(j = 0, index1 = 0; j<ilitek_ini_file_data[i].iKeyValueLen; j++) {
+			if(ilitek_ini_file_data[i].pKeyValue[j] == ',' || ilitek_ini_file_data[i].pKeyValue[j] == ';' ||
+				ilitek_ini_file_data[i].pKeyValue[j] == '.'|| j == ilitek_ini_file_data[i].iKeyValueLen - 1) {
 
-			if(ilitek_ini_file_data[i].pKeyValue[j] == ',' || ilitek_ini_file_data[i].pKeyValue[j] == ';' 
-			||ilitek_ini_file_data[i].pKeyValue[j] == '.'|| j == ilitek_ini_file_data[i].iKeyValueLen-1){
+				if(record != '.') {
+					memset(str, 0, sizeof(str));
+					memcpy(str, &ilitek_ini_file_data[i].pKeyValue[index1], (j - index1));
 
-				if(record != '.')
-				{
-					memset(str,0 ,sizeof(str));
-					memcpy(str,&ilitek_ini_file_data[i].pKeyValue[index1], (j -index1));
-					temp=katoi(str);
-					data[count%4] = temp;
+					temp = katoi(str);
+					data[count % 4] = temp;
 
-					if(count%4 == 3){
-						if(data[0] == 1){
-							if(type == VALUE){
+					if (count % 4 == 3) {
+						if (data[0] == 1) {
+							if (type == VALUE) {
 								max_ptr[count/4] = data[1] + data[2];
 								min_ptr[count/4] = data[1] + data[3];
-								//printk("%d, ",data[1]);
+							} else {
+								max_ptr[count/4] = data[1] + (data[1] * data[2]) / 100;
+								min_ptr[count/4] = data[1] - (data[1] * data[3]) / 100;
 							}
-							else{
-								max_ptr[count/4] = data[1] + (data[1]*data[2])/100;
-								min_ptr[count/4] = data[1] - (data[1]*data[3])/100; 
-							}
-						}
-						else{
+						} else {
 							max_ptr[count/4] = 65535;
-							min_ptr[count/4]= -65535; 
+							min_ptr[count/4] = -65535;
 						}
 					}                                        
 					count++;  
 				}
 				record = ilitek_ini_file_data[i].pKeyValue[j];                                       
-				index1 = j+1;    
+				index1 = j + 1;
 			}                                        
 		}
 	}
 }
-/* core_parser_get_ini_data - Get ini real value by its key & section
- *
- * An interface exporting to outside is used to get INI real value according to its key and section.
- *
- * @section: Section name
- * @keyname: Key name
- * @rv : A value as a string returning to callers depends on the key and the section.
- */
+EXPORT_SYMBOL(core_parser_benchmark);
+
 int core_parser_get_int_data(char *section, char *keyname, char *rv)
 {
 	int len = 0;
