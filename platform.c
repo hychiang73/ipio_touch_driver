@@ -771,7 +771,7 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 static int ilitek_platform_probe(struct spi_device *spi)
 #endif
 {
-	//int ret;
+	int ret;
 	ipio_info("Probe Enter\n");
 	/* initialise the struct of touch ic memebers. */
 	ipd = kzalloc(sizeof(*ipd), GFP_KERNEL);
@@ -895,13 +895,13 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ilitek_platform_tp_hw_reset(true);
 #endif
 	/* get our tp ic information */
-	// ret = ilitek_platform_read_tp_info();
-	// if (ret == CHIP_ID_ERR) {
-	// 	ipio_err("CHIP ID is incorrect, need to rebuild driver\n");
-	// 	return -ENODEV;
-	// } else if (ret < 0) {
-	// 	ipio_err("Failed to get TP info, need to upgrade a correct FW\n");
-	// }
+	ret = ilitek_platform_read_tp_info();
+	if (ret == CHIP_ID_ERR) {
+		ipio_err("CHIP ID is incorrect, need to rebuild driver\n");
+		return -ENODEV;
+	} else if (ret < 0) {
+		ipio_err("Failed to get TP info, need to upgrade a correct FW\n");
+	}
 
 	/* If it defines boot upgrade, input register will be done inside boot function. */
 #ifndef BOOT_FW_UPGRADE

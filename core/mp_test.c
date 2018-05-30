@@ -120,13 +120,19 @@ struct mp_test_items tItems[] = {
 	{"open_cap", "Open Test(Cap)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 	{"noise_peak_to_peak", "Noise Peak to Peak(IC)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 	{"noise_peak_to_peak_cut", "Noise Peak To Peak(Cut Panel)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+
+	{"doze_raw", "Doze Raw Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"doze_p2p", "Doze Peak To Peak", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 };
 
 int32_t *frame_buf = NULL;
 int32_t *key_buf = NULL;
 struct core_mp_test_data *core_mp = NULL;
 
-uint8_t timing_info[40] = {0};
+/* Might be changed depending on what test item runs. */
+int mp_tdf = 200;
+/* Timing parameters */
+uint8_t timing_info[39] = {0};
 
 static void dump_data(void *data, int type, int len)
 {
@@ -193,17 +199,16 @@ static int store_timing_para(uint8_t *para, int para_len)
 		goto out;
 	}
 
-	if (para_len > ARRAY_SIZE(timing_info)) {
-		ipio_err("The length of para is too larger\n");
+	if (para_len != ARRAY_SIZE(timing_info)) {
+		ipio_err("The length of para is invalid\n");
 		ret = -1;
 		goto out;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(timing_info); i++) {
+	for (i = 0; i < para_len; i++) {
 		timing_info[i] = para[i];
 		ipio_info("info[%d] = 0x%x, para[%d] = 0x%x\n",i,timing_info[i],i,para[i]);
 	}
-
 
 out:
 	return ret;
@@ -429,32 +434,382 @@ static int create_mp_test_frame_buffer(int index)
 	return 0;
 }
 
-// Long H:
-// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-TP_TSHD_WAIT_120-DDI_WIDTH_120*(Multi term number-1)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(Multi term number-1)))/Multi term number
-// TXPW = EVEN(QSH_TDF+QSH_PW+RST_PW+QSH_TD+2)
-// NODP = ROUNDDOWN(ROUNDDOWN(Term Real TX duration)/TXPW/2)
-
-// Long V:
-// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-DDI_WIDTH_120*(11)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(11)))/12
-// TXPW = EVEN(QSH_TDF+QSH_PW+RST_PW+QSH_TD+2)
-// NODP = ROUNDDOWN(ROUNDDOWN(Term Real TX duration)/TXPW/2)
-
-static int set_long_v_cmd(int index)
+static int mp_cdc_init_cmd_p2p_ic(uint8_t *cmd, int len)
 {
-	ipio_info("Long V: index = %d\n",index);
+	int i, ret = -1;
+
+	ipio_info("cmd = %p, len = %d\n",cmd,len);
+
+	if (timing_info == NULL || timing_info[0] == 0) {
+		ipio_err("Timing command is incorrect\n");
+		goto out;
+	}
+
+	if (cmd == NULL) {
+		ipio_err("CMD is invalid\n");
+		goto out;
+	}
+
+	if (len != 15) {
+		ipio_err("The length of cdc command must be 15\n");
+		goto out;
+	}
+
+	/* TODO read cmds from ini */
+	cmd[0] = protocol->cmd_cdc;
+	cmd[1] = protocol->peak_to_peak;
+	cmd[2] = 0x1;
+	cmd[3] = 0xA;
+	cmd[4] = (mp_tdf >> 8) && 0xFF;
+	cmd[5] = mp_tdf & 0xFF;
+	cmd[6] = 2; //NODP
+	cmd[7] = 0xFF;
+	cmd[8] = 0xFF;
+	cmd[9] = 0xFF;
+	cmd[10] = 0xFF;
+	cmd[11] = 0xFF;
+	cmd[12] = 0xFF;
+	cmd[13] = 0xFF;
+	cmd[14] = 0xFF;
+
+	for (i = 0; i < protocol->cdc_len; i++){
+		ipio_info("P2P IC: cmd[%d] = %x\n",i,cmd[i]);
+	}
+
+	ret = 0;
+out:
+	return ret;
 }
 
-static int set_long_h_cmd(int index)
+static int mp_cdc_init_cmd_p2p_panel(uint8_t *cmd, int len)
 {
-	ipio_info("Long H: index = %d\n",index);
+	int i, ret = -1;
 
-//	real_tx_duration = (tshd_duration - auto_trim) * 64 - tp_tshd_wait - ddi_width * (multi_term number - 1) - 64 - dp2tp
+	ipio_info("cmd = %p, len = %d\n",cmd,len);
+
+	if (timing_info == NULL || timing_info[0] == 0) {
+		ipio_err("Timing command is incorrect\n");
+		goto out;
+	}
+
+	if (cmd == NULL) {
+		ipio_err("CMD is invalid\n");
+		goto out;
+	}
+
+	if (len != 15) {
+		ipio_err("The length of cdc command must be 15\n");
+		goto out;
+	}
+
+	/* TODO read cmds from ini */
+	cmd[0] = protocol->cmd_cdc;
+	cmd[1] = protocol->peak_to_peak;
+	cmd[2] = 0x0;
+	cmd[3] = 0x2;
+	cmd[4] = (mp_tdf >> 8) && 0xFF;
+	cmd[5] = mp_tdf & 0xFF;
+	cmd[6] = 2; //NODP
+	cmd[7] = 0xFF;
+	cmd[8] = 0xFF;
+	cmd[9] = 0xFF;
+	cmd[10] = 0xFF;
+	cmd[11] = 0xFF;
+	cmd[12] = 0xFF;
+	cmd[13] = 0xFF;
+	cmd[14] = 0xFF;
+
+	for (i = 0; i < protocol->cdc_len; i++){
+		ipio_info("P2P IC: cmd[%d] = %x\n",i,cmd[i]);
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+static int mp_cdc_init_cmd_dac(uint8_t *cmd, int len)
+{
+	int i, ret = -1;
+
+	ipio_info("cmd = %p, len = %d\n",cmd,len);
+
+	if (timing_info == NULL || timing_info[0] == 0) {
+		ipio_err("Timing command is incorrect\n");
+		goto out;
+	}
+
+	if (cmd == NULL) {
+		ipio_err("CMD is invalid\n");
+		goto out;
+	}
+
+	if (len != 15) {
+		ipio_err("The length of cdc command must be 15\n");
+		goto out;
+	}
+
+	/* TODO read cmds from ini */
+	cmd[0] = protocol->cmd_cdc;
+	cmd[1] = protocol->mutual_dac;
+	cmd[2] = 0;
+	cmd[3] = (mp_tdf >> 8) && 0xFF;
+	cmd[4] = mp_tdf & 0xFF;
+	cmd[5] = 2; //NODP
+	cmd[6] = 0xFF;
+	cmd[7] = 0xFF;
+	cmd[8] = 0xFF;
+	cmd[9] = 0xFF;
+	cmd[10] = 0xFF;
+	cmd[11] = 0xFF;
+	cmd[12] = 0xFF;
+	cmd[13] = 0xFF;
+	cmd[14] = 0xFF;
+
+	for (i = 0; i < protocol->cdc_len; i++){
+		ipio_info("DAC: cmd[%d] = %x\n",i,cmd[i]);
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+static int mp_cdc_init_cmd_raw_bk(uint8_t *cmd, int len)
+{
+	int i, ret = -1;
+
+	ipio_info("cmd = %p, len = %d\n",cmd,len);
+
+	if (timing_info == NULL || timing_info[0] == 0) {
+		ipio_err("Timing command is incorrect\n");
+		goto out;
+	}
+
+	if (cmd == NULL) {
+		ipio_err("CMD is invalid\n");
+		goto out;
+	}
+
+	if (len != 15) {
+		ipio_err("The length of cdc command must be 15\n");
+		goto out;
+	}
+
+	/* TODO read cmds from ini */
+	cmd[0] = protocol->cmd_cdc;
+	cmd[1] = protocol->mutual_has_bk;
+	cmd[2] = 0;
+	cmd[3] = (mp_tdf >> 8) && 0xFF;
+	cmd[4] = mp_tdf & 0xFF;
+	cmd[5] = 2; //NODP
+	cmd[6] = 0xFF;
+	cmd[7] = 0xFF;
+	cmd[8] = 0xFF;
+	cmd[9] = 0xFF;
+	cmd[10] = 0xFF;
+	cmd[11] = 0xFF;
+	cmd[12] = 0xFF;
+	cmd[13] = 0xFF;
+	cmd[14] = 0xFF;
+
+
+	for (i = 0; i < protocol->cdc_len; i++){
+		ipio_info("RAW BK: cmd[%d] = %x\n",i,cmd[i]);
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+static int mp_cdc_init_cmd_raw_no_bk(uint8_t *cmd, int len)
+{
+	int i, ret = -1;
+
+	ipio_info("cmd = %p, len = %d\n",cmd,len);
+
+	if (timing_info == NULL || timing_info[0] == 0) {
+		ipio_err("Timing command is incorrect\n");
+		goto out;
+	}
+
+	if (cmd == NULL) {
+		ipio_err("CMD is invalid\n");
+		goto out;
+	}
+
+	if (len != 15) {
+		ipio_err("The length of cdc command must be 15\n");
+		goto out;
+	}
+
+	/* TODO read cmds from ini */
+	cmd[0] = protocol->cmd_cdc;
+	cmd[1] = protocol->mutual_no_bk;
+	cmd[2] = 0;
+	cmd[3] = (mp_tdf >> 8) && 0xFF;
+	cmd[4] = mp_tdf & 0xFF;
+	cmd[5] = 2; //NODP
+	cmd[6] = 0x6;
+	cmd[7] = 0xFF;
+	cmd[8] = 0xFF;
+	cmd[9] = 0xFF;
+	cmd[10] = 0xFF;
+	cmd[11] = 0xFF;
+	cmd[12] = 0xFF;
+	cmd[13] = 0xFF;
+	cmd[14] = 0xFF;
+
+
+	for (i = 0; i < protocol->cdc_len; i++){
+		ipio_info("RAW NO BK: cmd[%d] = %x\n",i,cmd[i]);
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+static int mp_cdc_init_cmd_doze_p2p(uint8_t *cmd, int len)
+{
+	int i, ret = -1;
+
+	ipio_info("cmd = %p, len = %d\n",cmd,len);
+
+	if (timing_info == NULL || timing_info[0] == 0) {
+		ipio_err("Timing command is incorrect\n");
+		goto out;
+	}
+
+	if (cmd == NULL) {
+		ipio_err("CMD is invalid\n");
+		goto out;
+	}
+
+	if (len != 15) {
+		ipio_err("The length of cdc command must be 15\n");
+		goto out;
+	}
+
+	/* TODO read cmds from ini */
+	cmd[0] = protocol->cmd_cdc;
+	cmd[1] = protocol->doze_p2p;
+	cmd[2] = 0;
+	cmd[3] = (mp_tdf >> 8) && 0xFF;
+	cmd[4] = mp_tdf & 0xFF;
+	cmd[5] = 2; //NODP
+	cmd[6] = 0x6;
+	cmd[7] = 0xFF;
+	cmd[8] = 0xFF;
+	cmd[9] = 0xFF;
+	cmd[10] = 0xFF;
+	cmd[11] = 0xFF;
+	cmd[12] = 0xFF;
+	cmd[13] = 0xFF;
+	cmd[14] = 0xFF;
+
+
+	for (i = 0; i < protocol->cdc_len; i++){
+		ipio_info("DOZE P2P: cmd[%d] = %x\n",i,cmd[i]);
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+static int mp_cdc_init_cmd_doze_raw(uint8_t *cmd, int len)
+{
+	int i, ret = -1;
+
+	ipio_info("cmd = %p, len = %d\n",cmd,len);
+
+	if (timing_info == NULL || timing_info[0] == 0) {
+		ipio_err("Timing command is incorrect\n");
+		goto out;
+	}
+
+	if (cmd == NULL) {
+		ipio_err("CMD is invalid\n");
+		goto out;
+	}
+
+	if (len != 15) {
+		ipio_err("The length of cdc command must be 15\n");
+		goto out;
+	}
+
+	/* TODO read cmds from ini */
+	cmd[0] = protocol->cmd_cdc;
+	cmd[1] = protocol->doze_raw;
+	cmd[2] = 0;
+	cmd[3] = (mp_tdf >> 8) && 0xFF;
+	cmd[4] = mp_tdf & 0xFF;
+	cmd[5] = 2; //NODP
+	cmd[6] = 0x6;
+	cmd[7] = 0xFF;
+	cmd[8] = 0xFF;
+	cmd[9] = 0xFF;
+	cmd[10] = 0xFF;
+	cmd[11] = 0xFF;
+	cmd[12] = 0xFF;
+	cmd[13] = 0xFF;
+	cmd[14] = 0xFF;
+
+
+	for (i = 0; i < protocol->cdc_len; i++){
+		ipio_info("DOZE RAW: cmd[%d] = %x\n",i,cmd[i]);
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+// static void mp_cdc_init_cmd_short(void)
+// {
+
+// }
+
+// static void mp_cdc_init_cmd_open(void)
+// {
+
+// }
+
+// static void mp_cdc_init_cmd_lcd(void)
+// {
+
+// }
+
+static int calc_long_v_nodp(int index)
+{
+	int nodp = 0;
+
+	// TODO: Long V:
+	// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-DDI_WIDTH_120*(11)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(11)))/12
+	// TXPW = EVEN(QSH_TDF+QSH_PW+RST_PW+QSH_TD+2)
+	// NODP = ROUNDDOWN(ROUNDDOWN(Term Real TX duration)/TXPW/2)
+	ipio_info("Long V: nodp = %d\n",nodp);
+	return 0;
+}
+
+static int calc_long_h_nodp(int index)
+{
+	int nodp = 0;
+
+	//TODO Long H:
+	// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-TP_TSHD_WAIT_120-DDI_WIDTH_120*(Multi term number-1)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(Multi term number-1)))/Multi term number
+	// TXPW = EVEN(QSH_TDF+QSH_PW+RST_PW+QSH_TD+2)
+	// NODP = ROUNDDOWN(ROUNDDOWN(Term Real TX duration)/TXPW/2)
+	ipio_info("Long H: nodp = %d\n",nodp);
+	return 0;
 }
 
 /* This function is only accpetable for protocol v5.4 above */
 static int get_timing_value(int index)
 {
-	int i, ret = 0;
+	int ret = 0;
 	int Long_V = 0, Long_H = 1;
 	uint8_t tets_type = 0x0;
 	uint8_t timing_cmd[15] = {0};
@@ -474,22 +829,22 @@ static int get_timing_value(int index)
 	ret = core_write(core_config->slave_i2c_addr, timing_cmd, protocol->cdc_len);
 	if (ret < 0) {
 		ipio_err("Failed to write timing command\n");
-		//goto out;
+		goto out;
 	}
 
 	ret = core_read(core_config->slave_i2c_addr, get_timing, ARRAY_SIZE(get_timing));
 	if (ret < 0) {
 		ipio_err("Failed to read timing parameters\n");
-		//goto out;
+		goto out;
 	}
 
 	ipio_info("Dump Timing Parameters :\n");
 	store_timing_para(get_timing, ARRAY_SIZE(get_timing));
 
 	if (get_timing[2] == Long_V) {
-		set_long_v_cmd(index);
+		calc_long_v_nodp(index);
 	} else if (get_timing[2] == Long_H) {
-		set_long_h_cmd(index);
+		calc_long_h_nodp(index);
 	} else {
 		ipio_err("DDI Mode (0x%x) is incorrect\n",get_timing[2]);
 		ret = -1;
@@ -617,9 +972,9 @@ out:
 
 static int allnode_mutual_cdc_data(int index)
 {
-	int i = 0, res = 0, len = 0,check_busy_timeout = 50, count = 3;
+	static int i = 0, res = 0, len = 0;
 	int inDACp = 0, inDACn = 0;
-	uint8_t cmd[5] = { 0 };
+	static uint8_t cmd[15] = {0};
 	uint8_t *ori = NULL;
 
 	/* Multipling by 2 is due to the 16 bit in each node */
@@ -634,47 +989,68 @@ static int allnode_mutual_cdc_data(int index)
 		goto out;
 	}
 
-	get_timing_value(index);
-	return -1;
-
-	/* CDC init */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = tItems[index].cmd;
-	cmd[2] = 0;
-
-	if (strcmp(tItems[index].name, "open_integration") == 0)
-		cmd[2] = 0x2;
-	if (strcmp(tItems[index].name, "open_cap") == 0)
-		cmd[2] = 0x3;
-
-	if(tItems[index].catalog == PEAK_TO_PEAK_TEST) {
-		cmd[2] = ((tItems[index].frame_count & 0xff00) >> 8);
-		cmd[3] = tItems[index].frame_count & 0xff;
-		cmd[4] = 0;
-
-		if (strcmp(tItems[index].name, "noise_peak_to_peak_cut") == 0)
-			cmd[4] = 0x1;
-
-		check_busy_timeout = tItems[index].frame_count * 70;
-		count = 5;
-		ipio_debug(DEBUG_MP_TEST, "P2P CMD: %d,%d,%d,%d,%d\n",
-				cmd[0],cmd[1],cmd[2],cmd[3],cmd[4]);
+	if (protocol->cdc_len != ARRAY_SIZE(cmd)) {
+		ipio_err("Length is invalid\n");
+		res = -1;
+		goto out;
 	}
 
-	res = core_write(core_config->slave_i2c_addr, cmd, count);
+	memset(cmd, 0xFF, protocol->cdc_len);
+	for (i = 0; i < protocol->cdc_len; i++){
+		ipio_info("cmd[%d] = %x\n",i,cmd[i]);
+	}
+
+	/* CDC init */
+	get_timing_value(index);
+	//mp_cdc_init_cmd_raw_bk(cmd, protocol->cdc_len);
+	mp_cdc_init_cmd_raw_no_bk(cmd, protocol->cdc_len);
+	//mp_cdc_init_cmd_dac(cmd, protocol->cdc_len);
+	//mp_cdc_init_cmd_p2p_ic(cmd, protocol->cdc_len);
+	// mp_cdc_init_cmd_doze_p2p(cmd, protocol->cdc_len);
+	// mp_cdc_init_cmd_doze_raw(cmd, protocol->cdc_len);
+
+	// cmd[0] = protocol->cmd_cdc;
+	// cmd[1] = tItems[index].cmd;
+	// cmd[2] = 0;
+
+	// if (strcmp(tItems[index].name, "open_integration") == 0)
+	// 	cmd[2] = 0x2;
+	// if (strcmp(tItems[index].name, "open_cap") == 0)
+	// 	cmd[2] = 0x3;
+
+	// if(tItems[index].catalog == PEAK_TO_PEAK_TEST) {
+	// 	cmd[2] = ((tItems[index].frame_count & 0xff00) >> 8);
+	// 	cmd[3] = tItems[index].frame_count & 0xff;
+	// 	cmd[4] = 0;
+
+	// 	if (strcmp(tItems[index].name, "noise_peak_to_peak_cut") == 0)
+	// 		cmd[4] = 0x1;
+
+	// 	check_busy_timeout = tItems[index].frame_count * 70;
+	// 	count = 5;
+	// 	ipio_debug(DEBUG_MP_TEST, "P2P CMD: %d,%d,%d,%d,%d\n",
+	// 			cmd[0],cmd[1],cmd[2],cmd[3],cmd[4]);
+	// }
+
+	res = core_write(core_config->slave_i2c_addr, cmd, protocol->cdc_len);
 	if (res < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
 
-	mdelay(1);
+	mdelay(600);
 
 	/* Check busy */
-	if (core_config_check_cdc_busy(check_busy_timeout) < 0) {
-		ipio_err("Check busy is timout !\n");
-		res = -1;
-		goto out;
-	}
+	// if (core_config_check_cdc_busy(50) < 0) {
+	// 	ipio_err("Check busy is timout !\n");
+	// 	res = -1;
+	// 	goto out;
+	// }
+	// if (core_config_check_int_status(false) < 0) {
+	// 	ipio_err("Check busy is timout !\n");
+	// 	res = -1;
+	// 	goto out;
+	// }
 
 	/* Prepare to get cdc data */
 	cmd[0] = protocol->cmd_read_ctrl;

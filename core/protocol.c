@@ -323,6 +323,8 @@ static void config_protocol_v5_cmd(void)
 	protocol->peak_to_peak = 0x1D;
 
 	protocol->get_timing = 0x30;
+	protocol->doze_p2p = 0x32;
+	protocol->doze_raw = 0x33;
 }
 
 void core_protocol_func_control(int key, int ctrl)
