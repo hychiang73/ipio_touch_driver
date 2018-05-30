@@ -165,7 +165,7 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 	txbuf[8] = (char)0xA5;
 	if (spi_write_then_read(core_spi->spi, txbuf, 9, txbuf, 0) < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ipio_err("spi_write_then_read Error, res = %d\n", res);
 	}
 	kfree(txbuf);
 	return res;
@@ -183,7 +183,7 @@ int core_ice_mode_disable_9881H11(void)
 	ipio_info("FW ICE Mode disable\n");
 	if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ipio_err("spi_write_then_read Error, res = %d\n", res);
 	}
 	return res;
 }
@@ -191,14 +191,18 @@ int core_ice_mode_disable_9881H11(void)
 int core_ice_mode_enable_9881H11(void)
 {
 	int res = 0;
-	uint8_t txbuf[5] = {0};
+	uint8_t txbuf[5] = {0}, rxbuf[2]= {0};
 	txbuf[0] = 0x82;
 	txbuf[1] = 0x1F;
 	txbuf[2] = 0x62;
 	txbuf[3] = 0x10;
 	txbuf[4] = 0x18;
-	ipio_info("FW ICE Mode Enable\n");
-	if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
+	if (spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 1) < 0) {
+		res = -EIO;
+		ipio_err("spi Write Error, res = %d\n", res);
+	}
+	ipio_info("rxbuf:0x%x\n", rxbuf[0]);
+	if (spi_write_then_read(core_spi->spi, txbuf, 5, rxbuf, 0) < 0) {
 		res = -EIO;
 		ipio_err("spi Write Error, res = %d\n", res);
 	}
@@ -208,37 +212,28 @@ int core_ice_mode_enable_9881H11(void)
 int core_spi_read_9881H11(uint8_t *pBuf, uint16_t nSize)
 {
 	int res = 0, size = 0;
-	uint8_t *txbuf;
-    txbuf = (uint8_t*)kmalloc(sizeof(uint8_t)*nSize+5, GFP_KERNEL);
 	if (core_ice_mode_enable_9881H11() < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ipio_err("spi Read Error, res = %d\n", res);
 		goto out;
 	}
 	size = core_Rx_check(0x5AA5); 
 	if (size < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ipio_err("spi Read Error, res = %d\n", res);
 		goto out;
 	}
 	if (core_ice_mode_read_9881H11(pBuf, size) < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
-		goto out;
-	}
-	size = core_Rx_check(0x9881); 
-	if (size < 0) {
-		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ipio_err("spi Read Error, res = %d\n", res);
 		goto out;
 	}
 	if (core_ice_mode_disable_9881H11() < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ipio_err("spi Read Error, res = %d\n", res);
 		goto out;
 	}
 	out:
-	kfree(txbuf);
 	return res;
 }
 
@@ -340,6 +335,7 @@ int core_spi_init(struct spi_device *spi)
 	}
 
 	core_spi->spi = spi;
+	spi->mode = SPI_MODE_0;
 	spi->bits_per_word = 8;
 	ipio_info("\n");
 	ret = spi_setup(spi);

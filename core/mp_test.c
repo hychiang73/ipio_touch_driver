@@ -75,65 +75,58 @@ enum mp_test_catalog {
 
 /* You must declare a new test at here before running a new process of mp test */
 struct mp_test_items tItems[] = {
-	{"mutual_dac", "Calibration Data(DAC)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL,
-	 NULL, NULL, NULL, NULL},
-	{"mutual_bg", "Baseline Data(BG)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL,
-	 NULL, NULL, NULL, NULL, NULL},
-	{"mutual_no_bk", "Raw Data(No BK)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL,
-	 NULL, NULL, NULL},
-	{"mutual_has_bk", "Raw Data(Have BK)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL,
-	 NULL, NULL, NULL, NULL},
-	{"mutual_bk_dac", "Manual BK Data(Mutual)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"mutual_dac", "Calibration Data(DAC)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"mutual_bg", "Baseline Data(BG)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"mutual_no_bk", "Raw Data(No BK)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"mutual_has_bk", "Raw Data(Have BK)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"mutual_bk_dac", "Manual BK Data(Mutual)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"self_dac", "Calibration Data(DAC) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL,
-	 NULL, NULL, NULL},
-	{"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL,
-	 NULL, NULL, NULL, NULL},
-	{"self_no_bk", "Raw Data(No BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL,
-	 NULL, NULL, NULL},
-	{"self_has_bk", "Raw Data(Have BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL,
-	 NULL, NULL, NULL},
-	{"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL,
-	 NULL, NULL, NULL},
+	{"self_dac", "Calibration Data(DAC) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"self_bg", "Baselin Data(BG,Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"self_signal", "Untouch Signal Data(BG–Raw-4096) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"self_no_bk", "Raw Data(No BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"self_has_bk", "Raw Data(Have BK) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"self_bk_dac", "Manual BK DAC Data(Self_Tx,Self_Rx)", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"key_dac", "Calibration Data(DAC/ICON)", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"key_bg", "Key Baseline Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"key_no_bk", "Key Raw Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"key_has_bk", "Key Raw BK DAC", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"key_open", "Key Raw Open Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"key_short", "Key Raw Short Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"key_dac", "Calibration Data(DAC/ICON)", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"key_bg", "Key Baseline Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"key_no_bk", "Key Raw Data", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"key_has_bk", "Key Raw BK DAC", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"key_open", "Key Raw Open Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"key_short", "Key Raw Short Test", "FAIL", KEY_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"st_dac", "ST Calibration Data(DAC)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"st_bg", "ST Baseline Data(BG)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"st_no_bk", "ST Raw Data(No BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"st_has_bk", "ST Raw(Have BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"st_open", "ST Open Data", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"st_dac", "ST Calibration Data(DAC)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"st_bg", "ST Baseline Data(BG)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"st_no_bk", "ST Raw Data(No BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"st_has_bk", "ST Raw(Have BK)", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"st_open", "ST Open Data", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"tx_short", "Tx Short Test", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"rx_short", "Short Test -ILI9881", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"rx_open", "RX Open", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"tx_short", "Tx Short Test", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"rx_short", "Short Test -ILI9881", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"rx_open", "RX Open", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"cm_data", "Untouch Cm Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"cs_data", "Untouch Cs Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"cm_data", "Untouch Cm Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"cs_data", "Untouch Cs Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"tx_rx_delta", "Tx/Rx Delta", "FAIL", TX_RX_DELTA, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"tx_rx_delta", "Tx/Rx Delta", "FAIL", TX_RX_DELTA, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"p2p", "Untouch Peak to Peak", "FAIL", UNTOUCH_P2P, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"p2p", "Untouch Peak to Peak", "FAIL", UNTOUCH_P2P, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"pixel_no_bk", "Pixel Raw (No BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"pixel_has_bk", "Pixel Raw (Have BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"pixel_no_bk", "Pixel Raw (No BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"pixel_has_bk", "Pixel Raw (Have BK)", "FAIL", PIXEL, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
-	{"open_integration", "Open Test(integration)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"open_cap", "Open Test(Cap)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"noise_peak_to_peak", "Noise Peak to Peak(IC)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"noise_peak_to_peak_cut", "Noise Peak To Peak(Cut Panel)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL},                
+	{"open_integration", "Open Test(integration)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"open_cap", "Open Test(Cap)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"noise_peak_to_peak", "Noise Peak to Peak(IC)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"noise_peak_to_peak_cut", "Noise Peak To Peak(Cut Panel)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 };
 
 int32_t *frame_buf = NULL;
 int32_t *key_buf = NULL;
 struct core_mp_test_data *core_mp = NULL;
+
+uint8_t timing_info[40] = {0};
 
 static void dump_data(void *data, int type, int len)
 {
@@ -188,6 +181,32 @@ static void dump_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
 				printk("\n");
 		}
 	}
+}
+
+static int store_timing_para(uint8_t *para, int para_len)
+{
+	int i, ret = 0;
+
+	if (para == NULL) {
+		ipio_err("Parameter is NULL, do nothing\n");
+		ret = -1;
+		goto out;
+	}
+
+	if (para_len > ARRAY_SIZE(timing_info)) {
+		ipio_err("The length of para is too larger\n");
+		ret = -1;
+		goto out;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(timing_info); i++) {
+		timing_info[i] = para[i];
+		ipio_info("info[%d] = 0x%x, para[%d] = 0x%x\n",i,timing_info[i],i,para[i]);
+	}
+
+
+out:
+	return ret;
 }
 
 static void print_benchmark_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len)
@@ -410,34 +429,71 @@ static int create_mp_test_frame_buffer(int index)
 	return 0;
 }
 
-static int send_test_cmd(void)
+// Long H:
+// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-TP_TSHD_WAIT_120-DDI_WIDTH_120*(Multi term number-1)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(Multi term number-1)))/Multi term number
+// TXPW = EVEN(QSH_TDF+QSH_PW+RST_PW+QSH_TD+2)
+// NODP = ROUNDDOWN(ROUNDDOWN(Term Real TX duration)/TXPW/2)
+
+// Long V:
+// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-DDI_WIDTH_120*(11)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(11)))/12
+// TXPW = EVEN(QSH_TDF+QSH_PW+RST_PW+QSH_TD+2)
+// NODP = ROUNDDOWN(ROUNDDOWN(Term Real TX duration)/TXPW/2)
+
+static int set_long_v_cmd(int index)
 {
-	int ret = 0;
-	bool low = false;
-	uint8_t cmd[15] = {0};
+	ipio_info("Long V: index = %d\n",index);
+}
 
-	/* Check protocol version again */
-	if (protocol->major != 5 && protocol->mid < 4) {
-		ipio_err("The version of protocol is incorrect\n");
+static int set_long_h_cmd(int index)
+{
+	ipio_info("Long H: index = %d\n",index);
+
+//	real_tx_duration = (tshd_duration - auto_trim) * 64 - tp_tshd_wait - ddi_width * (multi_term number - 1) - 64 - dp2tp
+}
+
+/* This function is only accpetable for protocol v5.4 above */
+static int get_timing_value(int index)
+{
+	int i, ret = 0;
+	int Long_V = 0, Long_H = 1;
+	uint8_t tets_type = 0x0;
+	uint8_t timing_cmd[15] = {0};
+	uint8_t get_timing[39] = {0};
+
+	memset(timing_cmd, 0xFF, protocol->cdc_len);
+
+	ipio_info("cmd len = %d\n",protocol->cdc_len);
+
+	timing_cmd[0] = protocol->cmd_cdc;
+	timing_cmd[1] = protocol->get_timing;
+	timing_cmd[2] = tets_type;
+
+	ipio_info("Get Timing command :\n");
+	dump_data(timing_cmd, 8, protocol->cdc_len);
+
+	ret = core_write(core_config->slave_i2c_addr, timing_cmd, protocol->cdc_len);
+	if (ret < 0) {
+		ipio_err("Failed to write timing command\n");
+		//goto out;
+	}
+
+	ret = core_read(core_config->slave_i2c_addr, get_timing, ARRAY_SIZE(get_timing));
+	if (ret < 0) {
+		ipio_err("Failed to read timing parameters\n");
+		//goto out;
+	}
+
+	ipio_info("Dump Timing Parameters :\n");
+	store_timing_para(get_timing, ARRAY_SIZE(get_timing));
+
+	if (get_timing[2] == Long_V) {
+		set_long_v_cmd(index);
+	} else if (get_timing[2] == Long_H) {
+		set_long_h_cmd(index);
+	} else {
+		ipio_err("DDI Mode (0x%x) is incorrect\n",get_timing[2]);
 		ret = -1;
-		goto out;
 	}
-
-	/* TODO: get command from ini file */
-
-	ret = core_config_check_int_status(low);
-	if (ret < 0) {
-		ipio_err("Time out for checking INT status\n");
-		goto out;
-	}
-
-	ret = core_write(core_config->slave_i2c_addr, cmd, sizeof(cmd));
-	if (ret < 0) {
-		ipio_err("Failed to send test commands\n");
-		goto out;
-	}
-
-	dump_data(cmd, 8, sizeof(cmd));
 
 out:
 	return ret;
@@ -577,6 +633,9 @@ static int allnode_mutual_cdc_data(int index)
 		res = -1;
 		goto out;
 	}
+
+	get_timing_value(index);
+	return -1;
 
 	/* CDC init */
 	cmd[0] = protocol->cmd_cdc;
@@ -936,14 +995,13 @@ static int mutual_test(int index)
 	if (tItems[index].spec_option == BENCHMARK) {
 		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option, tItems[index].desp);
 		dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
-	}  
+	}
 
-	if (tItems[index].spec_option == BENCHMARK)
-	{
+	if (tItems[index].spec_option == BENCHMARK) {
 		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option,tItems[index].desp);
 		if (ipio_debug_level&&DEBUG_PARSER > 0)                               
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
-	}  
+	}
 
 	for (i = 0; i < get_frame_cont; i++) {
 		res = allnode_mutual_cdc_data(index);
@@ -966,9 +1024,8 @@ static int mutual_test(int index)
 			run_tx_rx_delta_test(index);
 			break;
 		default:
-		
 			for (j = 0; j < core_mp->frame_len; j++)
-				tItems[index].buf[j] = frame_buf[j] ;
+				tItems[index].buf[j] = frame_buf[j];
 			break;
 		}
 	}
@@ -1052,7 +1109,7 @@ static void mp_test_init_item(void)
 		else if (tItems[i].catalog == ST_TEST)
 			tItems[i].do_test = st_test;
 		else if (tItems[i].catalog == PEAK_TO_PEAK_TEST)
-			tItems[i].do_test = mutual_test;              
+			tItems[i].do_test = mutual_test;
 
 		tItems[i].result = kmalloc(16, GFP_KERNEL);
         sprintf(tItems[i].result, "%s", "FAIL");
@@ -1097,7 +1154,6 @@ static void mp_test_init_item(void)
 	tItems[32].cmd = protocol->rx_open;
 	tItems[33].cmd = protocol->rx_open;
 	tItems[34].cmd = protocol->peak_to_peak;
-	tItems[35].cmd = protocol->peak_to_peak;        
 }
 
 void core_mp_test_free(void)

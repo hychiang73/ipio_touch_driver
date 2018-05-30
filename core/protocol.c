@@ -29,6 +29,12 @@
 
 #define FUNC_NUM    20
 
+struct protocol_sup_list {
+	uint8_t major;
+	uint8_t mid;
+	uint8_t minor;
+};
+
 struct DataItem {
 	int key;
 	char *name;
@@ -226,10 +232,11 @@ static void config_protocol_v5_cmd(void)
 
 	protocol->fw_ver_len = 4;
 
-	if (protocol->mid >= 0x2)
-		protocol->pro_ver_len = 4;
-	else
+	if (protocol->mid == 0x1 || protocol->mid == 0x4) {
 		protocol->pro_ver_len = 3;
+	} else {
+		protocol->pro_ver_len = 4;
+	}
 
 	protocol->tp_info_len = 14;
 	protocol->key_info_len = 30;
@@ -267,6 +274,8 @@ static void config_protocol_v5_cmd(void)
 	/* The commands about MP test */
 	protocol->cmd_cdc = P5_0_SET_CDC_INIT;
 	protocol->cmd_get_cdc = P5_0_GET_CDC_DATA;
+
+	protocol->cdc_len = 15;
 
 	protocol->mutual_dac = 0x1;
 	protocol->mutual_bg = 0x2;
@@ -312,6 +321,8 @@ static void config_protocol_v5_cmd(void)
 	protocol->key_integra_time = 0x24;
 	protocol->st_integra_time = 0x25;
 	protocol->peak_to_peak = 0x1D;
+
+	protocol->get_timing = 0x30;
 }
 
 void core_protocol_func_control(int key, int ctrl)
@@ -336,16 +347,13 @@ EXPORT_SYMBOL(core_protocol_func_control);
 int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
 {
 	int i = 0;
-
-	struct protocol_sup_list {
-		uint8_t major;
-		uint8_t mid;
-		uint8_t minor;
-	} pver[] = {
-		{
-		0x5, 0x0, 0x0}, {
-		0x5, 0x1, 0x0}, {
-	0x5, 0x2, 0x0},};
+	struct protocol_sup_list pver[] = {
+		{0x5, 0x0, 0x0},
+		{0x5, 0x1, 0x0},
+		{0x5, 0x2, 0x0}, 
+		{0x5, 0x3, 0x0},
+		{0x5, 0x4, 0x0},
+	};
 
 	for (i = 0; i < ARRAY_SIZE(pver); i++) {
 		if (pver[i].major == major && pver[i].mid == mid && pver[i].minor == minor) {
