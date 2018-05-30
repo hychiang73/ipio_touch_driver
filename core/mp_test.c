@@ -71,6 +71,7 @@ enum mp_test_catalog {
 	PIXEL = 6,
 	OPEN_TEST = 7,
 	PEAK_TO_PEAK_TEST = 8,	
+	SHORT_TEST = 9,		
 };
 
 /* You must declare a new test at here before running a new process of mp test */
@@ -103,7 +104,7 @@ struct mp_test_items tItems[] = {
 	{"st_open", "ST Open Data", "FAIL", ST_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
 	{"tx_short", "Tx Short Test", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
-	{"rx_short", "Short Test -ILI9881", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
+	{"rx_short", "Short Test -ILI9881", "FAIL", SHORT_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 	{"rx_open", "RX Open", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
 
 	{"cm_data", "Untouch Cm Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, {0xFF}, NULL},
@@ -1330,6 +1331,64 @@ static void compare_MaxMin_result(int index, int32_t *data)
 	}
 }
 
+int codeToOhm(int32_t Code)
+{
+	int douTDF1 = 0;
+	int douTDF2 = 0;
+	int douTVCH = 24;//2.4
+	int douTVCL = 8;//0.8
+	int douCint = 7;//10^(-12)
+	int douVariation = 64;//0.64
+	int douRinternal = 930;
+	int32_t temp = 0;
+
+	if (get_timing[2] == Long_H) {
+	{
+		douTDF1 = 219;//(10^(-8));
+		douTDF2 = 100;//(10^(-8))
+	}
+	else if (get_timing[2] == Long_V) {
+	{
+		douTDF1 = 300;//(10^(-8))
+		douTDF2 = 100;//(10^(-8))
+	}
+
+	temp = ((douTVCH - douTVCL) * douVariation * (douTDF1 - douTDF2) * (1<<14) / (36 * Code * douCint)) * 100;
+	//printk("Summer %d, ",temp);
+	temp = (temp - douRinternal)/ 1000;//1000000 M Ohm
+	//printk("%d kohm\n",temp);
+
+//	(((douTVCH - douTVCL) * douVariation * (douTDF1 - douTDF2) * Math.Pow(2, 14) / (3.6 * douCodeValue * douCint)) - douRinternal) / 1000000;
+	return temp;   
+}
+
+
+static int short_test(int index)
+{
+	int j = 0, len = 6, code[6] = {7849,2632,1581,1130,879,791},res = 0;
+/*	int32_t temp = 0;
+
+	for (j = 0; j < len; j++)
+	{
+		temp = codeToOhm(code[j]);			
+	}			
+	goto out;
+*/
+	if(core_config->protocol_ver[0] >= PROTOCOL_MAJOR_5_4 && core_config->protocol_ver[1] >= PROTOCOL_MID_5_4)
+	{
+		//Calculate code to ohm and save to tItems[index].buf
+		for (j = 0; j < core_mp->frame_len; j++)
+			tItems[index].buf[j] = codeToOhm(frame_buf[j]);
+		
+	}else{
+		for (j = 0; j < core_mp->frame_len; j++)
+			tItems[index].buf[j] = frame_buf[j];		
+	}
+
+out:
+	return res;
+}
+
 static int mutual_test(int index)
 {
 	int i = 0, j = 0, x = 0, y = 0, res = 0 ,get_frame_cont =1 ;
@@ -1345,7 +1404,7 @@ static int mutual_test(int index)
 		ipio_err("Frame count is zero, which is at least set as 1\n");
 		tItems[index].frame_count = 1;
 	}
-
+		printk("Summer0\n");
 	res = create_mp_test_frame_buffer(index);
 	if (res < 0)
 		goto out;
@@ -1364,7 +1423,6 @@ static int mutual_test(int index)
 			}
 		}
 	}
-
 	if (tItems[index].catalog != PEAK_TO_PEAK_TEST)
 		get_frame_cont = tItems[index].frame_count;
 
@@ -1378,14 +1436,12 @@ static int mutual_test(int index)
 		if (ipio_debug_level&&DEBUG_PARSER > 0)                               
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
-
 	for (i = 0; i < get_frame_cont; i++) {
-		res = allnode_mutual_cdc_data(index);
+//		res = allnode_mutual_cdc_data(index);
 		if (res < 0) {
 			ipio_err("Failed to initialise CDC data, %d\n", res);
 			goto out;
 		}
-
 		switch (tItems[index].catalog) {
 		case PIXEL:
 			run_pixel_test(index);
@@ -1399,6 +1455,9 @@ static int mutual_test(int index)
 		case TX_RX_DELTA:
 			run_tx_rx_delta_test(index);
 			break;
+		case SHORT_TEST:
+			short_test(index);
+			break;			
 		default:
 			for (j = 0; j < core_mp->frame_len; j++)
 				tItems[index].buf[j] = frame_buf[j];
@@ -1466,26 +1525,41 @@ static void mp_test_init_item(void)
 
 	core_mp->mp_items = ARRAY_SIZE(tItems);
 
+
+
 	/* assign test functions run on MP flow according to their catalog */
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
-		if (tItems[i].catalog == MUTUAL_TEST)
+		if (tItems[i].catalog == MUTUAL_TEST){
 			tItems[i].do_test = mutual_test;
-		else if (tItems[i].catalog == TX_RX_DELTA)
+		}
+		else if (tItems[i].catalog == TX_RX_DELTA){
 			tItems[i].do_test = mutual_test;
-		else if (tItems[i].catalog == UNTOUCH_P2P)
+		}
+		else if (tItems[i].catalog == UNTOUCH_P2P){
 			tItems[i].do_test = mutual_test;
-		else if (tItems[i].catalog == PIXEL)
+		}
+		else if (tItems[i].catalog == PIXEL){
 			tItems[i].do_test = mutual_test;
-		else if (tItems[i].catalog == OPEN_TEST)
+		}
+		else if (tItems[i].catalog == OPEN_TEST){
 			tItems[i].do_test = mutual_test;
-		else if (tItems[i].catalog == KEY_TEST)
+		}
+		else if (tItems[i].catalog == KEY_TEST){
 			tItems[i].do_test = key_test;
-		else if (tItems[i].catalog == SELF_TEST)
+		}
+		else if (tItems[i].catalog == SELF_TEST){
 			tItems[i].do_test = self_test;
-		else if (tItems[i].catalog == ST_TEST)
+		}
+		else if (tItems[i].catalog == ST_TEST){
 			tItems[i].do_test = st_test;
-		else if (tItems[i].catalog == PEAK_TO_PEAK_TEST)
+		}
+		else if (tItems[i].catalog == PEAK_TO_PEAK_TEST){
 			tItems[i].do_test = mutual_test;
+		}
+		else if (tItems[i].catalog == SHORT_TEST)
+		{
+			tItems[i].do_test = mutual_test;			
+		}
 
 		tItems[i].result = kmalloc(16, GFP_KERNEL);
         sprintf(tItems[i].result, "%s", "FAIL");

@@ -739,7 +739,6 @@ int core_config_get_protocol_ver(void)
 		core_config->protocol_ver[i] = g_read_buf[i + 1];
 	}
 
-
 	ipio_info("Procotol Version = %d.%d.%d\n",
 		 core_config->protocol_ver[0], core_config->protocol_ver[1], core_config->protocol_ver[2]);
 

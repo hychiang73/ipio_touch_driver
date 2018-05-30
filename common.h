@@ -115,6 +115,11 @@
 #define PROTOCOL_MID		0x1
 #define PROTOCOL_MINOR		0x0
 
+/* Protocol version 5.4*/
+#define PROTOCOL_MAJOR_5_4	0x5
+#define PROTOCOL_MID_5_4	0x4
+#define PROTOCOL_MINOR_5_4	0x0
+
 /*  Debug messages */
 #ifdef BIT
 #undef BIT
