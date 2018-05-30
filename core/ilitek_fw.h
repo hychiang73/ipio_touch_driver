@@ -1,3 +1,3 @@
 static unsigned char CTPM_FW[] = {
-	#include "Firmware_tylar.ili"
+	#include "FW_TDDI_9881H_INNOLUX6217_FB_TIMING.ili"
 };

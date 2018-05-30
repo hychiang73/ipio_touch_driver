@@ -732,9 +732,13 @@ int core_config_get_protocol_ver(void)
 		goto out;
 	}
 
+	ipio_info("protocol->pro_ver_len = %d\n",protocol->pro_ver_len);
 	/* ignore the first btye because of a header. */
-	for (; i < protocol->pro_ver_len - 1; i++)
+	for (; i < protocol->pro_ver_len - 1; i++) {
+		ipio_info("g_read_buf[%d] = %x\n",i,g_read_buf[i]);
 		core_config->protocol_ver[i] = g_read_buf[i + 1];
+	}
+
 
 	ipio_info("Procotol Version = %d.%d.%d\n",
 		 core_config->protocol_ver[0], core_config->protocol_ver[1], core_config->protocol_ver[2]);

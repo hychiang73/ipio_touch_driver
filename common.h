@@ -202,9 +202,9 @@ enum ili9881_types
 /*
  * Other settings
  */
-#define CSV_PATH			"/sdcard"
-#define INI_NAME_PATH		"/sdcard/mp.ini"
-#define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
+#define CSV_PATH			"/data"
+#define INI_NAME_PATH		"/data/mp.ini"
+#define UPDATE_FW_PATH		"/data/ILITEK_FW"
 #define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
 #define CHECK_BATTERY_TIME  2000
 #define VDD_VOLTAGE			1800000

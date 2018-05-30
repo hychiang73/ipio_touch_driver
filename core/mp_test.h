@@ -47,6 +47,7 @@ struct mp_test_items {
 	int32_t *min_buf;
 	int32_t *bench_mark_max;
 	int32_t *bench_mark_min;
+	uint8_t from_timing_cmd[15];
 	int (*do_test)(int index);
 };
 
