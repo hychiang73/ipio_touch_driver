@@ -1333,6 +1333,7 @@ static void compare_MaxMin_result(int index, int32_t *data)
 
 int codeToOhm(int32_t Code)
 {
+	int Long_V = 0, Long_H = 1;
 	int douTDF1 = 0;
 	int douTDF2 = 0;
 	int douTVCH = 24;//2.4
@@ -1342,13 +1343,10 @@ int codeToOhm(int32_t Code)
 	int douRinternal = 930;
 	int32_t temp = 0;
 
-	if (get_timing[2] == Long_H) {
-	{
+	if (timing_info[2] == Long_H) {
 		douTDF1 = 219;//(10^(-8));
 		douTDF2 = 100;//(10^(-8))
-	}
-	else if (get_timing[2] == Long_V) {
-	{
+	} else if (timing_info[2] == Long_V) {
 		douTDF1 = 300;//(10^(-8))
 		douTDF2 = 100;//(10^(-8))
 	}
@@ -1404,7 +1402,7 @@ static int mutual_test(int index)
 		ipio_err("Frame count is zero, which is at least set as 1\n");
 		tItems[index].frame_count = 1;
 	}
-		printk("Summer0\n");
+
 	res = create_mp_test_frame_buffer(index);
 	if (res < 0)
 		goto out;
@@ -1437,7 +1435,7 @@ static int mutual_test(int index)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
 	for (i = 0; i < get_frame_cont; i++) {
-//		res = allnode_mutual_cdc_data(index);
+		res = allnode_mutual_cdc_data(index);
 		if (res < 0) {
 			ipio_err("Failed to initialise CDC data, %d\n", res);
 			goto out;
