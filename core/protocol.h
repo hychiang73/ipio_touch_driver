@@ -170,6 +170,8 @@ struct protocol_cmd_list {
 	uint8_t peak_to_peak;
 	
 	uint8_t get_timing;
+	uint8_t doze_p2p;
+	uint8_t doze_raw;
 };
 
 extern struct protocol_cmd_list *protocol;

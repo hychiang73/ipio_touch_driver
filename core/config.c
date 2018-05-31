@@ -516,7 +516,7 @@ EXPORT_SYMBOL(core_config_check_cdc_busy);
 
 int core_config_check_int_status(bool high)
 {
-	int timer = 50, res = -1;
+	int timer = 200, res = -1;
 
 	while (timer) {
 		ipio_debug(DEBUG_CONFIG, "int gpio = %d\n", gpio_get_value(ipd->int_gpio));
@@ -532,7 +532,7 @@ int core_config_check_int_status(bool high)
 			}
 		}
 
-		mdelay(10);
+		mdelay(5);
 		timer--;
 	}
 
@@ -738,7 +738,6 @@ int core_config_get_protocol_ver(void)
 		ipio_info("g_read_buf[%d] = %x\n",i,g_read_buf[i]);
 		core_config->protocol_ver[i] = g_read_buf[i + 1];
 	}
-
 
 	ipio_info("Procotol Version = %d.%d.%d\n",
 		 core_config->protocol_ver[0], core_config->protocol_ver[1], core_config->protocol_ver[2]);
