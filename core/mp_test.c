@@ -42,9 +42,6 @@
 #define EXEC_READ  0
 #define EXEC_WRITE 1
 
-#define LONG_H	0
-#define LONG_V	1
-
 #define INT_CHECK 0
 #define POLL_CHECK 1
 #define DELAY_CHECK 2
@@ -82,13 +79,14 @@ enum mp_test_catalog {
 	SHORT_TEST = 9,		
 };
 
-/* You must declare a new test at here before running a new process of mp test */
+/* You must declare a new test in this struct before running a new process of mp test */
 struct mp_test_items tItems[] = {
 	{"mutual_dac", "Calibration Data(DAC)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 	{"mutual_bg", "Baseline Data(BG)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 	{"mutual_signal", "Untouch Signal Data(BG-Raw-4096) - Mutual", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 	{"mutual_no_bk", "Raw Data(No BK)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 	{"mutual_has_bk", "Raw Data(Have BK)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"mutual_has_bk_lcm_off", "Raw Data(Have BK)(LCM OFF)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 	{"mutual_bk_dac", "Manual BK Data(Mutual)", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 
 	{"self_dac", "Calibration Data(DAC) - Self", "FAIL", SELF_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
@@ -127,8 +125,9 @@ struct mp_test_items tItems[] = {
 
 	{"open_integration", "Open Test(integration)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 	{"open_cap", "Open Test(Cap)", "FAIL", OPEN_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"noise_peak_to_peak", "Noise Peak to Peak(IC)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-	{"noise_peak_to_peak_cut", "Noise Peak To Peak(Cut Panel)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"noise_peak_to_peak_ic", "Noise Peak to Peak(IC Only)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"noise_peak_to_peak_ic_lcm_off", "Noise Peak to Peak(IC Only)(LCM OFF)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+	{"noise_peak_to_peak_panel", "Noise Peak To Peak(With Panel)", "FAIL", PEAK_TO_PEAK_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 
 	{"doze_raw", "Doze Raw Data", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
 	{"doze_p2p", "Doze Peak To Peak", "FAIL", MUTUAL_TEST, 0x0, false, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
@@ -815,10 +814,36 @@ out:
 
 // }
 
-// static void mp_cdc_init_cmd_lcd(void)
-// {
+static int mp_ctrl_lcd_status(bool on)
+{
+	int ret = 0, ctrl = 0, delay = 0;
+	uint8_t lcd[15] = {0};
+	uint8_t header = 0x0F;
 
-// }
+	memset(&lcd, 0xFF, ARRAY_SIZE(lcd));
+
+	ctrl = ((on) ? 1 : 2);
+	delay = ((on) ? 100 : 10);
+
+	lcd[0] = header;
+	lcd[1] = protocol->mutual_bg;
+	lcd[2] = 0;
+	lcd[3] = ctrl;
+
+	ipio_info("LCD command: delay time = %d \n", delay);
+	dump_data(lcd, 8, ARRAY_SIZE(lcd));
+
+	ret = core_write(core_config->slave_i2c_addr, lcd, ARRAY_SIZE(lcd));
+	if (ret < 0) {
+		ipio_err("Failed to write LCD command\n");
+		goto out;
+	}
+
+	mdelay(delay);
+
+out:
+	return ret;
+}
 
 static int calc_long_v_nodp(int index)
 {
@@ -844,13 +869,7 @@ static int calc_long_h_nodp(int index)
 	return 0;
 }
 
-static int convert_timing_para_to_nodp(void)
-{
-	ipio_info("++++++++++\n");
-}
-
-/* This function is only accpetable for protocol v5.4 above */
-static int get_timing_value(int index)
+static int calc_timing_nodp(int index)
 {
 	int i, ret = 0;
 	uint8_t test_type = 0x0;
@@ -859,13 +878,15 @@ static int get_timing_value(int index)
 
 	memset(timing_cmd, 0xFF, protocol->cdc_len);
 
-	ipio_info("cmd len = %d\n",protocol->cdc_len);
-
 	timing_cmd[0] = protocol->cmd_cdc;
 	timing_cmd[1] = protocol->get_timing;
 	timing_cmd[2] = test_type;
 
-	ipio_info("Get Timing command :\n");
+	/* 
+	 * To calculate NODP, we need to get timing parameters first from fw,
+	 * which returnes 40 bytes data.
+	 */
+	ipio_info("Timing command :\n");
 	dump_data(timing_cmd, 8, protocol->cdc_len);
 
 	ret = core_write(core_config->slave_i2c_addr, timing_cmd, protocol->cdc_len);
@@ -880,21 +901,65 @@ static int get_timing_value(int index)
 		goto out;
 	}
 
-	ipio_info("Dump Timing Parameters :\n");
 	for (i = 0; i < ARRAY_SIZE(get_timing); i++) {
-		core_mp->nodp.timing_para[i] = get_timing[i];
-		ipio_info("para[%d] = 0x%x, info[%d] = 0x%x\n",i,get_timing[i],i,core_mp->nodp.timing_para[i]);
+		ipio_info("get_timing[%d] = 0x%x\n",i,get_timing[i]);
 	}
 
-	convert_timing_para_to_nodp();
+	/* Combine timing data */
+	core_mp->nodp.is60HZ = false; // This will get from ini file by default.
+	core_mp->nodp.isLongV = get_timing[2];
+	core_mp->nodp.tshd = (get_timing[3] << 8 ) + get_timing[4];
+	core_mp->nodp.multi_term_num_120 = get_timing[5];
+	core_mp->nodp.multi_term_num_60 = get_timing[6];
+	core_mp->nodp.tsvd_to_tshd = (get_timing[7] << 8 ) + get_timing[8];
+	core_mp->nodp.qsh_tdf = (get_timing[9] << 8 ) + get_timing[10];
+	core_mp->nodp.auto_trim = get_timing[11];
+	core_mp->nodp.tp_tshd_wait_120 = (get_timing[12] << 8 ) + get_timing[13];
+	core_mp->nodp.ddi_width_120 = (get_timing[14] << 8 ) + get_timing[15];
+	core_mp->nodp.tp_tshd_wait_60 = (get_timing[16] << 8 ) + get_timing[17];
+	core_mp->nodp.ddi_width_60 = (get_timing[18] << 8 ) + get_timing[19];
+	core_mp->nodp.dp_to_tp = (get_timing[20] << 8 ) + get_timing[21];
+	core_mp->nodp.tx_wait_const = (get_timing[22] << 8 ) + get_timing[23];
+	core_mp->nodp.tx_wait_const_multi = (get_timing[24] << 8 ) + get_timing[25];
+	core_mp->nodp.tp_to_dp = (get_timing[26] << 8 ) + get_timing[27];
+	core_mp->nodp.phase_adc = get_timing[28];
+	core_mp->nodp.r2d_pw = get_timing[29];
+	core_mp->nodp.rst_pw = get_timing[30];
+	core_mp->nodp.rst_pw_back = get_timing[31];
+	core_mp->nodp.dac_td = get_timing[32];
+	core_mp->nodp.qsh_pw = get_timing[33];
+	core_mp->nodp.qsh_td = get_timing[34];
+	core_mp->nodp.drop_nodp = get_timing[35];
 
-	if (core_mp->nodp.timing_para[2] == LONG_V) {
+	ipio_info("60HZ = %d\n",core_mp->nodp.is60HZ);
+	ipio_info("Long V = %d\n",core_mp->nodp.isLongV);
+	ipio_info("TSHD = %d\n",core_mp->nodp.tshd);
+	ipio_info("Multi Term Num (120Hz) = %d\n",core_mp->nodp.multi_term_num_120);
+	ipio_info("Multi Term Num (60Hz) = %d\n",core_mp->nodp.multi_term_num_60);
+	ipio_info("TSVD to TSHD = %d\n",core_mp->nodp.tsvd_to_tshd);
+	ipio_info("QSH TDF = %d\n",core_mp->nodp.qsh_tdf);
+	ipio_info("AutoTrim Variation = %d\n",core_mp->nodp.auto_trim);
+	ipio_info("TP TSHD Wait (120Hz) = %d\n",core_mp->nodp.tp_tshd_wait_120);
+	ipio_info("DDI Width (120Hz) = %d\n",core_mp->nodp.ddi_width_120);
+	ipio_info("TP TSHD Wait (60Hz) = %d\n",core_mp->nodp.tp_tshd_wait_60);
+	ipio_info("DDI Width (60Hz) =%d\n",core_mp->nodp.ddi_width_60);
+	ipio_info("DP to TP %d\n",core_mp->nodp.dp_to_tp);
+	ipio_info("TX Wait Const = %d\n",core_mp->nodp.tx_wait_const);
+	ipio_info("TX Wait Const Multi = %d\n",core_mp->nodp.tx_wait_const_multi);
+	ipio_info("TP to DP = %d\n",core_mp->nodp.tp_to_dp);
+	ipio_info("Phase ADC = %d\n",core_mp->nodp.phase_adc);
+	ipio_info("R2D PW = %d\n",core_mp->nodp.r2d_pw);
+	ipio_info("RST PW = %d\n",core_mp->nodp.rst_pw);
+	ipio_info("RST PW Back = %d\n",core_mp->nodp.rst_pw_back);
+	ipio_info("DAC TD = %d\n",core_mp->nodp.dac_td);
+	ipio_info("QSH PW = %d\n",core_mp->nodp.qsh_pw);
+	ipio_info("QSH TD = %d\n",core_mp->nodp.qsh_td);
+	ipio_info("Drop NODP Num = %d\n",core_mp->nodp.drop_nodp);
+
+	if (core_mp->nodp.isLongV) {
 		calc_long_v_nodp(index);
-	} else if (core_mp->nodp.timing_para[2] == LONG_H) {
-		calc_long_h_nodp(index);
 	} else {
-		ipio_err("DDI Mode (0x%x) is incorrect\n",core_mp->nodp.timing_para[2]);
-		ret = -1;
+		calc_long_h_nodp(index);
 	}
 
 out:
@@ -1037,21 +1102,23 @@ static int allnode_mutual_cdc_data(int index)
 	}
 
 	memset(cmd, 0xFF, protocol->cdc_len);
-	for (i = 0; i < protocol->cdc_len; i++){
-		ipio_info("cmd[%d] = %x\n",i,cmd[i]);
-	}
 
 	/* CDC init */
-	get_timing_value(index);
+	if (protocol->major >= 5 && protocol->mid >= 4) {
+		res = calc_timing_nodp(index);
+		if(res < 0) {
+			ipio_err("Failed to get timing parameters\n");
+			goto out;
+		}
+	}
+
 	res = tItems[index].get_cdc_init_cmd(cmd, protocol->cdc_len, index);
 	if (res < 0) {
 		ipio_err("Failed to get cdc init command\n");
 		goto out;
 	}
 
-	for (i = 0; i < protocol->cdc_len; i++){
-		ipio_info("cmd[%d] = %x\n",i,cmd[i]);
-	}
+	dump_data(cmd, 8, protocol->cdc_len);
 
 	res = core_write(core_config->slave_i2c_addr, cmd, protocol->cdc_len);
 	if (res < 0) {
@@ -1364,11 +1431,11 @@ int codeToOhm(int32_t Code)
 	int douRinternal = 930;
 	int32_t temp = 0;
 
-	if (core_mp->nodp.timing_para[2] == LONG_H) {
-		douTDF1 = 219;//(10^(-8));
-		douTDF2 = 100;//(10^(-8))
-	} else if (core_mp->nodp.timing_para[2] == LONG_V) {
+	if (core_mp->nodp.isLongV) {
 		douTDF1 = 300;//(10^(-8))
+		douTDF2 = 100;//(10^(-8))
+	} else {
+		douTDF1 = 219;//(10^(-8));
 		douTDF2 = 100;//(10^(-8))
 	}
 
@@ -1717,7 +1784,10 @@ void core_mp_run_test(char *item, bool ini)
 	/* compute the total length in one frame */
 	core_mp->frame_len = core_mp->xch_len * core_mp->ych_len;
 
-	if (item == NULL || strcmp(item, " ") == 0) {
+	/* We don't control lcm on and off in general case. */
+	core_mp->ctrl_lcm = false;
+
+	if (item == NULL || strncmp(item, " ", strlen(item)) == 0) {
 		ipio_err("Invaild string\n");
 		return;
 	}
@@ -1725,7 +1795,7 @@ void core_mp_run_test(char *item, bool ini)
 	ipio_debug(DEBUG_MP_TEST, "item = %s\n", item);
 
 	for (i = 0; i < core_mp->mp_items; i++) {
-		if (strcmp(item, tItems[i].desp) == 0) {
+		if (strncmp(item, tItems[i].desp, strlen(item)) == 0) {
 			if (ini) {
 				core_parser_get_int_data(item, "Enable", str);
 				tItems[i].run = katoi(str);
@@ -1763,10 +1833,22 @@ void core_mp_run_test(char *item, bool ini)
 						tItems[i].run, tItems[i].max, tItems[i].min, tItems[i].frame_count);
 			}
 
+			if (strncmp(tItems[i].name, "mutual_has_bk_lcm_off", strlen("mutual_has_bk_lcm_off")) == 0 || 
+				strncmp(tItems[i].name, "noise_peak_to_peak_ic_lcm_off", strlen("noise_peak_to_peak_ic_lcm_off")) == 0) {
+				core_mp->ctrl_lcm = true;
+			}
+
+			if (core_mp->ctrl_lcm)
+				mp_ctrl_lcd_status(false);
+
 			if (tItems[i].run) {
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
 			}
+
+			if (core_mp->ctrl_lcm)
+				mp_ctrl_lcd_status(true);
+
 			break;
 		}
 	}
@@ -1885,13 +1967,15 @@ static void mp_test_init_item(void)
 
 		if (strncmp(tItems[i].name, "mutual_dac", strlen("mutual_dac")) == 0) {
 			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_dac;
-		} else if (strncmp(tItems[i].name, "mutual_has_bk", strlen("mutual_has_bk")) == 0) {
+		} else if (strncmp(tItems[i].name, "mutual_has_bk", strlen("mutual_has_bk")) == 0 ||
+					strncmp(tItems[i].name, "mutual_has_bk_lcm_off", strlen("mutual_has_bk_lcm_off")) == 0) {
 			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_raw_bk;
 		} else if (strncmp(tItems[i].name, "mutual_no_bk", strlen("mutual_no_bk")) == 0) {
 			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_raw_no_bk;
-		} else if (strncmp(tItems[i].name, "noise_peak_to_peak", strlen("noise_peak_to_peak")) == 0) {
+		} else if (strncmp(tItems[i].name, "noise_peak_to_peak_ic", strlen("noise_peak_to_peak_ic")) == 0 ||
+					strncmp(tItems[i].name, "noise_peak_to_peak_ic_lcm_off", strlen("noise_peak_to_peak_ic_lcm_off")) == 0) {
 			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_p2p_ic;
-		} else if (strncmp(tItems[i].name, "noise_peak_to_peak_cut", strlen("noise_peak_to_peak_cut")) == 0) {
+		} else if (strncmp(tItems[i].name, "noise_peak_to_peak_panel", strlen("noise_peak_to_peak_panel")) == 0) {
 			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_p2p_panel;
 		} else if (strncmp(tItems[i].name, "doze_raw", strlen("doze_raw")) == 0) {
 			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_doze_raw;
@@ -1969,7 +2053,7 @@ int core_mp_init(void)
 			core_mp->st_len = core_config->tp_info->side_touch_type;
 
 			core_mp->tdf = 240;
-			core_mp->busy_cdc = DELAY_CHECK;
+			core_mp->busy_cdc = INT_CHECK;
 
 			core_mp->final_result = true;
 

@@ -52,10 +52,8 @@ struct mp_test_items {
 };
 
 struct mp_nodp_calc {
-	uint8_t timing_para[40];
-
 	bool is60HZ;
-	bool isLongH;
+	bool isLongV;
 
 	uint16_t tshd;
 	uint8_t multi_term_num_120;
@@ -82,6 +80,8 @@ struct mp_nodp_calc {
 	uint8_t qsh_pw;
 	uint8_t qsh_td;
 	uint8_t drop_nodp; 
+
+	uint16_t nodp;
 };
 
 struct core_mp_test_data {
@@ -121,6 +121,7 @@ struct core_mp_test_data {
 
 	int tdf;
 	bool busy_cdc;
+	bool ctrl_lcm;
 
 	struct mp_nodp_calc nodp;
 };
