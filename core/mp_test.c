@@ -137,11 +137,6 @@ int32_t *frame_buf = NULL;
 int32_t *key_buf = NULL;
 struct core_mp_test_data *core_mp = NULL;
 
-/* Might be changed depending on what test item runs. */
-//int mp_tdf = 200;
-/* Timing parameters */
-uint8_t timing_info[39] = {0};
-
 static void dump_data(void *data, int type, int len)
 {
 	int i;
@@ -845,31 +840,74 @@ out:
 	return ret;
 }
 
-static int calc_long_v_nodp(int index)
+static int mp_calc_long_v_nodp(int index)
 {
 	int nodp = 0;
 
-	// TODO: Long V:
-	// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-DDI_WIDTH_120*(11)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(11)))/12
-	// TXPW = EVEN(QSH_TDF+QSH_PW+RST_PW+QSH_TD+2)
-	// NODP = ROUNDDOWN(ROUNDDOWN(Term Real TX duration)/TXPW/2)
+
 	ipio_info("Long V: nodp = %d\n",nodp);
 	return 0;
 }
 
-static int calc_long_h_nodp(int index)
+static void mp_calc_nodp(bool long_v)
 {
-	int nodp = 0;
+	uint8_t at, phase;
+	uint8_t r2d, rst, rst_back, dac_td, qsh_pw, qsh_td, dn;
+	uint16_t tshd, qsh_tdf, dp2tp, twc, twcm, tp2dp;
+	uint16_t multi_term_num, tp_tsdh_wait, ddi_width;
+	uint32_t real_tx_dura, nodp, ftw, tp_width, txpw;
 
-	//TODO Long H:
-	// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-TP_TSHD_WAIT_120-DDI_WIDTH_120*(Multi term number-1)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(Multi term number-1)))/Multi term number
-	// TXPW = EVEN(QSH_TDF+QSH_PW+RST_PW+QSH_TD+2)
-	// NODP = ROUNDDOWN(ROUNDDOWN(Term Real TX duration)/TXPW/2)
-	ipio_info("Long H: nodp = %d\n",nodp);
-	return 0;
+	ipio_info("DDI Mode = %d\n", long_v);
+
+	tshd = core_mp->nodp.tshd;
+	qsh_tdf = core_mp->nodp.qsh_tdf;
+	at = core_mp->nodp.auto_trim;
+	dp2tp = core_mp->nodp.dp_to_tp;
+	twc = core_mp->nodp.tx_wait_const;
+	twcm = core_mp->nodp.tx_wait_const_multi;
+	tp2dp = core_mp->nodp.tp_to_dp;
+	phase = core_mp->nodp.phase_adc;
+	r2d = core_mp->nodp.r2d_pw;
+	rst = core_mp->nodp.rst_pw;
+	rst_back = core_mp->nodp.rst_pw_back;
+	dac_td = core_mp->nodp.dac_td;
+	qsh_pw = core_mp->nodp.qsh_pw;
+	qsh_td = core_mp->nodp.qsh_td;
+	dn = core_mp->nodp.drop_nodp;
+
+	if (core_mp->nodp.is60HZ) {
+		multi_term_num = core_mp->nodp.multi_term_num_60;
+		tp_tsdh_wait = core_mp->nodp.tp_tshd_wait_60;
+		ddi_width = core_mp->nodp.ddi_width_60;
+	} else {
+		multi_term_num = core_mp->nodp.multi_term_num_120;
+		tp_tsdh_wait = core_mp->nodp.tp_tshd_wait_120;
+		ddi_width = core_mp->nodp.ddi_width_120;
+	}
+
+	multi_term_num = MIN(multi_term_num, 1);
+
+	if (long_v) {
+		// TODO: Long V:
+		// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-DDI_WIDTH_120*(11)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(11)))/12
+	} else {
+		real_tx_dura = (((tshd << 2) - (at << 6) - tp_tsdh_wait - ddi_width * (multi_term_num - 1) - 64 - dp2tp - twc) * 5 - (phase << 5) - ((twcm * 5 + (phase << 5 ) + (tp2dp * 5 << 6)) * (multi_term_num - 1))) / ( multi_term_num * 5 );
+	}
+
+	ipio_info("Read Tx Duration = %d\n",real_tx_dura);
+
+	core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + (phase << 5 ) + real_tx_dura * 5) / 5;
+	core_mp->nodp.tp_width = ((tp2dp + phase) * 64 + real_tx_dura);
+	core_mp->nodp.txpw = (qsh_tdf + rst + qsh_pw + qsh_td + 2);
+	core_mp->nodp.nodp = real_tx_dura / txpw / 2;
+
+	ipio_info("First TP Width = %d\n",core_mp->nodp.first_tp_width);
+	ipio_info("TP Width = %d\n",core_mp->nodp.tp_width);
+	ipio_info("TXPW = %d\n",core_mp->nodp.txpw);
+	ipio_info("NODP = %d\n",core_mp->nodp.nodp);
 }
 
-static int calc_timing_nodp(int index)
+static int mp_calc_timing_nodp(int index)
 {
 	int i, ret = 0;
 	uint8_t test_type = 0x0;
@@ -956,11 +994,7 @@ static int calc_timing_nodp(int index)
 	ipio_info("QSH TD = %d\n",core_mp->nodp.qsh_td);
 	ipio_info("Drop NODP Num = %d\n",core_mp->nodp.drop_nodp);
 
-	if (core_mp->nodp.isLongV) {
-		calc_long_v_nodp(index);
-	} else {
-		calc_long_h_nodp(index);
-	}
+	mp_calc_nodp(core_mp->nodp.isLongV);
 
 out:
 	return ret;
@@ -1105,7 +1139,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	/* CDC init */
 	if (protocol->major >= 5 && protocol->mid >= 4) {
-		res = calc_timing_nodp(index);
+		res = mp_calc_timing_nodp(index);
 		if(res < 0) {
 			ipio_err("Failed to get timing parameters\n");
 			goto out;

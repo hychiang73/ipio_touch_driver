@@ -55,22 +55,22 @@ struct mp_nodp_calc {
 	bool is60HZ;
 	bool isLongV;
 
+	/* Input */
 	uint16_t tshd;
 	uint8_t multi_term_num_120;
 	uint8_t multi_term_num_60;
 	uint16_t tsvd_to_tshd;
 	uint16_t qsh_tdf;
 
+	/* Settings */
 	uint8_t auto_trim;
 	uint16_t tp_tshd_wait_120;
 	uint16_t ddi_width_120;
 	uint16_t tp_tshd_wait_60;
 	uint16_t ddi_width_60;
-
 	uint16_t dp_to_tp;
 	uint16_t tx_wait_const;
 	uint16_t tx_wait_const_multi;
-
 	uint16_t tp_to_dp;
 	uint8_t phase_adc;
 	uint8_t r2d_pw;
@@ -81,7 +81,11 @@ struct mp_nodp_calc {
 	uint8_t qsh_td;
 	uint8_t drop_nodp; 
 
-	uint16_t nodp;
+	/* Output */
+	uint32_t first_tp_width;
+	uint32_t tp_width;
+	uint32_t txpw;
+	uint32_t nodp;
 };
 
 struct core_mp_test_data {
