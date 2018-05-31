@@ -47,8 +47,41 @@ struct mp_test_items {
 	int32_t *min_buf;
 	int32_t *bench_mark_max;
 	int32_t *bench_mark_min;
-	uint8_t from_timing_cmd[15];
+	int (*get_cdc_init_cmd)(uint8_t *cmd, int len, int index);
 	int (*do_test)(int index);
+};
+
+struct mp_nodp_calc {
+	uint8_t timing_para[40];
+
+	bool is60HZ;
+	bool isLongH;
+
+	uint16_t tshd;
+	uint8_t multi_term_num_120;
+	uint8_t multi_term_num_60;
+	uint16_t tsvd_to_tshd;
+	uint16_t qsh_tdf;
+
+	uint8_t auto_trim;
+	uint16_t tp_tshd_wait_120;
+	uint16_t ddi_width_120;
+	uint16_t tp_tshd_wait_60;
+	uint16_t ddi_width_60;
+
+	uint16_t dp_to_tp;
+	uint16_t tx_wait_const;
+	uint16_t tx_wait_const_multi;
+
+	uint16_t tp_to_dp;
+	uint8_t phase_adc;
+	uint8_t r2d_pw;
+	uint8_t rst_pw;
+	uint8_t rst_pw_back;
+	uint8_t dac_td;
+	uint8_t qsh_pw;
+	uint8_t qsh_td;
+	uint8_t drop_nodp; 
 };
 
 struct core_mp_test_data {
@@ -85,6 +118,11 @@ struct core_mp_test_data {
 	int32_t *tx_min_buf;
 	int32_t *rx_max_buf;
 	int32_t *rx_min_buf;
+
+	int tdf;
+	bool busy_cdc;
+
+	struct mp_nodp_calc nodp;
 };
 
 extern struct core_mp_test_data *core_mp;

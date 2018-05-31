@@ -115,11 +115,6 @@
 #define PROTOCOL_MID		0x1
 #define PROTOCOL_MINOR		0x0
 
-/* Protocol version 5.4*/
-#define PROTOCOL_MAJOR_5_4	0x5
-#define PROTOCOL_MID_5_4	0x4
-#define PROTOCOL_MINOR_5_4	0x0
-
 /*  Debug messages */
 #ifdef BIT
 #undef BIT
@@ -159,7 +154,7 @@ extern uint32_t ipio_debug_level;
 extern uint32_t ipio_chip_list[2];
 
 /* Macros */
-#define CHECK_EQUAL(X, Y) ((X == Y) ? 0 : -1)
+#define CHECK_EQUAL(X, Y) 	((X == Y) ? 0 : -1)
 #define ERR_ALLOC_MEM(X)	((IS_ERR(X) || X == NULL) ? 1 : 0)
 #define USEC	1
 #define MSEC	(USEC * 1000)

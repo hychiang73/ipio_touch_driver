@@ -322,12 +322,12 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	ilitek_platform_disable_irq();
 
 	// core_mp_run_test("Open Test(integration)", true);
-	// core_mp_run_test("Open Test(Cap)", true);
-	// core_mp_run_test("Short Test -ILI9881", true);
+
+	core_mp_run_test("Short Test -ILI9881", true);
 
 	//core_mp_run_test("Calibration Data(DAC)", true);
 	//core_mp_run_test("Raw Data(Have BK)", true);
-	core_mp_run_test("Raw Data(No BK)", true);
+	//core_mp_run_test("Raw Data(No BK)", true);
 	//core_mp_run_test("Noise Peak to Peak(IC)", true);
 	//core_mp_run_test("Noise Peak To Peak(Cut Panel)", true);
 
@@ -424,6 +424,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	core_mp_test_free();
 
+#ifndef HOST_DOWNLOAD
 	/* Code reset */
 	core_config_ice_mode_enable();
 
@@ -431,10 +432,15 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	core_config_reset_watch_dog();
 
 	core_config_ic_reset();
+#endif
 
 	/* Switch to Demo mode it prevents if fw fails to be switched */
 	test_cmd[0] = protocol->demo_mode;
 	core_fr_mode_control(test_cmd);
+
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_tp_hw_reset(true);
+#endif
 
 	ilitek_platform_enable_irq();
 
