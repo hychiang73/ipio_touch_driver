@@ -27,35 +27,39 @@
 #include "spi.h"
 
 struct core_spi_data *core_spi;
-void core_spi_remove(void);
+
 int core_Rx_check(uint16_t check)
 {
 	int size = 0, i, count = 100;
 	uint8_t txbuf[5] = { 0 }, rxbuf[4] = {0};
 	uint16_t status = 0;
-	for(i = 0; i < count; i++)
-	{
+	for(i = 0; i < count; i++) {
 		txbuf[0] = SPI_WRITE;
 		txbuf[1] = 0x25;
 		txbuf[2] = 0x94;
 		txbuf[3] = 0x0;
 		txbuf[4] = 0x2;
+
 		if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
 			size = -EIO;
 			ipio_err("spi Write Error, res = %d\n", size);
 		}
+
 		txbuf[0] = SPI_READ;
+
 		if (spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4) < 0) {
 			size = -EIO;
 			ipio_err("spi Write Error, res = %d\n", size);
 		}
+
 		status = (rxbuf[2] << 8) + rxbuf[3];
 		size = (rxbuf[0] << 8) + rxbuf[1];
-		//ipio_info("count:%d,status =0x%x size: = %d\n", i, status, size);
+
 		if(status == check)
 			return size;
 		mdelay(1);
 	}
+
 	size = -EIO;
 	return size;
 }
@@ -81,7 +85,7 @@ int core_Tx_unlock_check(void)
 			ipio_err("spi Write Error, res = %d\n", res);
 		}
 		unlock = (rxbuf[2] << 8) + rxbuf[3];
-		//ipio_info("count:%d,unlock =0x%x\n", i, unlock);
+
 		if(unlock == 0x9881)
 			return res;
 		mdelay(1);
@@ -126,14 +130,23 @@ int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 	}
 	return res;
 }
+
 extern uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength);
+
 int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 {
 	int res = 0;
 	uint8_t check_sum = 0,wsize = 0;
 	uint8_t *txbuf;
-    txbuf = (uint8_t*)kmalloc(sizeof(uint8_t)*size+5, GFP_KERNEL);
-	//write data
+
+    txbuf = (uint8_t*)kmalloc(sizeof(uint8_t)*size+9, GFP_KERNEL);
+	if (ERR_ALLOC_MEM(txbuf)) {
+		ipio_err("Failed to allocate CSV mem\n");
+		res = -ENOMEM;
+		goto out;
+	}
+
+	/* Write data */
 	txbuf[0] = SPI_WRITE;
 	txbuf[1] = 0x25;
 	txbuf[2] = 0x4;
@@ -146,13 +159,14 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 	size++;
 	wsize = size;
 	if(wsize%4 != 0)
-	{
 		wsize += 4 - (wsize % 4); 
-	}
+
 	if (spi_write_then_read(core_spi->spi, txbuf, wsize + 5, txbuf, 0) < 0) {
 		res = -EIO;
 		ipio_err("spi Write Error, res = %d\n", res);
+		goto out;
 	}
+
 	//write data lock
 	txbuf[0] = SPI_WRITE;
 	txbuf[1] = 0x25;
@@ -167,6 +181,8 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 		res = -EIO;
 		ipio_err("spi_write_then_read Error, res = %d\n", res);
 	}
+
+out:
 	kfree(txbuf);
 	return res;
 }
@@ -180,7 +196,7 @@ int core_ice_mode_disable_9881H11(void)
 	txbuf[2] = 0x62;
 	txbuf[3] = 0x10;
 	txbuf[4] = 0x18;
-	ipio_info("FW ICE Mode disable\n");
+
 	if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
 		res = -EIO;
 		ipio_err("spi_write_then_read Error, res = %d\n", res);
@@ -201,7 +217,7 @@ int core_ice_mode_enable_9881H11(void)
 		res = -EIO;
 		ipio_err("spi Write Error, res = %d\n", res);
 	}
-	ipio_info("rxbuf:0x%x\n", rxbuf[0]);
+
 	if (spi_write_then_read(core_spi->spi, txbuf, 5, rxbuf, 0) < 0) {
 		res = -EIO;
 		ipio_err("spi Write Error, res = %d\n", res);
@@ -275,13 +291,7 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
   
 	txbuf[0] = SPI_WRITE;
     memcpy(txbuf+1, pBuf, nSize);
-	// for(i = 0; i < nSize + 1; i++)
-	// {
-	// 	if(i < nSize)
-	// 		printk("%d,0x%x,0x%x\n", i, txbuf[i], pBuf[i]);
-	// 	else
-	// 		printk("%d,0x%x\n", i, txbuf[i]);
-	// }
+
 	if (spi_write_then_read(core_spi->spi, txbuf, nSize+1, txbuf, 0) < 0) {
 		if (core_config->do_ic_reset) {
 			/* ignore spi error if doing ic reset */
@@ -337,14 +347,16 @@ int core_spi_init(struct spi_device *spi)
 	core_spi->spi = spi;
 	spi->mode = SPI_MODE_0;
 	spi->bits_per_word = 8;
-	ipio_info("\n");
+
 	ret = spi_setup(spi);
 	if (ret < 0){
 		ipio_err("ERR: fail to setup spi\n");
 		return -ENODEV;
 	}
+
 	ipio_info("%s:name=%s,bus_num=%d,cs=%d,mode=%d,speed=%d\n",__func__,spi->modalias,
-	 spi->master->bus_num, spi->chip_select, spi->mode, spi->max_speed_hz);	
+	 spi->master->bus_num, spi->chip_select, spi->mode, spi->max_speed_hz);
+
 	return 0;
 }
 EXPORT_SYMBOL(core_spi_init);

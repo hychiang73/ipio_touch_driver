@@ -887,8 +887,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 		ipio_err("Failed to allocate cores' mem\n");
 		return -ENOMEM;
 	}
-	// if (core_config_get_chip_id() < 0)
-	// 	return CHIP_ID_ERR;
+
 #ifdef HOST_DOWNLOAD
 	core_firmware_boot_host_download();
 #else
@@ -898,7 +897,6 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ret = ilitek_platform_read_tp_info();
 	if (ret == CHIP_ID_ERR) {
 		ipio_err("CHIP ID is incorrect, need to rebuild driver\n");
-		return -ENODEV;
 	} else if (ret < 0) {
 		ipio_err("Failed to get TP info, need to upgrade a correct FW\n");
 	}

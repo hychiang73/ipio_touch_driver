@@ -108,11 +108,11 @@
 #define SPI_INTERFACE 2
 #define INTERFACE SPI_INTERFACE
 /* Driver version */
-#define DRIVER_VERSION	"1.0.2.2"
+#define DRIVER_VERSION	"1.0.3.0"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
-#define PROTOCOL_MID		0x1
+#define PROTOCOL_MID		0x4
 #define PROTOCOL_MINOR		0x0
 
 /*  Debug messages */
@@ -193,8 +193,8 @@ enum ili7881_types
 /* ILI9881 Series */
 enum ili9881_types
 {
-	ILI9881_TYPE_F = 0x0F00,
-	ILI9881_TYPE_H = 0x1100
+	ILI9881_TYPE_F = 0x0F,
+	ILI9881_TYPE_H = 0x11
 };
 
 #define ILI9881_SLAVE_ADDR		0x41

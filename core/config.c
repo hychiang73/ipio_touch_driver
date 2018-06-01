@@ -84,7 +84,7 @@ static uint32_t check_chip_id(uint32_t pid_data)
 	uint32_t type = 0;
 
 	id = pid_data >> 16;
-	type = pid_data & 0x0000FFFF;
+	type = (pid_data & 0x0000FF00) >> 8;
 
 	ipio_info("id = 0x%x, type = 0x%x\n", id, type);
 
@@ -502,13 +502,16 @@ int core_config_check_cdc_busy(int delay)
 		core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		mdelay(1);
 		core_read(core_config->slave_i2c_addr, &busy, 1);
-		ipio_debug(DEBUG_CONFIG, "CDC busy state = 0x%x\n", busy);
 		if (busy == 0x41 || busy == 0x51) {
+			ipio_info("Check busy is free\n");
 			res = 0;
 			break;
 		}
 		timer--;
 	}
+
+	if (res < -1)
+		ipio_info("Check busy timeout !!\n");
 
 	return res;
 }
@@ -516,17 +519,19 @@ EXPORT_SYMBOL(core_config_check_cdc_busy);
 
 int core_config_check_int_status(bool high)
 {
-	int timer = 200, res = -1;
+	int timer = 1000, res = -1;
 
+	/* From FW request, timeout should at least be 5 sec */
 	while (timer) {
-		ipio_debug(DEBUG_CONFIG, "int gpio = %d\n", gpio_get_value(ipd->int_gpio));
 		if(high) {
 			if (gpio_get_value(ipd->int_gpio)) {
+				ipio_info("Check busy is free\n");
 				res = 0;
 				break;
 			}
 		} else {
 			if (!gpio_get_value(ipd->int_gpio)) {
+				ipio_info("Check busy is free\n");
 				res = 0;
 				break;
 			}
@@ -535,6 +540,9 @@ int core_config_check_int_status(bool high)
 		mdelay(5);
 		timer--;
 	}
+
+	if (res < -1)
+		ipio_info("Check busy timeout !!\n");
 
 	return res;
 }

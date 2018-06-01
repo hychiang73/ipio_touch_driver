@@ -24,8 +24,10 @@
 
 #ifndef __SPI_H
 #define __SPI_H
+
 #define SPI_WRITE 		0X82
 #define SPI_READ 		0X83
+
 struct core_spi_data {
 	struct spi_device *spi;
 };
@@ -34,4 +36,5 @@ extern struct core_spi_data *core_spi;
 extern int core_spi_write(uint8_t *pBuf, uint16_t nSize);
 extern int core_spi_read(uint8_t *pBuf, uint16_t nSize);
 extern int core_spi_init(struct spi_device *spi);
+extern void core_spi_remove(void);
 #endif

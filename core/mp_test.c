@@ -192,7 +192,7 @@ static void dump_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
 	}
 }
 
-static void print_benchmark_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len)
+static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
 	int  mp_result = 1;
@@ -276,7 +276,7 @@ static void print_benchmark_cdc_data(int index, bool max, bool tx, char *csv, in
         
 }
 
-static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len)
+static void mp_compare_cdc_result(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
 	int max_ts, min_ts, mp_result = 1;
@@ -351,10 +351,14 @@ static void print_cdc_data(int index, bool max, bool tx, char *csv, int *csv_len
 		tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
 	}
 
-	if (mp_result < 0)
+	if (strncmp(tItems[index].result, "FAIL", strlen("FAIL")) == 0) {
 		sprintf(tItems[index].result, "%s", "FAIL");
-	else
-		sprintf(tItems[index].result, "%s", "PASS");
+	} else {
+		if (mp_result < 0)
+			sprintf(tItems[index].result, "%s", "FAIL");
+		else
+			sprintf(tItems[index].result, "%s", "PASS");
+	}
 
 	*csv_len = tmp_len;
 }
@@ -840,28 +844,23 @@ out:
 	return ret;
 }
 
-static int mp_calc_long_v_nodp(int index)
-{
-	int nodp = 0;
-
-
-	ipio_info("Long V: nodp = %d\n",nodp);
-	return 0;
-}
-
 static void mp_calc_nodp(bool long_v)
 {
 	uint8_t at, phase;
 	uint8_t r2d, rst, rst_back, dac_td, qsh_pw, qsh_td, dn;
-	uint16_t tshd, qsh_tdf, dp2tp, twc, twcm, tp2dp;
+	uint16_t tshd, tsvd_to_tshd, qsh_tdf, dp2tp, twc, twcm, tp2dp;
 	uint16_t multi_term_num, tp_tsdh_wait, ddi_width;
-	uint32_t real_tx_dura, nodp, ftw, tp_width, txpw;
+	uint32_t real_tx_dura, tmp, tmp1;
 
 	ipio_info("DDI Mode = %d\n", long_v);
 
 	tshd = core_mp->nodp.tshd;
+	tsvd_to_tshd = core_mp->nodp.tsvd_to_tshd;
+	multi_term_num = core_mp->nodp.multi_term_num_120;
 	qsh_tdf = core_mp->nodp.qsh_tdf;
 	at = core_mp->nodp.auto_trim;
+	tp_tsdh_wait = core_mp->nodp.tp_tshd_wait_120;
+	ddi_width = core_mp->nodp.ddi_width_120;
 	dp2tp = core_mp->nodp.dp_to_tp;
 	twc = core_mp->nodp.tx_wait_const;
 	twcm = core_mp->nodp.tx_wait_const_multi;
@@ -875,32 +874,49 @@ static void mp_calc_nodp(bool long_v)
 	qsh_td = core_mp->nodp.qsh_td;
 	dn = core_mp->nodp.drop_nodp;
 
-	if (core_mp->nodp.is60HZ) {
-		multi_term_num = core_mp->nodp.multi_term_num_60;
-		tp_tsdh_wait = core_mp->nodp.tp_tshd_wait_60;
-		ddi_width = core_mp->nodp.ddi_width_60;
-	} else {
-		multi_term_num = core_mp->nodp.multi_term_num_120;
-		tp_tsdh_wait = core_mp->nodp.tp_tshd_wait_120;
-		ddi_width = core_mp->nodp.ddi_width_120;
-	}
+	/* NODP formulation */
+	if (!long_v) {
+		if (core_mp->nodp.is60HZ) {
+			multi_term_num = core_mp->nodp.multi_term_num_60;
+			tp_tsdh_wait = core_mp->nodp.tp_tshd_wait_60;
+			ddi_width = core_mp->nodp.ddi_width_60;
+		}
 
-	multi_term_num = MIN(multi_term_num, 1);
+		if (multi_term_num == 0)
+			multi_term_num = 1;
 
-	if (long_v) {
-		// TODO: Long V:
-		// Term Real TX duration = ((TSHD duration-AutoTrimVariation)*64-DDI_WIDTH_120*(11)-64-DP2TP-TX_WAIT_CONST-(Phase ADC*64)-((TX_WAIT_CONST_MULTI+Phase ADC*64+TP2DP*64)*(11)))/12
+		tmp = ((tshd << 2) - (at << 6) - tp_tsdh_wait - ddi_width * (multi_term_num - 1) - 64 - dp2tp - twc) * 5;
+		tmp1 = (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (multi_term_num - 1));
+		real_tx_dura = (tmp - tmp1) / (multi_term_num * 5);
+		//real_tx_dura = (((tshd << 2) - (at << 6) - tp_tsdh_wait - ddi_width * (multi_term_num - 1) - 64 - dp2tp - twc) * 5 - (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (multi_term_num - 1))) / (multi_term_num * 5);
+
+		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + ( phase << 5 ) + real_tx_dura * 5 ) / 5;
+		core_mp->nodp.tp_width = ( ( ( tp2dp * 10 + phase ) << 6 )  + real_tx_dura * 10 ) / 10;
+		core_mp->nodp.txpw = ( qsh_tdf + rst + qsh_pw + qsh_td + 2 );
+
+		if ( core_mp->nodp.txpw % 2 == 1 )
+			core_mp->nodp.txpw = core_mp->nodp.txpw + 1;
+
+		core_mp->nodp.nodp = real_tx_dura / core_mp->nodp.txpw / 2;
 	} else {
-		real_tx_dura = (((tshd << 2) - (at << 6) - tp_tsdh_wait - ddi_width * (multi_term_num - 1) - 64 - dp2tp - twc) * 5 - (phase << 5) - ((twcm * 5 + (phase << 5 ) + (tp2dp * 5 << 6)) * (multi_term_num - 1))) / ( multi_term_num * 5 );
+		if (multi_term_num == 0)
+			multi_term_num = 1;
+
+		real_tx_dura = (((tshd << 2) - (at << 6) - ddi_width * (11) - 64 - dp2tp - twc) * 5 - (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (11))) / (12 * 5);
+
+		core_mp->nodp.long_tsdh_wait = (tsvd_to_tshd + 10 ) << 6;
+
+		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + ( phase << 5 ) + real_tx_dura * 5) / 5;
+		core_mp->nodp.tp_width = (((tp2dp * 10 + phase ) << 6 )  + real_tx_dura * 10) / 10;
+		core_mp->nodp.txpw = (qsh_tdf + rst + qsh_pw + qsh_td + 2);
+
+		if ( core_mp->nodp.txpw % 2 == 1 )
+			core_mp->nodp.txpw = core_mp->nodp.txpw + 1;
+
+		core_mp->nodp.nodp = real_tx_dura / core_mp->nodp.txpw / 2;
 	}
 
 	ipio_info("Read Tx Duration = %d\n",real_tx_dura);
-
-	core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + (phase << 5 ) + real_tx_dura * 5) / 5;
-	core_mp->nodp.tp_width = ((tp2dp + phase) * 64 + real_tx_dura);
-	core_mp->nodp.txpw = (qsh_tdf + rst + qsh_pw + qsh_td + 2);
-	core_mp->nodp.nodp = real_tx_dura / txpw / 2;
-
 	ipio_info("First TP Width = %d\n",core_mp->nodp.first_tp_width);
 	ipio_info("TP Width = %d\n",core_mp->nodp.tp_width);
 	ipio_info("TXPW = %d\n",core_mp->nodp.txpw);
@@ -970,7 +986,7 @@ static int mp_calc_timing_nodp(int index)
 	core_mp->nodp.drop_nodp = get_timing[35];
 
 	ipio_info("60HZ = %d\n",core_mp->nodp.is60HZ);
-	ipio_info("Long V = %d\n",core_mp->nodp.isLongV);
+	ipio_info("DDI Mode = %d\n",core_mp->nodp.isLongV);
 	ipio_info("TSHD = %d\n",core_mp->nodp.tshd);
 	ipio_info("Multi Term Num (120Hz) = %d\n",core_mp->nodp.multi_term_num_120);
 	ipio_info("Multi Term Num (60Hz) = %d\n",core_mp->nodp.multi_term_num_60);
@@ -980,8 +996,8 @@ static int mp_calc_timing_nodp(int index)
 	ipio_info("TP TSHD Wait (120Hz) = %d\n",core_mp->nodp.tp_tshd_wait_120);
 	ipio_info("DDI Width (120Hz) = %d\n",core_mp->nodp.ddi_width_120);
 	ipio_info("TP TSHD Wait (60Hz) = %d\n",core_mp->nodp.tp_tshd_wait_60);
-	ipio_info("DDI Width (60Hz) =%d\n",core_mp->nodp.ddi_width_60);
-	ipio_info("DP to TP %d\n",core_mp->nodp.dp_to_tp);
+	ipio_info("DDI Width (60Hz) = %d\n",core_mp->nodp.ddi_width_60);
+	ipio_info("DP to TP = %d\n",core_mp->nodp.dp_to_tp);
 	ipio_info("TX Wait Const = %d\n",core_mp->nodp.tx_wait_const);
 	ipio_info("TX Wait Const Multi = %d\n",core_mp->nodp.tx_wait_const_multi);
 	ipio_info("TP to DP = %d\n",core_mp->nodp.tp_to_dp);
@@ -1171,7 +1187,7 @@ static int allnode_mutual_cdc_data(int index)
 	}
 
 	if (res < 0) {
-		ipio_err("Check busy is timout !\n");
+		ipio_err("Check busy timeout !\n");
 		res = -1;
 		goto out;		
 	}
@@ -1458,23 +1474,24 @@ int codeToOhm(int32_t Code)
 {
 	int douTDF1 = 0;
 	int douTDF2 = 0;
-	int douTVCH = 24;//2.4
-	int douTVCL = 8;//0.8
-	int douCint = 7;//10^(-12)
-	int douVariation = 64;//0.64
+	int douTVCH = 24;
+	int douTVCL = 8;
+	int douCint = 7;
+	int douVariation = 64;
 	int douRinternal = 930;
 	int32_t temp = 0;
 
 	if (core_mp->nodp.isLongV) {
-		douTDF1 = 300;//(10^(-8))
-		douTDF2 = 100;//(10^(-8))
+		douTDF1 = 300;
+		douTDF2 = 100;
 	} else {
-		douTDF1 = 219;//(10^(-8));
-		douTDF2 = 100;//(10^(-8))
+		douTDF1 = 219;
+		douTDF2 = 100;
 	}
 
 	temp = ((douTVCH - douTVCL) * douVariation * (douTDF1 - douTDF2) * (1<<14) / (36 * Code * douCint)) * 100;
-	temp = (temp - douRinternal) / 1000;//1000000 M Ohm
+	/* Unit = M Ohm */
+	temp = (temp - douRinternal) / 1000;
 	return temp;   
 }
 
@@ -1483,7 +1500,7 @@ static int short_test(int index)
 	int j = 0, len = 6, code[6] = {7849,2632,1581,1130,879,791},res = 0;
 
 	if(protocol->major >= 5 && protocol->mid >= 4) {
-		//Calculate code to ohm and save to tItems[index].buf
+		/* Calculate code to ohm and save to tItems[index].buf */
 		for (j = 0; j < core_mp->frame_len; j++)
 			tItems[index].buf[j] = codeToOhm(frame_buf[j]);
 	} else {
@@ -1641,9 +1658,8 @@ void core_mp_show_result(void)
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run) {
-			if ( tItems[i].spec_option == BENCHMARK)
-			{       
-				print_benchmark_cdc_data(i, true, false, csv, &csv_len);
+			if ( tItems[i].spec_option == BENCHMARK) {
+				mp_compare_benchmark_result(i, true, false, csv, &csv_len);
 				continue;
 			}
                         
@@ -1707,7 +1723,7 @@ void core_mp_show_result(void)
 				DUMP(DEBUG_MP_TEST, "\n");
 				csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 
-				print_cdc_data(i, true, true, csv, &csv_len);
+				mp_compare_cdc_result(i, true, true, csv, &csv_len);
 
 				DUMP(DEBUG_MP_TEST, " %s ", "TX Min Hold");
 				csv_len += sprintf(csv + csv_len, "  %s ", "TX Min Hold");
@@ -1715,7 +1731,7 @@ void core_mp_show_result(void)
 				DUMP(DEBUG_MP_TEST, "\n");
 				csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 
-				print_cdc_data(i, false, true, csv, &csv_len);
+				mp_compare_cdc_result(i, false, true, csv, &csv_len);
 
 				DUMP(DEBUG_MP_TEST, " %s ", "RX Max Hold");
 				csv_len += sprintf(csv + csv_len, "  %s ", "RX Max Hold");
@@ -1723,7 +1739,7 @@ void core_mp_show_result(void)
 				DUMP(DEBUG_MP_TEST, "\n");
 				csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 
-				print_cdc_data(i, true, false, csv, &csv_len);
+				mp_compare_cdc_result(i, true, false, csv, &csv_len);
 
 				DUMP(DEBUG_MP_TEST, " %s ", "RX Min Hold");
 				csv_len += sprintf(csv + csv_len, "  %s ", "RX Min Hold");
@@ -1731,7 +1747,7 @@ void core_mp_show_result(void)
 				DUMP(DEBUG_MP_TEST, "\n");
 				csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 
-				print_cdc_data(i, false, false, csv, &csv_len);
+				mp_compare_cdc_result(i, false, false, csv, &csv_len);
 			} else {
 				DUMP(DEBUG_MP_TEST, " %s ", "Max Hold");
 				csv_len += sprintf(csv + csv_len, "  %s ", "Max Hold");
@@ -1739,7 +1755,7 @@ void core_mp_show_result(void)
 				DUMP(DEBUG_MP_TEST, "\n");
 				csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 
-				print_cdc_data(i, true, false, csv, &csv_len);
+				mp_compare_cdc_result(i, true, false, csv, &csv_len);
 
 				DUMP(DEBUG_MP_TEST, " %s ", "Min Hold");
 				csv_len += sprintf(csv + csv_len, "  %s ", "Min Hold");
@@ -1747,7 +1763,7 @@ void core_mp_show_result(void)
 				DUMP(DEBUG_MP_TEST, "\n");
 				csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 
-				print_cdc_data(i, false, false, csv, &csv_len);
+				mp_compare_cdc_result(i, false, false, csv, &csv_len);
 			}
 
 			pr_info("\n Result : %s\n", tItems[i].result);
@@ -1999,7 +2015,9 @@ static void mp_test_init_item(void)
 			tItems[i].do_test = mutual_test;			
 		}
 
-		if (strncmp(tItems[i].name, "mutual_dac", strlen("mutual_dac")) == 0) {
+		if (strncmp(tItems[i].name, "rx_short", strlen("rx_short")) == 0) {
+			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_short;
+		} else if (strncmp(tItems[i].name, "mutual_dac", strlen("mutual_dac")) == 0) {
 			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_dac;
 		} else if (strncmp(tItems[i].name, "mutual_has_bk", strlen("mutual_has_bk")) == 0 ||
 					strncmp(tItems[i].name, "mutual_has_bk_lcm_off", strlen("mutual_has_bk_lcm_off")) == 0) {

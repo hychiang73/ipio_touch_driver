@@ -85,6 +85,7 @@ struct mp_nodp_calc {
 	uint32_t first_tp_width;
 	uint32_t tp_width;
 	uint32_t txpw;
+	uint32_t long_tsdh_wait;
 	uint32_t nodp;
 };
 
