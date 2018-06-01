@@ -43,6 +43,14 @@ struct ini_file_data {
 
 int g_ini_items = 0;
 
+static int isspace_t(int x)  
+{  
+    if(x==' '||x=='\t'||x=='\n'||x=='\f'||x=='\b'||x=='\r')  
+        return 1;  
+    else   
+        return 0;  
+}
+
 static char *ini_str_trim_r(char *buf)
 {
 	int len, i;
@@ -94,7 +102,7 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 
 static int get_ini_phy_data(char *data, int fsize)
 {
-	int i, n = 0, res = 0 , banchmark_flag, empty_section;
+	int i, n = 0, res = 0 , banchmark_flag = 0, empty_section, nodetype_flag = 0;
 	int offset = 0, isEqualSign = 0;
 	char *ini_buf = NULL, *tmpSectionName = NULL;
 	char M_CFG_SSL = '[';
@@ -126,6 +134,7 @@ static int get_ini_phy_data(char *data, int fsize)
 	while (true) {
 		banchmark_flag = 0;
 		empty_section = 0;		
+		nodetype_flag = 0;		
 		if (g_ini_items > PARSER_MAX_KEY_NUM) {
 			ipio_err("MAX_KEY_NUM: Out of length\n");
 			goto out;
@@ -164,6 +173,7 @@ static int get_ini_phy_data(char *data, int fsize)
 				ini_buf[n - 1] = 0x00;
 				strcpy((char *)tmpSectionName, ini_buf + 1);
 				banchmark_flag = 0;
+				nodetype_flag = 0;
 				ipio_debug(DEBUG_PARSER, "Section Name: %s, Len: %d\n", tmpSectionName, n - 2);
 				continue;
 			}
@@ -194,6 +204,10 @@ static int get_ini_phy_data(char *data, int fsize)
 				banchmark_flag = 1;
 				isEqualSign =-1;
 			}
+			else if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Node Type") > 0){
+				nodetype_flag = 1;
+				isEqualSign =-1;
+			}
 			else{
 				continue;
 			}			
@@ -202,6 +216,12 @@ static int get_ini_phy_data(char *data, int fsize)
 		/* Get Key names */
 			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(BENCHMARK_KEY_NAME);			
 			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, BENCHMARK_KEY_NAME);
+			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;                                    
+		}
+		else if(nodetype_flag){
+		/* Get Key names */
+			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(NODE_TYPE_KEY_NAME);			
+			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, NODE_TYPE_KEY_NAME);
 			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;                                    
 		}
 		else{
@@ -287,6 +307,44 @@ static int get_ini_key_value(char *section, char *key, char *value)
 	return ret;
 }
 
+
+
+void parser_nodetype_data(int32_t* type_ptr, char *desp)
+{
+
+	int i = 0, j = 0, index1 =0, temp, count = 0;
+	char str[512] = { 0 }, record = ',';	
+
+	for (i = 0; i < g_ini_items; i++) {
+
+		if ((strstr(ilitek_ini_file_data[i].pSectionName, desp) <= 0) ||
+			strcmp(ilitek_ini_file_data[i].pKeyName, BENCHMARK_KEY_NAME) != 0) {			
+				continue;
+			}
+		
+		record = ',';
+		for(j=0, index1 = 0; j<ilitek_ini_file_data[i].iKeyValueLen; j++){
+
+			if(ilitek_ini_file_data[i].pKeyValue[j] == ';' ){
+
+				if(record != '.')
+				{
+					memset(str,0 ,sizeof(str));
+					memcpy(str,&ilitek_ini_file_data[i].pKeyValue[index1], (j -index1 -1));
+					temp=katoi(str);
+					type_ptr[count] = temp;
+					printk("%04d,",temp);				                              
+					count++;	  
+				}
+				record = ilitek_ini_file_data[i].pKeyValue[j];                                       
+				index1 = j+1;    
+			}                                        
+		}
+		printk("\n");
+		
+	}
+}
+
 void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char *desp)
 {
 	int i = 0, j = 0, index1 =0, temp, count = 0;
@@ -334,6 +392,29 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 	}
 }
 EXPORT_SYMBOL(core_parser_benchmark);
+
+int core_parser_get_u8_array(char *key, uint8_t *buf)
+{
+	char *s = key;
+	char *pToken;
+	int res, conut = 0;
+    long s_to_long = 0;
+
+	if(isspace_t((int)(unsigned char)*s) == 0)
+	{
+		while((pToken = strsep(&s, ".")) != NULL){
+			res = kstrtol(pToken, 0, &s_to_long);
+			if(res == 0)
+				buf[conut] = s_to_long;
+			else
+				ipio_info("convert string too long, res = %d\n", res);
+			conut++;
+		}
+	}
+
+	return conut;
+}
+EXPORT_SYMBOL(core_parser_get_u8_array);
 
 int core_parser_get_int_data(char *section, char *keyname, char *rv)
 {

@@ -26,8 +26,19 @@
 #define __MP_TEST_H
 
 #define BENCHMARK 1
+#define NODETYPE	 	1
 #define RAWDATA_NO_BK_DATA_SHIFT_9881H 8192
 #define RAWDATA_NO_BK_DATA_SHIFT_9881F 4096
+
+struct mp_test_P540_open {
+	int32_t *cbk_700;
+	int32_t *cbk_250;
+	int32_t *cbk_200;
+	int32_t *charg_rate;
+	int32_t *full_Open;
+	int32_t *dac;		
+	int32_t *cdc;	
+};
 
 struct mp_test_items {
 	char *name;
@@ -38,15 +49,20 @@ struct mp_test_items {
 	uint8_t cmd;
 	uint8_t spec_option;        
 	uint8_t type_option;  	
+	uint8_t node_type_option;	
 	bool run;
 	int max;
 	int min;
 	int frame_count;
+	int trimmed_mean;
+	int lowest_percentage;
+	int highest_percentage;	
 	int32_t *buf;
 	int32_t *max_buf;
 	int32_t *min_buf;
 	int32_t *bench_mark_max;
 	int32_t *bench_mark_min;
+	int32_t *node_type;
 	int (*get_cdc_init_cmd)(uint8_t *cmd, int len, int index);
 	int (*do_test)(int index);
 };
