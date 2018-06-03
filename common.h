@@ -168,7 +168,7 @@ extern uint32_t ipio_chip_list[2];
 #define HOST_DOWNLOAD
 #ifdef HOST_DOWNLOAD
 	#define MAX_AP_FIRMWARE_SIZE		(64*1024)
-	#define MAX_DLM_FIRMWARE_SIZE		(3*1024)
+	#define MAX_DLM_FIRMWARE_SIZE		(8*1024)
 	#define MAX_MP_FIRMWARE_SIZE		(64*1024)
 	#define DLM_START_ADDRESS 			0x20610
 	#define DLM_HEX_ADDRESS 			0x10000
@@ -196,6 +196,10 @@ enum ili9881_types
 	ILI9881_TYPE_F = 0x0F,
 	ILI9881_TYPE_H = 0x11
 };
+/*Error code*/
+#define SUCCESS 				0
+#define UPDATE_FAIL 			-1
+#define CHECK_RECOVER 			-2
 
 #define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
@@ -204,9 +208,9 @@ enum ili9881_types
 /*
  * Other settings
  */
-#define CSV_PATH			"/data"
-#define INI_NAME_PATH		"/data/mp.ini"
-#define UPDATE_FW_PATH		"/data/ILITEK_FW"
+#define CSV_PATH			"/sdcard"
+#define INI_NAME_PATH		"/sdcard/mp.ini"
+#define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
 #define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
 #define CHECK_BATTERY_TIME  2000
 #define VDD_VOLTAGE			1800000

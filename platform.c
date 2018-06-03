@@ -835,12 +835,12 @@ static int ilitek_platform_probe(struct spi_device *spi)
 #elif (INTERFACE == SPI_INTERFACE)
 		ipd->edge_delay = 1;
 #endif
-		ipio_info("\n");
+		
 	} else {
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 10;
 		ipd->edge_delay = 10;
-		ipio_info("\n");
+		
 	}
 
 	mutex_init(&ipd->plat_mutex);

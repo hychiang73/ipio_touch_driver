@@ -229,7 +229,9 @@ static void config_protocol_v5_cmd(void)
 
 		protocol->phone_cover_window[0] = 0xE;
 	}
-
+	if (protocol->mid >= 0x3)
+		protocol->fw_ver_len = 9;
+	else
 	protocol->fw_ver_len = 4;
 
 	if (protocol->mid == 0x1 || protocol->mid == 0x4) {

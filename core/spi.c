@@ -49,7 +49,7 @@ int core_Rx_check(uint16_t check)
 
 		if (spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4) < 0) {
 			size = -EIO;
-			ipio_err("spi Write Error, res = %d\n", size);
+			ipio_err("spi Read Error, res = %d\n", size);
 		}
 
 		status = (rxbuf[2] << 8) + rxbuf[3];
@@ -61,6 +61,7 @@ int core_Rx_check(uint16_t check)
 	}
 
 	size = -EIO;
+	ipio_err("Check lock error\n");
 	return size;
 }
 int core_Tx_unlock_check(void)
@@ -82,7 +83,7 @@ int core_Tx_unlock_check(void)
 		txbuf[0] = SPI_READ;
 		if (spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4) < 0) {
 			res = -EIO;
-			ipio_err("spi Write Error, res = %d\n", res);
+			ipio_err("spi Read Error, res = %d\n", res);
 		}
 		unlock = (rxbuf[2] << 8) + rxbuf[3];
 
@@ -90,6 +91,7 @@ int core_Tx_unlock_check(void)
 			return res;
 		mdelay(1);
 	}
+	ipio_err("Check unlock error\n");
 	return res;
 }
 int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
@@ -104,17 +106,15 @@ int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 	txbuf[4] = 0x2;
 	if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
 		return res;
 	}
 	//read data
 	txbuf[0] = SPI_READ;
 	if (spi_write_then_read(core_spi->spi, txbuf, 1, data, size) < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
 		return res;
 	}
-	//write data lock
+	//write data unlock
 	txbuf[0] = SPI_WRITE;
 	txbuf[1] = 0x25;
 	txbuf[2] = 0x94;
@@ -126,7 +126,7 @@ int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 	txbuf[8] = (char)0x81;
 	if (spi_write_then_read(core_spi->spi, txbuf, 9, txbuf, 0) < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ipio_err("spi Write data unlock error, res = %d\n", res);
 	}
 	return res;
 }
@@ -179,7 +179,7 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 	txbuf[8] = (char)0xA5;
 	if (spi_write_then_read(core_spi->spi, txbuf, 9, txbuf, 0) < 0) {
 		res = -EIO;
-		ipio_err("spi_write_then_read Error, res = %d\n", res);
+		ipio_err("spi Write data lock Error, res = %d\n", res);
 	}
 
 out:
@@ -216,8 +216,14 @@ int core_ice_mode_enable_9881H11(void)
 	if (spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 1) < 0) {
 		res = -EIO;
 		ipio_err("spi Write Error, res = %d\n", res);
+		return res;
 	}
-
+	//check recover data
+	if(rxbuf[0] == 0x82)
+	{
+		ipio_info("rxbuf:0x%x\n", rxbuf[0]);
+		return CHECK_RECOVER;
+	}
 	if (spi_write_then_read(core_spi->spi, txbuf, 5, rxbuf, 0) < 0) {
 		res = -EIO;
 		ipio_err("spi Write Error, res = %d\n", res);
@@ -228,25 +234,21 @@ int core_ice_mode_enable_9881H11(void)
 int core_spi_read_9881H11(uint8_t *pBuf, uint16_t nSize)
 {
 	int res = 0, size = 0;
-	if (core_ice_mode_enable_9881H11() < 0) {
-		res = -EIO;
-		ipio_err("spi Read Error, res = %d\n", res);
+	res = core_ice_mode_enable_9881H11();
+	if (res < 0) {
 		goto out;
 	}
 	size = core_Rx_check(0x5AA5); 
 	if (size < 0) {
 		res = -EIO;
-		ipio_err("spi Read Error, res = %d\n", res);
 		goto out;
 	}
 	if (core_ice_mode_read_9881H11(pBuf, size) < 0) {
 		res = -EIO;
-		ipio_err("spi Read Error, res = %d\n", res);
 		goto out;
 	}
 	if (core_ice_mode_disable_9881H11() < 0) {
 		res = -EIO;
-		ipio_err("spi Read Error, res = %d\n", res);
 		goto out;
 	}
 	out:
@@ -258,20 +260,17 @@ int core_spi_write_9881H11(uint8_t *pBuf, uint16_t nSize)
 	int res = 0;
 	uint8_t *txbuf;
     txbuf = (uint8_t*)kmalloc(sizeof(uint8_t)*nSize+5, GFP_KERNEL);
-	if (core_ice_mode_enable_9881H11() < 0) {
-		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+	res = core_ice_mode_enable_9881H11();
+	if (res < 0) {
 		goto out;
 	}
 	if (core_ice_mode_write_9881H11(pBuf, nSize) < 0) {
 		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
 		goto out;
 	}
 	if(core_Tx_unlock_check() < 0)
 	{
 		res = -ETXTBSY;
-		ipio_err("check TX unlock Fail, res = %d\n", res);		
 	}
 	out:
 	kfree(txbuf);
@@ -286,6 +285,7 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 	{
 		res = core_spi_write_9881H11(pBuf, nSize);
 		core_ice_mode_disable_9881H11();
+		kfree(txbuf);
 		return res;
 	}
   
