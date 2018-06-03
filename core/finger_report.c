@@ -321,10 +321,14 @@ static int parse_touch_package_v5_0(uint8_t pid)
 #endif
 		}
 		for (i = 35; i < count + 35; i+=2) {
-			if(g_fr_node->data[i] & 0x80 == 0x80)
+			if((uint8_t)(g_fr_node->data[i] & 0x80) == (uint8_t)0x80)
+			{
 				printk("-%d, ", 0x10000 - ((g_fr_node->data[i] << 8) + g_fr_node->data[i+1]));
+			}
 			else
+			{
 				printk("%d, ", (g_fr_node->data[i] << 8) + g_fr_node->data[i+1]);
+			}
 		}
 	} else {
 		if (pid != 0) {

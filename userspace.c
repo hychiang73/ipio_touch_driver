@@ -32,6 +32,7 @@
 #include "core/protocol.h"
 #include "core/mp_test.h"
 #include "core/parser.h"
+#include "core/gesture.h"
 
 #define USER_STR_BUFF	128
 #define ILITEK_IOCTL_MAGIC	100
@@ -844,23 +845,22 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		temp[0] = protocol->debug_mode;
 		core_fr_mode_control(temp);
 		
-	} else if (strcmp(cmd, "raw") == 0) {
-		ipio_info("test get raw\n");
-		core_fr->actual_fw_mode = P5_0_FIRMWARE_TEST_MODE;
-		ilitek_platform_tp_hw_reset(true);
-		//res = allnode_mutual_cdc_data(4);
-		if (res < 0) {
-			ipio_err("Failed to initialise CDC data, %d\n", res);
-		}		
-		core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
-		ilitek_platform_tp_hw_reset(true);
+	} else if (strcmp(cmd, "baseline") == 0) {
+		ipio_info("test baseline raw\n");
+		temp[0] = protocol->debug_mode;
+		core_fr_mode_control(temp);
+		ilitek_platform_disable_irq();
+		temp[0] = 0xFA;
+		temp[1] = 0x08;
+		core_write(core_config->slave_i2c_addr, temp, 2);
+		ilitek_platform_enable_irq();
 	} else if (strcmp(cmd, "delac_on") == 0) {
 		ipio_info("test get delac\n");
 		temp[0] = protocol->debug_mode;
 		core_fr_mode_control(temp);
 		ilitek_platform_disable_irq();
 		temp[0] = 0xFA;
-		temp[1] = 0xF3;
+		temp[1] = 0x03;
 		core_write(core_config->slave_i2c_addr, temp, 2);
 		ilitek_platform_enable_irq();
 	} else if (strcmp(cmd, "delac_off") == 0) {
@@ -878,7 +878,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	}
 	else if (strcmp(cmd, "gt") == 0) {
 		ipio_info("test Gesture test\n");
-		//core_load_gesture_code();
+		core_load_gesture_code();
 	}
 	else if (strcmp(cmd, "gt1") == 0) {
 		ipio_info("test Gesture test 1\n");

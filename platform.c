@@ -1050,13 +1050,13 @@ static int __init ilitek_platform_init(void)
 	ipio_info("TP driver add spi interface\n");
 	res = spi_register_driver(&tp_spi_driver);
 	if (res < 0) {
-		ipio_err("Failed to add i2c driver\n");
+		ipio_err("Failed to add ilitek driver\n");
 		spi_unregister_driver(&tp_spi_driver);
 		return -ENODEV;
 	}
 #endif /* PT_MTK */
 
-	ipio_info("Succeed to add i2c driver\n");
+	ipio_info("Succeed to add ilitek driver\n");
 	return res;
 }
 

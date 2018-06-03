@@ -62,6 +62,7 @@ typedef struct {
 struct core_config_data {
 	uint32_t chip_id;
 	uint32_t chip_type;
+	uint32_t chip_pid;
 
 	uint32_t slave_i2c_addr;
 	uint32_t ice_mode_addr;
