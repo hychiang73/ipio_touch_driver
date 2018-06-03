@@ -69,7 +69,7 @@ struct core_config_data {
 	uint32_t ic_reset_addr;
 
 	uint8_t protocol_ver[4];
-	uint8_t firmware_ver[4];
+	uint8_t firmware_ver[9];
 	uint8_t core_ver[5];
 
 	bool do_ic_reset;

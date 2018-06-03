@@ -232,7 +232,7 @@ static void config_protocol_v5_cmd(void)
 	if (protocol->mid >= 0x3)
 		protocol->fw_ver_len = 9;
 	else
-	protocol->fw_ver_len = 4;
+		protocol->fw_ver_len = 4;
 
 	if (protocol->mid == 0x1 || protocol->mid == 0x4) {
 		protocol->pro_ver_len = 3;

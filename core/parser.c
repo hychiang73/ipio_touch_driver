@@ -309,7 +309,7 @@ static int get_ini_key_value(char *section, char *key, char *value)
 
 
 
-void parser_nodetype_data(int32_t* type_ptr, char *desp)
+void core_parser_nodetype(int32_t* type_ptr, char *desp)
 {
 
 	int i = 0, j = 0, index1 =0, temp, count = 0;
@@ -400,9 +400,11 @@ int core_parser_get_u8_array(char *key, uint8_t *buf)
 	int res, conut = 0;
     long s_to_long = 0;
 
+	ipio_info("key = %s\n",key);
+
 	if(isspace_t((int)(unsigned char)*s) == 0)
 	{
-		while((pToken = strsep(&s, ".")) != NULL){
+		while((pToken = strsep(&s, ",")) != NULL){
 			res = kstrtol(pToken, 0, &s_to_long);
 			if(res == 0)
 				buf[conut] = s_to_long;
@@ -420,6 +422,8 @@ int core_parser_get_int_data(char *section, char *keyname, char *rv)
 {
 	int len = 0;
 	char value[512] = { 0 };
+
+	ipio_info("section = %s, keyname = %s\n",section,keyname);
 
 	if (rv == NULL || section == NULL || keyname == NULL) {
 		ipio_err("Parameters are invalid\n");

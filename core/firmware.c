@@ -714,8 +714,10 @@ int host_download(bool isIRAM)
 	ipio_info("Doing code reset ...\n");
 	core_config_ice_mode_write(0x40040, 0xAE, 1);
 
-	mdelay(10);
+	//mdelay(10);
 	core_config_ice_mode_disable();
+	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
+		mdelay(1200);
 
 	kfree(buf);
 	kfree(read_ap_buf);

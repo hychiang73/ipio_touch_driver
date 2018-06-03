@@ -202,6 +202,22 @@ static void dump_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
 	}
 }
 
+void dump_node_type_buffer(int32_t* node_ptr, uint8_t *name)
+{
+	int i;
+
+	if (ipio_debug_level & DEBUG_MP_TEST) {
+		ipio_info("Node Type buffer: \n");
+		for(i=0; i<core_mp->frame_len ; i++)
+		{
+			printk("%d, ",node_ptr[i]);
+			if(i % core_mp->xch_len == core_mp->xch_len-1)
+				printk("\n");
+		}
+	}
+
+}
+
 static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
@@ -401,7 +417,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 		}
 
 	} else {
-		tItems[index].buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		tItems[index].buf = kcalloc(frame_count * core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		
@@ -429,414 +445,6 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 
 	return 0;
 }
-
-static int mp_cdc_init_cmd_common(uint8_t *cmd, int len, int index)
-{
-	int ret = 0;
-
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = tItems[index].cmd;
-	cmd[2] = 0;
-
-	if (strcmp(tItems[index].name, "open_integration") == 0)
-		cmd[2] = 0x2;
-	if (strcmp(tItems[index].name, "open_cap") == 0)
-		cmd[2] = 0x3;
-
-	if(tItems[index].catalog == PEAK_TO_PEAK_TEST) {
-		cmd[2] = ((tItems[index].frame_count & 0xff00) >> 8);
-		cmd[3] = tItems[index].frame_count & 0xff;
-		cmd[4] = 0;
-
-		if (strcmp(tItems[index].name, "noise_peak_to_peak_cut") == 0)
-			cmd[4] = 0x1;
-
-		ipio_debug(DEBUG_MP_TEST, "P2P CMD: %d,%d,%d,%d,%d\n",
-				cmd[0],cmd[1],cmd[2],cmd[3],cmd[4]);
-	}
-
-	return ret;
-}
-
-static int mp_cdc_get_pv5_4_command(void)
-{
-	int i, ret = 0;
-	uint8_t ini_cmd[15] = {0};
-
-	core_parser_get_u8_array("PV5_4 Command", ini_cmd);
-
-	for (i = 0; i < ARRAY_SIZE(ini_cmd); i++)
-		ipio_info("PV54: ini_cmd[%d]", i, ini_cmd);
-}
-
-static int mp_cdc_init_cmd_p2p_ic(uint8_t *cmd, int len, int index)
-{
-	int i, ret = -1;
-
-	ipio_info("cmd = %p, len = %d, tdf = %d\n", cmd, len, core_mp->tdf);
-
-	if (cmd == NULL) {
-		ipio_err("CMD is invalid\n");
-		goto out;
-	}
-
-	if (len != 15) {
-		ipio_err("The length of cdc command must be 15\n");
-		goto out;
-	}
-
-	/* TODO read cmds from ini */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = protocol->peak_to_peak;
-	cmd[2] = 0x1;
-	cmd[3] = 0xFF;
-	cmd[4] = (core_mp->tdf >> 8) && 0xFF;//tdf_h
-	cmd[5] = core_mp->tdf & 0xFF; //tdf_l
-	cmd[6] = 3; //NODP
-	cmd[7] = 0xFF;
-	cmd[8] = 0xFF;
-	cmd[9] = 0xFF;
-	cmd[10] = 0xFF;
-	cmd[11] = 0xFF;
-	cmd[12] = 0xFF;
-	cmd[13] = 0xFF;
-	cmd[14] = 0xFF;
-
-	for (i = 0; i < protocol->cdc_len; i++) {
-		ipio_info("P2P IC: cmd[%d] = %x\n",i,cmd[i]);
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-static int mp_cdc_init_cmd_p2p_panel(uint8_t *cmd, int len, int index)
-{
-	int i, ret = -1;
-
-	ipio_info("cmd = %p, len = %d, tdf = %d\n", cmd, len, core_mp->tdf);
-
-	if (cmd == NULL) {
-		ipio_err("CMD is invalid\n");
-		goto out;
-	}
-
-	if (len != 15) {
-		ipio_err("The length of cdc command must be 15\n");
-		goto out;
-	}
-
-	/* TODO read cmds from ini */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = protocol->peak_to_peak;
-	cmd[2] = 0x0;
-	cmd[3] = 0xFF;
-	cmd[4] = (core_mp->tdf >> 8) && 0xFF;
-	cmd[5] = core_mp->tdf & 0xFF;
-	cmd[6] = 3; //NODP
-	cmd[7] = 0xFF;
-	cmd[8] = 0xFF;
-	cmd[9] = 0xFF;
-	cmd[10] = 0xFF;
-	cmd[11] = 0xFF;
-	cmd[12] = 0xFF;
-	cmd[13] = 0xFF;
-	cmd[14] = 0xFF;
-
-	for (i = 0; i < protocol->cdc_len; i++) {
-		ipio_info("P2P IC: cmd[%d] = %x\n",i,cmd[i]);
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-static int mp_cdc_init_cmd_dac(uint8_t *cmd, int len, int index)
-{
-	int i, ret = -1;
-
-	ipio_info("cmd = %p, len = %d, tdf = %d\n", cmd, len, core_mp->tdf);
-
-	if (protocol->major >= 5 && protocol->mid < 4) {
-		ipio_info("version is lower than 5.4.0, running common one\n");
-		return mp_cdc_init_cmd_common(cmd, len, index);
-	}
-
-	if (cmd == NULL) {
-		ipio_err("CMD is invalid\n");
-		goto out;
-	}
-
-	if (len != 15) {
-		ipio_err("The length of cdc command must be 15\n");
-		goto out;
-	}
-
-	/* TODO read cmds from ini */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = protocol->mutual_dac;
-	cmd[2] = 0;
-	cmd[3] = (core_mp->tdf >> 8) && 0xFF;
-	cmd[4] = core_mp->tdf & 0xFF;
-	cmd[5] = 3; //NODP
-	cmd[6] = 0xFF;
-	cmd[7] = 0xFF;
-	cmd[8] = 0xFF;
-	cmd[9] = 0xFF;
-	cmd[10] = 0xFF;
-	cmd[11] = 0xFF;
-	cmd[12] = 0xFF;
-	cmd[13] = 0xFF;
-	cmd[14] = 0xFF;
-
-	for (i = 0; i < protocol->cdc_len; i++) {
-		ipio_info("DAC: cmd[%d] = %x\n",i,cmd[i]);
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-static int mp_cdc_init_cmd_raw_bk(uint8_t *cmd, int len, int index)
-{
-	int i, ret = -1;
-
-	ipio_info("cmd = %p, len = %d, tdf = %d\n", cmd, len, core_mp->tdf);
-
-	if (protocol->major >= 5 && protocol->mid < 4) {
-		ipio_info("version is lower than 5.4.0, running common one\n");
-		return mp_cdc_init_cmd_common(cmd, len, index);
-	}
-
-	if (cmd == NULL) {
-		ipio_err("CMD is invalid\n");
-		goto out;
-	}
-
-	if (len != 15) {
-		ipio_err("The length of cdc command must be 15\n");
-		goto out;
-	}
-
-	/* TODO read cmds from ini */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = protocol->mutual_has_bk;
-	cmd[2] = 0;
-	cmd[3] = (core_mp->tdf >> 8) && 0xFF;
-	cmd[4] = core_mp->tdf & 0xFF;
-	cmd[5] = 3; //NODP
-	cmd[6] = 0xFF;
-	cmd[7] = 0xFF;
-	cmd[8] = 0xFF;
-	cmd[9] = 0xFF;
-	cmd[10] = 0xFF;
-	cmd[11] = 0xFF;
-	cmd[12] = 0xFF;
-	cmd[13] = 0xFF;
-	cmd[14] = 0xFF;
-
-	for (i = 0; i < protocol->cdc_len; i++){
-		ipio_info("RAW BK: cmd[%d] = %x\n",i,cmd[i]);
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-static int mp_cdc_init_cmd_raw_no_bk(uint8_t *cmd, int len, int index)
-{
-	int i, ret = -1;
-
-	ipio_info("cmd = %p, len = %d, tdf = %d\n",cmd ,len, core_mp->tdf);
-
-	if (protocol->major >= 5 && protocol->mid < 4) {
-		ipio_info("version is lower than 5.4.0, running common one\n");
-		return mp_cdc_init_cmd_common(cmd, len, index);
-	}
-
-	if (cmd == NULL) {
-		ipio_err("CMD is invalid\n");
-		goto out;
-	}
-
-	if (len != 15) {
-		ipio_err("The length of cdc command must be 15\n");
-		goto out;
-	}
-
-	/* TODO read cmds from ini */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = protocol->mutual_no_bk;
-	cmd[2] = 0;
-	cmd[3] = (core_mp->tdf >> 8) && 0xFF;
-	cmd[4] = core_mp->tdf & 0xFF;
-	cmd[5] = 3; //NODP
-	cmd[6] = 0x6;
-	cmd[7] = 0xFF;
-	cmd[8] = 0xFF;
-	cmd[9] = 0xFF;
-	cmd[10] = 0xFF;
-	cmd[11] = 0xFF;
-	cmd[12] = 0xFF;
-	cmd[13] = 0xFF;
-	cmd[14] = 0xFF;
-
-
-	for (i = 0; i < protocol->cdc_len; i++) {
-		ipio_info("RAW NO BK: cmd[%d] = %x\n",i,cmd[i]);
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-static int mp_cdc_init_cmd_doze_p2p(uint8_t *cmd, int len, int index)
-{
-	int i, ret = -1;
-
-	ipio_info("cmd = %p, len = %d, tdf = %d\n", cmd, len, core_mp->tdf);
-
-	if (cmd == NULL) {
-		ipio_err("CMD is invalid\n");
-		goto out;
-	}
-
-	if (len != 15) {
-		ipio_err("The length of cdc command must be 15\n");
-		goto out;
-	}
-
-	/* TODO read cmds from ini */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = protocol->doze_p2p;
-	cmd[2] = 0;
-	//cmd[3] = (core_mp->tdf >> 8) && 0xFF;
-	//cmd[4] = core_mp->tdf & 0xFF;
-	cmd[3] = 0xFF;
-	cmd[4] = 0xFF;
-	cmd[5] = 0xFF; //NODP
-	cmd[6] = 0x6;
-	cmd[7] = 0xFF;
-	cmd[8] = 0xFF;
-	cmd[9] = 0xFF;
-	cmd[10] = 0xFE;
-	cmd[11] = 0xFF;
-	cmd[12] = 0xFF;
-	cmd[13] = 0xFF;
-	cmd[14] = 0xFF;
-
-
-	for (i = 0; i < protocol->cdc_len; i++){
-		ipio_info("DOZE P2P: cmd[%d] = %x\n",i,cmd[i]);
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-static int mp_cdc_init_cmd_doze_raw(uint8_t *cmd, int len, int index)
-{
-	int i, ret = -1;
-
-	ipio_info("cmd = %p, len = %d, tdf = %d\n", cmd, len, core_mp->tdf);
-
-	if (cmd == NULL) {
-		ipio_err("CMD is invalid\n");
-		goto out;
-	}
-
-	if (len != 15) {
-		ipio_err("The length of cdc command must be 15\n");
-		goto out;
-	}
-
-	/* TODO read cmds from ini */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = protocol->doze_raw;
-	cmd[2] = 0;
-	//cmd[3] = (core_mp->tdf >> 8) && 0xFF;
-	//cmd[4] = core_mp->tdf & 0xFF;
-	cmd[3] = 0xFF;
-	cmd[4] = 0xFF;
-	cmd[5] = 0xFF; //NODP
-	cmd[6] = 0xFE;
-	cmd[7] = 0xFF;
-	cmd[8] = 0xFF;
-	cmd[9] = 0xFF;
-	cmd[10] = 0xFF;
-	cmd[11] = 0xFF;
-	cmd[12] = 0xFF;
-	cmd[13] = 0xFF;
-	cmd[14] = 0xFF;
-
-
-	for (i = 0; i < protocol->cdc_len; i++){
-		ipio_info("DOZE RAW: cmd[%d] = %x\n",i,cmd[i]);
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-static int mp_cdc_init_cmd_short(uint8_t *cmd, int len, int index)
-{
-	int i, ret = -1;
-
-	ipio_info("cmd = %p, len = %d\n",cmd,len);
-
-	if (protocol->major >= 5 && protocol->mid < 4) {
-		ipio_info("version is lower than 5.4.0, running common one\n");
-		return mp_cdc_init_cmd_common(cmd, len, index);
-	}
-
-	if (cmd == NULL) {
-		ipio_err("CMD is invalid\n");
-		goto out;
-	}
-
-	if (len != 15) {
-		ipio_err("The length of cdc command must be 15\n");
-		goto out;
-	}
-
-	/* TODO read cmds from ini */
-	cmd[0] = protocol->cmd_cdc;
-	cmd[1] = protocol->rx_short;
-	cmd[2] = 0;
-	cmd[3] = 0; //TDF_1 H
-	cmd[4] = 0x8C;//TDF_1 L
-	cmd[5] = 0; //TDF_2 H
-	cmd[6] = 0x40;//TDF_2 L
-	cmd[7] = 0x09;//NODP,Drop NUM
-	cmd[8] = 0xFF;
-	cmd[9] = 0xFF;
-	cmd[10] = 0xFF;
-	cmd[11] = 0xFF;
-	cmd[12] = 0xFF;
-	cmd[13] = 0xFF;
-	cmd[14] = 0xFF;
-
-
-	for (i = 0; i < protocol->cdc_len; i++){
-		ipio_info("Short: cmd[%d] = %x\n",i,cmd[i]);
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-// static void mp_cdc_init_cmd_open(void)
-// {
-
-// }
 
 static int mp_ctrl_lcd_status(bool on)
 {
@@ -913,7 +521,6 @@ static void mp_calc_nodp(bool long_v)
 		tmp = ((tshd << 2) - (at << 6) - tp_tsdh_wait - ddi_width * (multi_term_num - 1) - 64 - dp2tp - twc) * 5;
 		tmp1 = (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (multi_term_num - 1));
 		real_tx_dura = (tmp - tmp1) / (multi_term_num * 5);
-		//real_tx_dura = (((tshd << 2) - (at << 6) - tp_tsdh_wait - ddi_width * (multi_term_num - 1) - 64 - dp2tp - twc) * 5 - (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (multi_term_num - 1))) / (multi_term_num * 5);
 
 		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + ( phase << 5 ) + real_tx_dura * 5 ) / 5;
 		core_mp->nodp.tp_width = ( ( ( tp2dp * 10 + phase ) << 6 )  + real_tx_dura * 10 ) / 10;
@@ -946,99 +553,6 @@ static void mp_calc_nodp(bool long_v)
 	ipio_info("TP Width = %d\n",core_mp->nodp.tp_width);
 	ipio_info("TXPW = %d\n",core_mp->nodp.txpw);
 	ipio_info("NODP = %d\n",core_mp->nodp.nodp);
-}
-
-static int mp_calc_timing_nodp(int index)
-{
-	int i, ret = 0;
-	uint8_t test_type = 0x0;
-	uint8_t timing_cmd[15] = {0};
-	uint8_t get_timing[39] = {0};
-
-	memset(timing_cmd, 0xFF, protocol->cdc_len);
-
-	timing_cmd[0] = protocol->cmd_cdc;
-	timing_cmd[1] = protocol->get_timing;
-	timing_cmd[2] = test_type;
-
-	/* 
-	 * To calculate NODP, we need to get timing parameters first from fw,
-	 * which returnes 40 bytes data.
-	 */
-	ipio_info("Timing command :\n");
-	dump_data(timing_cmd, 8, protocol->cdc_len);
-
-	ret = core_write(core_config->slave_i2c_addr, timing_cmd, protocol->cdc_len);
-	if (ret < 0) {
-		ipio_err("Failed to write timing command\n");
-		goto out;
-	}
-
-	ret = core_read(core_config->slave_i2c_addr, get_timing, ARRAY_SIZE(get_timing));
-	if (ret < 0) {
-		ipio_err("Failed to read timing parameters\n");
-		goto out;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(get_timing); i++) {
-		ipio_info("get_timing[%d] = 0x%x\n",i,get_timing[i]);
-	}
-
-	/* Combine timing data */
-	core_mp->nodp.is60HZ = false; // This will get from ini file by default.
-	core_mp->nodp.isLongV = get_timing[2];
-	core_mp->nodp.tshd = (get_timing[3] << 8 ) + get_timing[4];
-	core_mp->nodp.multi_term_num_120 = get_timing[5];
-	core_mp->nodp.multi_term_num_60 = get_timing[6];
-	core_mp->nodp.tsvd_to_tshd = (get_timing[7] << 8 ) + get_timing[8];
-	core_mp->nodp.qsh_tdf = (get_timing[9] << 8 ) + get_timing[10];
-	core_mp->nodp.auto_trim = get_timing[11];
-	core_mp->nodp.tp_tshd_wait_120 = (get_timing[12] << 8 ) + get_timing[13];
-	core_mp->nodp.ddi_width_120 = (get_timing[14] << 8 ) + get_timing[15];
-	core_mp->nodp.tp_tshd_wait_60 = (get_timing[16] << 8 ) + get_timing[17];
-	core_mp->nodp.ddi_width_60 = (get_timing[18] << 8 ) + get_timing[19];
-	core_mp->nodp.dp_to_tp = (get_timing[20] << 8 ) + get_timing[21];
-	core_mp->nodp.tx_wait_const = (get_timing[22] << 8 ) + get_timing[23];
-	core_mp->nodp.tx_wait_const_multi = (get_timing[24] << 8 ) + get_timing[25];
-	core_mp->nodp.tp_to_dp = (get_timing[26] << 8 ) + get_timing[27];
-	core_mp->nodp.phase_adc = get_timing[28];
-	core_mp->nodp.r2d_pw = get_timing[29];
-	core_mp->nodp.rst_pw = get_timing[30];
-	core_mp->nodp.rst_pw_back = get_timing[31];
-	core_mp->nodp.dac_td = get_timing[32];
-	core_mp->nodp.qsh_pw = get_timing[33];
-	core_mp->nodp.qsh_td = get_timing[34];
-	core_mp->nodp.drop_nodp = get_timing[35];
-
-	ipio_info("60HZ = %d\n",core_mp->nodp.is60HZ);
-	ipio_info("DDI Mode = %d\n",core_mp->nodp.isLongV);
-	ipio_info("TSHD = %d\n",core_mp->nodp.tshd);
-	ipio_info("Multi Term Num (120Hz) = %d\n",core_mp->nodp.multi_term_num_120);
-	ipio_info("Multi Term Num (60Hz) = %d\n",core_mp->nodp.multi_term_num_60);
-	ipio_info("TSVD to TSHD = %d\n",core_mp->nodp.tsvd_to_tshd);
-	ipio_info("QSH TDF = %d\n",core_mp->nodp.qsh_tdf);
-	ipio_info("AutoTrim Variation = %d\n",core_mp->nodp.auto_trim);
-	ipio_info("TP TSHD Wait (120Hz) = %d\n",core_mp->nodp.tp_tshd_wait_120);
-	ipio_info("DDI Width (120Hz) = %d\n",core_mp->nodp.ddi_width_120);
-	ipio_info("TP TSHD Wait (60Hz) = %d\n",core_mp->nodp.tp_tshd_wait_60);
-	ipio_info("DDI Width (60Hz) = %d\n",core_mp->nodp.ddi_width_60);
-	ipio_info("DP to TP = %d\n",core_mp->nodp.dp_to_tp);
-	ipio_info("TX Wait Const = %d\n",core_mp->nodp.tx_wait_const);
-	ipio_info("TX Wait Const Multi = %d\n",core_mp->nodp.tx_wait_const_multi);
-	ipio_info("TP to DP = %d\n",core_mp->nodp.tp_to_dp);
-	ipio_info("Phase ADC = %d\n",core_mp->nodp.phase_adc);
-	ipio_info("R2D PW = %d\n",core_mp->nodp.r2d_pw);
-	ipio_info("RST PW = %d\n",core_mp->nodp.rst_pw);
-	ipio_info("RST PW Back = %d\n",core_mp->nodp.rst_pw_back);
-	ipio_info("DAC TD = %d\n",core_mp->nodp.dac_td);
-	ipio_info("QSH PW = %d\n",core_mp->nodp.qsh_pw);
-	ipio_info("QSH TD = %d\n",core_mp->nodp.qsh_td);
-	ipio_info("Drop NODP Num = %d\n",core_mp->nodp.drop_nodp);
-
-	mp_calc_nodp(core_mp->nodp.isLongV);
-
-out:
-	return ret;
 }
 
 static int allnode_key_cdc_data(int index)
@@ -1157,6 +671,162 @@ out:
 	return res;
 }
 
+static int mp_calc_timing_nodp(void)
+{
+	int i, ret = 0;
+	uint8_t test_type = 0x0;
+	uint8_t timing_cmd[15] = {0};
+	uint8_t get_timing[39] = {0};
+
+	memset(timing_cmd, 0xFF, sizeof(timing_cmd));
+
+	timing_cmd[0] = protocol->cmd_cdc;
+	timing_cmd[1] = protocol->get_timing;
+	timing_cmd[2] = test_type;
+
+	/* 
+	 * To calculate NODP, we need to get timing parameters first from fw,
+	 * which returnes 40 bytes data.
+	 */
+	ipio_info("Timing command :\n");
+	dump_data(timing_cmd, 8, sizeof(timing_cmd));
+
+	ret = core_write(core_config->slave_i2c_addr, timing_cmd, sizeof(timing_cmd));
+	if (ret < 0) {
+		ipio_err("Failed to write timing command\n");
+		goto out;
+	}
+
+	ipio_info(" %d \n",sizeof(get_timing));
+
+	ret = core_read(core_config->slave_i2c_addr, get_timing, 39);
+	if (ret < 0) {
+		ipio_err("Failed to read timing parameters\n");
+		goto out;
+	}
+
+	for (i = 0; i < sizeof(get_timing); i++) {
+		ipio_info("get_timing[%d] = 0x%x\n",i,get_timing[i]);
+	}
+
+	/* Combine timing data */
+	core_mp->nodp.is60HZ = false; // This will get from ini file by default.
+	core_mp->nodp.isLongV = get_timing[2];
+	core_mp->nodp.tshd = (get_timing[3] << 8 ) + get_timing[4];
+	core_mp->nodp.multi_term_num_120 = get_timing[5];
+	core_mp->nodp.multi_term_num_60 = get_timing[6];
+	core_mp->nodp.tsvd_to_tshd = (get_timing[7] << 8 ) + get_timing[8];
+	core_mp->nodp.qsh_tdf = (get_timing[9] << 8 ) + get_timing[10];
+	core_mp->nodp.auto_trim = get_timing[11];
+	core_mp->nodp.tp_tshd_wait_120 = (get_timing[12] << 8 ) + get_timing[13];
+	core_mp->nodp.ddi_width_120 = (get_timing[14] << 8 ) + get_timing[15];
+	core_mp->nodp.tp_tshd_wait_60 = (get_timing[16] << 8 ) + get_timing[17];
+	core_mp->nodp.ddi_width_60 = (get_timing[18] << 8 ) + get_timing[19];
+	core_mp->nodp.dp_to_tp = (get_timing[20] << 8 ) + get_timing[21];
+	core_mp->nodp.tx_wait_const = (get_timing[22] << 8 ) + get_timing[23];
+	core_mp->nodp.tx_wait_const_multi = (get_timing[24] << 8 ) + get_timing[25];
+	core_mp->nodp.tp_to_dp = (get_timing[26] << 8 ) + get_timing[27];
+	core_mp->nodp.phase_adc = get_timing[28];
+	core_mp->nodp.r2d_pw = get_timing[29];
+	core_mp->nodp.rst_pw = get_timing[30];
+	core_mp->nodp.rst_pw_back = get_timing[31];
+	core_mp->nodp.dac_td = get_timing[32];
+	core_mp->nodp.qsh_pw = get_timing[33];
+	core_mp->nodp.qsh_td = get_timing[34];
+	core_mp->nodp.drop_nodp = get_timing[35];
+
+	ipio_info("60HZ = %d\n",core_mp->nodp.is60HZ);
+	ipio_info("DDI Mode = %d\n",core_mp->nodp.isLongV);
+	ipio_info("TSHD = %d\n",core_mp->nodp.tshd);
+	ipio_info("Multi Term Num (120Hz) = %d\n",core_mp->nodp.multi_term_num_120);
+	ipio_info("Multi Term Num (60Hz) = %d\n",core_mp->nodp.multi_term_num_60);
+	ipio_info("TSVD to TSHD = %d\n",core_mp->nodp.tsvd_to_tshd);
+	ipio_info("QSH TDF = %d\n",core_mp->nodp.qsh_tdf);
+	ipio_info("AutoTrim Variation = %d\n",core_mp->nodp.auto_trim);
+	ipio_info("TP TSHD Wait (120Hz) = %d\n",core_mp->nodp.tp_tshd_wait_120);
+	ipio_info("DDI Width (120Hz) = %d\n",core_mp->nodp.ddi_width_120);
+	ipio_info("TP TSHD Wait (60Hz) = %d\n",core_mp->nodp.tp_tshd_wait_60);
+	ipio_info("DDI Width (60Hz) = %d\n",core_mp->nodp.ddi_width_60);
+	ipio_info("DP to TP = %d\n",core_mp->nodp.dp_to_tp);
+	ipio_info("TX Wait Const = %d\n",core_mp->nodp.tx_wait_const);
+	ipio_info("TX Wait Const Multi = %d\n",core_mp->nodp.tx_wait_const_multi);
+	ipio_info("TP to DP = %d\n",core_mp->nodp.tp_to_dp);
+	ipio_info("Phase ADC = %d\n",core_mp->nodp.phase_adc);
+	ipio_info("R2D PW = %d\n",core_mp->nodp.r2d_pw);
+	ipio_info("RST PW = %d\n",core_mp->nodp.rst_pw);
+	ipio_info("RST PW Back = %d\n",core_mp->nodp.rst_pw_back);
+	ipio_info("DAC TD = %d\n",core_mp->nodp.dac_td);
+	ipio_info("QSH PW = %d\n",core_mp->nodp.qsh_pw);
+	ipio_info("QSH TD = %d\n",core_mp->nodp.qsh_td);
+	ipio_info("Drop NODP Num = %d\n",core_mp->nodp.drop_nodp);
+
+	mp_calc_nodp(core_mp->nodp.isLongV);
+
+out:
+	return ret;
+}
+
+static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
+{
+	int i, ret = 0;
+	char str[128] = {0};
+	char tmp[128] = {0};
+
+	ipio_info("index = %d, Get %s command\n", index, tItems[index].desp);
+	//ipio_info("index = %d, indexp = %p, name = %s, p = %p\n",index, &index, tItems[index].desp,&tItems[index].desp);
+	/* We may use it in the future. Currently read command from ini. */
+	mp_calc_timing_nodp();
+	core_mp->nodp.isLongV = 0;
+	//ipio_info("index = %d, indexp = %p, name = %s, p = %p\n",index, &index, tItems[index].desp,&tItems[index].desp);
+	ret = core_parser_get_int_data("PV5_4 Command",tItems[index].desp, str);
+	if (ret < 0) {
+		ipio_err("Failed to parse PV54 command, ret = %d\n",ret);
+		goto out;
+	}
+
+	strncpy(tmp, str, ret);
+	core_parser_get_u8_array(tmp, cmd);
+
+	for (i = 0; i < len; i++)
+		ipio_info("PV54: cmd[%d] = 0x%x\n", i, cmd[i]);
+
+out:
+	return ret;
+}
+
+static int mp_cdc_init_cmd_common(uint8_t *cmd, int len, int index)
+{
+	int ret = 0;
+
+	if (protocol->major >= 5 && protocol->mid >= 4) {
+		ipio_info("Get CDC command with protocol v5.4\n");
+		return mp_cdc_get_pv5_4_command(cmd, len, index);
+	}
+
+	cmd[0] = protocol->cmd_cdc;
+	cmd[1] = tItems[index].cmd;
+	cmd[2] = 0;
+
+	if (strcmp(tItems[index].name, "open_integration") == 0)
+		cmd[2] = 0x2;
+	if (strcmp(tItems[index].name, "open_cap") == 0)
+		cmd[2] = 0x3;
+
+	if(tItems[index].catalog == PEAK_TO_PEAK_TEST) {
+		cmd[2] = ((tItems[index].frame_count & 0xff00) >> 8);
+		cmd[3] = tItems[index].frame_count & 0xff;
+		cmd[4] = 0;
+
+		if (strcmp(tItems[index].name, "noise_peak_to_peak_cut") == 0)
+			cmd[4] = 0x1;
+
+		ipio_debug(DEBUG_MP_TEST, "P2P CMD: %d,%d,%d,%d,%d\n",
+				cmd[0],cmd[1],cmd[2],cmd[3],cmd[4]);
+	}
+
+	return ret;
+}
+
 static int allnode_mutual_cdc_data(int index)
 {
 	static int i = 0, res = 0, len = 0;
@@ -1179,19 +849,7 @@ static int allnode_mutual_cdc_data(int index)
 	memset(cmd, 0xFF, protocol->cdc_len);
 
 	/* CDC init */
-	if (protocol->major >= 5 && protocol->mid >= 4) {
-		res = mp_calc_timing_nodp(index);
-		if(res < 0) {
-			ipio_err("Failed to get timing parameters\n");
-			goto out;
-		}
-	}
-
-	res = tItems[index].get_cdc_init_cmd(cmd, protocol->cdc_len, index);
-	if (res < 0) {
-		ipio_err("Failed to get cdc init command\n");
-		goto out;
-	}
+	mp_cdc_init_cmd_common(cmd, protocol->cdc_len, index);
 
 	dump_data(cmd, 8, protocol->cdc_len);
 
@@ -1371,19 +1029,6 @@ static void run_pixel_test(int index)
 
 			tItems[index].buf[shift + x] = max;
 		}
-	}
-}
-
-void print_node_type_buffer(int32_t* node_ptr, uint8_t *name)
-{
-	int i;
-
-	printk("%s\n", name);
-	for(i=0; i<core_mp->frame_len ; i++)
-	{
-		printk("%d, ",node_ptr[i]);
-		if(i % core_mp->xch_len == core_mp->xch_len-1)
-			printk("\n");
 	}
 }
 
@@ -1696,8 +1341,8 @@ static int open_test_sp(int index)
 	int Charge_AA = 0, Charge_Border = 0, Charge_Notch =0, full_open_rate = 0;
 	char str[512] = { 0 };
 
-	ipio_debug(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
-	    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
+	ipio_debug(DEBUG_MP_TEST, "index = %d, name = %s, CMD = 0x%x, Frame Count = %d\n",
+	    index, tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
 	if (tItems[index].node_type_option != NODETYPE)
 	{
@@ -1720,11 +1365,11 @@ static int open_test_sp(int index)
 		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option,tItems[index].desp);
 		if (ipio_debug_level&&DEBUG_PARSER > 0)                               
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
-	}		
+	}
 
-	parser_nodetype_data(tItems[index].node_type,tItems[index].desp);
+	core_parser_nodetype(tItems[index].node_type,"Node Type");
 	if (ipio_debug_level&&DEBUG_PARSER > 0)                               
-		print_node_type_buffer(tItems[index].node_type, "node type");
+		dump_node_type_buffer(tItems[index].node_type, "node type");
 
 	core_parser_get_int_data(tItems[index].desp, "Charge_AA", str);
 	Charge_AA = katoi(str);
@@ -1735,9 +1380,10 @@ static int open_test_sp(int index)
 	core_parser_get_int_data(tItems[index].desp, "Full Open", str);
 	full_open_rate = katoi(str);	
 
-	ipio_debug(DEBUG_MP_TEST,"Summer open test frame_cont %d, AA %d,Border %d, Notch %d, full_open_rate %d \n",get_frame_cont,Charge_AA,Charge_Border,Charge_Notch,full_open_rate);
-	for(i = 0; i < tItems[index].frame_count; i++)
-	{
+	ipio_debug(DEBUG_MP_TEST,"pen test frame_cont %d, AA %d,Border %d, Notch %d, full_open_rate %d \n",
+			get_frame_cont,Charge_AA,Charge_Border,Charge_Notch,full_open_rate);
+
+	for(i = 0; i < tItems[index].frame_count; i++) {
 		open[i].cbk_700 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);  
 		open[i].cbk_250 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);  
 		open[i].cbk_200 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);  
@@ -1746,17 +1392,17 @@ static int open_test_sp(int index)
 		open[i].dac = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);  
 		open[i].cdc = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		memset(open[i].cbk_700, 0, core_mp->frame_len * sizeof(int32_t));
-		print_node_type_buffer(open[i].cbk_700, "cbk 700");
+		dump_node_type_buffer(open[i].cbk_700, "cbk 700");
 		memset(open[i].cbk_250, 0, core_mp->frame_len * sizeof(int32_t));
-		print_node_type_buffer(open[i].cbk_250, "cbk_250");
+		dump_node_type_buffer(open[i].cbk_250, "cbk_250");
 		memset(open[i].cbk_200, 0, core_mp->frame_len * sizeof(int32_t));  
-		print_node_type_buffer(open[i].cbk_250, "cbk_250");
+		dump_node_type_buffer(open[i].cbk_250, "cbk_250");
 		memset(open[i].charg_rate, 0, core_mp->frame_len * sizeof(int32_t));
-		print_node_type_buffer(open[i].cbk_250, "cbk_250");
+		dump_node_type_buffer(open[i].cbk_250, "cbk_250");
 		memset(open[i].full_Open, 0, core_mp->frame_len * sizeof(int32_t));
-		print_node_type_buffer(open[i].full_Open, "full_Open");
+		dump_node_type_buffer(open[i].full_Open, "full_Open");
 		memset(open[i].dac, 0, core_mp->frame_len * sizeof(int32_t));
-		print_node_type_buffer(open[i].dac, "dac");
+		dump_node_type_buffer(open[i].dac, "dac");
 	}
 	
 	for (i = 0; i < get_frame_cont; i++) {
@@ -1820,7 +1466,7 @@ int codeToOhm(int32_t Code)
 
 static int short_test(int index)
 {
-	int j = 0, len = 6, code[6] = {7849,2632,1581,1130,879,791},res = 0;
+	int j = 0, res = 0;
 
 	if(protocol->major >= 5 && protocol->mid >= 4) {
 		/* Calculate code to ohm and save to tItems[index].buf */
@@ -1831,7 +1477,6 @@ static int short_test(int index)
 			tItems[index].buf[j] = frame_buf[j];		
 	}
 
-out:
 	return res;
 }
 
@@ -1839,8 +1484,8 @@ static int mutual_test(int index)
 {
 	int i = 0, j = 0, x = 0, y = 0, res = 0 ,get_frame_cont =1 ;
 
-	ipio_debug(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
-	    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
+	ipio_debug(DEBUG_MP_TEST, "index = %d, name = %s, CMD = 0x%x, Frame Count = %d\n",
+	    index, tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
 	/*
 	 * We assume that users who are calling the test forget to config frame count
@@ -1873,15 +1518,11 @@ static int mutual_test(int index)
 		get_frame_cont = tItems[index].frame_count;
 
 	if (tItems[index].spec_option == BENCHMARK) {
-		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option, tItems[index].desp);
-		dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
-	}
-
-	if (tItems[index].spec_option == BENCHMARK) {
 		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option,tItems[index].desp);
 		if (ipio_debug_level&&DEBUG_PARSER > 0)                               
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
+
 	for (i = 0; i < get_frame_cont; i++) {
 		res = allnode_mutual_cdc_data(index);
 		if (res < 0) {
@@ -2375,28 +2016,6 @@ static void mp_test_init_item(void)
 			tItems[i].do_test = mutual_test;
 		} else if (tItems[i].catalog == SHORT_TEST) {
 			tItems[i].do_test = mutual_test;			
-		}
-
-		if (strncmp(tItems[i].name, "rx_short", strlen("rx_short")) == 0) {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_short;
-		} else if (strncmp(tItems[i].name, "mutual_dac", strlen("mutual_dac")) == 0) {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_dac;
-		} else if (strncmp(tItems[i].name, "mutual_has_bk", strlen("mutual_has_bk")) == 0 ||
-					strncmp(tItems[i].name, "mutual_has_bk_lcm_off", strlen("mutual_has_bk_lcm_off")) == 0) {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_raw_bk;
-		} else if (strncmp(tItems[i].name, "mutual_no_bk", strlen("mutual_no_bk")) == 0) {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_raw_no_bk;
-		} else if (strncmp(tItems[i].name, "noise_peak_to_peak_ic", strlen("noise_peak_to_peak_ic")) == 0 ||
-					strncmp(tItems[i].name, "noise_peak_to_peak_ic_lcm_off", strlen("noise_peak_to_peak_ic_lcm_off")) == 0) {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_p2p_ic;
-		} else if (strncmp(tItems[i].name, "noise_peak_to_peak_panel", strlen("noise_peak_to_peak_panel")) == 0) {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_p2p_panel;
-		} else if (strncmp(tItems[i].name, "doze_raw", strlen("doze_raw")) == 0) {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_doze_raw;
-		} else if (strncmp(tItems[i].name, "doze_p2p", strlen("doze_p2p")) == 0) {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_doze_p2p;
-		} else {
-			tItems[i].get_cdc_init_cmd = mp_cdc_init_cmd_common;
 		}
 
 		tItems[i].result = kmalloc(16, GFP_KERNEL);

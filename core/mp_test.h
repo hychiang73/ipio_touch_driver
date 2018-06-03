@@ -36,7 +36,7 @@ struct mp_test_P540_open {
 	int32_t *cbk_200;
 	int32_t *charg_rate;
 	int32_t *full_Open;
-	int32_t *dac;		
+	int32_t *dac;
 	int32_t *cdc;	
 };
 
@@ -65,7 +65,6 @@ struct mp_test_items {
 	int32_t *bench_mark_max;
 	int32_t *bench_mark_min;
 	int32_t *node_type;
-	int (*get_cdc_init_cmd)(uint8_t *cmd, int len, int index);
 	int (*do_test)(int index);
 };
 
@@ -108,6 +107,7 @@ struct mp_nodp_calc {
 };
 
 struct core_mp_test_data {
+	struct mp_nodp_calc nodp;
 	/* A flag shows a test run in particular */
 	bool m_signal;
 	bool m_dac;
@@ -145,8 +145,6 @@ struct core_mp_test_data {
 	int tdf;
 	bool busy_cdc;
 	bool ctrl_lcm;
-
-	struct mp_nodp_calc nodp;
 };
 
 extern struct core_mp_test_data *core_mp;
