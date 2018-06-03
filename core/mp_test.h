@@ -52,7 +52,9 @@ struct mp_test_items {
 	uint8_t node_type_option;	
 	bool run;
 	int max;
+	bool max_res;
 	int min;
+	bool min_res;
 	int frame_count;
 	int trimmed_mean;
 	int lowest_percentage;

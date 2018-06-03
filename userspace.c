@@ -355,7 +355,6 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 out:
 	*pPos = len;
-	ipio_info("MP Test DONE\n");
 	return len;
 }
 

@@ -93,7 +93,7 @@ struct mp_test_items tItems[] = {
 	{.name = "mutual_bg", .desp = "Baseline Data(BG)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_signal", .desp = "Untouch Signal Data(BG-Raw-4096) - Mutual", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_no_bk", .desp = "Raw Data(No BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_has_bk", ".desp = Raw Data(Have BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.name = "mutual_has_bk", .desp = "Raw Data(Have BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_has_bk_lcm_off", .desp = "Raw Data(Have BK)(LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_bk_dac", .desp = "Manual BK Data(Mutual)", .result = "FAIL", .catalog = MUTUAL_TEST},
 
@@ -283,7 +283,6 @@ static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv,
 	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);        
 
 	*csv_len = tmp_len;
-        
 }
 
 static void mp_compare_cdc_result(int index, bool max, bool tx, char *csv, int *csv_len)
@@ -361,13 +360,12 @@ static void mp_compare_cdc_result(int index, bool max, bool tx, char *csv, int *
 		tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
 	}
 
-	if (strncmp(tItems[index].result, "FAIL", strlen("FAIL")) == 0) {
-		sprintf(tItems[index].result, "%s", "FAIL");
+	if (max) {
+		if (mp_result)
+			tItems[index].max_res = true;
 	} else {
-		if (mp_result < 0)
-			sprintf(tItems[index].result, "%s", "FAIL");
-		else
-			sprintf(tItems[index].result, "%s", "PASS");
+		if (mp_result)
+			tItems[index].min_res = true;
 	}
 
 	*csv_len = tmp_len;
@@ -1681,7 +1679,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 				buf[i] = tmp - 65536;
 			else
 				buf[i] = tmp;
-			buf[i] = (int)((int)(dac[i] * 10000 * 161 / 100) - (int)(16384 / 2 - (int)buf[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
+			buf[i] = (int)((int)(dac[i] * 2 * 10000 * 161 / 100) - (int)(16384 / 2 - (int)buf[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
 		}
 	}
 	dump_data(buf, 10, core_mp->frame_len);
@@ -2091,6 +2089,11 @@ void core_mp_show_result(void)
 				mp_compare_cdc_result(i, false, false, csv, &csv_len);
 			}
 
+			if (!tItems[i].max_res || !tItems[i].min_res)
+				sprintf(tItems[i].result, "%s", "FAIL");
+			else
+				sprintf(tItems[i].result, "%s", "PASS");
+
 			pr_info("\n Result : %s\n", tItems[i].result);
 			csv_len += sprintf(csv + csv_len, " Result : %s ", tItems[i].result);
 
@@ -2232,6 +2235,7 @@ void core_mp_run_test(char *item, bool ini)
 			if (core_mp->ctrl_lcm)
 				mp_ctrl_lcd_status(true);
 
+			ipio_info("MP Test DONE !!!\n");
 			break;
 		}
 	}
@@ -2292,6 +2296,8 @@ void core_mp_test_free(void)
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		tItems[i].run = false;
+		tItems[i].max_res = false;
+		tItems[i].min_res = false;
 		sprintf(tItems[i].result, "%s", "FAIL");
 
 		if (tItems[i].catalog == TX_RX_DELTA) {
@@ -2332,7 +2338,9 @@ static void mp_test_init_item(void)
 		tItems[i].node_type_option = 0;	
 		tItems[i].run = false;
 		tItems[i].max = 0;
+		tItems[i].max_res = false;
 		tItems[i].min = 0;
+		tItems[i].min_res = false;
 		tItems[i].frame_count = 0;
 		tItems[i].trimmed_mean = 0;
 		tItems[i].lowest_percentage = 0;
