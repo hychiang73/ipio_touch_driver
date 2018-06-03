@@ -849,11 +849,16 @@ int core_config_get_fw_ver(void)
 
 	for (; i < protocol->fw_ver_len; i++)
 		core_config->firmware_ver[i] = g_read_buf[i];
-
-	/* in protocol v5, ignore the first btye because of a header. */
+	if (protocol->mid >= 0x3)
+	{
+		ipio_info("Firmware Version = %d.%d.%d.%d\n",
+		 core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3],  core_config->firmware_ver[4]);
+	}
+	else
+	{
 	ipio_info("Firmware Version = %d.%d.%d\n",
 		 core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3]);
-
+	}
 out:
 	return res;
 }

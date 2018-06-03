@@ -753,10 +753,10 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0, count = 0, i;
-	int w_len = 0, r_len = 0, i2c_delay = 0;
+	int w_len = 0, r_len = 0, delay = 0;
 	char cmd[512] = { 0 };
 	char *token = NULL, *cur = NULL;
-	uint8_t i2c[256] = { 0 };
+	uint8_t temp[256] = { 0 };
 	uint8_t *data = NULL;
 
 	if (buff != NULL) {
@@ -839,44 +839,101 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	} else if (strcmp(cmd, "phone_cover") == 0) {
 		ipio_info("set size of phone conver window\n");
 		core_config_set_phone_cover(data);
+	} else if (strcmp(cmd, "debugmode") == 0) {
+		ipio_info("debug mode test enter\n");
+		temp[0] = protocol->debug_mode;
+		core_fr_mode_control(temp);
+		
+	} else if (strcmp(cmd, "raw") == 0) {
+		ipio_info("test get raw\n");
+		core_fr->actual_fw_mode = P5_0_FIRMWARE_TEST_MODE;
+		ilitek_platform_tp_hw_reset(true);
+		//res = allnode_mutual_cdc_data(4);
+		if (res < 0) {
+			ipio_err("Failed to initialise CDC data, %d\n", res);
+		}		
+		core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
+		ilitek_platform_tp_hw_reset(true);
+	} else if (strcmp(cmd, "delac_on") == 0) {
+		ipio_info("test get delac\n");
+		temp[0] = protocol->debug_mode;
+		core_fr_mode_control(temp);
+		ilitek_platform_disable_irq();
+		temp[0] = 0xFA;
+		temp[1] = 0xF3;
+		core_write(core_config->slave_i2c_addr, temp, 2);
+		ilitek_platform_enable_irq();
+	} else if (strcmp(cmd, "delac_off") == 0) {
+		ipio_info("test get delac\n");
+		temp[0] = protocol->demo_mode;
+		core_fr_mode_control(temp);
+	}else if (strcmp(cmd, "test") == 0) {
+		ipio_info("test test_reset test 1\n");
+		gpio_direction_output(ipd->reset_gpio, 1);
+		mdelay(1);
+		gpio_set_value(ipd->reset_gpio, 0);
+		mdelay(1);
+		gpio_set_value(ipd->reset_gpio, 1);
+		mdelay(10);
+	}
+	else if (strcmp(cmd, "gt") == 0) {
+		ipio_info("test Gesture test\n");
+		//core_load_gesture_code();
+	}
+	else if (strcmp(cmd, "gt1") == 0) {
+		ipio_info("test Gesture test 1\n");
+		temp[0] = 0x01;
+		temp[1] = 0x01;
+		temp[2] = 0x00;
+		w_len = 3;
+		core_write(core_config->slave_i2c_addr, temp, w_len);
+		if (core_config_check_cdc_busy(50) < 0)
+			ipio_err("Check busy is timout !\n");
+	} else if (strcmp(cmd, "gt2") == 0) {
+		temp[0] = 0x01;
+		temp[1] = 0x0A;
+		temp[2] = 0x01;
+		w_len = 3;
+		core_write(core_config->slave_i2c_addr, temp, w_len);
+		ipio_info("test Gesture test\n");	
 	} else if (strcmp(cmd, "i2c_w") == 0) {
 		w_len = data[1];
 		ipio_info("w_len = %d\n", w_len);
 
 		for (i = 0; i < w_len; i++) {
-			i2c[i] = data[2 + i];
-			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
+			temp[i] = data[2 + i];
+			ipio_info("i2c[%d] = %x\n", i, temp[i]);
 		}
 
-		core_write(core_config->slave_i2c_addr, i2c, w_len);
+		core_write(core_config->slave_i2c_addr, temp, w_len);
 	} else if (strcmp(cmd, "i2c_r") == 0) {
 		r_len = data[1];
 		ipio_info("r_len = %d\n", r_len);
 
-		core_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+		core_read(core_config->slave_i2c_addr, &temp[0], r_len);
 
 		for (i = 0; i < r_len; i++)
-			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
+			ipio_info("temp[%d] = %x\n", i, temp[i]);
 	} else if (strcmp(cmd, "i2c_w_r") == 0) {
 		w_len = data[1];
 		r_len = data[2];
-		i2c_delay = data[3];
-		ipio_info("w_len = %d, r_len = %d, delay = %d\n", w_len, r_len, i2c_delay);
+		delay = data[3];
+		ipio_info("w_len = %d, r_len = %d, delay = %d\n", w_len, r_len, delay);
 
 		for (i = 0; i < w_len; i++) {
-			i2c[i] = data[4 + i];
-			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
+			temp[i] = data[4 + i];
+			ipio_info("temp[%d] = %x\n", i, temp[i]);
 		}
 
-		core_write(core_config->slave_i2c_addr, i2c, w_len);
+		core_write(core_config->slave_i2c_addr, temp, w_len);
 
-		memset(i2c, 0, sizeof(i2c));
-		mdelay(i2c_delay);
+		memset(temp, 0, sizeof(temp));
+		mdelay(delay);
 
-		core_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+		core_read(core_config->slave_i2c_addr, &temp[0], r_len);
 
 		for (i = 0; i < r_len; i++)
-			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
+			ipio_info("temp[%d] = %x\n", i, temp[i]);
 	} else {
 		ipio_err("Unknown command\n");
 	}
@@ -982,18 +1039,18 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_FUNC_MODE:
-		ipio_info("\n");
+		
 		res = copy_from_user(szBuf, (uint8_t *) arg, 3);
 		if (res < 0) {
 			ipio_err("Failed to copy data from user space\n");
 		} else {
 			core_write(core_config->slave_i2c_addr, &szBuf[0], 3);
 		}
-		ipio_info("\n");
+		
 		break;
 
 	case ILITEK_IOCTL_TP_FW_VER:
-		ipio_info("\n");
+		
 		res = core_config_get_fw_ver();
 		if (res < 0) {
 			ipio_err("Failed to get firmware version\n");
@@ -1003,11 +1060,11 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy firmware version to user space\n");
 			}
 		}
-		ipio_info("\n");
+		
 		break;
 
 	case ILITEK_IOCTL_TP_PL_VER:
-		ipio_info("\n");
+		
 		res = core_config_get_protocol_ver();
 		if (res < 0) {
 			ipio_err("Failed to get protocol version\n");
@@ -1017,11 +1074,11 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy protocol version to user space\n");
 			}
 		}
-		ipio_info("\n");
+		
 		break;
 
 	case ILITEK_IOCTL_TP_CORE_VER:
-		ipio_info("\n");
+		
 		res = core_config_get_core_ver();
 		if (res < 0) {
 			ipio_err("Failed to get core version\n");
@@ -1031,7 +1088,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy core version to user space\n");
 			}
 		}
-		ipio_info("\n");
+		
 		break;
 
 	case ILITEK_IOCTL_TP_DRV_VER:

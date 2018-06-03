@@ -75,7 +75,7 @@ struct core_config_data {
 	bool do_ic_reset;
 	bool isEnableGesture;
 	bool icemodeenable;
-	bool spi_pro_9881ab;
+	bool spi_pro_9881h11;
 	TP_INFO *tp_info;
 };
 

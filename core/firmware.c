@@ -558,10 +558,8 @@ int host_download(bool isIRAM)
 		return res;
 	}
 	
-	mdelay(20);
+	//mdelay(20);
 	core_config_ice_mode_read(core_config->pid_addr);
-	ipio_debug(DEBUG_FIRMWARE, "nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X\n",
-	    core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
 	core_config_ice_mode_write(0x5100C, 0x81, 1);
 	core_config_ice_mode_write(0x5100C, 0x98, 1);
 	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
@@ -718,7 +716,7 @@ int host_download(bool isIRAM)
 
 	mdelay(10);
 	core_config_ice_mode_disable();
-	mdelay(1000);
+
 	kfree(buf);
 	kfree(read_ap_buf);
 	kfree(read_dlm_buf);
@@ -1093,14 +1091,14 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	uint32_t nStartAddr = 0x0, nEndAddr = 0x0, nChecksum = 0x0, nExAddr = 0;
 	uint32_t tmp_addr = 0x0;
 	int index = 0, block = 0;
-	ipio_info("\n");
+	
 	core_firmware->start_addr = 0;
-	ipio_info("\n");
+	
 	core_firmware->end_addr = 0;
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
 	core_firmware->hasBlockInfo = false;
-	ipio_info("\n");
+	
 	memset(g_flash_block_info, 0x0, sizeof(g_flash_block_info));
 #ifdef HOST_DOWNLOAD
 	memset(ap_fw, 0xFF, sizeof(ap_fw));
@@ -1224,7 +1222,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	#ifdef HOST_DOWNLOAD
 		return 0;
 	#endif
-	ipio_info("\n");
+	
 	/* Update the length of section */
 	g_section_len = index;
 
@@ -1254,7 +1252,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			}
 		}
 	}
-	ipio_info("\n");
+	
 	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for (i = 0; i < g_total_sector; i++) {
 		ipio_debug(DEBUG_FIRMWARE,
@@ -1314,7 +1312,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		res = -EINVAL;
 		goto out;
 	}
-	ipio_info("\n");
+	
 #ifndef HOST_DOWNLOAD
 	if (flashtab == NULL) {
 		ipio_err("Flash table isn't created\n");
@@ -1345,14 +1343,14 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		goto out;
 	}
 #endif
-	ipio_info("\n");
+	
 	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(hex_buffer)) {
 		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
 		res = -ENOMEM;
 		goto out;
 	}
-	ipio_info("\n");
+	
 	/* store current userspace mem segment. */
 	old_fs = get_fs();
 
@@ -1364,7 +1362,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 	/* restore userspace mem segment after read. */
 	set_fs(old_fs);
-	ipio_info("\n");
+	
 	res = convert_hex_file(hex_buffer, fsize, isIRAM);
 	if (res < 0) {
 		ipio_err("Failed to covert firmware data, res = %d\n", res);
