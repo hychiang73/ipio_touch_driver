@@ -174,6 +174,7 @@ extern uint32_t ipio_chip_list[2];
 	#define DLM_HEX_ADDRESS 			0x10000
 	#define MP_HEX_ADDRESS	 			0x13000
 	#define SPI_UPGRADE_LEN	 			2048
+	#define UPDATE_RETRY_COUNT			3
 	extern int core_firmware_boot_host_download(void);
 #endif
 

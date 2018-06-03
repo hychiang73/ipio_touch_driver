@@ -25,6 +25,8 @@
 #include "../common.h"
 #include "finger_report.h"
 #include "gesture.h"
+#include "protocol.h"
+#include "config.h"	
 
 /* The example for the gesture virtual keys */
 #define GESTURE_DOUBLECLICK			    0x0
@@ -55,6 +57,97 @@
 #define KEY_GESTURE_C					KEY_C
 #define KEY_GESTURE_Z					KEY_Z
 
+int core_load_gesture_code(void)
+{
+	int res = 0, i = 0;
+	uint8_t temp[12] = {0};
+	uint32_t gesture_size = 0, gesture_addr = 0;
+	temp[0] = 0x01;
+	temp[0] = 0x0A;
+	temp[1] = 0x07;
+	if ((core_write(core_config->slave_i2c_addr, temp, 2)) < 0) {
+		ipio_err("write command error\n");
+	}
+	if ((core_read(core_config->slave_i2c_addr, temp, 12)) < 0) {
+		ipio_err("Read command error\n");
+	}
+	gesture_addr = (temp[6] << 24) + (temp[7] << 16) + (temp[8] << 8) + temp[9];
+	gesture_size = (temp[10] << 8) + temp[11];
+	printk("gesture_addr = 0x%x, gesture_size = 0x%x\n", gesture_addr, gesture_size);
+	for(i = 0; i < 12; i++)
+	{
+		printk("0x%x,", temp[i]);
+	}
+	printk("\n");
+	for(i = 0; i < 100; i++)
+	{
+		ipio_info("i = %d\n", i);
+		temp[0] = 0x01;
+		temp[1] = 0x0A;
+		temp[2] = 0x00;
+		if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+			ipio_err("write command error\n");
+		}
+
+		temp[0] = protocol->cmd_read_ctrl;
+		temp[1] = protocol->cmd_cdc_busy;
+
+		mdelay(1);
+		core_write(core_config->slave_i2c_addr, temp, 2);
+		mdelay(1);
+		core_write(core_config->slave_i2c_addr, &temp[1], 1);
+		mdelay(1);
+		core_read(core_config->slave_i2c_addr, temp, 1);
+		if (temp[0] == 0x41 || temp[0] == 0x51) {
+			ipio_info("Check busy is free\n");
+			res = 0;
+			break;
+		}
+	}
+	if(i == 100 && temp[0] != 0x41)
+		ipio_info("Check busy is busy\n");
+	/* check system busy */
+	// if (core_config_check_cdc_busy(50) < 0)
+	// 	ipio_err("Check busy is timout !\n");
+	temp[0] = 0x01;
+	temp[1] = 0x0A;
+	temp[2] = 0x03;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write command error\n");
+	}	
+	temp[0] = 0x01;
+	temp[1] = 0x0A;
+	temp[2] = 0x01;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write command error\n");
+	}
+	for(i = 0; i < 1000; i++)
+	{
+		temp[0] = 0x01;
+		temp[1] = 0x0A;
+		temp[2] = 0x05;
+		if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+			ipio_err("write command error\n");
+		}
+		if ((core_read(core_config->slave_i2c_addr, temp, 1)) < 0) {
+			ipio_err("Read command error\n");
+		}
+		if(temp[0] == 0x1)
+		{
+			ipio_info("check fw ready\n");
+			break;
+		}
+	}
+	if(i == 1000 && temp[0] != 0x01) 
+			ipio_err("FW is busy, error\n");
+	temp[0] = 0x01;
+	temp[1] = 0x0A;
+	temp[2] = 0x06;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write command error\n");
+	}
+	return res;
+}
 int core_gesture_key(uint8_t gdata)
 {
 	int gcode;

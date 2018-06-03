@@ -146,7 +146,7 @@ int32_t *frame_buf = NULL;
 int32_t *key_buf = NULL;
 struct core_mp_test_data *core_mp = NULL;
 
-static void dump_data(void *data, int type, int len)
+void dump_data(void *data, int type, int len)
 {
 	int i;
 	uint8_t *p8 = NULL;

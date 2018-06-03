@@ -27,5 +27,5 @@
 
 extern int core_gesture_key(uint8_t gid);
 extern void core_gesture_init(struct core_fr_data *fr_data);
-
+extern int core_load_gesture_code(void);
 #endif

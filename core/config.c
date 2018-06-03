@@ -876,12 +876,11 @@ int core_config_get_chip_id(void)
 	mdelay(20);
 
 	PIDData = core_config_ice_mode_read(core_config->pid_addr);
-
 	ipio_info("PID = 0x%x\n",PIDData);
 
 	if (PIDData) {
 		RealID = check_chip_id(PIDData);
-
+		core_config->chip_pid = PIDData;
 		if (RealID != core_config->chip_id) {
 			ipio_err("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", RealID, TP_TOUCH_IC);
 			res = -ENODEV;

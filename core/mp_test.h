@@ -156,4 +156,5 @@ extern void core_mp_run_test(char *item, bool ini);
 extern int core_mp_move_code(void);
 extern int core_mp_init(void);
 extern void ilitek_platform_tp_hw_reset(bool isEnable);
+extern void dump_data(void *data, int type, int len);
 #endif
