@@ -150,11 +150,10 @@ struct core_mp_test_data {
 extern struct core_mp_test_data *core_mp;
 extern struct mp_test_items tItems[];
 
+extern void dump_data(void *data, int type, int len, const char *name);
 extern void core_mp_test_free(void);
 extern void core_mp_show_result(void);
 extern void core_mp_run_test(char *item, bool ini);
 extern int core_mp_move_code(void);
 extern int core_mp_init(void);
-extern void ilitek_platform_tp_hw_reset(bool isEnable);
-extern void dump_data(void *data, int type, int len);
 #endif

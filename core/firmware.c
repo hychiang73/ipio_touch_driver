@@ -537,7 +537,7 @@ static int iram_upgrade(void)
 }
 int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t r_len)
 {
-	int res = 0, addr = 0, i = 0, update_status = 0;
+	int res = 0, addr = 0, i = 0;
 	uint32_t end = start + size;
 	uint8_t *buf;
     buf = (uint8_t*)kmalloc(sizeof(uint8_t) * size + 4, GFP_KERNEL);   
@@ -605,10 +605,8 @@ write_error:
 }
 int host_download(bool isIRAM)
 {
-	int i, j, res = 0, update_status = 0;
+	int res = 0;
 	uint8_t *buf, *read_ap_buf, *read_dlm_buf, *read_mp_buf;
-	int upl = SPI_UPGRADE_LEN;
-	int retry = UPDATE_RETRY_COUNT;
 
     read_ap_buf = (uint8_t*)vmalloc(MAX_AP_FIRMWARE_SIZE);   
 	if (ERR_ALLOC_MEM(read_ap_buf)) {
@@ -721,7 +719,7 @@ int host_download(bool isIRAM)
 
 upgrade_fail:
 	vfree(buf);
-	buf == NULL;
+	//buf == NULL;
 	vfree(read_ap_buf);
 	read_ap_buf = NULL;
 	vfree(read_dlm_buf);

@@ -421,8 +421,6 @@ int core_parser_get_int_data(char *section, char *keyname, char *rv)
 	int len = 0;
 	char value[512] = { 0 };
 
-	ipio_info("section = %s, keyname = %s\n",section,keyname);
-
 	if (rv == NULL || section == NULL || keyname == NULL) {
 		ipio_err("Parameters are invalid\n");
 		return -EINVAL;

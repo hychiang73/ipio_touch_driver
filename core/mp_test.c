@@ -33,6 +33,7 @@
 #include <asm/uaccess.h>
 
 #include "../common.h"
+#include "../platform.h"
 #include "i2c.h"
 #include "config.h"
 #include "mp_test.h"
@@ -146,7 +147,7 @@ int32_t *frame_buf = NULL;
 int32_t *key_buf = NULL;
 struct core_mp_test_data *core_mp = NULL;
 
-void dump_data(void *data, int type, int len)
+void dump_data(void *data, int type, int len, const char *name)
 {
 	int i;
 	uint8_t *p8 = NULL;
@@ -158,7 +159,8 @@ void dump_data(void *data, int type, int len)
 			return;
 		}
 
-		printk("\n  Original Data:\n");
+		printk("\n\n");
+		printk("Dump %s data\n", name);
 
 		if (type == 8)
 			p8 = (uint8_t *) data;
@@ -172,12 +174,13 @@ void dump_data(void *data, int type, int len)
 				printk(" %4x ", p32[i]);
 			else if (type == 10)
 				printk(" %4d ", p32[i]);
-			if ((i % 32) == 0)
+			if ((i % 32) == 31)
 				printk("\n");
 		}
 		printk("\n\n");
 	}
 }
+EXPORT_SYMBOL(dump_data);
 
 static void dump_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
 {
@@ -462,8 +465,7 @@ static int mp_ctrl_lcd_status(bool on)
 	lcd[2] = 0;
 	lcd[3] = ctrl;
 
-	ipio_info("LCD command: delay time = %d \n", delay);
-	dump_data(lcd, 8, ARRAY_SIZE(lcd));
+	dump_data(lcd, 8, ARRAY_SIZE(lcd), "LCD Command");
 
 	ret = core_write(core_config->slave_i2c_addr, lcd, ARRAY_SIZE(lcd));
 	if (ret < 0) {
@@ -629,7 +631,7 @@ static int allnode_key_cdc_data(int index)
 		goto out;
 	}
 
-	dump_data(ori, 8, len);
+	dump_data(ori, 8, len, "Key CDC original");
 
 	if (key_buf == NULL) {
 		key_buf = kcalloc(core_mp->key_len, sizeof(int32_t), GFP_KERNEL);
@@ -664,7 +666,7 @@ static int allnode_key_cdc_data(int index)
 		}
 	}
 
-	dump_data(key_buf, 32, core_mp->frame_len);
+	dump_data(key_buf, 32, core_mp->frame_len, "Key CDC combined data");
 
 out:
 	ipio_kfree((void **)&ori);
@@ -673,7 +675,7 @@ out:
 
 static int mp_calc_timing_nodp(void)
 {
-	int i, ret = 0;
+	int ret = 0;
 	uint8_t test_type = 0x0;
 	uint8_t timing_cmd[15] = {0};
 	uint8_t get_timing[64] = {0};
@@ -688,8 +690,7 @@ static int mp_calc_timing_nodp(void)
 	 * To calculate NODP, we need to get timing parameters first from fw,
 	 * which returnes 40 bytes data.
 	 */
-	ipio_info("Timing command :\n");
-	dump_data(timing_cmd, 8, sizeof(timing_cmd));
+	dump_data(timing_cmd, 8, sizeof(timing_cmd), "Timing command");
 
 	ret = core_write(core_config->slave_i2c_addr, timing_cmd, sizeof(timing_cmd));
 	if (ret < 0) {
@@ -703,9 +704,7 @@ static int mp_calc_timing_nodp(void)
 		goto out;
 	}
 
-	for (i = 0; i < sizeof(get_timing); i++) {
-		ipio_info("get_timing[%d] = 0x%x\n",i,get_timing[i]);
-	}
+	dump_data(get_timing, 8, 41, "Timing parameters (41bytes)");
 
 	/* Combine timing data */
 	core_mp->nodp.is60HZ = false; // This will get from ini file by default.
@@ -766,12 +765,14 @@ out:
 
 static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 {
-	int i, ret = 0;
+	int ret = 0;
 	char str[128] = {0};
 	char tmp[128] = {0};
 
 	ipio_info("index = %d, Get %s command\n", index, tItems[index].desp);
+
 	mp_calc_timing_nodp();
+
 	ret = core_parser_get_int_data("PV5_4 Command",tItems[index].desp, str);
 	if (ret < 0) {
 		ipio_err("Failed to parse PV54 command, ret = %d\n",ret);
@@ -780,9 +781,6 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 
 	strncpy(tmp, str, ret);
 	core_parser_get_u8_array(tmp, cmd);
-
-	for (i = 0; i < len; i++)
-		ipio_info("PV54: cmd[%d] = 0x%x\n", i, cmd[i]);
 
 out:
 	return ret;
@@ -845,7 +843,7 @@ static int allnode_mutual_cdc_data(int index)
 	/* CDC init */
 	mp_cdc_init_cmd_common(cmd, protocol->cdc_len, index);
 
-	dump_data(cmd, 8, protocol->cdc_len);
+	dump_data(cmd, 8, protocol->cdc_len, "Mutual CDC command");
 
 	res = core_write(core_config->slave_i2c_addr, cmd, protocol->cdc_len);
 	if (res < 0) {
@@ -903,7 +901,7 @@ static int allnode_mutual_cdc_data(int index)
 		goto out;
 	}
 
-	dump_data(ori, 8, len);
+	dump_data(ori, 8, len, "Mutual CDC original");
 
 	if (frame_buf == NULL) {
 		frame_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
@@ -957,7 +955,7 @@ static int allnode_mutual_cdc_data(int index)
 		}
 	}
 
-	dump_data(frame_buf, 32, core_mp->frame_len);
+	dump_data(frame_buf, 32, core_mp->frame_len, "Mutual CDC combined");
 
 out:
 	ipio_kfree((void **)&ori);
@@ -1205,23 +1203,22 @@ int compare_charge(int32_t* charge_rate, int x, int y, int32_t* inNodeType, int 
 	return ret;	
 }
 
+/* This will be merged to allnode_mutual_cdc_data in next version */
 int allnode_open_cdc_data(int mode, int *buf, int *dac)
 {
-	int i = 0, res = 0, len = 0,check_busy_timeout=50, count=15;
+	int i = 0, res = 0, len = 0;
 	int inDACp = 0, inDACn = 0;
 	uint8_t cmd[15] = {0};
-	uint8_t DAC[15] = {0xF1,0x01,0x00,0x02,0xBC,0x01,0x01,0xFF,0xFF,0xF0,0xFF,0xFF,0xFF,0xFF,0xFF};
-	uint8_t Raw700[15] = {0xF1,0x08,0x00,0x02,0xBC,0x01,0x00,0xFF,0xFF,0xF0,0xFF,0xFF,0xFF,0xFF,0xFF};
-	uint8_t Raw250[15] = {0xF1,0x08,0x00,0x00,0xFA,0x01,0x00,0xFF,0xFF,0xF0,0xFF,0xFF,0xFF,0xFF,0xFF};
-	uint8_t Raw200[15] = {0xF1,0x08,0x00,0x00,0xC8,0x01,0x00,0xFF,0xFF,0xF0,0xFF,0xFF,0xFF,0xFF,0xFF};
-
 	uint8_t *ori = NULL;
+	char str[128] = {0};
+	char tmp[128] = {0};
+	char *key[] = {"OPEN DAC", "OPEN Raw1", "OPEN Raw2", "OPEN Raw3"};
 
 	/* Multipling by 2 is due to the 16 bit in each node */
 	len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
 	
 	ipio_debug(DEBUG_MP_TEST, "Read X/Y Channel length = %d\n", len);
-	ipio_debug(DEBUG_MP_TEST, "core_mp->frame_len = %d, mode=%d\n", core_mp->frame_len, mode);
+	ipio_debug(DEBUG_MP_TEST, "core_mp->frame_len = %d, mode= %d\n", core_mp->frame_len, mode);
 	
 	if (len <= 2) {
 		ipio_err("Length is invalid\n");
@@ -1229,30 +1226,38 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 		goto out;
 	}
 	
-	/* CDC init */
-	if(mode == 0)
-		memcpy(cmd, DAC, count);
-	else if(mode == 1)
-		memcpy(cmd, Raw700, count);
-	else if(mode == 2)
-		memcpy(cmd, Raw250, count);
-	else if(mode == 3)
-		memcpy(cmd, Raw200, count);
-	for(i = 0; i < count; i++)
-		printk("0x%x,", cmd[i]);
-	printk("\n");
-	res = core_write(core_config->slave_i2c_addr, cmd, count);
+	/* CDC init. Read command from ini file */
+	res = core_parser_get_int_data("PV5_4 Command", key[mode], str);
+	if (res < 0) {
+		ipio_err("Failed to parse PV54 command, res = %d\n",res);
+		goto out;
+	}
+
+	strncpy(tmp, str, res);
+	core_parser_get_u8_array(tmp, cmd);
+
+	dump_data(cmd, 8, sizeof(cmd), "Open SP command");
+
+	res = core_write(core_config->slave_i2c_addr, cmd, 15);
 	if (res < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
 
-	mdelay(1);
 	/* Check busy */
-	if (core_config_check_cdc_busy(check_busy_timeout) < 0) {
-		ipio_err("Check busy is timout !\n");
+	ipio_info("Check busy method = %d\n",core_mp->busy_cdc);
+	if (core_mp->busy_cdc == POLL_CHECK) {
+		res = core_config_check_cdc_busy(50);
+	} else if (core_mp->busy_cdc == INT_CHECK) {
+		res = core_config_check_int_status(false);
+	} else if (core_mp->busy_cdc == DELAY_CHECK) {
+		mdelay(600);	
+	}
+
+	if (res < 0) {
+		ipio_err("Check busy timeout !\n");
 		res = -1;
-		goto out;
+		goto out;		
 	}
 
 	/* Prepare to get cdc data */
@@ -1289,7 +1294,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 		goto out;
 	}
 	
-	dump_data(ori, 8, len);
+	dump_data(ori, 8, len, "Open SP CDC original");
 
 	/* Convert original data to the physical one in each node */
 	for (i = 0; i < core_mp->frame_len; i++) {
@@ -1321,7 +1326,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 			buf[i] = (int)((int)(dac[i] * 2 * 10000 * 161 / 100) - (int)(16384 / 2 - (int)buf[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
 		}
 	}
-	dump_data(buf, 10, core_mp->frame_len);
+	dump_data(buf, 10, core_mp->frame_len, "Open SP CDC combined");
 out:
 	ipio_kfree((void **)&ori);
 
