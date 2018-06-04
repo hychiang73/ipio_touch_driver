@@ -1404,18 +1404,6 @@ static int open_test_sp(int index)
 		open[i].full_Open = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);  
 		open[i].dac = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);  
 		open[i].cdc = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-		memset(open[i].cbk_700, 0, core_mp->frame_len * sizeof(int32_t));
-		
-		memset(open[i].cbk_250, 0, core_mp->frame_len * sizeof(int32_t));
-		
-		memset(open[i].cbk_200, 0, core_mp->frame_len * sizeof(int32_t));  
-		
-		memset(open[i].charg_rate, 0, core_mp->frame_len * sizeof(int32_t));
-		
-		memset(open[i].full_Open, 0, core_mp->frame_len * sizeof(int32_t));
-		dump_node_type_buffer(open[i].full_Open, "full_Open");
-		memset(open[i].dac, 0, core_mp->frame_len * sizeof(int32_t));
-		
 	}
 	
 	for (i = 0; i < get_frame_cont; i++) {
@@ -1439,17 +1427,31 @@ static int open_test_sp(int index)
 			ipio_err("Failed to get Open SP Raw3 data, %d\n", res);
 			goto out;
 		}
-		addr = 0;
-		for(y = 0; y < core_mp->ych_len; y++) {
-			for(x = 0; x < core_mp->xch_len; x++) {
-				open[i].charg_rate[addr] = open[i].cbk_250[addr] * 100 / open[i].cbk_700[addr];
+        addr = 0;
+        for(y = 0; y < core_mp->ych_len; y++){
+            for(x = 0; x < core_mp->xch_len; x++){
+                open[i].charg_rate[addr] = open[i].cbk_250[addr] * 100 / open[i].cbk_700[addr];
 				open[i].full_Open[addr] = open[i].cbk_700[addr] - open[i].cbk_200[addr];
-				open[i].charg_rate[addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);
-				open[i].charg_rate[addr] = full_open_rate_compare(open[i].full_Open, open[i].cbk_700, open[i].charg_rate, x, y, tItems[index].node_type[addr], full_open_rate);
-				tItems[index].buf[(i * core_mp->frame_len) + addr] = open[i].charg_rate[addr];
-				addr++;
-			}
-		}
+                addr++;
+            }
+        }
+
+        addr = 0;
+        for(y = 0; y < core_mp->ych_len; y++){
+            for(x = 0; x < core_mp->xch_len; x++){
+                open[i].charg_rate[addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);
+                addr++;
+            }
+        }
+
+        addr = 0;
+        for(y = 0; y < core_mp->ych_len; y++){
+            for(x = 0; x < core_mp->xch_len; x++){
+                open[i].charg_rate[addr] = full_open_rate_compare(open[i].full_Open, open[i].cbk_700, open[i].charg_rate, x, y, tItems[index].node_type[addr], full_open_rate);
+                tItems[index].buf[(i * core_mp->frame_len) + addr] = open[i].charg_rate[addr];              
+                addr++;
+            }
+        }
 
 		compare_MaxMin_result(index, &tItems[index].buf[(i * core_mp->frame_len)]);
 	}
@@ -1635,7 +1637,7 @@ static int st_test(int index)
 int u32NewRawData[1000];
 int rawdata_sort(int *u32PtrRaw,int index)
 {
-	int i,j,k,x,y,z,len = 5;
+	int i,j,k,x,y,len = 5;
 	int u32Tmp;
 	int u32UpFrame,u32DownFrame;
 
@@ -1671,7 +1673,7 @@ int rawdata_sort(int *u32PtrRaw,int index)
 			printk("\n");
 	}
 
-	ipio_debug(DEBUG_MP_TEST,"Summer sort data\n",core_mp->frame_len);
+	ipio_debug(DEBUG_MP_TEST,"Summer sort data %d\n",core_mp->frame_len);
 	for(i = 0 ; i < core_mp->frame_len ; i++)
 	{
 		u32NewRawData[i]=0;

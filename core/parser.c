@@ -365,11 +365,9 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 				if(record != '.') {
 					memset(str, 0, sizeof(str));
 					memcpy(str, &ilitek_ini_file_data[i].pKeyValue[index1], (j - index1));
-
 					temp = katoi(str);
-					data[count % 4] = temp;
-
-					if (count % 4 == 3) {
+					data[(count % 4)] = temp;
+					if ((count % 4) == 3) {
 						if (data[0] == 1) {
 							if (type == VALUE) {
 								max_ptr[count/4] = data[1] + data[2];
@@ -382,7 +380,7 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 							max_ptr[count/4] = 65535;
 							min_ptr[count/4] = -65535;
 						}
-					}                                        
+					}
 					count++;  
 				}
 				record = ilitek_ini_file_data[i].pKeyValue[j];                                       
