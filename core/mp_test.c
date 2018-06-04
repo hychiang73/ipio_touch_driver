@@ -676,7 +676,7 @@ static int mp_calc_timing_nodp(void)
 	int i, ret = 0;
 	uint8_t test_type = 0x0;
 	uint8_t timing_cmd[15] = {0};
-	uint8_t get_timing[39] = {0};
+	uint8_t get_timing[64] = {0};
 
 	memset(timing_cmd, 0xFF, sizeof(timing_cmd));
 
@@ -697,9 +697,7 @@ static int mp_calc_timing_nodp(void)
 		goto out;
 	}
 
-	ipio_info(" %d \n",sizeof(get_timing));
-
-	ret = core_read(core_config->slave_i2c_addr, get_timing, 39);
+	ret = core_read(core_config->slave_i2c_addr, get_timing, sizeof(get_timing));
 	if (ret < 0) {
 		ipio_err("Failed to read timing parameters\n");
 		goto out;
@@ -773,11 +771,7 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 	char tmp[128] = {0};
 
 	ipio_info("index = %d, Get %s command\n", index, tItems[index].desp);
-	//ipio_info("index = %d, indexp = %p, name = %s, p = %p\n",index, &index, tItems[index].desp,&tItems[index].desp);
-	/* We may use it in the future. Currently read command from ini. */
 	mp_calc_timing_nodp();
-	core_mp->nodp.isLongV = 0;
-	//ipio_info("index = %d, indexp = %p, name = %s, p = %p\n",index, &index, tItems[index].desp,&tItems[index].desp);
 	ret = core_parser_get_int_data("PV5_4 Command",tItems[index].desp, str);
 	if (ret < 0) {
 		ipio_err("Failed to parse PV54 command, ret = %d\n",ret);

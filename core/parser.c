@@ -400,8 +400,6 @@ int core_parser_get_u8_array(char *key, uint8_t *buf)
 	int res, conut = 0;
     long s_to_long = 0;
 
-	ipio_info("key = %s\n",key);
-
 	if(isspace_t((int)(unsigned char)*s) == 0)
 	{
 		while((pToken = strsep(&s, ",")) != NULL){

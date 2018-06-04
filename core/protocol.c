@@ -234,7 +234,7 @@ static void config_protocol_v5_cmd(void)
 	else
 		protocol->fw_ver_len = 4;
 
-	if (protocol->mid == 0x1 || protocol->mid == 0x4) {
+	if (protocol->mid == 0x1) {
 		protocol->pro_ver_len = 3;
 	} else {
 		protocol->pro_ver_len = 4;
