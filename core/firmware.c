@@ -56,13 +56,13 @@ extern struct core_fr_data *core_fr;
  */
 uint8_t *flash_fw = NULL;
 
-//#ifdef HOST_DOWNLOAD
+#ifdef HOST_DOWNLOAD
 uint8_t ap_fw[MAX_AP_FIRMWARE_SIZE] = { 0 };
 uint8_t dlm_fw[MAX_DLM_FIRMWARE_SIZE] = { 0 };
 uint8_t mp_fw[MAX_MP_FIRMWARE_SIZE] = { 0 };
-//#else
+#else
 uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = { 0 };
-//#endif
+#endif
 /* the length of array in each sector */
 int g_section_len = 0;
 int g_total_sector = 0;
@@ -468,6 +468,7 @@ out:
 	return res;
 }
 
+#ifndef HOST_DOWNLOAD
 static int iram_upgrade(void)
 {
 	int i, j, res = 0;
@@ -535,6 +536,8 @@ static int iram_upgrade(void)
 
 	return res;
 }
+#endif
+
 int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t r_len)
 {
 	int res = 0, addr = 0, i = 0;
@@ -603,6 +606,8 @@ write_error:
 	kfree(buf);
 	return res;	
 }
+
+#ifdef HOST_DOWNLOAD
 int host_download(bool isIRAM)
 {
 	int res = 0;
@@ -729,15 +734,18 @@ upgrade_fail:
 	return res;
 }
 EXPORT_SYMBOL(host_download);
+#endif
 
 static int tddi_fw_upgrade(bool isIRAM)
 {
 	int res = 0;
 
+#ifndef HOST_DOWNLOAD
 	if (isIRAM) {
 		res = iram_upgrade();
 		return res;
 	}
+#endif
 
 	ilitek_platform_tp_hw_reset(true);
 
@@ -1027,6 +1035,7 @@ out:
 }
 #endif /* BOOT_FW_UPGRADE */
 
+#ifdef HOST_DOWNLOAD
 int core_firmware_boot_host_download(void)
 {
 	int res = 0, i = 0;
@@ -1089,6 +1098,8 @@ out:
 	return res;
 }
 EXPORT_SYMBOL(core_firmware_boot_host_download);
+#endif
+
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	uint32_t i = 0, j = 0, k = 0;
