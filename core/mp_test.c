@@ -210,7 +210,7 @@ void dump_node_type_buffer(int32_t* node_ptr, uint8_t *name)
 	int i;
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		ipio_info("Node Type buffer: \n");
+		ipio_info("Node Type buffer: %s\n", name);
 		for(i=0; i<core_mp->frame_len ; i++)
 		{
 			printk("%d, ",node_ptr[i]);
@@ -1405,17 +1405,17 @@ static int open_test_sp(int index)
 		open[i].dac = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);  
 		open[i].cdc = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		memset(open[i].cbk_700, 0, core_mp->frame_len * sizeof(int32_t));
-		dump_node_type_buffer(open[i].cbk_700, "cbk 700");
+		
 		memset(open[i].cbk_250, 0, core_mp->frame_len * sizeof(int32_t));
-		dump_node_type_buffer(open[i].cbk_250, "cbk_250");
+		
 		memset(open[i].cbk_200, 0, core_mp->frame_len * sizeof(int32_t));  
-		dump_node_type_buffer(open[i].cbk_250, "cbk_250");
+		
 		memset(open[i].charg_rate, 0, core_mp->frame_len * sizeof(int32_t));
-		dump_node_type_buffer(open[i].cbk_250, "cbk_250");
+		
 		memset(open[i].full_Open, 0, core_mp->frame_len * sizeof(int32_t));
 		dump_node_type_buffer(open[i].full_Open, "full_Open");
 		memset(open[i].dac, 0, core_mp->frame_len * sizeof(int32_t));
-		dump_node_type_buffer(open[i].dac, "dac");
+		
 	}
 	
 	for (i = 0; i < get_frame_cont; i++) {
@@ -1492,17 +1492,17 @@ int codeToOhm(int32_t Code)
 	return temp;   
 }
 
-static int short_test(int index)
+static int short_test(int index,int frame_index)
 {
 	int j = 0, res = 0;
 
 	if(protocol->major >= 5 && protocol->mid >= 4) {
 		/* Calculate code to ohm and save to tItems[index].buf */
 		for (j = 0; j < core_mp->frame_len; j++)
-			tItems[index].buf[j] = codeToOhm(frame_buf[j]);
+			tItems[index].buf[frame_index * core_mp->frame_len + j] = codeToOhm(frame_buf[j]);
 	} else {
 		for (j = 0; j < core_mp->frame_len; j++)
-			tItems[index].buf[j] = frame_buf[j];		
+			tItems[index].buf[frame_index * core_mp->frame_len + j] = frame_buf[j];		
 	}
 
 	return res;
@@ -1571,11 +1571,11 @@ static int mutual_test(int index)
 			run_tx_rx_delta_test(index);
 			break;
 		case SHORT_TEST:
-			short_test(index);
+			short_test(index , i);
 			break;			
 		default:
 			for (j = 0; j < core_mp->frame_len; j++)
-				tItems[index].buf[j] = frame_buf[j];
+				tItems[index].buf[i * core_mp->frame_len + j] = frame_buf[j];
 			break;
 		}
 	}
@@ -1632,6 +1632,68 @@ static int st_test(int index)
 	return -1;
 }
 
+int u32NewRawData[1000];
+int rawdata_sort(int *u32PtrRaw,int index)
+{
+	int i,j,k,x,y,z,len = 5;
+	int u32Tmp;
+	int u32UpFrame,u32DownFrame;
+
+	//u32NewRawData = kmalloc(sizeof(int)*core_mp->frame_len, GFP_KERNEL);
+
+	if(tItems[index].frame_count <= 1)
+		return 0;
+
+	u32UpFrame = tItems[index].frame_count * tItems[index].highest_percentage / 100;
+	u32DownFrame = tItems[index].frame_count * tItems[index].lowest_percentage / 100;
+	ipio_debug(DEBUG_MP_TEST,"Up=%d,Down=%d\n",u32UpFrame,u32DownFrame);
+	printk("Summer SORT debug %s\n",tItems[index].desp);
+	for(i = 0 ; i < core_mp->frame_len ; i++)
+	{
+		for(j = 0 ; j < tItems[index].frame_count-1 ; j++)
+		{
+			if(i < len)
+				printk("%d,",u32PtrRaw[j* core_mp->frame_len + i]);
+
+			for(k = 0 ; k < (tItems[index].frame_count-1-j) ; k++)
+			{
+				x=i+k*core_mp->frame_len;
+				y=i+(k+1)*core_mp->frame_len;
+				if (*(u32PtrRaw+x) > *(u32PtrRaw+y))
+				{
+					u32Tmp = *(u32PtrRaw+x);
+					*(u32PtrRaw+x) = *(u32PtrRaw+y);
+					*(u32PtrRaw+y) = u32Tmp;
+				}
+			}
+		}
+		if(i < len)
+			printk("\n");
+	}
+
+	ipio_debug(DEBUG_MP_TEST,"Summer sort data\n",core_mp->frame_len);
+	for(i = 0 ; i < core_mp->frame_len ; i++)
+	{
+		u32NewRawData[i]=0;
+		for(j = u32DownFrame ; j < tItems[index].frame_count - u32UpFrame ; j++)
+		{   
+			u32NewRawData[i] += u32PtrRaw[i + j * core_mp->frame_len];
+			if(i < len)
+				printk("%d,",u32PtrRaw[i + j*core_mp->frame_len]);
+			
+		}
+		if(i < len)
+			printk("\n");
+
+		u32PtrRaw[i] = u32NewRawData[i] / (tItems[index].frame_count - u32DownFrame - u32UpFrame);
+		//printk("Avg=%d\n",u32PtrRaw[i]);
+		if(i < len)
+			printk("%d,",u32PtrRaw[i]);
+	}
+	printk("\n");
+
+	return 0;
+}
 void core_mp_show_result(void)
 {
 	int i, x, y, csv_len = 0;
@@ -1650,6 +1712,7 @@ void core_mp_show_result(void)
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run) {
+			rawdata_sort(tItems[i].buf,i);
 			if ( tItems[i].spec_option == BENCHMARK) {
 				mp_compare_benchmark_result(i, true, false, csv, &csv_len);
 				continue;

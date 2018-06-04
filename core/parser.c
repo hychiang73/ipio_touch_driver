@@ -318,19 +318,19 @@ void core_parser_nodetype(int32_t* type_ptr, char *desp)
 	for (i = 0; i < g_ini_items; i++) {
 
 		if ((strstr(ilitek_ini_file_data[i].pSectionName, desp) <= 0) ||
-			strcmp(ilitek_ini_file_data[i].pKeyName, BENCHMARK_KEY_NAME) != 0) {			
+			strcmp(ilitek_ini_file_data[i].pKeyName, NODE_TYPE_KEY_NAME) != 0) {			
 				continue;
 			}
 		
 		record = ',';
-		for(j=0, index1 = 0; j<ilitek_ini_file_data[i].iKeyValueLen; j++){
+		for(j=0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++){
 
-			if(ilitek_ini_file_data[i].pKeyValue[j] == ';' ){
+			if(ilitek_ini_file_data[i].pKeyValue[j] == ';' || j == ilitek_ini_file_data[i].iKeyValueLen){
 
 				if(record != '.')
 				{
 					memset(str,0 ,sizeof(str));
-					memcpy(str,&ilitek_ini_file_data[i].pKeyValue[index1], (j -index1 -1));
+					memcpy(str,&ilitek_ini_file_data[i].pKeyValue[index1], (j -index1));
 					temp=katoi(str);
 					type_ptr[count] = temp;
 					printk("%04d,",temp);				                              
@@ -358,9 +358,9 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 		}
 		
 		record = ',';
-		for(j = 0, index1 = 0; j<ilitek_ini_file_data[i].iKeyValueLen; j++) {
+		for(j = 0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++) {
 			if(ilitek_ini_file_data[i].pKeyValue[j] == ',' || ilitek_ini_file_data[i].pKeyValue[j] == ';' ||
-				ilitek_ini_file_data[i].pKeyValue[j] == '.'|| j == ilitek_ini_file_data[i].iKeyValueLen - 1) {
+				ilitek_ini_file_data[i].pKeyValue[j] == '.'|| j == ilitek_ini_file_data[i].iKeyValueLen) {
 
 				if(record != '.') {
 					memset(str, 0, sizeof(str));
