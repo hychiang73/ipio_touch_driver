@@ -1343,9 +1343,9 @@ static int open_test_sp(int index)
 	ipio_debug(DEBUG_MP_TEST, "index = %d, name = %s, CMD = 0x%x, Frame Count = %d\n",
 	    index, tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
-	if (tItems[index].node_type_option != NODETYPE)
-	{
+	if (tItems[index].node_type_option != NODETYPE) {
 		ipio_err("open_test_sp function was disable\n");
+		res = -1;
 		return res;
 	}
 
@@ -1359,6 +1359,8 @@ static int open_test_sp(int index)
 	}
 
 	res = create_mp_test_frame_buffer(index, tItems[index].frame_count);
+	if (res < 0)
+		goto out;
 
 	if (tItems[index].spec_option == BENCHMARK) {
 		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option,tItems[index].desp);
@@ -1370,14 +1372,26 @@ static int open_test_sp(int index)
 	if (ipio_debug_level&&DEBUG_PARSER > 0)                               
 		dump_node_type_buffer(tItems[index].node_type, "node type");
 
-	core_parser_get_int_data(tItems[index].desp, "Charge_AA", str);
-	Charge_AA = katoi(str);
-	core_parser_get_int_data(tItems[index].desp, "Charge_Border", str);
-	Charge_Border = katoi(str);
-	core_parser_get_int_data(tItems[index].desp, "Charge_Notch", str);
-	Charge_Notch = katoi(str);
-	core_parser_get_int_data(tItems[index].desp, "Full Open", str);
-	full_open_rate = katoi(str);	
+	res = core_parser_get_int_data(tItems[index].desp, "Charge_AA", str);
+	if (res || res == 0)
+		Charge_AA = katoi(str);
+
+	res = core_parser_get_int_data(tItems[index].desp, "Charge_Border", str);
+	if (res || res == 0)
+		Charge_Border = katoi(str);
+
+	res = core_parser_get_int_data(tItems[index].desp, "Charge_Notch", str);
+	if (res || res == 0)
+		Charge_Notch = katoi(str);
+
+	res = core_parser_get_int_data(tItems[index].desp, "Full Open", str);
+	if (res || res == 0)
+		full_open_rate = katoi(str);
+
+	if (res < 0) {
+		ipio_err("Failed to get parameters from ini file\n");
+		goto out;
+	}
 
 	ipio_debug(DEBUG_MP_TEST,"pen test frame_cont %d, AA %d,Border %d, Notch %d, full_open_rate %d \n",
 			get_frame_cont,Charge_AA,Charge_Border,Charge_Notch,full_open_rate);
@@ -1405,14 +1419,29 @@ static int open_test_sp(int index)
 	}
 	
 	for (i = 0; i < get_frame_cont; i++) {
-		allnode_open_cdc_data(0, open[i].dac, open[i].dac);
-		allnode_open_cdc_data(1, open[i].cbk_700, open[i].dac);
-		allnode_open_cdc_data(2, open[i].cbk_250, open[i].dac);
-		allnode_open_cdc_data(3, open[i].cbk_200, open[i].dac);
+		res = allnode_open_cdc_data(0, open[i].dac, open[i].dac);
+		if (res < 0) {
+			ipio_err("Failed to get Open SP DAC data, %d\n", res);
+			goto out;
+		}
+		res = allnode_open_cdc_data(1, open[i].cbk_700, open[i].dac);
+		if (res < 0) {
+			ipio_err("Failed to get Open SP Raw1 data, %d\n", res);
+			goto out;
+		}
+		res = allnode_open_cdc_data(2, open[i].cbk_250, open[i].dac);
+		if (res < 0) {
+			ipio_err("Failed to get Open SP Raw2 data, %d\n", res);
+			goto out;
+		}
+		res = allnode_open_cdc_data(3, open[i].cbk_200, open[i].dac);
+		if (res < 0) {
+			ipio_err("Failed to get Open SP Raw3 data, %d\n", res);
+			goto out;
+		}
 		addr = 0;
-		for(y = 0; y < core_mp->ych_len; y++){
-			for(x = 0; x < core_mp->xch_len; x++){
-
+		for(y = 0; y < core_mp->ych_len; y++) {
+			for(x = 0; x < core_mp->xch_len; x++) {
 				open[i].charg_rate[addr] = open[i].cbk_250[addr] * 100 / open[i].cbk_700[addr];
 				open[i].full_Open[addr] = open[i].cbk_700[addr] - open[i].cbk_200[addr];
 				open[i].charg_rate[addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);
@@ -1425,16 +1454,16 @@ static int open_test_sp(int index)
 		compare_MaxMin_result(index, &tItems[index].buf[(i * core_mp->frame_len)]);
 	}
 
-	for(i = 0; i < tItems[index].frame_count; i++)
-	{
+	for(i = 0; i < tItems[index].frame_count; i++) {
 		ipio_kfree((void **)&open[i].cbk_700);
 		ipio_kfree((void **)&open[i].cbk_250);
 		ipio_kfree((void **)&open[i].cbk_200);
 		ipio_kfree((void **)&open[i].charg_rate);
 		ipio_kfree((void **)&open[i].full_Open);
 		ipio_kfree((void **)&open[i].dac);
-	}	
+	}
 
+out:
 	return res;
 }
 
