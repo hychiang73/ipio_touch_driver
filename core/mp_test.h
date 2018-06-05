@@ -109,6 +109,7 @@ struct mp_nodp_calc {
 struct core_mp_test_data {
 	struct mp_nodp_calc nodp;
 	/* A flag shows a test run in particular */
+	bool run;
 	bool m_signal;
 	bool m_dac;
 	bool s_signal;
