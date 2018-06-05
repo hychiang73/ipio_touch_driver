@@ -377,8 +377,8 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 								min_ptr[count/4] = data[1] - (data[1] * data[3]) / 100;
 							}
 						} else {
-							max_ptr[count/4] = 65535;
-							min_ptr[count/4] = -65535;
+							max_ptr[count/4] = INT_MAX;
+							min_ptr[count/4] = INT_MIN;
 						}
 					}
 					count++;  

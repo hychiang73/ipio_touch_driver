@@ -331,6 +331,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_mp_run_test("Raw Data(No BK)", true);
 	core_mp_run_test("Raw Data(Have BK)(LCM OFF)", true);
 	core_mp_run_test("Noise Peak to Peak(IC Only)(LCM OFF)", true);
+	core_mp_run_test("Doze Raw Data", true);
 	core_mp_run_test("Doze Peak To Peak", true);
 	//core_mp_run_test("Pin Test(INT & RST)", true);
 

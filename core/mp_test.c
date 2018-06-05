@@ -1133,12 +1133,12 @@ static void compare_MaxMin_result(int index, int32_t *data)
 					core_mp->rx_min_buf[shift + x] = data[shift + x];
 				}
 			} else {
-				if (tItems[index].max_buf[shift + x] < tItems[index].buf[shift + x]) {
-					tItems[index].max_buf[shift + x] = tItems[index].buf[shift + x];
+				if (tItems[index].max_buf[shift + x] < data[shift + x]) {
+					tItems[index].max_buf[shift + x] = data[shift + x];
 				}
 
-				if (tItems[index].min_buf[shift + x] > tItems[index].buf[shift + x]) {
-					tItems[index].min_buf[shift + x] = tItems[index].buf[shift + x];
+				if (tItems[index].min_buf[shift + x] > data[shift + x]) {
+					tItems[index].min_buf[shift + x] = data[shift + x];
 				}
 			}
 		}
@@ -1362,6 +1362,14 @@ static int open_test_sp(int index)
 	if (res < 0)
 		goto out;
 
+	/* Init Max/Min buffer */
+	for (y = 0; y < core_mp->ych_len; y++) {
+		for (x = 0; x < core_mp->xch_len; x++) {
+				tItems[index].max_buf[y * core_mp->xch_len + x] = INT_MIN;
+				tItems[index].min_buf[y * core_mp->xch_len + x] = INT_MAX;
+		}
+	}
+
 	if (tItems[index].spec_option == BENCHMARK) {
 		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option,tItems[index].desp);
 		if (ipio_debug_level&&DEBUG_PARSER > 0)                               
@@ -1534,13 +1542,13 @@ static int mutual_test(int index)
 	for (y = 0; y < core_mp->ych_len; y++) {
 		for (x = 0; x < core_mp->xch_len; x++) {
 			if (tItems[i].catalog == TX_RX_DELTA) {
-				core_mp->tx_max_buf[y * core_mp->xch_len + x] = -65535;
-				core_mp->rx_max_buf[y * core_mp->xch_len + x] = -65535;
-				core_mp->tx_min_buf[y * core_mp->xch_len + x] = 65535;
-				core_mp->rx_min_buf[y * core_mp->xch_len + x] = 65535;
+				core_mp->tx_max_buf[y * core_mp->xch_len + x] = INT_MIN;
+				core_mp->rx_max_buf[y * core_mp->xch_len + x] = INT_MIN;
+				core_mp->tx_min_buf[y * core_mp->xch_len + x] = INT_MAX;
+				core_mp->rx_min_buf[y * core_mp->xch_len + x] = INT_MAX;
 			} else {
-				tItems[index].max_buf[y * core_mp->xch_len + x] = -65535;
-				tItems[index].min_buf[y * core_mp->xch_len + x] = 65535;
+				tItems[index].max_buf[y * core_mp->xch_len + x] = INT_MIN;
+				tItems[index].min_buf[y * core_mp->xch_len + x] = INT_MAX;
 			}
 		}
 	}
@@ -1580,9 +1588,11 @@ static int mutual_test(int index)
 				tItems[index].buf[i * core_mp->frame_len + j] = frame_buf[j];
 			break;
 		}
+		
+		compare_MaxMin_result(index, &tItems[index].buf[i * core_mp->frame_len]);
 	}
 
-	compare_MaxMin_result(index, tItems[index].buf);
+
 
 out:
 	return res;
