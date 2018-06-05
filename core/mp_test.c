@@ -221,6 +221,101 @@ void dump_node_type_buffer(int32_t* node_ptr, uint8_t *name)
 
 }
 
+static void mp_show_sorting_result(int index, bool max, bool tx, char *csv, int *csv_len)
+{
+	int x, y, tmp_len = *csv_len;
+	int  mp_result = 1;
+	char *line_breaker = "\n";
+	int32_t *tmp = NULL;
+
+	pr_info("%s\n", tItems[index].desp);
+	tmp_len += sprintf(csv + tmp_len, " %s ", tItems[index].desp);
+
+	pr_info("\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);              
+	
+	pr_info("Max = %d\n",tItems[index].max);
+	tmp_len += sprintf(csv + tmp_len, "Max = %d", tItems[index].max);
+
+	pr_info("\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+
+	pr_info("Min = %d\n",tItems[index].min);
+	tmp_len += sprintf(csv + tmp_len, "Min = %d", tItems[index].min);
+
+	pr_info("\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+
+	pr_info("Frame count = %d\n",tItems[index].frame_count);
+	tmp_len += sprintf(csv + tmp_len, "Frame count = %d", tItems[index].frame_count);
+
+	pr_info("\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);                                                
+
+	DUMP(DEBUG_MP_TEST, " %s \n", "Sorting result");
+	tmp_len += sprintf(csv + tmp_len, "Sorting result\n");
+
+	tmp = tItems[index].buf;
+	/* print X raw only */
+	for (x = 0; x < core_mp->xch_len; x++) {
+		if (x == 0) {
+			DUMP(DEBUG_MP_TEST, "           ");
+			tmp_len += sprintf(csv + tmp_len, ",");
+		}
+
+		DUMP(DEBUG_MP_TEST, "X%02d      ", x);
+		tmp_len += sprintf(csv + tmp_len, "X%02d, ", x);
+	}
+
+	DUMP(DEBUG_MP_TEST, "\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+
+	for (y = 0; y < core_mp->ych_len; y++) {
+		DUMP(DEBUG_MP_TEST, " Y%02d ", y);
+		tmp_len += sprintf(csv + tmp_len, "Y%02d, ", y);
+
+		for (x = 0; x < core_mp->xch_len; x++) {
+			int shift = y * core_mp->xch_len + x;
+
+			if (tmp[shift] <= tItems[index].max && tmp[shift] >=  tItems[index].min) {
+				DUMP(DEBUG_MP_TEST, " %7d ", tmp[shift]);
+				tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);
+			} else {
+				if (tmp[shift] > tItems[index].max) {
+					DUMP(DEBUG_MP_TEST, " *%7d ", tmp[shift]);
+					tmp_len += sprintf(csv + tmp_len, "*%7d,", tmp[shift]);
+				} else {
+					DUMP(DEBUG_MP_TEST, " #%7d ", tmp[shift]);
+					tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
+				}
+				mp_result = -1;
+			}
+		}
+
+		DUMP(DEBUG_MP_TEST, "\n");
+		tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+	}
+
+	if (mp_result < 0)
+		sprintf(tItems[index].result, "%s", "FAIL");
+	else
+		sprintf(tItems[index].result, "%s", "PASS");
+
+
+	pr_info("\n Result : %s\n", tItems[index].result);
+	tmp_len += sprintf(csv + tmp_len, " Result : %s ", tItems[index].result);
+
+	pr_info("\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+
+	if (strcmp(tItems[index].result, "FAIL") == 0)
+		core_mp->final_result = false;
+
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);        
+
+	*csv_len = tmp_len;
+}
+
 static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
@@ -239,6 +334,82 @@ static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv,
 
 	pr_info("\n");
 	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);                                                
+
+	DUMP(DEBUG_MP_TEST, " %s \n", "Bench mark max threshold");
+	tmp_len += sprintf(csv + tmp_len, "Bench mark max threshold\n");
+
+	tmp = tItems[index].bench_mark_max;
+	/* print X raw only */
+	for (x = 0; x < core_mp->xch_len; x++) {
+		if (x == 0) {
+			DUMP(DEBUG_MP_TEST, "           ");
+			tmp_len += sprintf(csv + tmp_len, ",");
+		}
+
+		DUMP(DEBUG_MP_TEST, "X%02d      ", x);
+		tmp_len += sprintf(csv + tmp_len, "X%02d, ", x);
+	}
+
+	DUMP(DEBUG_MP_TEST, "\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+
+	for (y = 0; y < core_mp->ych_len; y++) {
+		DUMP(DEBUG_MP_TEST, " Y%02d ", y);
+		tmp_len += sprintf(csv + tmp_len, "Y%02d, ", y);
+
+		for (x = 0; x < core_mp->xch_len; x++) {
+			int shift = y * core_mp->xch_len + x;
+			if(tmp[shift] == INT_MAX)
+			{
+				DUMP(DEBUG_MP_TEST, " %s \n", "BYPASS,");
+				tmp_len += sprintf(csv + tmp_len,"BYPASS,");
+			}
+			else{
+				DUMP(DEBUG_MP_TEST, " %7d ", tmp[shift]);
+				tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);	
+			}
+		}
+		DUMP(DEBUG_MP_TEST, "\n");
+		tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+	}
+
+	DUMP(DEBUG_MP_TEST, " %s \n", "Bench mark min threshold");
+	tmp_len += sprintf(csv + tmp_len, "Bench mark min threshold\n");
+
+	tmp = tItems[index].bench_mark_min;
+	/* print X raw only */
+	for (x = 0; x < core_mp->xch_len; x++) {
+		if (x == 0) {
+			DUMP(DEBUG_MP_TEST, "           ");
+			tmp_len += sprintf(csv + tmp_len, ",");
+		}
+
+		DUMP(DEBUG_MP_TEST, "X%02d      ", x);
+		tmp_len += sprintf(csv + tmp_len, "X%02d, ", x);
+	}
+
+	DUMP(DEBUG_MP_TEST, "\n");
+	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+
+	for (y = 0; y < core_mp->ych_len; y++) {
+		DUMP(DEBUG_MP_TEST, " Y%02d ", y);
+		tmp_len += sprintf(csv + tmp_len, "Y%02d, ", y);
+
+		for (x = 0; x < core_mp->xch_len; x++) {
+			int shift = y * core_mp->xch_len + x;
+			if(tmp[shift] == INT_MIN)
+			{
+				DUMP(DEBUG_MP_TEST, " %s \n", "BYPASS,");
+				tmp_len += sprintf(csv + tmp_len,"BYPASS,");
+			}
+			else{
+				DUMP(DEBUG_MP_TEST, " %7d ", tmp[shift]);
+				tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);	
+			}
+		}
+		DUMP(DEBUG_MP_TEST, "\n");
+		tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
+	}
 
 	DUMP(DEBUG_MP_TEST, " %s \n", "Bench mark data");
 	tmp_len += sprintf(csv + tmp_len, "Bench mark data\n");
@@ -1644,66 +1815,89 @@ static int st_test(int index)
 	return -1;
 }
 
-int u32NewRawData[1000];
-int rawdata_sort(int *u32PtrRaw,int index)
+int mp_test_data_sort_average(int *u32buff_data,int index)
 {
 	int i,j,k,x,y,len = 5;
-	int u32Tmp;
-	int u32UpFrame,u32DownFrame;
+	int32_t u32temp;
+	int u32up_frame,u32down_frame;
+	int32_t* u32sum_raw_data;
 
-	//u32NewRawData = kmalloc(sizeof(int)*core_mp->frame_len, GFP_KERNEL);
+	if (ERR_ALLOC_MEM(u32buff_data)){
+		ipio_err("Input wrong adress\n");
+			return -ENOMEM;
+	} 
+
+	u32sum_raw_data = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(u32sum_raw_data)){
+		ipio_err("Failed to allocate u32sum_raw_data FRAME buffer\n");
+		return -ENOMEM;
+	}
 
 	if(tItems[index].frame_count <= 1)
 		return 0;
 
-	u32UpFrame = tItems[index].frame_count * tItems[index].highest_percentage / 100;
-	u32DownFrame = tItems[index].frame_count * tItems[index].lowest_percentage / 100;
-	ipio_debug(DEBUG_MP_TEST,"Up=%d,Down=%d\n",u32UpFrame,u32DownFrame);
-	printk("Summer SORT debug %s\n",tItems[index].desp);
-	for(i = 0 ; i < core_mp->frame_len ; i++)
-	{
-		for(j = 0 ; j < tItems[index].frame_count-1 ; j++)
-		{
-			if(i < len)
-				printk("%d,",u32PtrRaw[j* core_mp->frame_len + i]);
+	u32up_frame = tItems[index].frame_count * tItems[index].highest_percentage / 100;
+	u32down_frame = tItems[index].frame_count * tItems[index].lowest_percentage / 100;
+	ipio_debug(DEBUG_MP_TEST,"Up=%d,Down=%d -%s\n",u32up_frame,u32down_frame,tItems[index].desp);
+	
+	if (ipio_debug_level & DEBUG_MP_TEST) {
+		printk("\n[Show Original frist%d and last%d node data]\n",len,len);
+		for(i = 0 ; i < core_mp->frame_len ; i++){
+			for(j = 0 ; j < tItems[index].frame_count ; j++){
+				if((i<len) || (i >= (core_mp->frame_len-len)))
+					printk("%d,",u32buff_data[j* core_mp->frame_len + i]);
+			}
+			if((i<len) || (i >=(core_mp->frame_len-len)))
+				printk("\n");
+		}
+	}
 
-			for(k = 0 ; k < (tItems[index].frame_count-1-j) ; k++)
-			{
+	for(i = 0 ; i < core_mp->frame_len ; i++){
+		for(j = 0 ; j < tItems[index].frame_count-1 ; j++){
+			for(k = 0 ; k < (tItems[index].frame_count-1-j) ; k++){
 				x=i+k*core_mp->frame_len;
 				y=i+(k+1)*core_mp->frame_len;
-				if (*(u32PtrRaw+x) > *(u32PtrRaw+y))
+				if (*(u32buff_data+x) > *(u32buff_data+y))
 				{
-					u32Tmp = *(u32PtrRaw+x);
-					*(u32PtrRaw+x) = *(u32PtrRaw+y);
-					*(u32PtrRaw+y) = u32Tmp;
+					u32temp = *(u32buff_data+x);
+					*(u32buff_data+x) = *(u32buff_data+y);
+					*(u32buff_data+y) = u32temp;
 				}
 			}
 		}
-		if(i < len)
-			printk("\n");
 	}
-
-	ipio_debug(DEBUG_MP_TEST,"Summer sort data %d\n",core_mp->frame_len);
-	for(i = 0 ; i < core_mp->frame_len ; i++)
-	{
-		u32NewRawData[i]=0;
-		for(j = u32DownFrame ; j < tItems[index].frame_count - u32UpFrame ; j++)
-		{   
-			u32NewRawData[i] += u32PtrRaw[i + j * core_mp->frame_len];
-			if(i < len)
-				printk("%d,",u32PtrRaw[i + j*core_mp->frame_len]);
-			
+	
+	if (ipio_debug_level & DEBUG_MP_TEST) {
+		printk("\n[After sorting frist%d and last%d node data]\n",len,len);
+		for(i = 0 ; i < core_mp->frame_len ; i++){
+			for(j = u32down_frame ; j < tItems[index].frame_count - u32up_frame ; j++){
+				if((i<len) || (i >= (core_mp->frame_len-len)))
+					printk("%d,",u32buff_data[i + j * core_mp->frame_len]);
+			}
+			if((i<len) || (i >= (core_mp->frame_len-len)))
+				printk("\n");
 		}
-		if(i < len)
-			printk("\n");
-
-		u32PtrRaw[i] = u32NewRawData[i] / (tItems[index].frame_count - u32DownFrame - u32UpFrame);
-		//printk("Avg=%d\n",u32PtrRaw[i]);
-		if(i < len)
-			printk("%d,",u32PtrRaw[i]);
 	}
-	printk("\n");
 
+	for(i = 0 ; i < core_mp->frame_len ; i++){
+		u32sum_raw_data[i]=0;
+		for(j = u32down_frame ; j < tItems[index].frame_count - u32up_frame ; j++)
+			u32sum_raw_data[i] += u32buff_data[i + j * core_mp->frame_len];
+
+		u32buff_data[i] = u32sum_raw_data[i] / (tItems[index].frame_count - u32down_frame - u32up_frame);
+	}
+
+	if (ipio_debug_level & DEBUG_MP_TEST) {
+		printk("\n[Average result frist%d and last%d node data]\n",len,len);
+		for(i = 0 ; i < core_mp->frame_len ; i++){
+			if((i<len) || (i >= (core_mp->frame_len-len)))
+				printk("%d,",u32buff_data[i]);
+		}
+		if((i<len) || (i >= (core_mp->frame_len-len)))
+			printk("\n");
+	}
+
+	ipio_kfree((void **)&u32sum_raw_data);
 	return 0;
 }
 void core_mp_show_result(void)
@@ -1722,9 +1916,19 @@ void core_mp_show_result(void)
 		goto fail_open;
 	}
 
+	csv_len += sprintf(csv + csv_len, "%x\n", core_config->chip_pid);
+
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run) {
-			rawdata_sort(tItems[i].buf,i);
+			if (tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST)
+			{
+				mp_test_data_sort_average(tItems[i].buf,i);
+				if ( tItems[i].spec_option != BENCHMARK) 
+				{
+					mp_show_sorting_result(i, true, false, csv, &csv_len);
+					continue;
+				}
+			}
 			if ( tItems[i].spec_option == BENCHMARK) {
 				mp_compare_benchmark_result(i, true, false, csv, &csv_len);
 				continue;
@@ -1909,8 +2113,10 @@ void core_mp_run_test(char *item, bool ini)
 	/* We don't control lcm on and off in general case. */
 	core_mp->ctrl_lcm = false;
 
-	if (item == NULL || strncmp(item, " ", strlen(item)) == 0) {
-		ipio_err("Invaild string\n");
+	if (item == NULL || strncmp(item, " ", strlen(item)) == 0 || core_mp->frame_len == 0 ) {
+		tItems[i].result = "FAIL";
+		core_mp->final_result = false;
+		ipio_err("Invaild string or length\n");
 		return;
 	}
 
