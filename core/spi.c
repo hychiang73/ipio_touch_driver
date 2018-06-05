@@ -25,6 +25,7 @@
 #include "../common.h"
 #include "config.h"
 #include "spi.h"
+#include "finger_report.h"
 
 struct core_spi_data *core_spi;
 
@@ -152,7 +153,7 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 	txbuf[2] = 0x4;
 	txbuf[3] = 0x0;
 	txbuf[4] = 0x2;
-	check_sum = cal_fr_checksum(data, size);
+	check_sum = core_fr_calc_checksum(data, size);
 	memcpy(txbuf + 5, data, size);
 	txbuf[5 + size] = check_sum;
 	//size + checksum

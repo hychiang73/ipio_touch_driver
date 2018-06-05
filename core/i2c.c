@@ -25,6 +25,8 @@
 #include "../common.h"
 #include "config.h"
 #include "i2c.h"
+#include "mp_test.h"
+#include "finger_report.h"
 
 struct core_i2c_data *core_i2c;
 
@@ -70,7 +72,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
 	int res = 0;
 	uint8_t check_sum = 0;
-	uint8_t *txbuf = NULL;d
+	uint8_t *txbuf = NULL;
 
 	struct i2c_msg msgs[] = {
 		{
