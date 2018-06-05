@@ -140,7 +140,7 @@ struct mp_test_items tItems[] = {
 	{.name = "noise_peak_to_peak_panel", .desp = "Noise Peak To Peak(With Panel)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 
 	{.name = "doze_raw", .desp = "Doze Raw Data", "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "doze_p2p", .desp = "Doze Peak To Peak", "FAIL", .catalog = MUTUAL_TEST},
+	{.name = "doze_p2p", .desp = "Doze Peak To Peak", "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 };
 
 int32_t *frame_buf = NULL;
