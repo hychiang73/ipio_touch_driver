@@ -108,7 +108,7 @@
 #define SPI_INTERFACE 2
 #define INTERFACE SPI_INTERFACE
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.0"
+#define DRIVER_VERSION	"1.0.3.1"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
