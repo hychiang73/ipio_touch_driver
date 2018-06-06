@@ -25,6 +25,8 @@
 #include "../common.h"
 #include "config.h"
 #include "i2c.h"
+#include "mp_test.h"
+#include "finger_report.h"
 
 struct core_i2c_data *core_i2c;
 
@@ -69,6 +71,8 @@ static void dma_free(void)
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
 	int res = 0;
+	uint8_t check_sum = 0;
+	uint8_t *txbuf = NULL;
 
 	struct i2c_msg msgs[] = {
 		{
@@ -89,6 +93,24 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 	}
 #endif /* I2C_DMA */
 
+	/*
+	 * NOTE: If TP driver is doing MP test and commanding 0xF1 to FW, we add a checksum
+	 * to the last index and plus 1 with size.
+	 */
+	if (!core_config->icemodeenable && pBuf[0] == 0xF1 && core_mp->run) {
+		check_sum = core_fr_calc_checksum(pBuf, nSize);
+		txbuf = (uint8_t*)kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(txbuf)) {
+			ipio_err("Failed to allocate CSV mem\n");
+			res = -ENOMEM;
+			goto out;
+		}
+		memcpy(txbuf, pBuf, nSize);
+		txbuf[nSize] = check_sum;
+		msgs[0].buf = txbuf;
+		msgs[0].len = nSize + 1;
+	}
+
 	if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0) {
 		if (core_config->do_ic_reset) {
 			/* ignore i2c error if doing ic reset */
@@ -101,6 +123,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 	}
 
 out:
+	ipio_kfree((void **)&txbuf);
 	return res;
 }
 EXPORT_SYMBOL(core_i2c_write);

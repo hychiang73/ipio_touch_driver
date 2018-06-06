@@ -2191,8 +2191,10 @@ void core_mp_run_test(char *item, bool ini)
 				mp_ctrl_lcd_status(false);
 
 			if (tItems[i].run) {
+				core_mp->run = true;
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
+				core_mp->run = false;
 			}
 
 			if (core_mp->ctrl_lcm)
@@ -2410,6 +2412,7 @@ int core_mp_init(void)
 			core_mp->tdf = 240;
 			core_mp->busy_cdc = INT_CHECK;
 
+			core_mp->run = false;
 			core_mp->final_result = true;
 
 			mp_test_init_item();

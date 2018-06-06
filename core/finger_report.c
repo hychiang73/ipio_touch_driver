@@ -77,7 +77,7 @@ struct core_fr_data *core_fr = NULL;
  * @pMsg: packet come from firmware
  * @nLength : the length of its packet
  */
-uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
+uint8_t core_fr_calc_checksum(uint8_t *pMsg, uint32_t nLength)
 {
 	int i;
 	int32_t nCheckSum = 0;
@@ -88,6 +88,7 @@ uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
 
 	return (uint8_t) ((-nCheckSum) & 0xFF);
 }
+EXPORT_SYMBOL(core_fr_calc_checksum);
 
 /**
  *  Receive data when fw mode stays at i2cuart mode.
@@ -225,7 +226,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	for (i = 0; i < 9; i++)
 		ipio_debug(DEBUG_FINGER_REPORT, "data[%d] = %x\n", i, g_fr_node->data[i]);
 
-	check_sum = cal_fr_checksum(&g_fr_node->data[0], (g_fr_node->len - 1));
+	check_sum = core_fr_calc_checksum(&g_fr_node->data[0], (g_fr_node->len - 1));
 	ipio_debug(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x\n", g_fr_node->data[g_fr_node->len - 1], check_sum);
 
 	if (g_fr_node->data[g_fr_node->len - 1] != check_sum) {
