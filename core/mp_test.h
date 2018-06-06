@@ -37,7 +37,7 @@ struct mp_test_P540_open {
 	int32_t *charg_rate;
 	int32_t *full_Open;
 	int32_t *dac;
-	int32_t *cdc;	
+	int32_t *cdc;
 };
 
 struct mp_test_items {
@@ -47,9 +47,9 @@ struct mp_test_items {
 	char *result;
 	int catalog;
 	uint8_t cmd;
-	uint8_t spec_option;        
-	uint8_t type_option;  	
-	uint8_t node_type_option;	
+	uint8_t spec_option;
+	uint8_t type_option;
+	uint8_t node_type_option;
 	bool run;
 	int max;
 	bool max_res;
@@ -58,7 +58,7 @@ struct mp_test_items {
 	int frame_count;
 	int trimmed_mean;
 	int lowest_percentage;
-	int highest_percentage;	
+	int highest_percentage;
 	int32_t *buf;
 	int32_t *max_buf;
 	int32_t *min_buf;
@@ -96,7 +96,7 @@ struct mp_nodp_calc {
 	uint8_t dac_td;
 	uint8_t qsh_pw;
 	uint8_t qsh_td;
-	uint8_t drop_nodp; 
+	uint8_t drop_nodp;
 
 	/* Output */
 	uint32_t first_tp_width;
@@ -150,7 +150,7 @@ struct core_mp_test_data {
 extern struct core_mp_test_data *core_mp;
 extern struct mp_test_items tItems[];
 
-extern void dump_data(void *data, int type, int len, const char *name);
+extern void dump_data(void *data, int type, int len, int row_len, const char *name);
 extern void core_mp_test_free(void);
 extern void core_mp_show_result(void);
 extern void core_mp_run_test(char *item, bool ini);

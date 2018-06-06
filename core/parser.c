@@ -43,12 +43,12 @@ struct ini_file_data {
 
 int g_ini_items = 0;
 
-static int isspace_t(int x)  
-{  
-    if(x==' '||x=='\t'||x=='\n'||x=='\f'||x=='\b'||x=='\r')  
-        return 1;  
-    else   
-        return 0;  
+static int isspace_t(int x)
+{
+    if(x==' '||x=='\t'||x=='\n'||x=='\f'||x=='\b'||x=='\r')
+        return 1;
+    else
+        return 0;
 }
 
 static char *ini_str_trim_r(char *buf)
@@ -92,7 +92,7 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 			//iRetNum = -1;
 			break;	/* file end */
 		}
-		
+
 		buffer[i++] = ch1;
 	}
 
@@ -133,8 +133,8 @@ static int get_ini_phy_data(char *data, int fsize)
 
 	while (true) {
 		banchmark_flag = 0;
-		empty_section = 0;		
-		nodetype_flag = 0;		
+		empty_section = 0;
+		nodetype_flag = 0;
 		if (g_ini_items > PARSER_MAX_KEY_NUM) {
 			ipio_err("MAX_KEY_NUM: Out of length\n");
 			goto out;
@@ -210,19 +210,19 @@ static int get_ini_phy_data(char *data, int fsize)
 			}
 			else{
 				continue;
-			}			
+			}
 		}
 		if(banchmark_flag){
 		/* Get Key names */
-			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(BENCHMARK_KEY_NAME);			
+			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(BENCHMARK_KEY_NAME);
 			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, BENCHMARK_KEY_NAME);
-			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;                                    
+			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;
 		}
 		else if(nodetype_flag){
 		/* Get Key names */
-			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(NODE_TYPE_KEY_NAME);			
+			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(NODE_TYPE_KEY_NAME);
 			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, NODE_TYPE_KEY_NAME);
-			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;                                    
+			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;
 		}
 		else{
 		/* Get Key names */
@@ -232,12 +232,12 @@ static int get_ini_phy_data(char *data, int fsize)
 				ipio_err("MAX_KEY_NAME_LEN: Out Of Length\n");
 				res = INI_ERR_OUT_OF_LINE;
 				goto out;
-			}	
+			}
 
 			memcpy(ilitek_ini_file_data[g_ini_items].pKeyName,
 			ini_buf, ilitek_ini_file_data[g_ini_items].iKeyNameLen);
 			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n - isEqualSign - 1;
-		
+
 		}
 
 		/* Get a value assigned to a key */
@@ -313,15 +313,15 @@ void core_parser_nodetype(int32_t* type_ptr, char *desp)
 {
 
 	int i = 0, j = 0, index1 =0, temp, count = 0;
-	char str[512] = { 0 }, record = ',';	
+	char str[512] = { 0 }, record = ',';
 
 	for (i = 0; i < g_ini_items; i++) {
 
 		if ((strstr(ilitek_ini_file_data[i].pSectionName, desp) <= 0) ||
-			strcmp(ilitek_ini_file_data[i].pKeyName, NODE_TYPE_KEY_NAME) != 0) {			
+			strcmp(ilitek_ini_file_data[i].pKeyName, NODE_TYPE_KEY_NAME) != 0) {
 				continue;
 			}
-		
+
 		record = ',';
 		for(j=0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++){
 
@@ -333,15 +333,15 @@ void core_parser_nodetype(int32_t* type_ptr, char *desp)
 					memcpy(str,&ilitek_ini_file_data[i].pKeyValue[index1], (j -index1));
 					temp=katoi(str);
 					type_ptr[count] = temp;
-					printk("%04d,",temp);				                              
-					count++;	  
+					printk("%04d,",temp);
+					count++;
 				}
-				record = ilitek_ini_file_data[i].pKeyValue[j];                                       
-				index1 = j+1;    
-			}                                        
+				record = ilitek_ini_file_data[i].pKeyValue[j];
+				index1 = j+1;
+			}
 		}
 		printk("\n");
-		
+
 	}
 }
 
@@ -356,7 +356,7 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 			strcmp(ilitek_ini_file_data[i].pKeyName, BENCHMARK_KEY_NAME) != 0) {
 				continue;
 		}
-		
+
 		record = ',';
 		for(j = 0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++) {
 			if(ilitek_ini_file_data[i].pKeyValue[j] == ',' || ilitek_ini_file_data[i].pKeyValue[j] == ';' ||
@@ -381,11 +381,11 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 							min_ptr[count/4] = INT_MIN;
 						}
 					}
-					count++;  
+					count++;
 				}
-				record = ilitek_ini_file_data[i].pKeyValue[j];                                       
+				record = ilitek_ini_file_data[i].pKeyValue[j];
 				index1 = j + 1;
-			}                                        
+			}
 		}
 	}
 }
@@ -492,7 +492,7 @@ int core_parser_path(char *path)
 
 out:
 	ipio_kfree((void **)&tmp);
-	filp_close(f, NULL);	
+	filp_close(f, NULL);
 	return res;
 }
 EXPORT_SYMBOL(core_parser_path);
