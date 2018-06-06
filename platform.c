@@ -803,8 +803,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ipd->client = client;
 	ipd->i2c_id = id;
 #elif(INTERFACE == SPI_INTERFACE)
-	if(!spi)	
-	{
+	if(!spi) {
 		return -ENOMEM;
 	}
 
@@ -835,12 +834,10 @@ static int ilitek_platform_probe(struct spi_device *spi)
 #elif (INTERFACE == SPI_INTERFACE)
 		ipd->edge_delay = 1;
 #endif
-		
 	} else {
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 10;
 		ipd->edge_delay = 10;
-		
 	}
 
 	mutex_init(&ipd->plat_mutex);

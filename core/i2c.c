@@ -27,6 +27,7 @@
 #include "i2c.h"
 #include "mp_test.h"
 #include "finger_report.h"
+#include "protocol.h"
 
 struct core_i2c_data *core_i2c;
 
@@ -97,18 +98,20 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 	 * NOTE: If TP driver is doing MP test and commanding 0xF1 to FW, we add a checksum
 	 * to the last index and plus 1 with size.
 	 */
-	if (!core_config->icemodeenable && pBuf[0] == 0xF1 && core_mp->run) {
-		check_sum = core_fr_calc_checksum(pBuf, nSize);
-		txbuf = (uint8_t*)kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(txbuf)) {
-			ipio_err("Failed to allocate CSV mem\n");
-			res = -ENOMEM;
-			goto out;
+	if (protocol->major >= 5 && protocol->mid >= 4) {
+		if (!core_config->icemodeenable && pBuf[0] == 0xF1 && core_mp->run) {
+			check_sum = core_fr_calc_checksum(pBuf, nSize);
+			txbuf = (uint8_t*)kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(txbuf)) {
+				ipio_err("Failed to allocate CSV mem\n");
+				res = -ENOMEM;
+				goto out;
+			}
+			memcpy(txbuf, pBuf, nSize);
+			txbuf[nSize] = check_sum;
+			msgs[0].buf = txbuf;
+			msgs[0].len = nSize + 1;
 		}
-		memcpy(txbuf, pBuf, nSize);
-		txbuf[nSize] = check_sum;
-		msgs[0].buf = txbuf;
-		msgs[0].len = nSize + 1;
 	}
 
 	if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0) {

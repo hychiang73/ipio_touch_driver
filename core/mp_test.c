@@ -94,6 +94,7 @@ struct mp_test_items tItems[] = {
 	{.name = "mutual_bg", .desp = "Baseline Data(BG)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_signal", .desp = "Untouch Signal Data(BG-Raw-4096) - Mutual", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_no_bk", .desp = "Raw Data(No BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.name = "mutual_no_bk_lcm_off", .desp = "Raw Data(No BK)(LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_has_bk", .desp = "Raw Data(Have BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_has_bk_lcm_off", .desp = "Raw Data(Have BK)(LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_bk_dac", .desp = "Manual BK Data(Mutual)", .result = "FAIL", .catalog = MUTUAL_TEST},
@@ -139,8 +140,10 @@ struct mp_test_items tItems[] = {
 	{.name = "noise_peak_to_peak_ic_lcm_off", .desp = "Noise Peak to Peak(IC Only)(LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 	{.name = "noise_peak_to_peak_panel", .desp = "Noise Peak To Peak(With Panel)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 
-	{.name = "doze_raw", .desp = "Doze Raw Data", "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "doze_p2p", .desp = "Doze Peak To Peak", "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.name = "doze_raw", .desp = "Doze Raw Data", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.name = "doze_p2p", .desp = "Doze Peak To Peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.name = "doze_raw_td_lcm_off", .desp = "Raw Data_TD(LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.name = "doze_p2p_td_lcm_off", .desp = "Peak To Peak_TD(LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 };
 
 int32_t *frame_buf = NULL;
@@ -621,7 +624,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 	return 0;
 }
 
-static int mp_ctrl_lcd_status(bool on)
+static int mp_ctrl_lcm_status(bool on)
 {
 	int ret = 0, ctrl = 0, delay = 0;
 	uint8_t lcd[15] = {0};
@@ -637,11 +640,11 @@ static int mp_ctrl_lcd_status(bool on)
 	lcd[2] = 0;
 	lcd[3] = ctrl;
 
-	dump_data(lcd, 8, ARRAY_SIZE(lcd), 0, "LCD Command");
+	dump_data(lcd, 8, ARRAY_SIZE(lcd), 0, "LCM Command");
 
 	ret = core_write(core_config->slave_i2c_addr, lcd, ARRAY_SIZE(lcd));
 	if (ret < 0) {
-		ipio_err("Failed to write LCD command\n");
+		ipio_err("Failed to write LCM command\n");
 		goto out;
 	}
 
@@ -940,12 +943,23 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 	int ret = 0;
 	char str[128] = {0};
 	char tmp[128] = {0};
+	char *key = tItems[index].desp;
 
-	ipio_info("index = %d, Get %s command\n", index, tItems[index].desp);
+	if (strncmp(key, "Raw Data_TD(LCM OFF)", strlen(key)) == 0)
+		key = "Doze Raw Data";
+	else if (strncmp(key, "Peak To Peak_TD(LCM OFF)", strlen(key)) == 0)
+		key = "Doze Peak To Peak";
+	else if (strncmp(key, "Raw Data(No BK)(LCM OFF)", strlen(key)) == 0)
+		key = "Raw Data(No BK)";
+	else if (strncmp(key, "Raw Data(Have BK)(LCM OFF)", strlen(key)) == 0)
+		key = "Raw Data(Have BK)";
 
+	/* Calculate NODP */
 	mp_calc_timing_nodp();
 
-	ret = core_parser_get_int_data("PV5_4 Command",tItems[index].desp, str);
+	ipio_info("%s gets %s command from INI.\n", tItems[index].desp, key);
+
+	ret = core_parser_get_int_data("PV5_4 Command", key, str);
 	if (ret < 0) {
 		ipio_err("Failed to parse PV54 command, ret = %d\n",ret);
 		goto out;
@@ -1399,6 +1413,9 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 		goto out;
 	}
 
+	/* Calculate NODP */
+	mp_calc_timing_nodp();
+
 	/* CDC init. Read command from ini file */
 	res = core_parser_get_int_data("PV5_4 Command", key[mode], str);
 	if (res < 0) {
@@ -1625,7 +1642,7 @@ static int open_test_sp(int index)
         addr = 0;
         for(y = 0; y < core_mp->ych_len; y++){
             for(x = 0; x < core_mp->xch_len; x++){
-                tItems[index].buf[(i * core_mp->frame_len) + addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);				
+                tItems[index].buf[(i * core_mp->frame_len) + addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);
                 addr++;
             }
         }
@@ -1834,7 +1851,7 @@ int mp_test_data_sort_average(int *u32buff_data,int index)
 	if (ERR_ALLOC_MEM(u32buff_data)){
 		ipio_err("Input wrong adress\n");
 			return -ENOMEM;
-	} 
+	}
 
 	u32sum_raw_data = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(u32sum_raw_data)){
@@ -2131,9 +2148,6 @@ void core_mp_run_test(char *item, bool ini)
 	/* compute the total length in one frame */
 	core_mp->frame_len = core_mp->xch_len * core_mp->ych_len;
 
-	/* We don't control lcm on and off in general case. */
-	core_mp->ctrl_lcm = false;
-
 	if (item == NULL || strncmp(item, " ", strlen(item)) == 0 || core_mp->frame_len == 0 ) {
 		tItems[i].result = "FAIL";
 		core_mp->final_result = MP_FAIL;
@@ -2190,25 +2204,20 @@ void core_mp_run_test(char *item, bool ini)
 						tItems[i].run, tItems[i].max, tItems[i].min, tItems[i].frame_count);
 			}
 
-			if (strncmp(tItems[i].name, "mutual_has_bk_lcm_off", strlen("mutual_has_bk_lcm_off")) == 0 || 
-				strncmp(tItems[i].name, "noise_peak_to_peak_ic_lcm_off", strlen("noise_peak_to_peak_ic_lcm_off")) == 0) {
-				core_mp->ctrl_lcm = true;
-			}
-
-			if (core_mp->ctrl_lcm)
-				mp_ctrl_lcd_status(false);
-
 			if (tItems[i].run) {
+				/* LCM off */
+				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
+					mp_ctrl_lcm_status(false);
+
 				core_mp->run = true;
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
 				core_mp->run = false;
+
+				/* LCM on */
+				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
+					mp_ctrl_lcm_status(false);
 			}
-
-			if (core_mp->ctrl_lcm)
-				mp_ctrl_lcd_status(true);
-
-			ipio_info("MP Test DONE !!!\n");
 			break;
 		}
 	}
