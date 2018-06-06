@@ -25,8 +25,11 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
+
+#define MP_PASS      1
+#define MP_FAIL     -1
 #define BENCHMARK 1
-#define NODETYPE	 	1
+#define NODETYPE  1
 #define RAWDATA_NO_BK_DATA_SHIFT_9881H 8192
 #define RAWDATA_NO_BK_DATA_SHIFT_9881F 4096
 
@@ -52,9 +55,9 @@ struct mp_test_items {
 	uint8_t node_type_option;
 	bool run;
 	int max;
-	bool max_res;
+	int max_res;
 	int min;
-	bool min_res;
+	int min_res;
 	int frame_count;
 	int trimmed_mean;
 	int lowest_percentage;
@@ -129,7 +132,7 @@ struct core_mp_test_data {
 	int st_len;
 	int frame_len;
 	int mp_items;
-	bool final_result;
+	int final_result;
 
 	/* Tx/Rx threshold & buffer */
 	int TxDeltaMax;

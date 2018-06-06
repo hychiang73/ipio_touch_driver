@@ -227,7 +227,7 @@ void dump_node_type_buffer(int32_t* node_ptr, uint8_t *name)
 static void mp_show_sorting_result(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
-	int  mp_result = 1;
+	int  mp_result = MP_PASS;
 	char *line_breaker = "\n";
 	int32_t *tmp = NULL;
 
@@ -291,7 +291,7 @@ static void mp_show_sorting_result(int index, bool max, bool tx, char *csv, int 
 					DUMP(DEBUG_MP_TEST, " #%7d ", tmp[shift]);
 					tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
 				}
-				mp_result = -1;
+				mp_result = MP_FAIL;
 			}
 		}
 
@@ -299,10 +299,10 @@ static void mp_show_sorting_result(int index, bool max, bool tx, char *csv, int 
 		tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
 	}
 
-	if (mp_result < 0)
-		sprintf(tItems[index].result, "%s", "FAIL");
-	else
+	if (mp_result == MP_PASS)
 		sprintf(tItems[index].result, "%s", "PASS");
+	else
+		sprintf(tItems[index].result, "%s", "FAIL");
 
 
 	pr_info("\n Result : %s\n", tItems[index].result);
@@ -310,9 +310,6 @@ static void mp_show_sorting_result(int index, bool max, bool tx, char *csv, int 
 
 	pr_info("\n");
 	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
-
-	if (strcmp(tItems[index].result, "FAIL") == 0)
-		core_mp->final_result = false;
 
 	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
 
@@ -322,7 +319,7 @@ static void mp_show_sorting_result(int index, bool max, bool tx, char *csv, int 
 static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
-	int  mp_result = 1;
+	int  mp_result = MP_PASS;
 	char *line_breaker = "\n";
 	int32_t *tmp = NULL;
 
@@ -450,7 +447,7 @@ static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv,
 					DUMP(DEBUG_MP_TEST, " #%7d ", tmp[shift]);
 					tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
 				}
-				mp_result = -1;
+				mp_result = MP_FAIL;
 			}
 		}
 
@@ -458,10 +455,10 @@ static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv,
 		tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
 	}
 
-	if (mp_result < 0)
-		sprintf(tItems[index].result, "%s", "FAIL");
-	else
+	if (mp_result == MP_PASS)
 		sprintf(tItems[index].result, "%s", "PASS");
+	else
+		sprintf(tItems[index].result, "%s", "FAIL");
 
 
 	pr_info("\n Result : %s\n", tItems[index].result);
@@ -469,9 +466,6 @@ static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv,
 
 	pr_info("\n");
 	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
-
-	if (strcmp(tItems[index].result, "FAIL") == 0)
-		core_mp->final_result = false;
 
 	tmp_len += sprintf(csv + tmp_len, "%s", line_breaker);
 
@@ -481,7 +475,7 @@ static void mp_compare_benchmark_result(int index, bool max, bool tx, char *csv,
 static void mp_compare_cdc_result(int index, bool max, bool tx, char *csv, int *csv_len)
 {
 	int x, y, tmp_len = *csv_len;
-	int max_ts, min_ts, mp_result = 1;
+	int max_ts, min_ts, mp_result = MP_PASS;
 	char *line_breaker = "\n";
 	int32_t *tmp = NULL;
 
@@ -545,7 +539,7 @@ static void mp_compare_cdc_result(int index, bool max, bool tx, char *csv, int *
 					DUMP(DEBUG_MP_TEST, " #%7d ", tmp[shift]);
 					tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
 				}
-				mp_result = -1;
+				mp_result = MP_FAIL;
 			}
 		}
 
@@ -554,11 +548,15 @@ static void mp_compare_cdc_result(int index, bool max, bool tx, char *csv, int *
 	}
 
 	if (max) {
-		if (mp_result)
-			tItems[index].max_res = true;
+		if (mp_result == MP_PASS)
+			tItems[index].max_res = MP_PASS;
+		else
+			tItems[index].max_res = MP_FAIL;
 	} else {
-		if (mp_result)
-			tItems[index].min_res = true;
+		if (mp_result == MP_PASS)
+			tItems[index].min_res = MP_PASS;
+		else
+			tItems[index].min_res = MP_FAIL;
 	}
 
 	*csv_len = tmp_len;
@@ -1776,8 +1774,6 @@ static int mutual_test(int index)
 		compare_MaxMin_result(index, &tItems[index].buf[i * core_mp->frame_len]);
 	}
 
-
-
 out:
 	return res;
 }
@@ -1915,7 +1911,7 @@ int mp_test_data_sort_average(int *u32buff_data,int index)
 }
 void core_mp_show_result(void)
 {
-	int i, x, y, csv_len = 0;
+	int i, x, y, csv_len = 0, pass_item_count = 0;
 	char *csv = NULL;
 	char csv_name[128] = { 0 };
 	char *line_breaker = "\n";
@@ -1936,7 +1932,7 @@ void core_mp_show_result(void)
 			if (tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST)
 			{
 				mp_test_data_sort_average(tItems[i].buf,i);
-				if ( tItems[i].spec_option != BENCHMARK) 
+				if ( tItems[i].spec_option != BENCHMARK)
 				{
 					mp_show_sorting_result(i, true, false, csv, &csv_len);
 					continue;
@@ -2050,20 +2046,16 @@ void core_mp_show_result(void)
 				mp_compare_cdc_result(i, false, false, csv, &csv_len);
 			}
 
-			if (!tItems[i].max_res || !tItems[i].min_res)
-				sprintf(tItems[i].result, "%s", "FAIL");
-			else
+			if (tItems[i].max_res == MP_PASS && tItems[i].min_res == MP_PASS)
 				sprintf(tItems[i].result, "%s", "PASS");
+			else
+				sprintf(tItems[i].result, "%s", "FAIL");
 
 			pr_info("\n Result : %s\n", tItems[i].result);
 			csv_len += sprintf(csv + csv_len, " Result : %s ", tItems[i].result);
 
 			pr_info("\n");
 			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
-
-			if (strcmp(tItems[i].result, "FAIL") == 0)
-				core_mp->final_result = false;
-
 			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 		}
@@ -2071,7 +2063,23 @@ void core_mp_show_result(void)
 
 	memset(csv_name, 0, 128 * sizeof(char));
 
-	if (core_mp->final_result)
+	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
+		if (tItems[i].run) {
+			if (strcmp(tItems[i].result, "FAIL") == 0)
+			{
+				pass_item_count = 0;
+				break;
+			}
+			pass_item_count++;
+		}
+	}
+
+	if(pass_item_count == 0)
+		core_mp->final_result = MP_FAIL;
+	else
+		core_mp->final_result = MP_PASS;
+
+	if (core_mp->final_result == MP_PASS)
 		sprintf(csv_name, "%s/%s.csv", CSV_PATH, "mp_pass");
 	else
 		sprintf(csv_name, "%s/%s.csv", CSV_PATH, "mp_fail");
@@ -2128,7 +2136,7 @@ void core_mp_run_test(char *item, bool ini)
 
 	if (item == NULL || strncmp(item, " ", strlen(item)) == 0 || core_mp->frame_len == 0 ) {
 		tItems[i].result = "FAIL";
-		core_mp->final_result = false;
+		core_mp->final_result = MP_FAIL;
 		ipio_err("Invaild string or length\n");
 		return;
 	}
@@ -2257,7 +2265,7 @@ void core_mp_test_free(void)
 
 	ipio_info("Free all allocated mem\n");
 
-	core_mp->final_result = true;
+	core_mp->final_result = MP_FAIL;
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		tItems[i].run = false;
@@ -2303,9 +2311,9 @@ static void mp_test_init_item(void)
 		tItems[i].node_type_option = 0;
 		tItems[i].run = false;
 		tItems[i].max = 0;
-		tItems[i].max_res = false;
+		tItems[i].max_res = MP_FAIL;
 		tItems[i].min = 0;
-		tItems[i].min_res = false;
+		tItems[i].min_res = MP_FAIL;
 		tItems[i].frame_count = 0;
 		tItems[i].trimmed_mean = 0;
 		tItems[i].lowest_percentage = 0;
@@ -2413,7 +2421,7 @@ int core_mp_init(void)
 			core_mp->busy_cdc = INT_CHECK;
 
 			core_mp->run = false;
-			core_mp->final_result = true;
+			core_mp->final_result = MP_FAIL;
 
 			mp_test_init_item();
 		}
