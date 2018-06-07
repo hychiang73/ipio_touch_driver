@@ -584,7 +584,14 @@ static uint16_t calc_packet_length(void)
 				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + (8 * 2) + 1;
 				rlen += 35;
 			}
-		} else {
+		} else if (protocol->gesture_mode == core_fr->actual_fw_mode) {
+			if(core_gesture->mode == GESTURE_NORMAL_MODE)
+				rlen = GESTURE_MORMAL_LENGTH;
+			else
+				rlen = GESTURE_INFO_LENGTH;
+			ipio_debug(DEBUG_FINGER_REPORT, "rlen = %d\n", rlen);
+		}
+		else {
 			ipio_err("Unknown firmware mode : %d\n", core_fr->actual_fw_mode);
 			rlen = 0;
 		}

@@ -49,6 +49,9 @@ struct core_firmware_data {
 
 extern struct core_firmware_data *core_firmware;
 
+#ifdef HOST_DOWNLOAD
+extern int core_firmware_boot_host_download(void);
+#endif
 #ifdef BOOT_FW_UPGRADE
 extern int core_firmware_boot_upgrade(void);
 #endif

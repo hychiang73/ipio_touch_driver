@@ -28,6 +28,8 @@
 #include "protocol.h"
 #include "i2c.h"
 #include "flash.h"
+#include "finger_report.h"
+#include "gesture.h"
 
 /* the list of support chip */
 uint32_t ipio_chip_list[] = {
@@ -392,6 +394,8 @@ EXPORT_SYMBOL(core_config_set_phone_cover);
  */
 void core_config_ic_suspend(void)
 {
+	//uint8_t temp[4] = {0};
+	core_gesture->suspend = true;
 	ipio_info("Starting to suspend ...\n");
 
 	/* sense stop */
@@ -404,7 +408,11 @@ void core_config_ic_suspend(void)
 	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
 
 	if (core_config->isEnableGesture) {
-		core_config_lpwg_ctrl(true);
+		core_fr->actual_fw_mode = P5_0_FIRMWARE_GESTURE_MODE;
+		#ifdef HOST_DOWNLOAD
+		if(core_load_gesture_code() < 0)
+			ipio_err("load gesture code fail\n");
+		#endif
 	} else {
 		/* sleep in */
 		core_config_sleep_ctrl(false);
@@ -423,8 +431,20 @@ EXPORT_SYMBOL(core_config_ic_suspend);
  */
 void core_config_ic_resume(void)
 {
+	core_gesture->suspend = false;
 	ipio_info("Starting to resume ...\n");
-
+	if (core_config->isEnableGesture) {
+		#ifdef HOST_DOWNLOAD
+		if(core_load_ap_code() < 0)
+		{
+			ipio_err("load ap code fail\n");
+			ilitek_platform_tp_hw_reset(true);
+		}
+		#endif
+	}
+	else{
+		ilitek_platform_tp_hw_reset(true);
+	}
 	/* sleep out */
 	core_config_sleep_ctrl(true);
 
@@ -434,13 +454,11 @@ void core_config_ic_resume(void)
 
 	/* sense start for TP */
 	core_config_sense_ctrl(true);
-
+	core_fr_mode_control( &protocol->demo_mode);
 	/* Soft reset */
 	// core_config_ice_mode_enable();
 	// mdelay(10);
 	// core_config_ic_reset();
-	ilitek_platform_tp_hw_reset(true);
-
 	ipio_info("Resume done\n");
 }
 EXPORT_SYMBOL(core_config_ic_resume);

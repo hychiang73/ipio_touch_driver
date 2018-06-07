@@ -40,6 +40,7 @@
 #include "flash.h"
 #include "protocol.h"
 #include "finger_report.h"
+#include "gesture.h"
 
 #ifdef BOOT_FW_UPGRADE
 #include "ilitek_fw.h"
@@ -60,7 +61,9 @@ uint8_t *flash_fw = NULL;
 uint8_t ap_fw[MAX_AP_FIRMWARE_SIZE] = { 0 };
 uint8_t dlm_fw[MAX_DLM_FIRMWARE_SIZE] = { 0 };
 uint8_t mp_fw[MAX_MP_FIRMWARE_SIZE] = { 0 };
+uint8_t gesture_fw[MAX_GESTURE_FIRMWARE_SIZE] = { 0 };
 #else
+
 uint8_t iram_fw[MAX_IRAM_FIRMWARE_SIZE] = { 0 };
 #endif
 /* the length of array in each sector */
@@ -543,7 +546,7 @@ int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t r_len)
 	int res = 0, addr = 0, i = 0;
 	uint32_t end = start + size;
 	uint8_t *buf;
-    buf = (uint8_t*)kmalloc(sizeof(uint8_t) * size + 4, GFP_KERNEL);   
+    buf = (uint8_t*)kmalloc(sizeof(uint8_t) * size + 4, GFP_KERNEL);
 	memset(buf, 0xFF, (int)sizeof(uint8_t) * size + 4);
 	for (addr = start, i = 0; addr < end; i += r_len, addr += r_len) {
 		if ((addr + r_len) > end) {
@@ -558,7 +561,7 @@ int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t r_len)
 			res = -EIO;
 			goto read_error;
 		}
-		res = core_read(core_config->slave_i2c_addr, buf, r_len); 
+		res = core_read(core_config->slave_i2c_addr, buf, r_len);
 		memcpy(r_buf + i, buf, r_len);
 	}
 	// for(i = 0; i < size; i++)
@@ -571,7 +574,7 @@ int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t r_len)
 	// }
 read_error:
 	kfree(buf);
-	return res;	
+	return res;
 }
 
 int write_download(uint32_t start, uint32_t size, uint8_t *w_buf, uint32_t w_len)
@@ -579,7 +582,7 @@ int write_download(uint32_t start, uint32_t size, uint8_t *w_buf, uint32_t w_len
 	int res = 0, addr = 0, i = 0, update_status = 0, end = 0, j = 0;
 	uint8_t *buf;
 	end = start + size;
-    buf = (uint8_t*)kmalloc(sizeof(uint8_t) * size + 4, GFP_KERNEL);   
+    buf = (uint8_t*)kmalloc(sizeof(uint8_t) * size + 4, GFP_KERNEL);
 	memset(buf, 0xFF, (int)sizeof(uint8_t) * size + 4);
 	for (addr = start, i = 0; addr < end; addr += w_len, i += w_len) {
 		if ((addr + w_len) > end) {
@@ -604,48 +607,71 @@ int write_download(uint32_t start, uint32_t size, uint8_t *w_buf, uint32_t w_len
 	}
 write_error:
 	kfree(buf);
-	return res;	
+	return res;
 }
-
 #ifdef HOST_DOWNLOAD
-int host_download(bool isIRAM)
+int host_download(bool mode)
 {
 	int res = 0;
-	uint8_t *buf, *read_ap_buf, *read_dlm_buf, *read_mp_buf;
-
-    read_ap_buf = (uint8_t*)vmalloc(MAX_AP_FIRMWARE_SIZE);   
-	if (ERR_ALLOC_MEM(read_ap_buf)) {
-		ipio_err("malloc read_ap_buf error\n");
-		return -1;
-	}
-	memset(read_ap_buf, 0xFF, MAX_AP_FIRMWARE_SIZE);
-    read_dlm_buf = (uint8_t*)vmalloc(MAX_DLM_FIRMWARE_SIZE); 
-	if (ERR_ALLOC_MEM(read_dlm_buf)) {
-		ipio_err("malloc read_dlm_buf error\n");
-		return -1;
-	}
-	memset(read_dlm_buf, 0xFF, MAX_DLM_FIRMWARE_SIZE);
-    read_mp_buf = (uint8_t*)vmalloc(MAX_MP_FIRMWARE_SIZE); 
-	if (ERR_ALLOC_MEM(read_mp_buf)) {
-		ipio_err("malloc read_mp_buf error\n");
-		return -1;
-	}
-	memset(read_mp_buf, 0xFF, MAX_MP_FIRMWARE_SIZE);
-    buf = (uint8_t*)vmalloc(sizeof(uint8_t)*0x10000+4);  
-	if (ERR_ALLOC_MEM(buf)) {
-		ipio_err("malloc buf error\n");
-		return -1;
-	}
-	memset(buf, 0xFF, (int)sizeof(uint8_t) * 0x10000+4);
-
-	ipio_info("Upgrade firmware written data into AP code directly\n");
+	uint8_t *buf, *read_ap_buf, *read_dlm_buf, *read_mp_buf, *read_gesture_buf, *gesture_ap_buf;
+	ipio_info("\n");
 	res = core_config_ice_mode_enable();
 	if (res < 0) {
 		ipio_err("Failed to enter ICE mode, res = %d\n", res);
 		return res;
 	}
+    read_ap_buf = (uint8_t*)vmalloc(MAX_AP_FIRMWARE_SIZE);
+	if (ERR_ALLOC_MEM(read_ap_buf)) {
+		ipio_err("malloc read_ap_buf error\n");
+		return -1;
+	}
+	ipio_info("\n");
+	memset(read_ap_buf, 0xFF, MAX_AP_FIRMWARE_SIZE);
+	//create ap buf
+    read_dlm_buf = (uint8_t*)vmalloc(MAX_DLM_FIRMWARE_SIZE);
+	if (ERR_ALLOC_MEM(read_dlm_buf)) {
+		ipio_err("malloc read_dlm_buf error\n");
+		return -1;
+	}
+	ipio_info("\n");
+	memset(read_dlm_buf, 0xFF, MAX_DLM_FIRMWARE_SIZE);
+	//create mp buf
+    read_mp_buf = (uint8_t*)vmalloc(MAX_MP_FIRMWARE_SIZE);
+	if (ERR_ALLOC_MEM(read_mp_buf)) {
+		ipio_err("malloc read_mp_buf error\n");
+		return -1;
+	}
+	ipio_info("\n");
+	memset(read_mp_buf, 0xFF, MAX_MP_FIRMWARE_SIZE);
+	//create buf
+    buf = (uint8_t*)vmalloc(sizeof(uint8_t)*0x10000+4);
+	if (ERR_ALLOC_MEM(buf)) {
+		ipio_err("malloc buf error\n");
+		return -1;
+	}
+	ipio_info("\n");
+	memset(buf, 0xFF, (int)sizeof(uint8_t) * 0x10000+4);
+	//create gesture buf
+    read_gesture_buf = (uint8_t*)vmalloc(core_gesture->ap_length);
+	if (ERR_ALLOC_MEM(read_gesture_buf)) {
+		ipio_err("malloc read_gesture_buf error\n");
+		return -1;
+	}
+	ipio_info("\n");
+    gesture_ap_buf = (uint8_t*)vmalloc(core_gesture->ap_length);
+	if (ERR_ALLOC_MEM(gesture_ap_buf)) {
+		ipio_err("malloc gesture_ap_buf error\n");
+		return -1;
+	}
+	memset(gesture_ap_buf, 0xFF, core_gesture->ap_length);
+
+	ipio_info("core_gesture->entry = %d\n", core_gesture->entry);
+	memset(read_gesture_buf, 0xFF, core_gesture->ap_length);
+	ipio_info("Upgrade firmware written data into AP code directly\n");
 	core_config_ice_mode_write(0x5100C, 0x81, 1);
+	ipio_info("\n");
 	core_config_ice_mode_write(0x5100C, 0x98, 1);
+	ipio_info("\n");
 	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
 	{
 		/* write hex to the addr of MP code */
@@ -660,13 +686,77 @@ int host_download(bool isIRAM)
 		}
 		if(memcmp(mp_fw, read_mp_buf, MAX_MP_FIRMWARE_SIZE) == 0)
 		{
-			ipio_info("Check MP Mode upgrade: PASS\n");	
+			ipio_info("Check MP Mode upgrade: PASS\n");
 		}
 		else
 		{
 			ipio_info("Check MP Mode upgrade: FAIL\n");
 			res = UPDATE_FAIL;
 			goto upgrade_fail;
+		}
+	}
+	else if(core_gesture->entry)
+	{
+		//int i;
+		if(mode)
+		{
+			/* write hex to the addr of Gesture code */
+			ipio_info("Writing data into Gesture code ...\n");
+			if(write_download(core_gesture->ap_start_addr, core_gesture->length, gesture_fw, core_gesture->length) < 0)
+			{
+				ipio_err("SPI Write Gesture code data error\n");
+			}
+			if(read_download(core_gesture->ap_start_addr, core_gesture->length, read_gesture_buf, core_gesture->length))
+			{
+				ipio_err("SPI Read Gesture code data error\n");
+			}
+			if(memcmp(gesture_fw, read_gesture_buf, core_gesture->length) == 0)
+			{
+				ipio_info("Check Gesture Mode upgrade: PASS\n");
+			}
+			else
+			{
+				ipio_info("Check Gesture Mode upgrade: FAIL\n");
+				res = UPDATE_FAIL;
+				goto upgrade_fail;
+			}
+			// for (i = core_gesture->start_addr; i < core_gesture->start_addr + core_gesture->length; i++) {
+			// 	if(i%16 == 0)
+			// 		printk("0x%4x:", i);
+			// 	printk("0x%2x,", gesture_fw[i - core_gesture->start_addr]);
+			// 	if( i%16 == 15)
+			// 		printk("\n");
+			// }
+		}
+		else{
+			/* write hex to the addr of AP code */
+			memcpy(gesture_ap_buf, ap_fw + core_gesture->ap_start_addr, core_gesture->ap_length);
+			ipio_info("Writing data into AP code ...\n");
+			if(write_download(core_gesture->ap_start_addr, core_gesture->ap_length, gesture_ap_buf, core_gesture->ap_length) < 0)
+			{
+				ipio_err("SPI Write AP code data error\n");
+			}
+			if(read_download(core_gesture->ap_start_addr, core_gesture->ap_length, read_ap_buf, core_gesture->ap_length))
+			{
+				ipio_err("SPI Read AP code data error\n");
+			}
+			// for (i = core_gesture->ap_start_addr; i < core_gesture->ap_start_addr + core_gesture->ap_length; i++) {
+			// 	if(i%16 == 0)
+			// 		printk("0x%4x:", i);
+			// 	printk("0x%2x,", gesture_ap_buf[i - core_gesture->ap_start_addr]);
+			// 	if( i%16 == 15)
+			// 		printk("\n");
+			// }
+			if(memcmp(gesture_ap_buf, read_ap_buf, core_gesture->ap_length) == 0)
+			{
+				ipio_info("Check AP Mode upgrade: PASS\n");
+			}
+			else
+			{
+				ipio_info("Check AP Mode upgrade: FAIL\n");
+				res = UPDATE_FAIL;
+				goto upgrade_fail;
+			}
 		}
 	}
 	else
@@ -691,7 +781,7 @@ int host_download(bool isIRAM)
 		}
 		if(memcmp(ap_fw, read_ap_buf, MAX_AP_FIRMWARE_SIZE) == 0)
 		{
-			ipio_info("Check AP Mode upgrade: PASS\n");	
+			ipio_info("Check AP Mode upgrade: PASS\n");
 		}
 		else
 		{
@@ -706,7 +796,7 @@ int host_download(bool isIRAM)
 		}
 		if(memcmp(dlm_fw, read_dlm_buf, MAX_DLM_FIRMWARE_SIZE) == 0)
 		{
-			ipio_info("Check DLM Mode upgrade: PASS\n");	
+			ipio_info("Check DLM Mode upgrade: PASS\n");
 		}
 		else
 		{
@@ -715,22 +805,31 @@ int host_download(bool isIRAM)
 			goto upgrade_fail;
 		}
 	}
-	/* ice mode code reset */
-	ipio_info("Doing code reset ...\n");
-	core_config_ice_mode_write(0x40040, 0xAE, 1);
+
+	if(core_gesture->entry != true)
+	{
+		/* ice mode code reset */
+		ipio_info("Doing code reset ...\n");
+		core_config_ice_mode_write(0x40040, 0xAE, 1);
+	}
+
 	core_config_ice_mode_disable();
 	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
 		mdelay(1200);
 
 upgrade_fail:
 	vfree(buf);
-	//buf == NULL;
+	buf = NULL;
 	vfree(read_ap_buf);
 	read_ap_buf = NULL;
 	vfree(read_dlm_buf);
 	read_dlm_buf = NULL;
 	vfree(read_mp_buf);
 	read_mp_buf = NULL;
+	vfree(read_gesture_buf);
+	read_gesture_buf = NULL;
+	vfree(gesture_ap_buf);
+	gesture_ap_buf = NULL;
 	return res;
 }
 EXPORT_SYMBOL(host_download);
@@ -1066,6 +1165,15 @@ int core_firmware_boot_host_download(void)
 	}
 	memcpy(ap_fw, flash_fw, MAX_AP_FIRMWARE_SIZE);
 	memcpy(dlm_fw, flash_fw + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
+	core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
+	core_gesture->ap_length = ((ap_fw[0xFFD7] << 24) + (ap_fw[0xFFD6] << 16) + (ap_fw[0xFFD5] << 8) + ap_fw[0xFFD4]) - core_gesture->ap_start_addr;
+	core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
+	core_gesture->length = ((ap_fw[0xFFDF] << 24) + (ap_fw[0xFFDE] << 16) + (ap_fw[0xFFDD] << 8) + ap_fw[0xFFDC]) - core_gesture->start_addr;
+	core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
+	printk("gesture_start_addr = 0x%x, length = 0x%x\n", core_gesture->start_addr, core_gesture->length);
+	printk("area = %d, ap_start_addr = 0x%x, ap_length = 0x%x\n", core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
+	memcpy(mp_fw, flash_fw + MP_HEX_ADDRESS, MAX_MP_FIRMWARE_SIZE);
+	memcpy(gesture_fw, flash_fw + core_gesture->start_addr, core_gesture->length);
 	gpio_direction_output(ipd->reset_gpio, 1);
 	mdelay(ipd->delay_time_high);
 	gpio_set_value(ipd->reset_gpio, 0);
@@ -1107,19 +1215,17 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	uint32_t nStartAddr = 0x0, nEndAddr = 0x0, nChecksum = 0x0, nExAddr = 0;
 	uint32_t tmp_addr = 0x0;
 	int index = 0, block = 0;
-	
 	core_firmware->start_addr = 0;
-	
 	core_firmware->end_addr = 0;
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
 	core_firmware->hasBlockInfo = false;
-	
 	memset(g_flash_block_info, 0x0, sizeof(g_flash_block_info));
 #ifdef HOST_DOWNLOAD
 	memset(ap_fw, 0xFF, sizeof(ap_fw));
 	memset(dlm_fw, 0xFF, sizeof(dlm_fw));
 	memset(mp_fw, 0xFF, sizeof(mp_fw));
+	memset(gesture_fw, 0xFF, sizeof(gesture_fw));
 #endif
 	/* Parsing HEX file */
 	for (; i < nSize;) {
@@ -1177,7 +1283,6 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			if ((nAddr + nLength) > nEndAddr) {
 				nEndAddr = nAddr + nLength;
 			}
-			
 			/* fill data */
 			for (j = 0, k = 0; j < (nLength * 2); j += 2, k++) {
 				if (isIRAM)
@@ -1187,18 +1292,23 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 					{
 						ap_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					}
-					else if(nAddr >= DLM_HEX_ADDRESS && nAddr < 0x10C00)
+					else if(nAddr >= DLM_HEX_ADDRESS && nAddr < MP_HEX_ADDRESS )
 					{
-						dlm_fw[nAddr - DLM_HEX_ADDRESS + k] = HexToDec(&pBuf[i + 9 + j], 2);
+						if(nAddr < DLM_HEX_ADDRESS + MAX_DLM_FIRMWARE_SIZE)
+							dlm_fw[nAddr - DLM_HEX_ADDRESS + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					}
 					else if(nAddr >= MP_HEX_ADDRESS)
 					{
 						mp_fw[nAddr - MP_HEX_ADDRESS + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					}
-					#else	
+					if(nAddr >= core_gesture->start_addr && nAddr < core_gesture->start_addr + MAX_GESTURE_FIRMWARE_SIZE)
+					{
+						gesture_fw[nAddr - core_gesture->start_addr + k] = HexToDec(&pBuf[i + 9 + j], 2);
+					}
+					#else
 					iram_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					#endif
-				}				
+				}
 				else {
 					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 
@@ -1219,6 +1329,13 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		}
 		i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;
 	}
+		// for (i = core_gesture->start_addr; i < core_gesture->start_addr + MAX_GESTURE_FIRMWARE_SIZE; i++) {
+		// 	if(i%16 == 0)
+		// 		printk("0x%4x:", i);
+		// 	printk("0x%2x,", gesture_fw[i - core_gesture->start_addr]);
+		// 	if( i%16 == 15)
+		// 		printk("\n");
+		// }
 	// for (i = 0; i < MAX_AP_FIRMWARE_SIZE;) {
 	// 	if(i%16 == 0)
 	// 		printk("0x%4x:", i);
@@ -1238,7 +1355,6 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	#ifdef HOST_DOWNLOAD
 		return 0;
 	#endif
-	
 	/* Update the length of section */
 	g_section_len = index;
 
@@ -1268,7 +1384,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			}
 		}
 	}
-	
+
 	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for (i = 0; i < g_total_sector; i++) {
 		ipio_debug(DEBUG_FIRMWARE,
@@ -1315,6 +1431,10 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	pfile = filp_open(pFilePath, O_RDONLY, 0);
 	if (ERR_ALLOC_MEM(pfile)) {
 		ipio_err("Failed to open the file at %s.\n", pFilePath);
+		//if not hex file can ili file
+		#ifdef HOST_DOWNLOAD
+			goto no_hex_file;
+		#endif
 		res = -ENOENT;
 		return res;
 	}
@@ -1328,7 +1448,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		res = -EINVAL;
 		goto out;
 	}
-	
+
 #ifndef HOST_DOWNLOAD
 	if (flashtab == NULL) {
 		ipio_err("Flash table isn't created\n");
@@ -1359,14 +1479,14 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		goto out;
 	}
 #endif
-	
+
 	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(hex_buffer)) {
 		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
 		res = -ENOMEM;
 		goto out;
 	}
-	
+
 	/* store current userspace mem segment. */
 	old_fs = get_fs();
 
@@ -1378,38 +1498,44 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 	/* restore userspace mem segment after read. */
 	set_fs(old_fs);
-	
+
 	res = convert_hex_file(hex_buffer, fsize, isIRAM);
 	if (res < 0) {
 		ipio_err("Failed to covert firmware data, res = %d\n", res);
 		goto out;
 	}
-
+#ifdef HOST_DOWNLOAD
+no_hex_file:
+#endif
 	/* calling that function defined at init depends on chips. */
 	res = core_firmware->upgrade_func(isIRAM);
 	if (res < 0) {
 		ipio_err("Failed to upgrade firmware, res = %d\n", res);
 		goto out;
 	}
-
+#ifndef HOST_DOWNLOAD
 	ipio_info("Update TP/Firmware information...\n");
 	core_config_get_fw_ver();
 	core_config_get_protocol_ver();
 	core_config_get_core_ver();
 	core_config_get_tp_info();
 	core_config_get_key_info();
-
+#endif
 out:
 	if (power) {
 		ipd->isEnablePollCheckPower = true;
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
-
+	core_firmware->isUpgrading = false;
+	if (ERR_ALLOC_MEM(pfile))
+	{
+		ipio_info("\n");
+		return res;
+	}
 	filp_close(pfile, NULL);
 	ipio_kfree((void **)&hex_buffer);
 	ipio_kfree((void **)&flash_fw);
 	ipio_kfree((void **)&g_flash_sector);
-	core_firmware->isUpgrading = false;
 	return res;
 }
 
@@ -1441,7 +1567,7 @@ int core_firmware_init(void)
 				core_firmware->delay_after_upgrade = 100;
 			} else if (ipio_chip_list[i] == CHIP_TYPE_ILI9881) {
 				core_firmware->max_count = 0x1FFFF;
-				core_firmware->isCRC = true;	
+				core_firmware->isCRC = true;
 			#ifdef HOST_DOWNLOAD
 				core_firmware->upgrade_func = host_download;
 			#else

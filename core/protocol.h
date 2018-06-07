@@ -48,6 +48,7 @@
 #define P5_0_FIRMWARE_TEST_MODE			0x01
 #define P5_0_FIRMWARE_DEBUG_MODE		0x02
 #define P5_0_FIRMWARE_I2CUART_MODE		0x03
+#define P5_0_FIRMWARE_GESTURE_MODE		0x04
 
 #define P5_0_DEMO_PACKET_ID		        0x5A
 #define P5_0_DEBUG_PACKET_ID	        0xA7
@@ -107,6 +108,7 @@ struct protocol_cmd_list {
 	uint8_t debug_mode;
 	uint8_t test_mode;
 	uint8_t i2cuart_mode;
+	uint8_t gesture_mode;
 
 	/* Pakcet ID reported by FW */
 	uint8_t demo_pid;
@@ -119,6 +121,7 @@ struct protocol_cmd_list {
 	int demo_len;
 	int debug_len;
 	int test_len;
+	int gesture_len;
 
 	/* MP Test with cdc commands */
 	uint8_t cmd_cdc;

@@ -108,7 +108,7 @@
 #define SPI_INTERFACE 2
 #define INTERFACE SPI_INTERFACE
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.1"
+#define DRIVER_VERSION	"1.0.3.2"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
@@ -165,19 +165,15 @@ extern uint32_t ipio_chip_list[2];
 #define MAX_HEX_FILE_SIZE			(160*1024)
 #define MAX_FLASH_FIRMWARE_SIZE		(256*1024)
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
-#define HOST_DOWNLOAD
-#ifdef HOST_DOWNLOAD
-	#define MAX_AP_FIRMWARE_SIZE		(64*1024)
-	#define MAX_DLM_FIRMWARE_SIZE		(8*1024)
-	#define MAX_MP_FIRMWARE_SIZE		(64*1024)
-	#define DLM_START_ADDRESS 			0x20610
-	#define DLM_HEX_ADDRESS 			0x10000
-	#define MP_HEX_ADDRESS	 			0x13000
-	#define SPI_UPGRADE_LEN	 			2048
-	#define UPDATE_RETRY_COUNT			3
-	extern int core_firmware_boot_host_download(void);
-#endif
-
+#define MAX_AP_FIRMWARE_SIZE		(64*1024)
+#define MAX_DLM_FIRMWARE_SIZE		(8*1024)
+#define MAX_MP_FIRMWARE_SIZE		(64*1024)
+#define MAX_GESTURE_FIRMWARE_SIZE	(16*1024)
+#define DLM_START_ADDRESS           0x20610
+#define DLM_HEX_ADDRESS             0x10000
+#define MP_HEX_ADDRESS              0x13000
+#define SPI_UPGRADE_LEN		        2048
+#define UPDATE_RETRY_COUNT          3
 
 /* ILI7807 Series */
 enum ili7881_types
@@ -229,6 +225,9 @@ enum ili9881_types
 
 /* How many numbers of touch are supported by IC. */
 #define MAX_TOUCH_NUM	10
+
+/* It's only for spi interface used to download data to iram */
+//#define HOST_DOWNLOAD
 
 /* Linux multiple touch protocol, either B type or A type. */
 #define MT_B_TYPE

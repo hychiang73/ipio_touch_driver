@@ -76,8 +76,8 @@ enum mp_test_catalog {
 	UNTOUCH_P2P = 5,
 	PIXEL = 6,
 	OPEN_TEST = 7,
-	PEAK_TO_PEAK_TEST = 8,
-	SHORT_TEST = 9,
+	PEAK_TO_PEAK_TEST = 8,	
+	SHORT_TEST = 9,		
 };
 
 enum open_test_node_type {

@@ -31,6 +31,7 @@
 #include "core/protocol.h"
 #include "platform.h"
 #include "core/mp_test.h"
+#include "core/gesture.h"
 
 #define DTS_INT_GPIO	"touch,irq-gpio"
 #define DTS_RESET_GPIO	"touch,reset-gpio"
@@ -132,6 +133,7 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 	}
 
 #ifdef HOST_DOWNLOAD
+	core_config_ice_mode_enable();
 	core_firmware_upgrade(UPDATE_FW_PATH, true);
 #endif
 	ilitek_platform_enable_irq();
@@ -683,6 +685,7 @@ static void ilitek_platform_core_remove(void)
 	core_config_remove();
 	core_i2c_remove();
 	core_protocol_remove();
+	core_gesture_remove();
 }
 
 /**
@@ -698,6 +701,12 @@ static int ilitek_platform_core_init(void)
 		ipio_err("Failed to initialise core components\n");
 		return -EINVAL;
 	}
+	core_gesture = kmalloc(sizeof(*core_gesture), GFP_KERNEL);
+	core_gesture->entry = false;
+	if (ERR_ALLOC_MEM(core_gesture)) {
+		ipio_err("Failed to alllocate core_i2c mem %ld\n", PTR_ERR(core_gesture));
+		core_gesture_remove();
+	}
 	#if (INTERFACE == I2C_INTERFACE)
 	if(core_i2c_init(ipd->client) < 0)
 	#elif (INTERFACE == SPI_INTERFACE)
@@ -705,7 +714,7 @@ static int ilitek_platform_core_init(void)
 	#endif
 	{
 		ipio_err("Failed to initialise core components\n");
-		return -EINVAL;		
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -803,7 +812,8 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ipd->client = client;
 	ipd->i2c_id = id;
 #elif(INTERFACE == SPI_INTERFACE)
-	if(!spi) {
+	if(!spi)	
+	{
 		return -ENOMEM;
 	}
 
@@ -834,10 +844,12 @@ static int ilitek_platform_probe(struct spi_device *spi)
 #elif (INTERFACE == SPI_INTERFACE)
 		ipd->edge_delay = 1;
 #endif
+		
 	} else {
 		ipd->delay_time_high = 10;
 		ipd->delay_time_low = 10;
 		ipd->edge_delay = 10;
+		
 	}
 
 	mutex_init(&ipd->plat_mutex);

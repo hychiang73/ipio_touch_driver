@@ -25,11 +25,10 @@
 #ifndef __MP_TEST_H
 #define __MP_TEST_H
 
-
 #define MP_PASS      1
 #define MP_FAIL     -1
 #define BENCHMARK 1
-#define NODETYPE  1
+#define NODETYPE	 	1
 #define RAWDATA_NO_BK_DATA_SHIFT_9881H 8192
 #define RAWDATA_NO_BK_DATA_SHIFT_9881F 4096
 
@@ -40,7 +39,7 @@ struct mp_test_P540_open {
 	int32_t *charg_rate;
 	int32_t *full_Open;
 	int32_t *dac;
-	int32_t *cdc;
+	int32_t *cdc;	
 };
 
 struct mp_test_items {
@@ -61,7 +60,7 @@ struct mp_test_items {
 	int frame_count;
 	int trimmed_mean;
 	int lowest_percentage;
-	int highest_percentage;
+	int highest_percentage;	
 	int32_t *buf;
 	int32_t *max_buf;
 	int32_t *min_buf;
@@ -99,7 +98,7 @@ struct mp_nodp_calc {
 	uint8_t dac_td;
 	uint8_t qsh_pw;
 	uint8_t qsh_td;
-	uint8_t drop_nodp;
+	uint8_t drop_nodp; 
 
 	/* Output */
 	uint32_t first_tp_width;

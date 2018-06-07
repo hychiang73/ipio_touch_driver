@@ -555,6 +555,12 @@ static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, si
 	} else if (strcmp(cmd, "off") == 0) {
 		ipio_info("disable gesture mode\n");
 		core_config->isEnableGesture = false;
+	} else if (strcmp(cmd, "info") == 0) {
+		ipio_info("gesture info mode\n");
+		core_gesture->mode = GESTURE_INFO_MPDE;
+	} else if (strcmp(cmd, "normal") == 0) {
+		ipio_info("gesture normal mode\n");
+		core_gesture->mode = GESTURE_NORMAL_MODE;
 	} else
 		ipio_err("Unknown command\n");
 
@@ -850,7 +856,6 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		ipio_info("debug mode test enter\n");
 		temp[0] = protocol->debug_mode;
 		core_fr_mode_control(temp);
-		
 	} else if (strcmp(cmd, "baseline") == 0) {
 		ipio_info("test baseline raw\n");
 		temp[0] = protocol->debug_mode;
@@ -881,11 +886,19 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		mdelay(1);
 		gpio_set_value(ipd->reset_gpio, 1);
 		mdelay(10);
-	}
-	else if (strcmp(cmd, "gt") == 0) {
+	} else if (strcmp(cmd, "gt") == 0) {
 		ipio_info("test Gesture test\n");
+#ifdef HOST_DOWNLOAD
 		core_load_gesture_code();
+#endif
+	} else if (strcmp(cmd, "suspend") == 0) {
+		ipio_info("test suspend test\n");
+		core_config_ic_suspend();
+	} else if (strcmp(cmd, "resume") == 0) {
+		ipio_info("test resume test\n");
+		core_config_ic_resume();
 	}
+
 	else if (strcmp(cmd, "gt1") == 0) {
 		ipio_info("test Gesture test 1\n");
 		temp[0] = 0x01;
@@ -895,7 +908,8 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		core_write(core_config->slave_i2c_addr, temp, w_len);
 		if (core_config_check_cdc_busy(50) < 0)
 			ipio_err("Check busy is timout !\n");
-	} else if (strcmp(cmd, "gt2") == 0) {
+	} 
+	else if (strcmp(cmd, "gt2") == 0) {
 		temp[0] = 0x01;
 		temp[1] = 0x0A;
 		temp[2] = 0x01;
