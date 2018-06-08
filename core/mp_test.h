@@ -31,6 +31,9 @@
 #define NODETYPE	 	1
 #define RAWDATA_NO_BK_DATA_SHIFT_9881H 8192
 #define RAWDATA_NO_BK_DATA_SHIFT_9881F 4096
+#define TYPE_BENCHMARK 0
+#define TYPE_NO_JUGE 1
+#define TYPE_JUGE 2
 
 struct mp_test_P540_open {
 	int32_t *cbk_700;
@@ -55,12 +58,14 @@ struct mp_test_items {
 	bool run;
 	int max;
 	int max_res;
+	int item_result;
 	int min;
 	int min_res;
 	int frame_count;
 	int trimmed_mean;
 	int lowest_percentage;
-	int highest_percentage;	
+	int highest_percentage;
+	int32_t *result_buf;
 	int32_t *buf;
 	int32_t *max_buf;
 	int32_t *min_buf;
