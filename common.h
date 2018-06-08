@@ -227,7 +227,7 @@ enum ili9881_types
 #define MAX_TOUCH_NUM	10
 
 /* It's only for spi interface used to download data to iram */
-//#define HOST_DOWNLOAD
+#define HOST_DOWNLOAD
 
 /* Linux multiple touch protocol, either B type or A type. */
 #define MT_B_TYPE
