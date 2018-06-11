@@ -136,6 +136,7 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 	core_config_ice_mode_enable();
 	core_firmware_upgrade(UPDATE_FW_PATH, true);
 #endif
+	mdelay(10);
 	ilitek_platform_enable_irq();
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);

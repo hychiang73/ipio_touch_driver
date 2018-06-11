@@ -54,9 +54,9 @@ int core_load_gesture_code(void)
 	// }
 	// printk("\n");
 	core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
-	core_gesture->ap_length = ((ap_fw[0xFFD7] << 24) + (ap_fw[0xFFD6] << 16) + (ap_fw[0xFFD5] << 8) + ap_fw[0xFFD4]) - core_gesture->ap_start_addr;
+	core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
 	core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
-	core_gesture->length = ((ap_fw[0xFFDF] << 24) + (ap_fw[0xFFDE] << 16) + (ap_fw[0xFFDD] << 8) + ap_fw[0xFFDC]) - core_gesture->start_addr;
+	core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
 	core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
 	printk("gesture_start_addr = 0x%x, gesture_end_addr = 0x%x\n", core_gesture->start_addr, core_gesture->length);
 	printk("area = %d, ap_start_addr = 0x%x, ap_end_addr = 0x%x\n", core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
@@ -76,7 +76,13 @@ int core_load_gesture_code(void)
 	}
 	for(i = 0; i < 20; i++)
 	{
-		mdelay(i*100+100);
+		temp[0] = 0xF6;
+		temp[1] = 0x0A;
+		temp[2] = 0x05;
+		if ((core_write(core_config->slave_i2c_addr, temp, 2)) < 0) {
+			ipio_err("write command error\n");
+		}
+		mdelay(i*50);
 		temp[0] = 0x01;
 		temp[1] = 0x0A;
 		temp[2] = 0x05;
@@ -92,7 +98,7 @@ int core_load_gesture_code(void)
 			break;
 		}
 	}
-	if(i == 3 && temp[0] != 0x01)
+	if(temp[0] != 0x91)
 			ipio_err("FW is busy, error\n");
 
 	//load gesture code

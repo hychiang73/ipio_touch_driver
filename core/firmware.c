@@ -1137,17 +1137,8 @@ out:
 #ifdef HOST_DOWNLOAD
 int core_firmware_boot_host_download(void)
 {
-	int res = 0, i = 0;
+	int res = 0;
 	bool power = false;
-	flash_fw = kcalloc(MAX_AP_FIRMWARE_SIZE + MAX_DLM_FIRMWARE_SIZE + MAX_MP_FIRMWARE_SIZE, sizeof(uint8_t), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(flash_fw)) {
-		ipio_err("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
-		res = -ENOMEM;
-		goto out;
-	}
-
-	memset(flash_fw, 0xff, (int)sizeof(uint8_t) * MAX_AP_FIRMWARE_SIZE + MAX_DLM_FIRMWARE_SIZE + MAX_MP_FIRMWARE_SIZE);
-
 	ipio_info("BOOT: Starting to upgrade firmware ...\n");
 
 	core_firmware->isUpgrading = true;
@@ -1159,21 +1150,17 @@ int core_firmware_boot_host_download(void)
 		power = true;
 	}
 
-	/* Fill data into buffer */
-	for (i = 0; i < ARRAY_SIZE(CTPM_FW) - 64; i++) {
-		flash_fw[i] = CTPM_FW[i + 64];
-	}
-	memcpy(ap_fw, flash_fw, MAX_AP_FIRMWARE_SIZE);
-	memcpy(dlm_fw, flash_fw + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
+	memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER, MAX_AP_FIRMWARE_SIZE);
+	memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
 	core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
-	core_gesture->ap_length = ((ap_fw[0xFFD7] << 24) + (ap_fw[0xFFD6] << 16) + (ap_fw[0xFFD5] << 8) + ap_fw[0xFFD4]) - core_gesture->ap_start_addr;
+	core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
 	core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
-	core_gesture->length = ((ap_fw[0xFFDF] << 24) + (ap_fw[0xFFDE] << 16) + (ap_fw[0xFFDD] << 8) + ap_fw[0xFFDC]) - core_gesture->start_addr;
+	core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
 	core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
 	printk("gesture_start_addr = 0x%x, length = 0x%x\n", core_gesture->start_addr, core_gesture->length);
 	printk("area = %d, ap_start_addr = 0x%x, ap_length = 0x%x\n", core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
-	memcpy(mp_fw, flash_fw + MP_HEX_ADDRESS, MAX_MP_FIRMWARE_SIZE);
-	memcpy(gesture_fw, flash_fw + core_gesture->start_addr, core_gesture->length);
+	memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + MP_HEX_ADDRESS, MAX_MP_FIRMWARE_SIZE);
+	memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + core_gesture->start_addr, core_gesture->length);
 	gpio_direction_output(ipd->reset_gpio, 1);
 	mdelay(ipd->delay_time_high);
 	gpio_set_value(ipd->reset_gpio, 0);
@@ -1199,9 +1186,6 @@ out:
 		ipd->isEnablePollCheckPower = true;
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
-
-	ipio_kfree((void **)&flash_fw);
-	ipio_kfree((void **)&g_flash_sector);
 	core_firmware->isUpgrading = false;
 	return res;
 }
