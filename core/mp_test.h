@@ -42,7 +42,7 @@ struct mp_test_P540_open {
 	int32_t *charg_rate;
 	int32_t *full_Open;
 	int32_t *dac;
-	int32_t *cdc;	
+	int32_t *cdc;
 };
 
 struct mp_test_items {
@@ -103,7 +103,7 @@ struct mp_nodp_calc {
 	uint8_t dac_td;
 	uint8_t qsh_pw;
 	uint8_t qsh_td;
-	uint8_t drop_nodp; 
+	uint8_t drop_nodp;
 
 	/* Output */
 	uint32_t first_tp_width;

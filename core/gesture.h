@@ -43,7 +43,8 @@
 #define GESTURE_O						0x69
 #define GESTURE_S						0x6A
 #define GESTURE_Z						0x6B
-//oppo gesture define 
+
+/* oppo gesture define */
 #define GESTURE_CODE_V_DOWN						0x6C
 #define GESTURE_CODE_V_LEFT						0x6D
 #define GESTURE_CODE_V_RIGHT					0x6E
@@ -62,6 +63,7 @@
 #define KEY_GESTURE_V					KEY_V
 #define KEY_GESTURE_C					KEY_C
 #define KEY_GESTURE_Z					KEY_Z
+
 struct core_gesture_data {
     uint32_t start_addr;
     uint32_t length;
@@ -72,11 +74,13 @@ struct core_gesture_data {
     uint32_t area_section;
     bool suspend;
 };
+
 extern struct core_gesture_data *core_gesture;
-extern int core_gesture_key(uint8_t gid);
-extern void core_gesture_init(struct core_fr_data *fr_data);
-extern int core_load_gesture_code(void);
+
+extern int core_gesture_load_code(void);
+extern int core_gesture_load_ap_code(void);
+extern int core_gesture_match_key(uint8_t gid);
+extern void core_gesture_set_key(struct core_fr_data *fr_data);
+extern int core_gesture_init(void);
 extern void core_gesture_remove(void);
-extern int host_download(bool isIRAM);
-extern int core_load_ap_code(void);
 #endif

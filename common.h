@@ -107,6 +107,7 @@
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
 #define INTERFACE SPI_INTERFACE
+
 /* Driver version */
 #define DRIVER_VERSION	"1.0.3.2"
 
@@ -228,7 +229,9 @@ enum ili9881_types
 #define MAX_TOUCH_NUM	10
 
 /* It's only for spi interface used to download data to iram */
+#if (INTERFACE == SPI_INTERFACE)
 #define HOST_DOWNLOAD
+#endif
 
 /* Linux multiple touch protocol, either B type or A type. */
 #define MT_B_TYPE

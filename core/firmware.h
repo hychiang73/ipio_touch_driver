@@ -51,6 +51,7 @@ extern struct core_firmware_data *core_firmware;
 
 #ifdef HOST_DOWNLOAD
 extern int core_firmware_boot_host_download(void);
+extern int tddi_host_download(bool isIRAM);
 #endif
 #ifdef BOOT_FW_UPGRADE
 extern int core_firmware_boot_upgrade(void);

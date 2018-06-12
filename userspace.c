@@ -889,7 +889,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	} else if (strcmp(cmd, "gt") == 0) {
 		ipio_info("test Gesture test\n");
 #ifdef HOST_DOWNLOAD
-		core_load_gesture_code();
+		core_gesture_load_code();
 #endif
 	} else if (strcmp(cmd, "suspend") == 0) {
 		ipio_info("test suspend test\n");
@@ -1059,18 +1059,16 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_TP_FUNC_MODE:
-		
 		res = copy_from_user(szBuf, (uint8_t *) arg, 3);
 		if (res < 0) {
 			ipio_err("Failed to copy data from user space\n");
 		} else {
 			core_write(core_config->slave_i2c_addr, &szBuf[0], 3);
 		}
-		
+
 		break;
 
 	case ILITEK_IOCTL_TP_FW_VER:
-		
 		res = core_config_get_fw_ver();
 		if (res < 0) {
 			ipio_err("Failed to get firmware version\n");
@@ -1080,11 +1078,9 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy firmware version to user space\n");
 			}
 		}
-		
 		break;
 
 	case ILITEK_IOCTL_TP_PL_VER:
-		
 		res = core_config_get_protocol_ver();
 		if (res < 0) {
 			ipio_err("Failed to get protocol version\n");
@@ -1094,11 +1090,9 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy protocol version to user space\n");
 			}
 		}
-		
 		break;
 
 	case ILITEK_IOCTL_TP_CORE_VER:
-		
 		res = core_config_get_core_ver();
 		if (res < 0) {
 			ipio_err("Failed to get core version\n");
@@ -1108,7 +1102,6 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				ipio_err("Failed to copy core version to user space\n");
 			}
 		}
-		
 		break;
 
 	case ILITEK_IOCTL_TP_DRV_VER:

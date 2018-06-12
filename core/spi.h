@@ -33,8 +33,10 @@ struct core_spi_data {
 };
 
 extern struct core_spi_data *core_spi;
+
 extern int core_spi_write(uint8_t *pBuf, uint16_t nSize);
 extern int core_spi_read(uint8_t *pBuf, uint16_t nSize);
 extern int core_spi_init(struct spi_device *spi);
 extern void core_spi_remove(void);
+
 #endif

@@ -221,7 +221,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 {
 	int i, res = 0;
 	uint8_t check_sum = 0;
-	uint32_t nX = 0, nY = 0, count = (core_config->tp_info->nXChannelNum * core_config->tp_info->nYChannelNum) * 2;
+	uint32_t nX = 0, nY = 0;
 
 	for (i = 0; i < 9; i++)
 		ipio_debug(DEBUG_FINGER_REPORT, "data[%d] = %x\n", i, g_fr_node->data[i]);
@@ -321,16 +321,6 @@ static int parse_touch_package_v5_0(uint8_t pid)
 			g_current_touch[i] = 1;
 #endif
 		}
-		for (i = 35; i < count + 35; i+=2) {
-			if((uint8_t)(g_fr_node->data[i] & 0x80) == (uint8_t)0x80)
-			{
-				//printk("-%d, ", 0x10000 - ((g_fr_node->data[i] << 8) + g_fr_node->data[i+1]));
-			}
-			else
-			{
-				//printk("%d, ", (g_fr_node->data[i] << 8) + g_fr_node->data[i+1]);
-			}
-		}
 	} else {
 		if (pid != 0) {
 			/* ignore the pid with 0x0 after enable irq at once */
@@ -360,10 +350,10 @@ static int finger_report_ver_5_0(void)
 #else
 	res = core_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #endif
+
 	if (res < 0) {
 		ipio_err("Failed to read finger report packet\n");
-		if(res == CHECK_RECOVER)
-		{
+		if(res == CHECK_RECOVER) {
 			ipio_err("==================Recover=================\n");
 			ilitek_platform_tp_hw_reset(true);
 		}
@@ -381,7 +371,7 @@ static int finger_report_ver_5_0(void)
 
 	if (pid == protocol->ges_pid && core_config->isEnableGesture) {
 		ipio_debug(DEBUG_FINGER_REPORT, "pid = 0x%x, code = %x\n", pid, g_fr_node->data[1]);
-		gesture = core_gesture_key(g_fr_node->data[1]);
+		gesture = core_gesture_match_key(g_fr_node->data[1]);
 		if (gesture != -1) {
 			input_report_key(core_fr->input_device, gesture, 1);
 			input_sync(core_fr->input_device);
@@ -771,7 +761,7 @@ void core_fr_input_set_param(struct input_dev *input_device)
 	input_set_abs_params(core_fr->input_device, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(core_fr->input_device, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 #endif /* PT_MTK */
-	
+
 	if (core_fr->isEnablePressure)
 		input_set_abs_params(core_fr->input_device, ABS_MT_PRESSURE, 0, 255, 0, 0);
 
@@ -784,9 +774,9 @@ void core_fr_input_set_param(struct input_dev *input_device)
 #else
 	input_set_abs_params(core_fr->input_device, ABS_MT_TRACKING_ID, 0, max_tp, 0, 0);
 #endif /* MT_B_TYPE */
-	
+
 	/* Set up virtual key with gesture code */
-	core_gesture_init(core_fr);
+	core_gesture_set_key(core_fr);
 }
 EXPORT_SYMBOL(core_fr_input_set_param);
 

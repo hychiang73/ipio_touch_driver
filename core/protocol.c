@@ -49,20 +49,22 @@ int core_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
 #if (INTERFACE == I2C_INTERFACE)
 	return core_i2c_write(nSlaveId, pBuf, nSize);
-#elif (INTERFACE == SPI_INTERFACE)
+#else
 	return core_spi_write(pBuf, nSize);
 #endif
 }
 EXPORT_SYMBOL(core_write);
+
 int core_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
 #if (INTERFACE == I2C_INTERFACE)
 	return core_i2c_read(nSlaveId, pBuf, nSize);
-#elif (INTERFACE == SPI_INTERFACE)
+#else
 	return core_spi_read(pBuf, nSize);
 #endif
 }
 EXPORT_SYMBOL(core_read);
+
 static int hashCode(int key)
 {
 	return key % FUNC_NUM;
@@ -355,7 +357,7 @@ int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
 	struct protocol_sup_list pver[] = {
 		{0x5, 0x0, 0x0},
 		{0x5, 0x1, 0x0},
-		{0x5, 0x2, 0x0}, 
+		{0x5, 0x2, 0x0},
 		{0x5, 0x3, 0x0},
 		{0x5, 0x4, 0x0},
 	};
