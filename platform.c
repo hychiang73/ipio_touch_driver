@@ -238,12 +238,6 @@ static void tpd_resume(struct device *h)
 
 	if (!core_firmware->isUpgrading) {
 		core_config_ic_resume();
-
-		ilitek_platform_enable_irq();
-
-		if (ipd->isEnablePollCheckPower)
-			queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work,
-					   ipd->work_delay);
 	}
 }
 
@@ -252,14 +246,6 @@ static void tpd_suspend(struct device *h)
 	ipio_info("TP Suspend\n");
 
 	if (!core_firmware->isUpgrading) {
-		if (!core_config->isEnableGesture) {
-			ipio_info("gesture not enabled\n");
-			ilitek_platform_disable_irq();
-		}
-
-		if (ipd->isEnablePollCheckPower)
-			cancel_delayed_work_sync(&ipd->check_power_status_work);
-
 		core_config_ic_suspend();
 	}
 }
@@ -287,12 +273,6 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned lon
 			ipio_info("TP Suspend\n");
 
 			if (!core_firmware->isUpgrading) {
-				if (!core_config->isEnableGesture)
-					ilitek_platform_disable_irq();
-
-				if (ipd->isEnablePollCheckPower)
-					cancel_delayed_work_sync(&ipd->check_power_status_work);
-
 				core_config_ic_suspend();
 			}
 		}
@@ -306,11 +286,6 @@ static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned lon
 
 			if (!core_firmware->isUpgrading) {
 				core_config_ic_resume();
-				ilitek_platform_enable_irq();
-
-				if (ipd->isEnablePollCheckPower)
-					queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work,
-							   ipd->work_delay);
 			}
 		}
 	}
@@ -330,12 +305,6 @@ static void ilitek_platform_early_suspend(struct early_suspend *h)
 
 	core_fr->isEnableFR = false;
 
-	if (!core_config->isEnableGesture)
-		ilitek_platform_disable_irq();
-
-	if (ipd->isEnablePollCheckPower)
-		cancel_delayed_work_sync(&ipd->check_power_status_work);
-
 	core_config_ic_suspend();
 }
 
@@ -345,10 +314,6 @@ static void ilitek_platform_late_resume(struct early_suspend *h)
 
 	core_fr->isEnableFR = true;
 	core_config_ic_resume();
-	ilitek_platform_enable_irq();
-
-	if (ipd->isEnablePollCheckPower)
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 }
 #endif /* PT_MTK */
 

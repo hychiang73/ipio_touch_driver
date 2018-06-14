@@ -297,10 +297,152 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 	return send_data_len;
 }
 
+/* Created only for oppo */
+static ssize_t ilitek_proc_oppo_mp_lcm_on_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	if (core_parser_path(INI_NAME_PATH) < 0) {
+		ipio_err("Failed to parsing INI file\n");
+		goto out;
+	}
+
+	/* Init MP structure */
+	if(core_mp_init() < 0) {
+		ipio_err("Failed to init mp\n");
+		goto out;
+	}
+
+	/* Switch to test mode */
+	core_fr_mode_control(&protocol->test_mode);
+
+	ilitek_platform_disable_irq();
+
+	core_mp->oppo_run = true;
+
+	/* Do not chang the sequence of test */
+	core_mp_run_test("Noise Peak To Peak(With Panel)", true);
+	core_mp_run_test("Noise Peak to Peak(IC Only)", true);
+	core_mp_run_test("Short Test -ILI9881", true);
+	core_mp_run_test("Open Test(integration)_SP", true);
+	core_mp_run_test("Raw Data(Have BK)", true);
+	core_mp_run_test("Calibration Data(DAC)", true);
+	core_mp_run_test("Raw Data(No BK)", true);
+	core_mp_run_test("Doze Raw Data", true);
+	core_mp_run_test("Doze Peak To Peak", true);
+
+	core_mp_show_result();
+
+	core_mp_test_free();
+
+	core_mp->oppo_run = false;
+
+	/* Switch to demo mode */
+	core_fr_mode_control(&protocol->demo_mode);
+
+	/* This reset will run host download */
+	ilitek_platform_tp_hw_reset(true);
+
+	ilitek_platform_enable_irq();
+
+out:
+	*pPos = len;
+	return len;
+}
+
+/* Created only for oppo */
+static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	if (core_parser_path(INI_NAME_PATH) < 0) {
+		ipio_err("Failed to parsing INI file\n");
+		goto out;
+	}
+
+	/* Init MP structure */
+	if(core_mp_init() < 0) {
+		ipio_err("Failed to init mp\n");
+		goto out;
+	}
+
+	/* Enter to suspend and move gesture code to iram */
+	core_config->isEnableGesture = true;
+	core_gesture->mode = GESTURE_INFO_MPDE;
+
+	core_config_ic_suspend();
+
+#if 0
+	core_config_sense_ctrl(false);
+
+	if (core_config_check_cdc_busy(50) < 0)
+		ipio_err("Check busy is timout !\n");
+
+	core_fr->actual_fw_mode = P5_0_FIRMWARE_GESTURE_MODE;
+
+	core_gesture_load_code();
+
+	mdelay(10);
+
+	core_gesture_load_ap_code();
+
+	core_config_sleep_ctrl(true);
+
+	if (core_config_check_cdc_busy(50) < 0)
+		ipio_err("Check busy is timout !\n");
+
+	core_config_sense_ctrl(true);
+#endif
+
+	/* Switch to test mode which moves mp code to iram */
+	core_fr_mode_control(&protocol->test_mode);
+
+	ilitek_platform_disable_irq();
+
+	mdelay(10);
+
+	/* Indicates running mp test is called by oppo node */
+	core_mp->oppo_run = true;
+	core_mp->oppo_lcm = true;
+
+	/* Do not chang the sequence of test */
+	core_mp_run_test("Raw Data(Have BK)(LCM OFF)", true);
+	//core_mp_run_test("Raw Data(No BK)(LCM OFF)", true);
+	// core_mp_run_test("Noise Peak to Peak(With Panel)(LCM OFF)", true);
+	// core_mp_run_test("Noise Peak to Peak(IC Only)(LCM OFF)", true);
+	// core_mp_run_test("Raw Data_TD(LCM OFF)", true);
+	// core_mp_run_test("Peak To Peak_TD(LCM OFF)", true);
+
+	core_mp_show_result();
+
+	core_mp->oppo_run = false;
+	core_mp->oppo_lcm = false;
+
+	core_mp_test_free();
+
+	core_config_ic_resume();
+
+#if 0
+	core_fr_mode_control(&protocol->demo_mode);
+	ilitek_platform_tp_hw_reset(true);
+#endif
+
+	ilitek_platform_enable_irq();
+
+out:
+	*pPos = len;
+	return len;
+}
+
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	uint32_t len = 0;
-	uint8_t test_cmd[2] = { 0 };
 
 	if (*pPos != 0)
 		return 0;
@@ -317,8 +459,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	}
 
 	/* Switch to Test mode */
-	test_cmd[0] = protocol->test_mode;
-	core_fr_mode_control(test_cmd);
+	core_fr_mode_control(&protocol->test_mode);
 
 	ilitek_platform_disable_irq();
 
@@ -343,6 +484,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_mp_show_result();
 
 	core_mp_test_free();
+
 #ifndef HOST_DOWNLOAD
 	/* Code reset */
 	core_config_ice_mode_enable();
@@ -353,11 +495,12 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_config_ic_reset();
 #endif
 	/* Switch to Demo mode */
-	test_cmd[0] = protocol->demo_mode;
-	core_fr_mode_control(test_cmd);
+	core_fr_mode_control(&protocol->demo_mode);
+
 #ifdef HOST_DOWNLOAD
 	ilitek_platform_tp_hw_reset(true);
 #endif
+
 	ilitek_platform_enable_irq();
 
 out:
@@ -1227,6 +1370,14 @@ struct file_operations proc_mp_test_fops = {
 	.read = ilitek_proc_mp_test_read,
 };
 
+struct file_operations proc_oppo_mp_lcm_on_fops = {
+	.read = ilitek_proc_oppo_mp_lcm_on_read,
+};
+
+struct file_operations proc_oppo_mp_lcm_off_fops = {
+	.read = ilitek_proc_oppo_mp_lcm_off_read,
+};
+
 struct file_operations proc_debug_message_fops = {
 	.write = ilitek_proc_debug_message_write,
 	.read = ilitek_proc_debug_message_read,
@@ -1261,6 +1412,8 @@ proc_node_t proc_table[] = {
 	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
 	{"mp_test", NULL, &proc_mp_test_fops, false},
+	{"oppo_mp_lcm_on", NULL, &proc_oppo_mp_lcm_on_fops, false},
+	{"oppo_mp_lcm_off", NULL, &proc_oppo_mp_lcm_off_fops, false},
 	{"debug_message", NULL, &proc_debug_message_fops, false},
 	{"debug_message_switch", NULL, &proc_debug_message_switch_fops, false},
 };

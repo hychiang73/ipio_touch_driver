@@ -47,6 +47,13 @@
 #define POLL_CHECK 1
 #define DELAY_CHECK 2
 
+#define NORMAL_CSV_PASS_NAME		"mp_pass"
+#define NORMAL_CSV_FAIL_NAME		"mp_fail"
+#define OPPO_CSV_PASS_NAME			"oppo_mp_pass"
+#define OPPO_CSV_FAIL_NAME			"oppo_mp_fail"
+#define OPPO_CSV_LCM_PASS_NAME		"oppo_mp_lcm_pass"
+#define OPPO_CSV_LCM_FAIL_NAME		"oppo_mp_lcm_fail"
+
 #define CSV_FILE_SIZE   (500 * 1024)
 
 #define Mathabs(x) ({						\
@@ -385,6 +392,7 @@ out:
 	return ret;
 }
 
+#if 0
 static void mp_calc_nodp(bool long_v)
 {
 	uint8_t at, phase;
@@ -462,6 +470,7 @@ static void mp_calc_nodp(bool long_v)
 	ipio_info("TXPW = %d\n",core_mp->nodp.txpw);
 	ipio_info("NODP = %d\n",core_mp->nodp.nodp);
 }
+#endif
 
 static int allnode_key_cdc_data(int index)
 {
@@ -578,7 +587,7 @@ out:
 	ipio_kfree((void **)&ori);
 	return res;
 }
-
+# if 0
 static int mp_calc_timing_nodp(void)
 {
 	int ret = 0;
@@ -668,6 +677,7 @@ static int mp_calc_timing_nodp(void)
 out:
 	return ret;
 }
+#endif
 
 static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 {
@@ -686,7 +696,7 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 		key = "Raw Data(Have BK)";
 
 	/* Calculate NODP */
-	mp_calc_timing_nodp();
+	//mp_calc_timing_nodp();
 
 	ipio_info("%s gets %s command from INI.\n", tItems[index].desp, key);
 
@@ -859,7 +869,8 @@ static int allnode_mutual_cdc_data(int index)
 			else
 				frame_buf[i] = tmp;
 
-			if(strcmp(tItems[index].name, "mutual_no_bk") == 0)
+			if(strncmp(tItems[index].name, "mutual_no_bk", strlen("mutual_no_bk")) == 0 ||
+				strncmp(tItems[index].name, "mutual_no_bk_lcm_off", strlen("mutual_no_bk_lcm_off")) == 0)
 			{
 				if(core_config->chip_id == CHIP_TYPE_ILI9881)
 				{
@@ -1145,7 +1156,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	}
 
 	/* Calculate NODP */
-	mp_calc_timing_nodp();
+	//mp_calc_timing_nodp();
 
 	/* CDC init. Read command from ini file */
 	res = core_parser_get_int_data("PV5_4 Command", key[mode], str);
@@ -1682,6 +1693,7 @@ void core_mp_show_result(void)
 	int32_t *max_threshold = NULL, *min_threshold = NULL;
 	char *csv = NULL;
 	char csv_name[128] = { 0 };
+	char *ret_pass_name = NULL, *ret_fail_name = NULL;
 	char *line_breaker = "\n";
 	struct file *f = NULL;
 	mm_segment_t fs;
@@ -1695,7 +1707,7 @@ void core_mp_show_result(void)
 
 	max_threshold = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 	min_threshold = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(max_threshold) ||ERR_ALLOC_MEM(min_threshold)){
+	if (ERR_ALLOC_MEM(max_threshold) || ERR_ALLOC_MEM(min_threshold)) {
 		ipio_err("Failed to allocate threshold FRAME buffer\n");
 		goto fail_open;
 	}
@@ -1712,8 +1724,7 @@ void core_mp_show_result(void)
 		pr_info("Frame count = %d\n",tItems[i].frame_count);
 		csv_len += sprintf(csv + csv_len, "Frame count = %d\n", tItems[i].frame_count);
 
-		if(tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST)
-		{
+		if(tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST) {
 			pr_info("Lowest Percentage = %d\n",tItems[i].lowest_percentage);
 			csv_len += sprintf(csv + csv_len, "Lowest Percentage = %d\n", tItems[i].lowest_percentage);
 
@@ -1723,17 +1734,18 @@ void core_mp_show_result(void)
 			mp_test_data_sort_average(tItems[i].buf, i, tItems[i].result_buf);
 		}
 
+		/* Show result of benchmark max and min */
 		if ( tItems[i].spec_option == BENCHMARK){
 			for(j = 0 ;j < core_mp->frame_len ; j++){
 				max_threshold[j] = tItems[i].bench_mark_max[j];
 				min_threshold[j] = tItems[i].bench_mark_min[j];
 			}
-			//show bench mark max min
+
 			mp_compare_cdc_show_result(tItems[i].bench_mark_max, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,&tItems[i].item_result,"Max_Bench");
 			mp_compare_cdc_show_result(tItems[i].bench_mark_min, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,&tItems[i].item_result,"Min_Bench");
-		}else{
+		} else {
 
-			for(j = 0 ;j < core_mp->frame_len ; j++){
+			for(j = 0 ;j < core_mp->frame_len ; j++) {
 				max_threshold[j] = tItems[i].max;
 				min_threshold[j] = tItems[i].min;
 			}
@@ -1757,8 +1769,8 @@ void core_mp_show_result(void)
 				continue;
 			}
 		}
-//---------------------------------------------------------------------------------------------------------------------------------------
-//show test result at blow
+
+		/* Show test result as below */
 		if (tItems[i].catalog == KEY_TEST) {
 			for (x = 0; x < core_mp->key_len; x++) {
 				DUMP(DEBUG_MP_TEST, "KEY_%02d ", x);
@@ -1777,14 +1789,14 @@ void core_mp_show_result(void)
 			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
 		} else if (tItems[i].catalog == TX_RX_DELTA) {
 
-			for(j = 0 ;j < core_mp->frame_len ; j++){
+			for(j = 0 ;j < core_mp->frame_len ; j++) {
 				max_threshold[j] = core_mp->TxDeltaMax;
 				min_threshold[j] = core_mp->TxDeltaMin;
 			}
 			mp_compare_cdc_show_result(core_mp->tx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"TX Max Hold");
 			mp_compare_cdc_show_result(core_mp->tx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"TX Min Hold");
 
-			for(j = 0 ;j < core_mp->frame_len ; j++){
+			for(j = 0 ;j < core_mp->frame_len ; j++) {
 				max_threshold[j] = core_mp->RxDeltaMax;
 				min_threshold[j] = core_mp->RxDeltaMin;
 			}
@@ -1792,19 +1804,16 @@ void core_mp_show_result(void)
 			mp_compare_cdc_show_result(core_mp->rx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"RX Min Hold");
 
 		} else {
-			//1.show test result
+			/* general result */
 			if(tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST){
 				mp_compare_cdc_show_result(tItems[i].result_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"Mean result");
-			}
-			else{
+			} else {
 				mp_compare_cdc_show_result(tItems[i].max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"Max Hold");
 				mp_compare_cdc_show_result(tItems[i].min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"Min Hold");
 			}
-			//2.show each frame count buffer
-			if(tItems[i].catalog != PEAK_TO_PEAK_TEST)
-			{
-				for(j = 0; j < tItems[i].frame_count; j++)
-				{
+			/* result of each frame */
+			if(tItems[i].catalog != PEAK_TO_PEAK_TEST) {
+				for(j = 0; j < tItems[i].frame_count; j++) {
 					char frame_name[128] ={ 0 };
 					sprintf(frame_name, "Frame %d", (j+1));
 					mp_compare_cdc_show_result(&tItems[i].buf[(j*core_mp->frame_len)], csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold,&tItems[i].item_result,frame_name);
@@ -1826,13 +1835,26 @@ void core_mp_show_result(void)
 		}
 	}
 
-	if(pass_item_count == 0){
-		core_mp->final_result = MP_FAIL;
-		sprintf(csv_name, "%s/%s.csv", CSV_PATH, "mp_fail");
+	/* define csv file name */
+	if (core_mp->oppo_run) {
+		if (core_mp->oppo_lcm) {
+			ret_pass_name = OPPO_CSV_LCM_PASS_NAME;
+			ret_fail_name = OPPO_CSV_LCM_FAIL_NAME;
+		} else {
+			ret_pass_name = OPPO_CSV_PASS_NAME;
+			ret_fail_name = OPPO_CSV_FAIL_NAME;
+		}
+	} else {
+		ret_pass_name = NORMAL_CSV_PASS_NAME;
+		ret_fail_name = NORMAL_CSV_FAIL_NAME;
 	}
-	else{
+
+	if (pass_item_count == 0) {
+		core_mp->final_result = MP_FAIL;
+		sprintf(csv_name, "%s/%s.csv", CSV_PATH, ret_fail_name);
+	} else {
 		core_mp->final_result = MP_PASS;
-		sprintf(csv_name, "%s/%s.csv", CSV_PATH, "mp_pass");
+		sprintf(csv_name, "%s/%s.csv", CSV_PATH, ret_pass_name);
 	}
 
 	ipio_info("Open CSV : %s\n", csv_name);
@@ -1956,7 +1978,7 @@ void core_mp_run_test(char *item, bool ini)
 
 				/* LCM on */
 				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
-					mp_ctrl_lcm_status(false);
+					mp_ctrl_lcm_status(true);
 			}
 			break;
 		}
@@ -2174,6 +2196,8 @@ int core_mp_init(void)
 			core_mp->busy_cdc = INT_CHECK;
 
 			core_mp->run = false;
+			core_mp->oppo_run = false;
+			core_mp->oppo_lcm = false;
 			core_mp->final_result = MP_FAIL;
 
 			mp_test_init_item();

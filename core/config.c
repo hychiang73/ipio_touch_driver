@@ -397,7 +397,10 @@ void core_config_ic_suspend(void)
 {
 	ipio_info("Starting to suspend ...\n");
 
-	core_gesture->suspend = true;
+	ilitek_platform_disable_irq();
+
+	if (ipd->isEnablePollCheckPower)
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
 
 	/* sense stop */
 	core_config_sense_ctrl(false);
@@ -414,6 +417,7 @@ void core_config_ic_suspend(void)
 		if(core_gesture_load_code() < 0)
 			ipio_err("load gesture code fail\n");
 #endif
+		ilitek_platform_enable_irq();
 	} else {
 		/* sleep in */
 		core_config_sleep_ctrl(false);
@@ -434,10 +438,9 @@ void core_config_ic_resume(void)
 {
 	ipio_info("Starting to resume ...\n");
 
-	core_gesture->suspend = false;
-
 	if (core_config->isEnableGesture) {
 #ifdef HOST_DOWNLOAD
+		ilitek_platform_disable_irq();
 		if(core_gesture_load_ap_code() < 0) {
 			ipio_err("load ap code fail\n");
 			ilitek_platform_tp_hw_reset(true);
@@ -455,11 +458,19 @@ void core_config_ic_resume(void)
 
 	/* sense start for TP */
 	core_config_sense_ctrl(true);
-	core_fr_mode_control( &protocol->demo_mode);
+
+	core_fr_mode_control(&protocol->demo_mode);
+
 	/* Soft reset */
 	// core_config_ice_mode_enable();
 	// mdelay(10);
 	// core_config_ic_reset();
+
+	ilitek_platform_enable_irq();
+
+	if (ipd->isEnablePollCheckPower)
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+
 	ipio_info("Resume done\n");
 }
 EXPORT_SYMBOL(core_config_ic_resume);
@@ -894,7 +905,9 @@ int core_config_get_chip_id(void)
 
 	PIDData = core_config_ice_mode_read(core_config->pid_addr);
 	core_config->chip_pid = PIDData;
-	ipio_info("PID = 0x%x\n", core_config->chip_pid);
+	core_config->core_type = PIDData & 0xFF;
+	ipio_info("PID = 0x%x, Core type = 0x%x\n",
+		core_config->chip_pid, core_config->core_type);
 
 	if (PIDData) {
 		RealID = check_chip_id(PIDData);

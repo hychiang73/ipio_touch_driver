@@ -28,7 +28,7 @@
 
 #define BENCHMARK_KEY_NAME "Benchmark_Data"
 #define NODE_TYPE_KEY_NAME "node_type_Data"
-#define TYPE_MARK "[Type Mark]"
+#define TYPE_MARK "[Driver Type Mark]"
 #define VALUE 0
 
 extern void core_parser_nodetype(int32_t* type_ptr, char *desp);

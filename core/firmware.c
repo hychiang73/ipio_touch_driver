@@ -47,9 +47,6 @@
 #include "ilitek_fw.h"
 #endif
 
-extern uint32_t SUP_CHIP_LIST[];
-extern int nums_chip;
-extern struct core_fr_data *core_fr;
 /*
  * the size of two arrays is different depending on
  * which of methods to upgrade firmware you choose for.
@@ -540,6 +537,7 @@ static int iram_upgrade(void)
 }
 #endif
 
+#ifdef HOST_DOWNLOAD
 static int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t r_len)
 {
 	int addr = 0, i = 0;
@@ -621,7 +619,7 @@ static int write_download(uint32_t start, uint32_t size, uint8_t *w_buf, uint32_
 	return 0;
 }
 
-static int host_download_check_crc(int block)
+static int host_download_dma_check(int block)
 {
 	int count = 50;
 	uint8_t ap_block = 0, dlm_block = 1;
@@ -663,7 +661,6 @@ static int host_download_check_crc(int block)
 	while (count > 0) {
 		mdelay(1);
 		busy = core_config_read_write_onebyte(0x048006);
-		ipio_info("busy = 0x%x\n", busy);
 
 		if (busy == 1)
 			break;
@@ -679,10 +676,9 @@ static int host_download_check_crc(int block)
 	return core_config_ice_mode_read(0x04101C);
 }
 
-#ifdef HOST_DOWNLOAD
 int tddi_host_download(bool mode)
 {
-	int res = 0, local_crc, dma_crc;
+	int res = 0, ap_crc, ap_dma, dlm_crc, dlm_dma, method;
 	uint8_t *buf = NULL, *read_ap_buf = NULL, *read_dlm_buf = NULL, *read_mp_buf = NULL;
 	uint8_t *read_gesture_buf = NULL, *gesture_ap_buf = NULL;
 
@@ -691,6 +687,10 @@ int tddi_host_download(bool mode)
 		ipio_err("Failed to enter ICE mode, res = %d\n", res);
 		return res;
 	}
+
+	method = core_config_ice_mode_read(core_config->pid_addr);
+	method = method & 0xff;
+	ipio_info("method of calculation for crc = %x\n", method);
 
 	/* Allocate buffers for host download */
     read_ap_buf = kcalloc(MAX_AP_FIRMWARE_SIZE, sizeof(uint8_t), GFP_KERNEL);
@@ -701,7 +701,7 @@ int tddi_host_download(bool mode)
 	if (ERR_ALLOC_MEM(read_ap_buf) || ERR_ALLOC_MEM(read_mp_buf) ||
 		ERR_ALLOC_MEM(read_dlm_buf) || ERR_ALLOC_MEM(buf)) {
 		ipio_err("Failed to allocate buffers for host download\n");
-		return -1;
+		return -ENOMEM;
 	}
 
 	memset(read_ap_buf, 0xFF, MAX_AP_FIRMWARE_SIZE);
@@ -717,14 +717,12 @@ int tddi_host_download(bool mode)
 
 		if (ERR_ALLOC_MEM(read_gesture_buf) || ERR_ALLOC_MEM(gesture_ap_buf)) {
 			ipio_err("Failed to allocate buffers for gesture\n");
-			return -1;
+			return -ENOMEM;
 		}
 
 		memset(gesture_ap_buf, 0xFF, core_gesture->ap_length);
 		memset(read_gesture_buf, 0xFF, core_gesture->ap_length);
 	}
-
-	ipio_info("Upgrade firmware written data into AP code directly\n");
 
 	core_config_reset_watch_dog();
 
@@ -798,46 +796,42 @@ int tddi_host_download(bool mode)
 			ipio_err("SPI Write DLM code data error\n");
 		}
 
-		/* Check AP mode Buffer data */
-		if(read_download(0, MAX_AP_FIRMWARE_SIZE, read_ap_buf, SPI_UPGRADE_LEN)) {
-			ipio_err("SPI Read MP code data error\n");
-		}
+		/* Check AP/DLM mode Buffer data */
+		if (method == CORE_TYPE_E) {
+			ap_crc = calc_crc32(0, MAX_AP_FIRMWARE_SIZE - 4, ap_fw);
+			ap_dma = host_download_dma_check(0);
 
-		if(memcmp(ap_fw, read_ap_buf, MAX_AP_FIRMWARE_SIZE) == 0) {
-			ipio_info("Check AP Mode upgrade: PASS\n");
-		}
-		else {
-			ipio_info("Check AP Mode upgrade: FAIL\n");
-			res = UPDATE_FAIL;
-			goto out;
-		}
+			dlm_crc = calc_crc32(0, MAX_DLM_FIRMWARE_SIZE, dlm_fw);
+			dlm_dma = host_download_dma_check(1);
 
-		/* Check DLM mode Buffer data */
-		if(read_download(DLM_START_ADDRESS, MAX_DLM_FIRMWARE_SIZE, read_dlm_buf, SPI_UPGRADE_LEN)) {
-			ipio_err("SPI Read DLM code data error\n");
-		}
+			ipio_info("AP CRC %s (%x) : (%x)\n",
+				(ap_crc != ap_dma ? "Invalid !" : "Correct !"), ap_crc, ap_dma);
 
-		if(memcmp(dlm_fw, read_dlm_buf, MAX_DLM_FIRMWARE_SIZE) == 0) {
-			ipio_info("Check DLM Mode upgrade: PASS\n");
+			ipio_info("DLM CRC %s (%x) : (%x)\n",
+				(dlm_crc != dlm_dma ? "Invalid !" : "Correct !"), dlm_crc, dlm_dma);
+
+			if (CHECK_EQUAL(ap_crc, ap_dma) == UPDATE_FAIL ||
+					CHECK_EQUAL(dlm_crc, dlm_dma) == UPDATE_FAIL ) {
+				ipio_info("Check AP/DLM Mode upgrade: FAIL\n");
+				res = UPDATE_FAIL;
+				goto out;
+			}
 		} else {
-			ipio_info("Check DLM Mode upgrade: FAIL\n");
-			res = UPDATE_FAIL;
-			goto out;
+			read_download(0, MAX_AP_FIRMWARE_SIZE, read_ap_buf, SPI_UPGRADE_LEN);
+			read_download(DLM_START_ADDRESS, MAX_DLM_FIRMWARE_SIZE, read_dlm_buf, SPI_UPGRADE_LEN);
+
+			if (memcmp(ap_fw, read_ap_buf, MAX_AP_FIRMWARE_SIZE) != 0 ||
+					memcmp(dlm_fw, read_dlm_buf, MAX_DLM_FIRMWARE_SIZE) != 0) {
+				ipio_info("Check AP/DLM Mode upgrade: FAIL\n");
+				res = UPDATE_FAIL;
+				goto out;
+			} else {
+				ipio_info("Check AP/DLM Mode upgrade: SUCCESS\n");
+			}
 		}
-
-		local_crc = calc_crc32(0, MAX_AP_FIRMWARE_SIZE - 4, ap_fw);
-		dma_crc = host_download_check_crc(0);
-
-		ipio_info("AP CRC %s (%x) : (%x)\n",
-			(local_crc != dma_crc ? "Invalid !" : "Correct !"), local_crc, dma_crc);
-
-		local_crc = calc_crc32(0, MAX_DLM_FIRMWARE_SIZE, dlm_fw);
-		dma_crc = host_download_check_crc(1);
-
-		ipio_info("DLM CRC %s (%x) : (%x)\n",
-			(local_crc != dma_crc ? "Invalid !" : "Correct !"), local_crc, dma_crc);
 	}
 
+out:
 	if(!core_gesture->entry) {
 		/* ice mode code reset */
 		ipio_info("Doing code reset ...\n");
@@ -848,7 +842,6 @@ int tddi_host_download(bool mode)
 	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
 		mdelay(1200);
 
-out:
 	ipio_kfree((void **)&buf);
 	ipio_kfree((void **)&read_ap_buf);
 	ipio_kfree((void **)&read_dlm_buf);
@@ -858,7 +851,67 @@ out:
 	return res;
 }
 EXPORT_SYMBOL(tddi_host_download);
-#endif
+
+int core_firmware_boot_host_download(void)
+{
+	int res = 0;
+	bool power = false;
+
+	ipio_info("BOOT: Starting to upgrade firmware ...\n");
+
+	core_firmware->isUpgrading = true;
+	core_firmware->update_status = 0;
+
+	if (ipd->isEnablePollCheckPower) {
+		ipd->isEnablePollCheckPower = false;
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		power = true;
+	}
+
+	memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER, MAX_AP_FIRMWARE_SIZE);
+	memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
+
+	core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
+	core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
+	core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
+	core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
+	core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
+
+	ipio_info("gesture_start_addr = 0x%x, length = 0x%x\n", core_gesture->start_addr, core_gesture->length);
+	ipio_info("area = %d, ap_start_addr = 0x%x, ap_length = 0x%x\n",
+				core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
+
+	memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + MP_HEX_ADDRESS, MAX_MP_FIRMWARE_SIZE);
+	memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + core_gesture->start_addr, core_gesture->length);
+
+	gpio_direction_output(ipd->reset_gpio, 1);
+	mdelay(ipd->delay_time_high);
+	gpio_set_value(ipd->reset_gpio, 0);
+	mdelay(ipd->delay_time_low);
+	gpio_set_value(ipd->reset_gpio, 1);
+	mdelay(ipd->edge_delay);
+
+	res = core_firmware->upgrade_func(true);
+	if (res < 0) {
+		core_firmware->update_status = res;
+		ipio_err("Failed to upgrade firmware, res = %d\n", res);
+		goto out;
+	}
+
+	core_firmware->update_status = 100;
+	// ipio_info("Update firmware information...\n");
+	// ilitek_platform_read_tp_info();
+
+out:
+	if (power) {
+		ipd->isEnablePollCheckPower = true;
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+	}
+	core_firmware->isUpgrading = false;
+	return res;
+}
+EXPORT_SYMBOL(core_firmware_boot_host_download);
+#endif /* HOST_DOWNLOAD */
 
 static int tddi_fw_upgrade(bool isIRAM)
 {
@@ -1159,71 +1212,10 @@ out:
 }
 #endif /* BOOT_FW_UPGRADE */
 
-#ifdef HOST_DOWNLOAD
-int core_firmware_boot_host_download(void)
-{
-	int res = 0;
-	bool power = false;
-
-	ipio_info("BOOT: Starting to upgrade firmware ...\n");
-
-	core_firmware->isUpgrading = true;
-	core_firmware->update_status = 0;
-
-	if (ipd->isEnablePollCheckPower) {
-		ipd->isEnablePollCheckPower = false;
-		cancel_delayed_work_sync(&ipd->check_power_status_work);
-		power = true;
-	}
-
-	memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER, MAX_AP_FIRMWARE_SIZE);
-	memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
-
-	core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
-	core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
-	core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
-	core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
-	core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
-
-	ipio_info("gesture_start_addr = 0x%x, length = 0x%x\n", core_gesture->start_addr, core_gesture->length);
-	ipio_info("area = %d, ap_start_addr = 0x%x, ap_length = 0x%x\n",
-				core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
-
-	memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + MP_HEX_ADDRESS, MAX_MP_FIRMWARE_SIZE);
-	memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + core_gesture->start_addr, core_gesture->length);
-
-	gpio_direction_output(ipd->reset_gpio, 1);
-	mdelay(ipd->delay_time_high);
-	gpio_set_value(ipd->reset_gpio, 0);
-	mdelay(ipd->delay_time_low);
-	gpio_set_value(ipd->reset_gpio, 1);
-	mdelay(ipd->edge_delay);
-
-	res = core_firmware->upgrade_func(true);
-	if (res < 0) {
-		core_firmware->update_status = res;
-		ipio_err("Failed to upgrade firmware, res = %d\n", res);
-		goto out;
-	}
-
-	core_firmware->update_status = 100;
-	ipio_info("Update firmware information...\n");
-	ilitek_platform_read_tp_info();
-
-out:
-	if (power) {
-		ipd->isEnablePollCheckPower = true;
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
-	}
-	core_firmware->isUpgrading = false;
-	return res;
-}
-EXPORT_SYMBOL(core_firmware_boot_host_download);
-#endif
-
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	int index = 0, block = 0;
+	static int do_once = 0;
 	uint32_t i = 0, j = 0, k = 0;
 	uint32_t nLength = 0, nAddr = 0, nType = 0;
 	uint32_t nStartAddr = 0x0, nEndAddr = 0x0, nChecksum = 0x0, nExAddr = 0;
@@ -1303,7 +1295,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			for (j = 0, k = 0; j < (nLength * 2); j += 2, k++) {
 				if (isIRAM)
 				{
-					#ifdef HOST_DOWNLOAD
+#ifdef HOST_DOWNLOAD
 					if(nAddr < 0x10000) {
 						ap_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					} else if(nAddr >= DLM_HEX_ADDRESS && nAddr < MP_HEX_ADDRESS ) {
@@ -1312,13 +1304,20 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 					} else if(nAddr >= MP_HEX_ADDRESS) {
 						mp_fw[nAddr - MP_HEX_ADDRESS + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					}
-
+                    if(nAddr > MAX_AP_FIRMWARE_SIZE && do_once == 0) {
+                        do_once = 1;
+                        core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
+                        core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
+                        core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
+                        core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
+                        core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
+                    }
 					if(nAddr >= core_gesture->start_addr && nAddr < core_gesture->start_addr + MAX_GESTURE_FIRMWARE_SIZE) {
 						gesture_fw[nAddr - core_gesture->start_addr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					}
-					#else
+#else
 					iram_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
-					#endif
+#endif
 				}
 				else {
 					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
@@ -1504,6 +1503,7 @@ no_hex_file:
 		ipio_err("Failed to upgrade firmware, res = %d\n", res);
 		goto out;
 	}
+
 #ifndef HOST_DOWNLOAD
 	ipio_info("Update TP/Firmware information...\n");
 	core_config_get_fw_ver();
@@ -1512,6 +1512,7 @@ no_hex_file:
 	core_config_get_tp_info();
 	core_config_get_key_info();
 #endif
+
 out:
 	if (power) {
 		ipd->isEnablePollCheckPower = true;

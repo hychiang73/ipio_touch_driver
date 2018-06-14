@@ -111,6 +111,10 @@
 /* Driver version */
 #define DRIVER_VERSION	"1.0.3.2"
 
+/* Driver core type */
+#define CORE_TYPE_B		0x00
+#define CORE_TYPE_E		0x03
+
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
 #define PROTOCOL_MID		0x4
