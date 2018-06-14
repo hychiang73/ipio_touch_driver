@@ -336,15 +336,16 @@ static ssize_t ilitek_proc_oppo_mp_lcm_on_read(struct file *filp, char __user *b
 
 	core_mp_show_result();
 
-	core_mp_test_free();
-
 	core_mp->oppo_run = false;
+
+	core_mp_test_free();
 
 	/* Switch to demo mode */
 	core_fr_mode_control(&protocol->demo_mode);
 
-	/* This reset will run host download */
+#ifdef HOST_DOWNLOAD
 	ilitek_platform_tp_hw_reset(true);
+#endif
 
 	ilitek_platform_enable_irq();
 
