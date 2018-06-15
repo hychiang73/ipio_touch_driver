@@ -723,12 +723,15 @@ static int mp_cdc_init_cmd_common(uint8_t *cmd, int len, int index)
 
 	if (protocol->major >= 5 && protocol->mid >= 4) {
 		ipio_info("Get CDC command with protocol v5.4\n");
+		protocol->cdc_len = 15;
 		return mp_cdc_get_pv5_4_command(cmd, len, index);
 	}
 
 	cmd[0] = protocol->cmd_cdc;
 	cmd[1] = tItems[index].cmd;
 	cmd[2] = 0;
+
+	protocol->cdc_len = 3;
 
 	if (strcmp(tItems[index].name, "open_integration") == 0)
 		cmd[2] = 0x2;
@@ -739,6 +742,8 @@ static int mp_cdc_init_cmd_common(uint8_t *cmd, int len, int index)
 		cmd[2] = ((tItems[index].frame_count & 0xff00) >> 8);
 		cmd[3] = tItems[index].frame_count & 0xff;
 		cmd[4] = 0;
+
+		protocol->cdc_len = 5;
 
 		if (strcmp(tItems[index].name, "noise_peak_to_peak_cut") == 0)
 			cmd[4] = 0x1;
@@ -1171,7 +1176,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 
 	dump_data(cmd, 8, sizeof(cmd), 0, "Open SP command");
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 15);
+	res = core_write(core_config->slave_i2c_addr, cmd, protocol->cdc_len);
 	if (res < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;

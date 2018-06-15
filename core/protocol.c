@@ -280,7 +280,11 @@ static void config_protocol_v5_cmd(void)
 	protocol->cmd_cdc = P5_0_SET_CDC_INIT;
 	protocol->cmd_get_cdc = P5_0_GET_CDC_DATA;
 
-	protocol->cdc_len = 15;
+	if (protocol->mid < 4) {
+		protocol->cdc_len = 3;
+	} else {
+		protocol->cdc_len = 15;
+	}
 
 	protocol->mutual_dac = 0x1;
 	protocol->mutual_bg = 0x2;
