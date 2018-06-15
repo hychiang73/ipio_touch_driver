@@ -146,6 +146,7 @@ struct mp_test_items tItems[] = {
 	{.name = "noise_peak_to_peak_ic", .desp = "Noise Peak to Peak(IC Only)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 	{.name = "noise_peak_to_peak_ic_lcm_off", .desp = "Noise Peak to Peak(IC Only)(LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 	{.name = "noise_peak_to_peak_panel", .desp = "Noise Peak To Peak(With Panel)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.name = "noise_peak_to_peak_panel_lcm_off", .desp = "Noise Peak to Peak(With Panel)(LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 
 	{.name = "doze_raw", .desp = "Doze Raw Data", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "doze_p2p", .desp = "Doze Peak To Peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
@@ -362,7 +363,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 	return 0;
 }
 
-static int mp_ctrl_lcm_status(bool on)
+int core_mp_ctrl_lcm_status(bool on)
 {
 	int ret = 0, ctrl = 0, delay = 0;
 	uint8_t lcd[15] = {0};
@@ -391,8 +392,8 @@ static int mp_ctrl_lcm_status(bool on)
 out:
 	return ret;
 }
+EXPORT_SYMBOL(core_mp_ctrl_lcm_status);
 
-#if 0
 static void mp_calc_nodp(bool long_v)
 {
 	uint8_t at, phase;
@@ -470,7 +471,6 @@ static void mp_calc_nodp(bool long_v)
 	ipio_info("TXPW = %d\n",core_mp->nodp.txpw);
 	ipio_info("NODP = %d\n",core_mp->nodp.nodp);
 }
-#endif
 
 static int allnode_key_cdc_data(int index)
 {
@@ -587,13 +587,18 @@ out:
 	ipio_kfree((void **)&ori);
 	return res;
 }
-# if 0
-static int mp_calc_timing_nodp(void)
+
+int core_mp_calc_timing_nodp(void)
 {
 	int ret = 0;
 	uint8_t test_type = 0x0;
 	uint8_t timing_cmd[15] = {0};
 	uint8_t get_timing[64] = {0};
+
+	if (ERR_ALLOC_MEM(core_mp)) {
+		ipio_err("core_mp is NULL\n");
+		return -ENOMEM;
+	}
 
 	memset(timing_cmd, 0xFF, sizeof(timing_cmd));
 
@@ -677,7 +682,7 @@ static int mp_calc_timing_nodp(void)
 out:
 	return ret;
 }
-#endif
+EXPORT_SYMBOL(core_mp_calc_timing_nodp);
 
 static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 {
@@ -694,9 +699,8 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 		key = "Raw Data(No BK)";
 	else if (strncmp(key, "Raw Data(Have BK)(LCM OFF)", strlen(key)) == 0)
 		key = "Raw Data(Have BK)";
-
-	/* Calculate NODP */
-	//mp_calc_timing_nodp();
+	else if (strncmp(key, "Noise Peak to Peak(With Panel)(LCM OFF)", strlen(key)) == 0 )
+		key = "Noise Peak To Peak(With Panel)";
 
 	ipio_info("%s gets %s command from INI.\n", tItems[index].desp, key);
 
@@ -1154,9 +1158,6 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 		res = -1;
 		goto out;
 	}
-
-	/* Calculate NODP */
-	//mp_calc_timing_nodp();
 
 	/* CDC init. Read command from ini file */
 	res = core_parser_get_int_data("PV5_4 Command", key[mode], str);
@@ -1964,8 +1965,10 @@ void core_mp_run_test(char *item, bool ini)
 
 			if (tItems[i].run) {
 				/* LCM off */
-				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
-					mp_ctrl_lcm_status(false);
+				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL) {
+					if (!core_mp->oppo_run && !core_mp->oppo_lcm)
+						core_mp_ctrl_lcm_status(false);
+				}
 
 				core_mp->run = true;
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
@@ -1977,8 +1980,10 @@ void core_mp_run_test(char *item, bool ini)
 				core_mp->run = false;
 
 				/* LCM on */
-				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
-					mp_ctrl_lcm_status(true);
+				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL) {
+					if (!core_mp->oppo_run && !core_mp->oppo_lcm)
+						core_mp_ctrl_lcm_status(true);
+				}
 			}
 			break;
 		}

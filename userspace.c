@@ -373,13 +373,13 @@ static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *
 		goto out;
 	}
 
+	ilitek_platform_disable_irq();
+
 	/* Enter to suspend and move gesture code to iram */
 	core_config->isEnableGesture = true;
 	core_gesture->mode = GESTURE_INFO_MPDE;
 
-	core_config_ic_suspend();
-
-#if 0
+	/* sense stop */
 	core_config_sense_ctrl(false);
 
 	if (core_config_check_cdc_busy(50) < 0)
@@ -389,50 +389,33 @@ static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *
 
 	core_gesture_load_code();
 
-	mdelay(10);
-
-	core_gesture_load_ap_code();
-
-	core_config_sleep_ctrl(true);
-
-	if (core_config_check_cdc_busy(50) < 0)
-		ipio_err("Check busy is timout !\n");
-
-	core_config_sense_ctrl(true);
-#endif
-
 	/* Switch to test mode which moves mp code to iram */
 	core_fr_mode_control(&protocol->test_mode);
 
 	ilitek_platform_disable_irq();
-
-	mdelay(10);
 
 	/* Indicates running mp test is called by oppo node */
 	core_mp->oppo_run = true;
 	core_mp->oppo_lcm = true;
 
 	/* Do not chang the sequence of test */
-	core_mp_run_test("Raw Data(Have BK)(LCM OFF)", true);
-	//core_mp_run_test("Raw Data(No BK)(LCM OFF)", true);
-	// core_mp_run_test("Noise Peak to Peak(With Panel)(LCM OFF)", true);
-	// core_mp_run_test("Noise Peak to Peak(IC Only)(LCM OFF)", true);
-	// core_mp_run_test("Raw Data_TD(LCM OFF)", true);
-	// core_mp_run_test("Peak To Peak_TD(LCM OFF)", true);
+	core_mp_run_test("Raw Data(No BK)(LCM OFF)", true);
+	core_mp_run_test("Noise Peak to Peak(With Panel)(LCM OFF)", true);
+	core_mp_run_test("Raw Data_TD(LCM OFF)", true);
+	core_mp_run_test("Peak To Peak_TD(LCM OFF)", true);
 
 	core_mp_show_result();
 
 	core_mp->oppo_run = false;
 	core_mp->oppo_lcm = false;
 
+	core_mp_ctrl_lcm_status(true);
+
 	core_mp_test_free();
 
-	core_config_ic_resume();
-
-#if 0
 	core_fr_mode_control(&protocol->demo_mode);
+
 	ilitek_platform_tp_hw_reset(true);
-#endif
 
 	ilitek_platform_enable_irq();
 
@@ -459,10 +442,21 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 		goto out;
 	}
 
-	/* Switch to Test mode */
+	/* Switch to Test mode nad move mp code */
 	core_fr_mode_control(&protocol->test_mode);
 
 	ilitek_platform_disable_irq();
+
+	/*
+	 * Get timing parameters first.
+	 * Howerver, this can be ignored if read them from ini.
+	 */
+	if (protocol->major >= 5 && protocol->mid >= 4) {
+		if (core_mp_calc_timing_nodp() < 0) {
+			ipio_err("Can't get timing parameters\n");
+			goto out;
+		}
+	}
 
 	/* Do not chang the sequence of test */
 	core_mp_run_test("Noise Peak To Peak(With Panel)", true);

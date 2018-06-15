@@ -161,6 +161,8 @@ extern struct core_mp_test_data *core_mp;
 extern struct mp_test_items tItems[];
 
 extern void dump_data(void *data, int type, int len, int row_len, const char *name);
+extern int core_mp_calc_timing_nodp(void);
+extern int core_mp_ctrl_lcm_status(bool on);
 extern void core_mp_test_free(void);
 extern void core_mp_show_result(void);
 extern void core_mp_run_test(char *item, bool ini);
