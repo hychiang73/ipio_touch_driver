@@ -489,7 +489,7 @@ static int iram_upgrade(void)
 
 	mdelay(20);
 
-	core_config_reset_watch_dog();
+	core_config_set_watch_dog();
 
 	ipio_debug(DEBUG_FIRMWARE, "nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X\n",
 	    core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
@@ -724,7 +724,11 @@ int tddi_host_download(bool mode)
 		memset(read_gesture_buf, 0xFF, core_gesture->ap_length);
 	}
 
-	core_config_reset_watch_dog();
+	if (core_config_set_watch_dog(false) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+		res = -EINVAL;
+		goto out;
+	}
 
 	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE) {
 		/* write hex to the addr of MP code */
@@ -838,6 +842,11 @@ out:
 		core_config_ice_mode_write(0x40040, 0xAE, 1);
 	}
 
+	if (core_config_set_watch_dog(true) < 0) {
+		ipio_err("Failed to enable watch dog\n");
+		res = -EINVAL;
+	}
+
 	core_config_ice_mode_disable();
 	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
 		mdelay(1200);
@@ -948,8 +957,11 @@ static int tddi_fw_upgrade(bool isIRAM)
 
 	mdelay(25);
 
-	/* Disable watch dog */
-	core_config_reset_watch_dog();
+	if (core_config_set_watch_dog(false) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+		res = -EINVAL;
+		goto out;
+	}
 
 	/* Disable flash protection from being written */
 	core_flash_enable_protect(false);
@@ -985,15 +997,17 @@ static int tddi_fw_upgrade(bool isIRAM)
 
 	mdelay(20);
 
-	/* Disable watch dog */
-	core_config_reset_watch_dog();
-
 	/* check the data that we've just written into the iram. */
 	res = verify_flash_data();
 	if (res == 0)
 		ipio_info("Data Correct !\n");
 
 out:
+	if (core_config_set_watch_dog(true) < 0) {
+		ipio_err("Failed to enable watch dog\n");
+		res = -EINVAL;
+	}
+
 	core_config_ice_mode_disable();
 	return res;
 }

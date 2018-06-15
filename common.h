@@ -192,6 +192,7 @@ enum ili7881_types
 #define ILI7807_SLAVE_ADDR		0x41
 #define ILI7807_ICE_MODE_ADDR	0x181062
 #define ILI7807_PID_ADDR		0x4009C
+#define ILI7808_WDT_ADDR		0x5100C
 
 /* ILI9881 Series */
 enum ili9881_types
@@ -207,6 +208,7 @@ enum ili9881_types
 #define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
 #define ILI9881_PID_ADDR		0x4009C
+#define ILI9881_WDT_ADDR		0x5100C
 
 /*
  * Other settings

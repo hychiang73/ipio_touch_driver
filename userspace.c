@@ -481,13 +481,19 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_mp_test_free();
 
 #ifndef HOST_DOWNLOAD
-	/* Code reset */
 	core_config_ice_mode_enable();
 
-	/* Disable watch dog */
-	core_config_reset_watch_dog();
+	if (core_config_set_watch_dog(false) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
 
 	core_config_ic_reset();
+
+	if (core_config_set_watch_dog(true) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
+
+	core_config_ice_mode_disable();
 #endif
 	/* Switch to Demo mode */
 	core_fr_mode_control(&protocol->demo_mode);
@@ -509,7 +515,6 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	char cmd[64] = {0}, str[512] = {0};
 	char *token = NULL, *cur = NULL;
 	uint8_t *va = NULL;
-	uint8_t test_cmd[2] = {0};
 
 	if (buff != NULL) {
 		res = copy_from_user(cmd, buff, size - 1);
@@ -545,8 +550,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	}
 
 	/* Switch to Test mode */
-	test_cmd[0] = protocol->test_mode;
-	core_fr_mode_control(test_cmd);
+	core_fr_mode_control(&protocol->test_mode);
 
 	ilitek_platform_disable_irq();
 
@@ -568,18 +572,22 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	core_mp_test_free();
 
 #ifndef HOST_DOWNLOAD
-	/* Code reset */
 	core_config_ice_mode_enable();
 
-	/* Disable watch dog */
-	core_config_reset_watch_dog();
+	if (core_config_set_watch_dog(false) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
 
 	core_config_ic_reset();
+
+	if (core_config_set_watch_dog(true) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
+
+	core_config_ice_mode_disable();
 #endif
 
-	/* Switch to Demo mode it prevents if fw fails to be switched */
-	test_cmd[0] = protocol->demo_mode;
-	core_fr_mode_control(test_cmd);
+	core_fr_mode_control(&protocol->demo_mode);
 
 #ifdef HOST_DOWNLOAD
 	ilitek_platform_tp_hw_reset(true);

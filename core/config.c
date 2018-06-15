@@ -502,19 +502,68 @@ int core_config_ice_mode_enable(void)
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 
-void core_config_reset_watch_dog(void)
+int core_config_set_watch_dog(bool enable)
 {
+	int timeout = 10, ret = 0;
+	uint8_t off_bit = 0x5A, on_bit = 0xA5;
+	uint8_t value_low = 0x0, value_high = 0x0;
+	uint32_t wdt_addr = core_config->wdt_addr;
+
+	if (wdt_addr <= 0 || core_config->chip_id <= 0) {
+		ipio_err("WDT/CHIP ID is invalid\n");
+		return -EINVAL;
+	}
+
+	/* Config register and values by IC */
 	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
-		core_config_ice_mode_write(0x5100C, 0x7, 1);
-		core_config_ice_mode_write(0x5100C, 0x78, 1);
+		value_low = 0x07;
+		value_high = 0x78;
 	} else if (core_config->chip_id == CHIP_TYPE_ILI9881 ) {
-		core_config_ice_mode_write(0x05100C, 0x81, 1);
-		core_config_ice_mode_write(0x05100C, 0x98, 1);
+		value_low = 0x81;
+		value_high = 0x98;
 	} else {
 		ipio_err("Unknown CHIP type (0x%x)\n",core_config->chip_id);
+		return -ENODEV;
 	}
+
+	if (enable) {
+		core_config_ice_mode_write(wdt_addr, 1, 1);
+	} else {
+		core_config_ice_mode_write(wdt_addr, value_low, 1);
+		core_config_ice_mode_write(wdt_addr, value_high, 1);
+	}
+
+	while (timeout > 0) {
+		ret = core_config_ice_mode_read(0x51018);
+		ipio_debug(DEBUG_CONFIG, "bit = %x\n", ret);
+
+		if (enable) {
+			if (CHECK_EQUAL(ret, on_bit) == 0)
+				break;
+		} else {
+			if (CHECK_EQUAL(ret, off_bit) == 0)
+				break;
+		}
+
+		timeout--;
+		mdelay(10);
+	}
+
+	if (timeout > 0) {
+		if (enable) {
+			ipio_info("WDT turn on succeed\n");
+		} else {
+			core_config_ice_mode_write(wdt_addr, 0, 1);
+			ipio_info("WDT turn off succeed\n");
+		}
+	} else {
+		ipio_err("WDT turn on/off timeout !\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
-EXPORT_SYMBOL(core_config_reset_watch_dog);
+EXPORT_SYMBOL(core_config_set_watch_dog);
 
 int core_config_check_cdc_busy(int delay)
 {
@@ -590,7 +639,7 @@ int core_config_get_project_id(uint8_t *pid_data)
 	}
 
 	/* Disable watch dog */
-	core_config_reset_watch_dog();
+	core_config_set_watch_dog(false);
 
 	core_config_ice_mode_write(0x041000, 0x0, 1);   /* CS low */
 	core_config_ice_mode_write(0x041004, 0x66aa55, 3);  /* Key */
@@ -965,10 +1014,12 @@ int core_config_init(void)
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI7807_PID_ADDR;
+				core_config->wdt_addr = ILI7808_WDT_ADDR;
 			} else if (core_config->chip_id == CHIP_TYPE_ILI9881) {
 				core_config->slave_i2c_addr = ILI9881_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
+				core_config->wdt_addr = ILI9881_WDT_ADDR;
 			}
 			return 0;
 		}

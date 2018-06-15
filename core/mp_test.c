@@ -1993,6 +1993,8 @@ EXPORT_SYMBOL(core_mp_run_test);
 
 int core_mp_move_code(void)
 {
+	int ret = 0;
+
 	ipio_info("Prepaing to enter Test Mode\n");
 #ifdef HOST_DOWNLOAD
 	ilitek_platform_tp_hw_reset(true);
@@ -2007,8 +2009,9 @@ int core_mp_move_code(void)
 		return -1;
 	}
 
-	/* Disable watch dog */
-	core_config_reset_watch_dog();
+	if (core_config_set_watch_dog(false) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
 
 	/* DMA Trigger */
 	core_config_ice_mode_write(0x41010, 0xFF, 1);
@@ -2023,6 +2026,10 @@ int core_mp_move_code(void)
 	/* Code reset */
 	core_config_ice_mode_write(0x40040, 0xAE, 1);
 
+	if (core_config_set_watch_dog(true) < 0) {
+		ipio_err("Failed to enable watch dog\n");
+	}
+
 	core_config_ice_mode_disable();
 
 	if (core_config_check_cdc_busy(300) < 0) {
@@ -2031,7 +2038,7 @@ int core_mp_move_code(void)
 	}
 #endif
 	ipio_info("FW Test Mode ready\n");
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(core_mp_move_code);
 
