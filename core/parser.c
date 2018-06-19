@@ -24,6 +24,7 @@
 
 #include "../common.h"
 #include "parser.h"
+#include "config.h"
 
 #define PARSER_MAX_CFG_BUF          512
 #define PARSER_MAX_KEY_NUM	        600
@@ -42,6 +43,14 @@ struct ini_file_data {
 } ilitek_ini_file_data[PARSER_MAX_KEY_NUM];
 
 int g_ini_items = 0;
+
+static int isspace_t(int x)
+{
+    if(x==' '||x=='\t'||x=='\n'||x=='\f'||x=='\b'||x=='\r')
+        return 1;
+    else
+        return 0;
+}
 
 static char *ini_str_trim_r(char *buf)
 {
@@ -81,10 +90,10 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 
 			break;
 		} else if (ch1 == 0x00) {
-			iRetNum = -1;
+			//iRetNum = -1;
 			break;	/* file end */
 		}
-		
+
 		buffer[i++] = ch1;
 	}
 
@@ -92,11 +101,11 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 	return iRetNum;
 }
 
-static int get_ini_phy_data(char *data)
+static int get_ini_phy_data(char *data, int fsize)
 {
-	int i, n = 0, res = 0;
+	int i, n = 0, res = 0 , banchmark_flag = 0, empty_section, nodetype_flag = 0;
 	int offset = 0, isEqualSign = 0;
-	char *ini_buf = NULL, *tmpSectionName = NULL;
+	char *ini_buf = NULL, *tmpSectionName = NULL, *temp;
 	char M_CFG_SSL = '[';
 	char M_CFG_SSR = ']';
 /* char M_CFG_NIS = ':'; */
@@ -123,12 +132,26 @@ static int get_ini_phy_data(char *data)
 		goto out;
 	}
 
+	temp = strnstr(data, TYPE_MARK, fsize);
+	if(temp > 0) {
+		ipio_debug(DEBUG_PARSER, "Find Type mark, locat = %d",temp-data);
+		if(core_config->core_type == CORE_TYPE_B)
+			offset = temp-data;
+		else
+			fsize = temp-data;
+	}
+
 	while (true) {
+		banchmark_flag = 0;
+		empty_section = 0;
+		nodetype_flag = 0;
 		if (g_ini_items > PARSER_MAX_KEY_NUM) {
 			ipio_err("MAX_KEY_NUM: Out of length\n");
 			goto out;
 		}
 
+		if(offset >= fsize)
+			goto out;/*over size*/
 		n = get_ini_phy_line(data + offset, ini_buf, PARSER_MAX_CFG_BUF);
 
 		if (n < 0) {
@@ -159,7 +182,9 @@ static int get_ini_phy_data(char *data)
 
 				ini_buf[n - 1] = 0x00;
 				strcpy((char *)tmpSectionName, ini_buf + 1);
-				ipio_debug(DEBUG_PARSER, "Section Name: %s, Len: %d\n", tmpSectionName, n - 2);
+				banchmark_flag = 0;
+				nodetype_flag = 0;
+				ipio_debug(DEBUG_PARSER, "Section Name: %s, Len: %d, offset = %d\n", tmpSectionName, n - 2, offset);
 				continue;
 			}
 		}
@@ -174,25 +199,58 @@ static int get_ini_phy_data(char *data)
 				isEqualSign = i;
 				break;
 			}
+			if(ini_buf[i] == M_CFG_SSL || ini_buf[i] == M_CFG_SSR){
+				empty_section = 1;
+				break;
+			}
 		}
 
 		if (isEqualSign == 0)
-			continue;
+		{
+			if(empty_section)
+				continue;
 
+			if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Benchmark_Data") > 0){
+				banchmark_flag = 1;
+				isEqualSign =-1;
+			}
+			else if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Node Type") > 0){
+				nodetype_flag = 1;
+				isEqualSign =-1;
+			}
+			else{
+				continue;
+			}
+		}
+		if(banchmark_flag){
 		/* Get Key names */
-		ilitek_ini_file_data[g_ini_items].iKeyNameLen = isEqualSign;
-		if (ilitek_ini_file_data[g_ini_items].iKeyNameLen > PARSER_MAX_KEY_NAME_LEN) {
-			/* ret = CFG_ERR_OUT_OF_LEN; */
-			ipio_err("MAX_KEY_NAME_LEN: Out Of Length\n");
-			res = INI_ERR_OUT_OF_LINE;
-			goto out;
+			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(BENCHMARK_KEY_NAME);
+			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, BENCHMARK_KEY_NAME);
+			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;
+		}
+		else if(nodetype_flag){
+		/* Get Key names */
+			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(NODE_TYPE_KEY_NAME);
+			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, NODE_TYPE_KEY_NAME);
+			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;
+		}
+		else{
+		/* Get Key names */
+			ilitek_ini_file_data[g_ini_items].iKeyNameLen = isEqualSign;
+			if (ilitek_ini_file_data[g_ini_items].iKeyNameLen > PARSER_MAX_KEY_NAME_LEN) {
+				/* ret = CFG_ERR_OUT_OF_LEN; */
+				ipio_err("MAX_KEY_NAME_LEN: Out Of Length\n");
+				res = INI_ERR_OUT_OF_LINE;
+				goto out;
+			}
+
+			memcpy(ilitek_ini_file_data[g_ini_items].pKeyName,
+			ini_buf, ilitek_ini_file_data[g_ini_items].iKeyNameLen);
+			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n - isEqualSign - 1;
 		}
 
-		memcpy(ilitek_ini_file_data[g_ini_items].pKeyName,
-		       ini_buf, ilitek_ini_file_data[g_ini_items].iKeyNameLen);
-
 		/* Get a value assigned to a key */
-		ilitek_ini_file_data[g_ini_items].iKeyValueLen = n - isEqualSign - 1;
+
 		if (ilitek_ini_file_data[g_ini_items].iKeyValueLen > PARSER_MAX_KEY_VALUE_LEN) {
 			ipio_err("MAX_KEY_VALUE_LEN: Out Of Length\n");
 			res = INI_ERR_OUT_OF_LINE;
@@ -258,14 +316,113 @@ static int get_ini_key_value(char *section, char *key, char *value)
 	return ret;
 }
 
-/* core_parser_get_ini_data - Get ini real value by its key & section
- *
- * An interface exporting to outside is used to get INI real value according to its key and section.
- *
- * @section: Section name
- * @keyname: Key name
- * @rv : A value as a string returning to callers depends on the key and the section.
- */
+
+
+void core_parser_nodetype(int32_t* type_ptr, char *desp)
+{
+
+	int i = 0, j = 0, index1 =0, temp, count = 0;
+	char str[512] = { 0 }, record = ',';
+
+	for (i = 0; i < g_ini_items; i++) {
+
+		if ((strstr(ilitek_ini_file_data[i].pSectionName, desp) <= 0) ||
+			strcmp(ilitek_ini_file_data[i].pKeyName, NODE_TYPE_KEY_NAME) != 0) {
+				continue;
+			}
+
+		record = ',';
+		for(j=0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++){
+
+			if(ilitek_ini_file_data[i].pKeyValue[j] == ';' || j == ilitek_ini_file_data[i].iKeyValueLen){
+
+				if(record != '.')
+				{
+					memset(str,0 ,sizeof(str));
+					memcpy(str,&ilitek_ini_file_data[i].pKeyValue[index1], (j -index1));
+					temp=katoi(str);
+					type_ptr[count] = temp;
+					printk("%04d,",temp);
+					count++;
+				}
+				record = ilitek_ini_file_data[i].pKeyValue[j];
+				index1 = j+1;
+			}
+		}
+		printk("\n");
+
+	}
+}
+
+void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char *desp)
+{
+	int i = 0, j = 0, index1 =0, temp, count = 0;
+	char str[512] = { 0 }, record = ',';
+	int32_t data[4];
+
+	for (i = 0; i < g_ini_items; i++) {
+		if ((strstr(ilitek_ini_file_data[i].pSectionName, desp) <= 0) ||
+			strcmp(ilitek_ini_file_data[i].pKeyName, BENCHMARK_KEY_NAME) != 0) {
+				continue;
+		}
+
+		record = ',';
+		for(j = 0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++) {
+			if(ilitek_ini_file_data[i].pKeyValue[j] == ',' || ilitek_ini_file_data[i].pKeyValue[j] == ';' ||
+				ilitek_ini_file_data[i].pKeyValue[j] == '.'|| j == ilitek_ini_file_data[i].iKeyValueLen) {
+
+				if(record != '.') {
+					memset(str, 0, sizeof(str));
+					memcpy(str, &ilitek_ini_file_data[i].pKeyValue[index1], (j - index1));
+					temp = katoi(str);
+					data[(count % 4)] = temp;
+					if ((count % 4) == 3) {
+						if (data[0] == 1) {
+							if (type == VALUE) {
+								max_ptr[count/4] = data[1] + data[2];
+								min_ptr[count/4] = data[1] + data[3];
+							} else {
+								max_ptr[count/4] = data[1] + (data[1] * data[2]) / 100;
+								min_ptr[count/4] = data[1] - (data[1] * data[3]) / 100;
+							}
+						} else {
+							max_ptr[count/4] = INT_MAX;
+							min_ptr[count/4] = INT_MIN;
+						}
+					}
+					count++;
+				}
+				record = ilitek_ini_file_data[i].pKeyValue[j];
+				index1 = j + 1;
+			}
+		}
+	}
+}
+EXPORT_SYMBOL(core_parser_benchmark);
+
+int core_parser_get_u8_array(char *key, uint8_t *buf)
+{
+	char *s = key;
+	char *pToken;
+	int res, conut = 0;
+    long s_to_long = 0;
+
+	if(isspace_t((int)(unsigned char)*s) == 0)
+	{
+		while((pToken = strsep(&s, ",")) != NULL){
+			res = kstrtol(pToken, 0, &s_to_long);
+			if(res == 0)
+				buf[conut] = s_to_long;
+			else
+				ipio_info("convert string too long, res = %d\n", res);
+			conut++;
+		}
+	}
+
+	return conut;
+}
+EXPORT_SYMBOL(core_parser_get_u8_array);
+
 int core_parser_get_int_data(char *section, char *keyname, char *rv)
 {
 	int len = 0;
@@ -318,7 +475,7 @@ int core_parser_path(char *path)
 		goto out;
 	}
 
-	tmp = kmalloc(fsize, GFP_KERNEL);
+	tmp = kmalloc(fsize+1, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tmp)) {
 		ipio_err("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
 		res = -ENOMEM;
@@ -330,10 +487,11 @@ int core_parser_path(char *path)
 	set_fs(get_ds());
 	vfs_read(f, tmp, fsize, &pos);
 	set_fs(old_fs);
+	tmp[fsize] = 0x00;
 
 	init_ilitek_ini_data();
 
-	res = get_ini_phy_data(tmp);
+	res = get_ini_phy_data(tmp,fsize);
 	if (res < 0) {
 		ipio_err("Failed to get physical ini data, res = %d\n", res);
 		goto out;
@@ -343,6 +501,7 @@ int core_parser_path(char *path)
 
 out:
 	ipio_kfree((void **)&tmp);
+	filp_close(f, NULL);
 	return res;
 }
 EXPORT_SYMBOL(core_parser_path);

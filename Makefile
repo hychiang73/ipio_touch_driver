@@ -7,7 +7,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 ccflags-y += -Wall
 
 # Build method
-BUILD_MODULE := n
+BUILD_MODULE := y
 
 ifeq ($(BUILD_MODULE),n)
 	obj-y += core/
@@ -20,6 +20,7 @@ else
 		core/firmware.o \
 		core/flash.o \
 		core/i2c.o \
+		core/spi.o \
 		core/mp_test.o \
 		core/protocol.o \
 		core/parser.o \

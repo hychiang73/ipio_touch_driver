@@ -32,6 +32,7 @@
 #include "core/protocol.h"
 #include "core/mp_test.h"
 #include "core/parser.h"
+#include "core/gesture.h"
 
 #define USER_STR_BUFF	128
 #define ILITEK_IOCTL_MAGIC	100
@@ -296,10 +297,10 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 	return send_data_len;
 }
 
-static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+/* Created only for oppo */
+static ssize_t ilitek_proc_oppo_mp_lcm_on_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	uint32_t len = 0;
-	uint8_t test_cmd[2] = { 0 };
+	int len = 0;
 
 	if (*pPos != 0)
 		return 0;
@@ -315,41 +316,196 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 		goto out;
 	}
 
-	/* Switch to Test mode */
-	test_cmd[0] = protocol->test_mode;
-	core_fr_mode_control(test_cmd);
+	/* Switch to test mode */
+	core_fr_mode_control(&protocol->test_mode);
 
 	ilitek_platform_disable_irq();
 
-	core_mp_run_test("Untouch Peak to Peak", true);
-	core_mp_run_test("Open Test(integration)", true);
-	core_mp_run_test("Open Test(Cap)", true);
-	core_mp_run_test("Short Test (Rx)", true);
-	core_mp_run_test("Untouch Calibration Data(DAC) - Mutual", true);
-	core_mp_run_test("Untouch Raw Data(Have BK) - Mutual", true);
-	core_mp_run_test("Untouch Raw Data(No BK) - Mutual", true);
-	core_mp_run_test("Untouch Cm Data", true);
-	core_mp_run_test("Pixel Raw (No BK)", true);
-	core_mp_run_test("Pixel Raw (Have BK)", true);
-	core_mp_run_test("Untouch Peak to Peak", true);
+	core_mp->oppo_run = true;
+
+	/* Do not chang the sequence of test */
+	core_mp_run_test("Noise Peak To Peak(With Panel)", true);
+	core_mp_run_test("Noise Peak to Peak(IC Only)", true);
+	core_mp_run_test("Short Test -ILI9881", true);
+	core_mp_run_test("Open Test(integration)_SP", true);
+	core_mp_run_test("Raw Data(Have BK)", true);
+	core_mp_run_test("Calibration Data(DAC)", true);
+	core_mp_run_test("Raw Data(No BK)", true);
+	core_mp_run_test("Doze Raw Data", true);
+	core_mp_run_test("Doze Peak To Peak", true);
 
 	core_mp_show_result();
 
+	core_mp->oppo_run = false;
+
 	core_mp_test_free();
 
-	/* Code reset */
-	core_config_ice_mode_enable();
-	core_config_ic_reset();
+	/* Switch to demo mode */
+	core_fr_mode_control(&protocol->demo_mode);
 
-	/* Switch to Demo mode */
-	test_cmd[0] = protocol->demo_mode;
-	core_fr_mode_control(test_cmd);
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_tp_hw_reset(true);
+#endif
 
 	ilitek_platform_enable_irq();
 
 out:
 	*pPos = len;
-	ipio_info("MP Test DONE\n");
+	return len;
+}
+
+/* Created only for oppo */
+static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	if (core_parser_path(INI_NAME_PATH) < 0) {
+		ipio_err("Failed to parsing INI file\n");
+		goto out;
+	}
+
+	/* Init MP structure */
+	if(core_mp_init() < 0) {
+		ipio_err("Failed to init mp\n");
+		goto out;
+	}
+
+	ilitek_platform_disable_irq();
+
+	/* Enter to suspend and move gesture code to iram */
+	core_config->isEnableGesture = true;
+	core_gesture->mode = GESTURE_INFO_MPDE;
+
+	/* sense stop */
+	core_config_sense_ctrl(false);
+
+	if (core_config_check_cdc_busy(50) < 0)
+		ipio_err("Check busy is timout !\n");
+
+	core_fr->actual_fw_mode = P5_0_FIRMWARE_GESTURE_MODE;
+
+	core_gesture_load_code();
+
+	/* Switch to test mode which moves mp code to iram */
+	core_fr_mode_control(&protocol->test_mode);
+
+	ilitek_platform_disable_irq();
+
+	/* Indicates running mp test is called by oppo node */
+	core_mp->oppo_run = true;
+	core_mp->oppo_lcm = true;
+
+	/* Do not chang the sequence of test */
+	core_mp_run_test("Raw Data(No BK)(LCM OFF)", true);
+	core_mp_run_test("Noise Peak to Peak(With Panel)(LCM OFF)", true);
+	core_mp_run_test("Raw Data_TD(LCM OFF)", true);
+	core_mp_run_test("Peak To Peak_TD(LCM OFF)", true);
+
+	core_mp_show_result();
+
+	core_mp->oppo_run = false;
+	core_mp->oppo_lcm = false;
+
+	core_mp_ctrl_lcm_status(true);
+
+	core_mp_test_free();
+
+	core_fr_mode_control(&protocol->demo_mode);
+
+	ilitek_platform_tp_hw_reset(true);
+
+	ilitek_platform_enable_irq();
+
+out:
+	*pPos = len;
+	return len;
+}
+
+static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	if (core_parser_path(INI_NAME_PATH) < 0) {
+		ipio_err("Failed to parsing INI file\n");
+		goto out;
+	}
+
+	/* Init MP structure */
+	if(core_mp_init() < 0) {
+		ipio_err("Failed to init mp\n");
+		goto out;
+	}
+
+	/* Switch to Test mode nad move mp code */
+	core_fr_mode_control(&protocol->test_mode);
+
+	ilitek_platform_disable_irq();
+
+	/*
+	 * Get timing parameters first.
+	 * Howerver, this can be ignored if read them from ini.
+	 */
+	if (protocol->major >= 5 && protocol->mid >= 4) {
+		if (core_mp_calc_timing_nodp() < 0) {
+			ipio_err("Can't get timing parameters\n");
+			goto out;
+		}
+	}
+
+	/* Do not chang the sequence of test */
+	core_mp_run_test("Noise Peak To Peak(With Panel)", true);
+	core_mp_run_test("Noise Peak to Peak(IC Only)", true);
+	core_mp_run_test("Short Test -ILI9881", true);
+	core_mp_run_test("Open Test(integration)_SP", true);
+	core_mp_run_test("Raw Data(Have BK)", true);
+	//core_mp_run_test("Raw Data(Have BK)(LCM OFF)", true);
+	core_mp_run_test("Calibration Data(DAC)", true);
+	core_mp_run_test("Raw Data(No BK)", true);
+	core_mp_run_test("Raw Data(No BK)(LCM OFF)", true);
+	core_mp_run_test("Noise Peak to Peak(With Panel)(LCM OFF)", true);
+	//core_mp_run_test("Noise Peak to Peak(IC Only)(LCM OFF)", true);
+	core_mp_run_test("Raw Data_TD(LCM OFF)", true);
+	core_mp_run_test("Peak To Peak_TD(LCM OFF)", true);
+	core_mp_run_test("Doze Raw Data", true);
+	core_mp_run_test("Doze Peak To Peak", true);
+	//core_mp_run_test("Pin Test(INT & RST)", true);
+
+	core_mp_show_result();
+
+	core_mp_test_free();
+
+#ifndef HOST_DOWNLOAD
+	core_config_ice_mode_enable();
+
+	if (core_config_set_watch_dog(false) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
+
+	core_config_ic_reset();
+
+	if (core_config_set_watch_dog(true) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
+
+	core_config_ice_mode_disable();
+#endif
+	/* Switch to Demo mode */
+	core_fr_mode_control(&protocol->demo_mode);
+
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_tp_hw_reset(true);
+#endif
+
+	ilitek_platform_enable_irq();
+
+out:
+	*pPos = len;
 	return len;
 }
 
@@ -359,7 +515,6 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	char cmd[64] = {0}, str[512] = {0};
 	char *token = NULL, *cur = NULL;
 	uint8_t *va = NULL;
-	uint8_t test_cmd[2] = {0};
 
 	if (buff != NULL) {
 		res = copy_from_user(cmd, buff, size - 1);
@@ -395,8 +550,7 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	}
 
 	/* Switch to Test mode */
-	test_cmd[0] = protocol->test_mode;
-	core_fr_mode_control(test_cmd);
+	core_fr_mode_control(&protocol->test_mode);
 
 	ilitek_platform_disable_irq();
 
@@ -417,13 +571,27 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 
 	core_mp_test_free();
 
-	/* Code reset */
+#ifndef HOST_DOWNLOAD
 	core_config_ice_mode_enable();
+
+	if (core_config_set_watch_dog(false) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
+
 	core_config_ic_reset();
 
-	/* Switch to Demo mode it prevents if fw fails to be switched */
-	test_cmd[0] = protocol->demo_mode;
-	core_fr_mode_control(test_cmd);
+	if (core_config_set_watch_dog(true) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
+
+	core_config_ice_mode_disable();
+#endif
+
+	core_fr_mode_control(&protocol->demo_mode);
+
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_tp_hw_reset(true);
+#endif
 
 	ilitek_platform_enable_irq();
 
@@ -533,6 +701,12 @@ static ssize_t ilitek_proc_gesture_write(struct file *filp, const char *buff, si
 	} else if (strcmp(cmd, "off") == 0) {
 		ipio_info("disable gesture mode\n");
 		core_config->isEnableGesture = false;
+	} else if (strcmp(cmd, "info") == 0) {
+		ipio_info("gesture info mode\n");
+		core_gesture->mode = GESTURE_INFO_MPDE;
+	} else if (strcmp(cmd, "normal") == 0) {
+		ipio_info("gesture normal mode\n");
+		core_gesture->mode = GESTURE_NORMAL_MODE;
 	} else
 		ipio_err("Unknown command\n");
 
@@ -642,9 +816,11 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	if (ipd->isEnablePollCheckPower)
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
-
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_tp_hw_reset(true);
+#else
 	res = core_firmware_upgrade(UPDATE_FW_PATH, false);
-
+#endif
 	ilitek_platform_enable_irq();
 
 	if (ipd->isEnablePollCheckPower)
@@ -736,10 +912,10 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0, count = 0, i;
-	int w_len = 0, r_len = 0, i2c_delay = 0;
+	int w_len = 0, r_len = 0, delay = 0;
 	char cmd[512] = { 0 };
 	char *token = NULL, *cur = NULL;
-	uint8_t i2c[256] = { 0 };
+	uint8_t temp[256] = { 0 };
 	uint8_t *data = NULL;
 
 	if (buff != NULL) {
@@ -822,44 +998,108 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	} else if (strcmp(cmd, "phone_cover") == 0) {
 		ipio_info("set size of phone conver window\n");
 		core_config_set_phone_cover(data);
+	} else if (strcmp(cmd, "debugmode") == 0) {
+		ipio_info("debug mode test enter\n");
+		temp[0] = protocol->debug_mode;
+		core_fr_mode_control(temp);
+	} else if (strcmp(cmd, "baseline") == 0) {
+		ipio_info("test baseline raw\n");
+		temp[0] = protocol->debug_mode;
+		core_fr_mode_control(temp);
+		ilitek_platform_disable_irq();
+		temp[0] = 0xFA;
+		temp[1] = 0x08;
+		core_write(core_config->slave_i2c_addr, temp, 2);
+		ilitek_platform_enable_irq();
+	} else if (strcmp(cmd, "delac_on") == 0) {
+		ipio_info("test get delac\n");
+		temp[0] = protocol->debug_mode;
+		core_fr_mode_control(temp);
+		ilitek_platform_disable_irq();
+		temp[0] = 0xFA;
+		temp[1] = 0x03;
+		core_write(core_config->slave_i2c_addr, temp, 2);
+		ilitek_platform_enable_irq();
+	} else if (strcmp(cmd, "delac_off") == 0) {
+		ipio_info("test get delac\n");
+		temp[0] = protocol->demo_mode;
+		core_fr_mode_control(temp);
+	}else if (strcmp(cmd, "test") == 0) {
+		ipio_info("test test_reset test 1\n");
+		gpio_direction_output(ipd->reset_gpio, 1);
+		mdelay(1);
+		gpio_set_value(ipd->reset_gpio, 0);
+		mdelay(1);
+		gpio_set_value(ipd->reset_gpio, 1);
+		mdelay(10);
+	} else if (strcmp(cmd, "gt") == 0) {
+		ipio_info("test Gesture test\n");
+#ifdef HOST_DOWNLOAD
+		core_gesture_load_code();
+#endif
+	} else if (strcmp(cmd, "suspend") == 0) {
+		ipio_info("test suspend test\n");
+		core_config_ic_suspend();
+	} else if (strcmp(cmd, "resume") == 0) {
+		ipio_info("test resume test\n");
+		core_config_ic_resume();
+	}
+
+	else if (strcmp(cmd, "gt1") == 0) {
+		ipio_info("test Gesture test 1\n");
+		temp[0] = 0x01;
+		temp[1] = 0x01;
+		temp[2] = 0x00;
+		w_len = 3;
+		core_write(core_config->slave_i2c_addr, temp, w_len);
+		if (core_config_check_cdc_busy(50) < 0)
+			ipio_err("Check busy is timout !\n");
+	} 
+	else if (strcmp(cmd, "gt2") == 0) {
+		temp[0] = 0x01;
+		temp[1] = 0x0A;
+		temp[2] = 0x01;
+		w_len = 3;
+		core_write(core_config->slave_i2c_addr, temp, w_len);
+		ipio_info("test Gesture test\n");	
 	} else if (strcmp(cmd, "i2c_w") == 0) {
 		w_len = data[1];
 		ipio_info("w_len = %d\n", w_len);
 
 		for (i = 0; i < w_len; i++) {
-			i2c[i] = data[2 + i];
-			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
+			temp[i] = data[2 + i];
+			ipio_info("i2c[%d] = %x\n", i, temp[i]);
 		}
 
-		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+		core_write(core_config->slave_i2c_addr, temp, w_len);
 	} else if (strcmp(cmd, "i2c_r") == 0) {
 		r_len = data[1];
 		ipio_info("r_len = %d\n", r_len);
 
-		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+		core_read(core_config->slave_i2c_addr, &temp[0], r_len);
 
 		for (i = 0; i < r_len; i++)
-			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
+			ipio_info("temp[%d] = %x\n", i, temp[i]);
 	} else if (strcmp(cmd, "i2c_w_r") == 0) {
 		w_len = data[1];
 		r_len = data[2];
-		i2c_delay = data[3];
-		ipio_info("w_len = %d, r_len = %d, delay = %d\n", w_len, r_len, i2c_delay);
+		delay = data[3];
+		ipio_info("w_len = %d, r_len = %d, delay = %d\n", w_len, r_len, delay);
 
 		for (i = 0; i < w_len; i++) {
-			i2c[i] = data[4 + i];
-			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
+			temp[i] = data[4 + i];
+			ipio_info("temp[%d] = %x\n", i, temp[i]);
 		}
 
-		core_i2c_write(core_config->slave_i2c_addr, i2c, w_len);
+		core_write(core_config->slave_i2c_addr, temp, w_len);
 
-		memset(i2c, 0, sizeof(i2c));
-		mdelay(i2c_delay);
+		memset(temp, 0, sizeof(temp));
+		mdelay(delay);
 
-		core_i2c_read(core_config->slave_i2c_addr, &i2c[0], r_len);
+		core_read(core_config->slave_i2c_addr, &temp[0], r_len);
 
 		for (i = 0; i < r_len; i++)
-			ipio_info("i2c[%d] = %x\n", i, i2c[i]);
+			ipio_info("temp[%d] = %x\n", i, temp[i]);
 	} else {
 		ipio_err("Unknown command\n");
 	}
@@ -894,7 +1134,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		if (res < 0) {
 			ipio_err("Failed to copy data from user space\n");
 		} else {
-			res = core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
+			res = core_write(core_config->slave_i2c_addr, &szBuf[0], i2c_rw_length);
 			if (res < 0) {
 				ipio_err("Failed to write data via i2c\n");
 			}
@@ -902,7 +1142,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		break;
 
 	case ILITEK_IOCTL_I2C_READ_DATA:
-		res = core_i2c_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
+		res = core_read(core_config->slave_i2c_addr, szBuf, i2c_rw_length);
 		if (res < 0) {
 			ipio_err("Failed to read data via i2c\n");
 		} else {
@@ -969,8 +1209,9 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		if (res < 0) {
 			ipio_err("Failed to copy data from user space\n");
 		} else {
-			core_i2c_write(core_config->slave_i2c_addr, &szBuf[0], 3);
+			core_write(core_config->slave_i2c_addr, &szBuf[0], 3);
 		}
+
 		break;
 
 	case ILITEK_IOCTL_TP_FW_VER:
@@ -1132,6 +1373,14 @@ struct file_operations proc_mp_test_fops = {
 	.read = ilitek_proc_mp_test_read,
 };
 
+struct file_operations proc_oppo_mp_lcm_on_fops = {
+	.read = ilitek_proc_oppo_mp_lcm_on_read,
+};
+
+struct file_operations proc_oppo_mp_lcm_off_fops = {
+	.read = ilitek_proc_oppo_mp_lcm_off_read,
+};
+
 struct file_operations proc_debug_message_fops = {
 	.write = ilitek_proc_debug_message_write,
 	.read = ilitek_proc_debug_message_read,
@@ -1166,6 +1415,8 @@ proc_node_t proc_table[] = {
 	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
 	{"mp_test", NULL, &proc_mp_test_fops, false},
+	{"oppo_mp_lcm_on", NULL, &proc_oppo_mp_lcm_on_fops, false},
+	{"oppo_mp_lcm_off", NULL, &proc_oppo_mp_lcm_off_fops, false},
 	{"debug_message", NULL, &proc_debug_message_fops, false},
 	{"debug_message_switch", NULL, &proc_debug_message_switch_fops, false},
 };

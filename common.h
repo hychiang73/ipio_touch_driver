@@ -69,6 +69,7 @@
 #include <linux/dma-mapping.h>
 
 #include <linux/gpio.h>
+#include <linux/spi/spi.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_address.h>
@@ -102,12 +103,21 @@
 #define PT_SPRD	3
 #define TP_PLATFORM PT_QCOM
 
+/* A interface currently supported by driver */
+#define I2C_INTERFACE 1
+#define SPI_INTERFACE 2
+#define INTERFACE SPI_INTERFACE
+
 /* Driver version */
-#define DRIVER_VERSION	"1.0.2.0"
+#define DRIVER_VERSION	"1.0.3.3"
+
+/* Driver core type */
+#define CORE_TYPE_B		0x00
+#define CORE_TYPE_E		0x03
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
-#define PROTOCOL_MID		0x1
+#define PROTOCOL_MID		0x4
 #define PROTOCOL_MINOR		0x0
 
 /*  Debug messages */
@@ -149,8 +159,10 @@ extern uint32_t ipio_debug_level;
 extern uint32_t ipio_chip_list[2];
 
 /* Macros */
-#define CHECK_EQUAL(X, Y) ((X == Y) ? 0 : -1)
+#define CHECK_EQUAL(X, Y) 	((X == Y) ? 0 : -1)
 #define ERR_ALLOC_MEM(X)	((IS_ERR(X) || X == NULL) ? 1 : 0)
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 #define USEC	1
 #define MSEC	(USEC * 1000)
 
@@ -158,6 +170,16 @@ extern uint32_t ipio_chip_list[2];
 #define MAX_HEX_FILE_SIZE			(160*1024)
 #define MAX_FLASH_FIRMWARE_SIZE		(256*1024)
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
+#define ILI_FILE_HEADER				64
+#define MAX_AP_FIRMWARE_SIZE		(64*1024)
+#define MAX_DLM_FIRMWARE_SIZE		(8*1024)
+#define MAX_MP_FIRMWARE_SIZE		(64*1024)
+#define MAX_GESTURE_FIRMWARE_SIZE	(8*1024)
+#define DLM_START_ADDRESS           0x20610
+#define DLM_HEX_ADDRESS             0x10000
+#define MP_HEX_ADDRESS              0x13000
+#define SPI_UPGRADE_LEN		        2048
+#define UPDATE_RETRY_COUNT          3
 
 /* ILI7807 Series */
 enum ili7881_types
@@ -170,17 +192,23 @@ enum ili7881_types
 #define ILI7807_SLAVE_ADDR		0x41
 #define ILI7807_ICE_MODE_ADDR	0x181062
 #define ILI7807_PID_ADDR		0x4009C
+#define ILI7808_WDT_ADDR		0x5100C
 
 /* ILI9881 Series */
 enum ili9881_types
 {
-	ILI9881_TYPE_F = 0x0F00,
-	ILI9881_TYPE_H = 0x1100
+	ILI9881_TYPE_F = 0x0F,
+	ILI9881_TYPE_H = 0x11
 };
+/*Error code*/
+#define SUCCESS 				0
+#define UPDATE_FAIL 			-1
+#define CHECK_RECOVER 			-2
 
 #define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
 #define ILI9881_PID_ADDR		0x4009C
+#define ILI9881_WDT_ADDR		0x5100C
 
 /*
  * Other settings
@@ -206,11 +234,16 @@ enum ili9881_types
 /* How many numbers of touch are supported by IC. */
 #define MAX_TOUCH_NUM	10
 
+/* It's only for spi interface used to download data to iram */
+#if (INTERFACE == SPI_INTERFACE)
+#define HOST_DOWNLOAD
+#endif
+
 /* Linux multiple touch protocol, either B type or A type. */
 #define MT_B_TYPE
 
 /* Enable the support of regulator power. */
-#define REGULATOR_POWER_ON
+//#define REGULATOR_POWER_ON
 
 /* Either an interrupt event handled by kthread or work queue. */
 #define USE_KTHREAD

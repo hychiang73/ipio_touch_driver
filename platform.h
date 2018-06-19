@@ -85,6 +85,8 @@ struct ilitek_platform_data {
 	unsigned char debug_buf[1024][2048];
 	struct mutex ilitek_debug_mutex;
 	struct mutex ilitek_debug_read_mutex;
+
+	struct spi_device *spi;
 };
 
 extern struct ilitek_platform_data *ipd;
@@ -92,6 +94,7 @@ extern struct ilitek_platform_data *ipd;
 /* exported from platform.c */
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
+extern void ilitek_platform_read_tp_info(void);
 extern void ilitek_platform_tp_hw_reset(bool isEnable);
 #ifdef ENABLE_REGULATOR_POWER_ON
 extern void ilitek_regulator_power_on(bool status);

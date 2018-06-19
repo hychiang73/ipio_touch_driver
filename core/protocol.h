@@ -48,6 +48,7 @@
 #define P5_0_FIRMWARE_TEST_MODE			0x01
 #define P5_0_FIRMWARE_DEBUG_MODE		0x02
 #define P5_0_FIRMWARE_I2CUART_MODE		0x03
+#define P5_0_FIRMWARE_GESTURE_MODE		0x04
 
 #define P5_0_DEMO_PACKET_ID		        0x5A
 #define P5_0_DEBUG_PACKET_ID	        0xA7
@@ -107,6 +108,7 @@ struct protocol_cmd_list {
 	uint8_t debug_mode;
 	uint8_t test_mode;
 	uint8_t i2cuart_mode;
+	uint8_t gesture_mode;
 
 	/* Pakcet ID reported by FW */
 	uint8_t demo_pid;
@@ -119,6 +121,7 @@ struct protocol_cmd_list {
 	int demo_len;
 	int debug_len;
 	int test_len;
+	int gesture_len;
 
 	/* MP Test with cdc commands */
 	uint8_t cmd_cdc;
@@ -137,6 +140,7 @@ struct protocol_cmd_list {
 	uint8_t mutual_no_bk;
 	uint8_t mutual_bk_dac;
 	uint8_t mutual_has_bk;
+	uint16_t mutual_has_bk_16;
 
 	uint8_t self_dac;
 	uint8_t self_bk_dac;
@@ -166,6 +170,11 @@ struct protocol_cmd_list {
 	uint8_t self_integra_time;
 	uint8_t key_integra_time;
 	uint8_t st_integra_time;
+	uint8_t peak_to_peak;
+
+	uint8_t get_timing;
+	uint8_t doze_p2p;
+	uint8_t doze_raw;
 };
 
 extern struct protocol_cmd_list *protocol;
@@ -174,5 +183,7 @@ extern void core_protocol_func_control(int key, int ctrl);
 extern int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor);
 extern int core_protocol_init(void);
 extern void core_protocol_remove(void);
+extern int core_write(uint8_t, uint8_t *, uint16_t);
+extern int core_read(uint8_t, uint8_t *, uint16_t);
 
 #endif

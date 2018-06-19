@@ -54,12 +54,13 @@ struct core_fr_data {
 
 extern struct core_fr_data *core_fr;
 
+extern uint8_t core_fr_calc_checksum(uint8_t *pMsg, uint32_t nLength);
 extern void core_fr_touch_press(int32_t x, int32_t y, uint32_t pressure, int32_t id);
 extern void core_fr_touch_release(int32_t x, int32_t y, int32_t id);
 extern void core_fr_mode_control(uint8_t *from_user);
 extern void core_fr_handler(void);
 extern void core_fr_input_set_param(struct input_dev *input_device);
-extern int core_fr_init(struct i2c_client *);
+extern int core_fr_init(void);
 extern void core_fr_remove(void);
 
 #endif /* __FINGER_REPORT_H */

@@ -14,4 +14,5 @@ obj-y += config.o \
 		 flash.o \
 		 protocol.o \
 		 parser.o \
-		 gesture.o
+		 gesture.o \
+		 spi.o

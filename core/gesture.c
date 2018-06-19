@@ -24,38 +24,159 @@
 
 #include "../common.h"
 #include "finger_report.h"
+#include "firmware.h"
 #include "gesture.h"
+#include "protocol.h"
+#include "config.h"
 
-/* The example for the gesture virtual keys */
-#define GESTURE_DOUBLECLICK			    0x0
-#define GESTURE_UP						0x1
-#define GESTURE_DOWN					0x2
-#define GESTURE_LEFT					0x3
-#define GESTURE_RIGHT					0x4
-#define GESTURE_M						0x5
-#define GESTURE_W						0x6
-#define GESTURE_C						0x7
-#define GESTURE_E						0x8
-#define GESTURE_V						0x9
-#define GESTURE_O						0xA
-#define GESTURE_S						0xB
-#define GESTURE_Z						0xC
+struct core_gesture_data *core_gesture = NULL;
+extern uint8_t ap_fw[MAX_AP_FIRMWARE_SIZE];
 
-#define KEY_GESTURE_D					KEY_D
-#define KEY_GESTURE_UP					KEY_UP
-#define KEY_GESTURE_DOWN				KEY_DOWN
-#define KEY_GESTURE_LEFT				KEY_LEFT
-#define KEY_GESTURE_RIGHT				KEY_RIGHT
-#define KEY_GESTURE_O					KEY_O
-#define KEY_GESTURE_E					KEY_E
-#define KEY_GESTURE_M					KEY_M
-#define KEY_GESTURE_W					KEY_W
-#define KEY_GESTURE_S					KEY_S
-#define KEY_GESTURE_V					KEY_V
-#define KEY_GESTURE_C					KEY_C
-#define KEY_GESTURE_Z					KEY_Z
+#ifdef HOST_DOWNLOAD
+int core_gesture_load_code(void)
+{
+	int i = 0, ret = 0;
+	uint8_t temp[64] = {0};
 
-int core_gesture_key(uint8_t gdata)
+	core_gesture->entry = true;
+
+	/* Already read during parsing hex file */
+	ipio_info("gesture_start_addr = 0x%x, length = 0x%x\n", core_gesture->start_addr, core_gesture->length);
+	ipio_info("area = %d, ap_start_addr = 0x%x, ap_length = 0x%x\n",
+				core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
+
+	/* write load gesture flag */
+	temp[0] = 0x01;
+	temp[1] = 0x0A;
+	temp[2] = 0x03;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write gesture flag error\n");
+	}
+
+	/* enter gesture cmd lpwg start */
+	temp[0] = 0x01;
+	temp[1] = 0x0A;
+	temp[2] = core_gesture->mode + 1;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write lpwg start error\n");
+	}
+
+	for(i = 0; i < 20; i++) {
+		temp[0] = 0xF6;
+		temp[1] = 0x0A;
+		temp[2] = 0x05;
+		if ((core_write(core_config->slave_i2c_addr, temp, 2)) < 0) {
+			ipio_err("write 0xF6,0xA,0x05 command error\n");
+		}
+
+		mdelay(i * 50);
+
+		temp[0] = 0x01;
+		temp[1] = 0x0A;
+		temp[2] = 0x05;
+		if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+			ipio_err("write command error\n");
+		}
+		if ((core_read(core_config->slave_i2c_addr, temp, 1)) < 0) {
+			ipio_err("Read command error\n");
+		}
+		if(temp[0] == 0x91) {
+			ipio_info("check fw ready\n");
+			break;
+		}
+	}
+
+	if(temp[0] != 0x91)
+		ipio_err("FW is busy, error\n");
+
+	/* load gesture code */
+	if (core_config_ice_mode_enable() < 0) {
+		ipio_err("Failed to enter ICE mode\n");
+	}
+
+	tddi_host_download(true);
+
+	temp[0] = 0x01;
+	temp[1] = 0x0A;
+	temp[2] = 0x06;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write command error\n");
+	}
+
+	core_gesture->entry = false;
+	return ret;
+}
+EXPORT_SYMBOL(core_gesture_load_code);
+
+int core_gesture_load_ap_code(void)
+{
+	int i = 0, ret = 0;
+	uint8_t temp[64] = {0};
+
+	core_gesture->entry = true;
+
+	/* Write Load AP Flag */
+	temp[0] = 0x01;
+	temp[1] = 0x01;
+	temp[2] = 0x00;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write command AP Flag error\n");
+	}
+	if ((core_read(core_config->slave_i2c_addr, temp, 20)) < 0) {
+		ipio_err("Read AP Flag error\n");
+	}
+
+	/* Leave Gesture Cmd LPWG Stop */
+	temp[0] = 0x01;
+	temp[1] = 0x0A;
+	temp[2] = 0x00;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write command  LPWG Stop error\n");
+	}
+
+	for(i = 0; i < 20; i++) {
+
+		mdelay(i * 100 + 100);
+
+		temp[0] = 0x01;
+		temp[1] = 0x0A;
+		temp[2] = 0x05;
+		if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+			ipio_err("write command error\n");
+		}
+		if ((core_read(core_config->slave_i2c_addr, temp, 1)) < 0) {
+			ipio_err("Read command error\n");
+		}
+		if(temp[0] == 0x91) {
+			ipio_info("check fw ready\n");
+			break;
+		}
+	}
+
+	if(i == 3 && temp[0] != 0x01)
+		ipio_err("FW is busy, error\n");
+
+	/* load AP code */
+	if (core_config_ice_mode_enable() < 0) {
+		ipio_err("Failed to enter ICE mode\n");
+	}
+
+	tddi_host_download(false);
+
+	temp[0] = 0x01;
+	temp[1] = 0x0A;
+	temp[2] = 0x06;
+	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
+		ipio_err("write command error\n");
+	}
+
+	core_gesture->entry = false;
+	return ret;
+}
+EXPORT_SYMBOL(core_gesture_load_ap_code);
+#endif
+
+int core_gesture_match_key(uint8_t gdata)
 {
 	int gcode;
 
@@ -107,12 +228,11 @@ int core_gesture_key(uint8_t gdata)
 	ipio_debug(DEBUG_GESTURE, "gcode = %d\n", gcode);
 	return gcode;
 }
-EXPORT_SYMBOL(core_gesture_key);
+EXPORT_SYMBOL(core_gesture_match_key);
 
-void core_gesture_init(struct core_fr_data *fr_data)
+void core_gesture_set_key(struct core_fr_data *fr_data)
 {
 	struct input_dev *input_dev = fr_data->input_device;
-
 	if (input_dev != NULL) {
 		input_set_capability(input_dev, EV_KEY, KEY_POWER);
 		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_UP);
@@ -146,4 +266,28 @@ void core_gesture_init(struct core_fr_data *fr_data)
 
 	ipio_err("GESTURE: input dev is NULL\n");
 }
+EXPORT_SYMBOL(core_gesture_set_key);
+
+int core_gesture_init(void)
+{
+	if (core_gesture == NULL) {
+		core_gesture = kzalloc(sizeof(*core_gesture), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(core_gesture)) {
+			ipio_err("Failed to allocate core_gesture mem, %ld\n", PTR_ERR(core_gesture));
+			core_gesture_remove();
+			return -ENOMEM;
+		}
+
+		core_gesture->entry = false;
+	}
+
+	return 0;
+}
 EXPORT_SYMBOL(core_gesture_init);
+
+void core_gesture_remove(void)
+{
+	ipio_info("Remove core-gesture members\n");
+	ipio_kfree((void **)&core_gesture);
+}
+EXPORT_SYMBOL(core_gesture_remove);

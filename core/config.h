@@ -62,19 +62,24 @@ typedef struct {
 struct core_config_data {
 	uint32_t chip_id;
 	uint32_t chip_type;
+	uint32_t chip_pid;
+
+	uint8_t core_type;
 
 	uint32_t slave_i2c_addr;
 	uint32_t ice_mode_addr;
 	uint32_t pid_addr;
+	uint32_t wdt_addr;
 	uint32_t ic_reset_addr;
 
 	uint8_t protocol_ver[4];
-	uint8_t firmware_ver[4];
+	uint8_t firmware_ver[9];
 	uint8_t core_ver[5];
 
 	bool do_ic_reset;
 	bool isEnableGesture;
-
+	bool icemodeenable;
+	bool spi_pro_9881h11;
 	TP_INFO *tp_info;
 };
 
@@ -94,8 +99,9 @@ extern int core_config_ice_mode_disable(void);
 extern int core_config_ice_mode_enable(void);
 
 /* Touch IC status */
-extern int core_config_reset_watch_dog(void);
+extern int core_config_set_watch_dog(bool enable);
 extern int core_config_check_cdc_busy(int delay);
+extern int core_config_check_int_status(bool high);
 extern void core_config_ic_suspend(void);
 extern void core_config_ic_resume(void);
 extern void core_config_ic_reset(void);

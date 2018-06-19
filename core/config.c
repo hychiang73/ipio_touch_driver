@@ -28,6 +28,9 @@
 #include "protocol.h"
 #include "i2c.h"
 #include "flash.h"
+#include "finger_report.h"
+#include "gesture.h"
+#include "mp_test.h"
 
 /* the list of support chip */
 uint32_t ipio_chip_list[] = {
@@ -84,7 +87,7 @@ static uint32_t check_chip_id(uint32_t pid_data)
 	uint32_t type = 0;
 
 	id = pid_data >> 16;
-	type = pid_data & 0x0000FFFF;
+	type = (pid_data & 0x0000FF00) >> 8;
 
 	ipio_info("id = 0x%x, type = 0x%x\n", id, type);
 
@@ -129,13 +132,13 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
 	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	res = core_write(core_config->slave_i2c_addr, szOutBuf, 4);
 	if (res < 0)
 		goto out;
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 1);
+	res = core_read(core_config->slave_i2c_addr, szOutBuf, 1);
 	if (res < 0)
 		goto out;
 
@@ -160,13 +163,13 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
 	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	res = core_write(core_config->slave_i2c_addr, szOutBuf, 4);
 	if (res < 0)
 		goto out;
 
 	mdelay(10);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, szOutBuf, 4);
+	res = core_read(core_config->slave_i2c_addr, szOutBuf, 4);
 	if (res < 0)
 		goto out;
 
@@ -198,7 +201,7 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 		szOutBuf[i + 4] = (char)(data >> (8 * i));
 	}
 
-	res = core_i2c_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
+	res = core_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
 
 	if (res < 0)
 		ipio_err("Failed to write data in ICE mode, res = %d\n", res);
@@ -215,8 +218,10 @@ EXPORT_SYMBOL(core_config_ice_mode_write);
  */
 void core_config_ic_reset(void)
 {
+#ifdef HOST_DOWNLOAD
+	core_config_ice_mode_disable();
+#else
 	uint32_t key = 0;
-
 	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
 		if (core_config->chip_type == ILI7807_TYPE_H)
 			key = 0x00117807;
@@ -235,6 +240,7 @@ void core_config_ic_reset(void)
 	}
 
 	msleep(300);
+#endif
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
@@ -391,6 +397,11 @@ void core_config_ic_suspend(void)
 {
 	ipio_info("Starting to suspend ...\n");
 
+	ilitek_platform_disable_irq();
+
+	if (ipd->isEnablePollCheckPower)
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+
 	/* sense stop */
 	core_config_sense_ctrl(false);
 
@@ -401,7 +412,12 @@ void core_config_ic_suspend(void)
 	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
 
 	if (core_config->isEnableGesture) {
-		core_config_lpwg_ctrl(true);
+		core_fr->actual_fw_mode = P5_0_FIRMWARE_GESTURE_MODE;
+#ifdef HOST_DOWNLOAD
+		if(core_gesture_load_code() < 0)
+			ipio_err("load gesture code fail\n");
+#endif
+		ilitek_platform_enable_irq();
 	} else {
 		/* sleep in */
 		core_config_sleep_ctrl(false);
@@ -422,6 +438,17 @@ void core_config_ic_resume(void)
 {
 	ipio_info("Starting to resume ...\n");
 
+	if (core_config->isEnableGesture) {
+#ifdef HOST_DOWNLOAD
+		ilitek_platform_disable_irq();
+		if(core_gesture_load_ap_code() < 0) {
+			ipio_err("load ap code fail\n");
+			ilitek_platform_tp_hw_reset(true);
+		}
+#endif
+	} else {
+		ilitek_platform_tp_hw_reset(true);
+	}
 	/* sleep out */
 	core_config_sleep_ctrl(true);
 
@@ -432,10 +459,17 @@ void core_config_ic_resume(void)
 	/* sense start for TP */
 	core_config_sense_ctrl(true);
 
+	core_fr_mode_control(&protocol->demo_mode);
+
 	/* Soft reset */
-	core_config_ice_mode_enable();
-	mdelay(10);
-	core_config_ic_reset();
+	// core_config_ice_mode_enable();
+	// mdelay(10);
+	// core_config_ic_reset();
+
+	ilitek_platform_enable_irq();
+
+	if (ipd->isEnablePollCheckPower)
+		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 
 	ipio_info("Resume done\n");
 }
@@ -443,23 +477,24 @@ EXPORT_SYMBOL(core_config_ic_resume);
 
 int core_config_ice_mode_disable(void)
 {
+	uint32_t res = 0;
 	uint8_t cmd[4];
-
 	cmd[0] = 0x1b;
 	cmd[1] = 0x62;
 	cmd[2] = 0x10;
 	cmd[3] = 0x18;
 
 	ipio_info("ICE Mode disabled\n")
-
-	return core_i2c_write(core_config->slave_i2c_addr, cmd, 4);
+	res = core_write(core_config->slave_i2c_addr, cmd, 4);
+	core_config->icemodeenable = false;
+	return res;
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
 int core_config_ice_mode_enable(void)
 {
 	ipio_info("ICE Mode enabled\n");
-
+	core_config->icemodeenable = true;
 	if (core_config_ice_mode_write(0x181062, 0x0, 0) < 0)
 		return -1;
 
@@ -467,16 +502,68 @@ int core_config_ice_mode_enable(void)
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 
-int core_config_reset_watch_dog(void)
+int core_config_set_watch_dog(bool enable)
 {
+	int timeout = 10, ret = 0;
+	uint8_t off_bit = 0x5A, on_bit = 0xA5;
+	uint8_t value_low = 0x0, value_high = 0x0;
+	uint32_t wdt_addr = core_config->wdt_addr;
+
+	if (wdt_addr <= 0 || core_config->chip_id <= 0) {
+		ipio_err("WDT/CHIP ID is invalid\n");
+		return -EINVAL;
+	}
+
+	/* Config register and values by IC */
 	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
-		core_config_ice_mode_write(0x5100C, 0x7, 1);
-		core_config_ice_mode_write(0x5100C, 0x78, 1);
+		value_low = 0x07;
+		value_high = 0x78;
+	} else if (core_config->chip_id == CHIP_TYPE_ILI9881 ) {
+		value_low = 0x81;
+		value_high = 0x98;
+	} else {
+		ipio_err("Unknown CHIP type (0x%x)\n",core_config->chip_id);
+		return -ENODEV;
+	}
+
+	if (enable) {
+		core_config_ice_mode_write(wdt_addr, 1, 1);
+	} else {
+		core_config_ice_mode_write(wdt_addr, value_low, 1);
+		core_config_ice_mode_write(wdt_addr, value_high, 1);
+	}
+
+	while (timeout > 0) {
+		ret = core_config_ice_mode_read(0x51018);
+		ipio_debug(DEBUG_CONFIG, "bit = %x\n", ret);
+
+		if (enable) {
+			if (CHECK_EQUAL(ret, on_bit) == 0)
+				break;
+		} else {
+			if (CHECK_EQUAL(ret, off_bit) == 0)
+				break;
+		}
+
+		timeout--;
+		mdelay(10);
+	}
+
+	if (timeout > 0) {
+		if (enable) {
+			ipio_info("WDT turn on succeed\n");
+		} else {
+			core_config_ice_mode_write(wdt_addr, 0, 1);
+			ipio_info("WDT turn off succeed\n");
+		}
+	} else {
+		ipio_err("WDT turn on/off timeout !\n");
+		return -EINVAL;
 	}
 
 	return 0;
 }
-EXPORT_SYMBOL(core_config_reset_watch_dog);
+EXPORT_SYMBOL(core_config_set_watch_dog);
 
 int core_config_check_cdc_busy(int delay)
 {
@@ -488,22 +575,97 @@ int core_config_check_cdc_busy(int delay)
 	cmd[1] = protocol->cmd_cdc_busy;
 
 	while (timer > 0) {
-		core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+		mdelay(100);
+		core_write(core_config->slave_i2c_addr, cmd, 2);
 		mdelay(1);
-		core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+		core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		mdelay(1);
-		core_i2c_read(core_config->slave_i2c_addr, &busy, 1);
-		ipio_debug(DEBUG_CONFIG, "CDC busy state = 0x%x\n", busy);
+		core_read(core_config->slave_i2c_addr, &busy, 1);
 		if (busy == 0x41 || busy == 0x51) {
+			ipio_info("Check busy is free\n");
 			res = 0;
 			break;
 		}
 		timer--;
 	}
 
+	if (res < -1)
+		ipio_info("Check busy timeout !!\n");
+
 	return res;
 }
 EXPORT_SYMBOL(core_config_check_cdc_busy);
+
+int core_config_check_int_status(bool high)
+{
+	int timer = 1000, res = -1;
+
+	/* From FW request, timeout should at least be 5 sec */
+	while (timer) {
+		if(high) {
+			if (gpio_get_value(ipd->int_gpio)) {
+				ipio_info("Check busy is free\n");
+				res = 0;
+				break;
+			}
+		} else {
+			if (!gpio_get_value(ipd->int_gpio)) {
+				ipio_info("Check busy is free\n");
+				res = 0;
+				break;
+			}
+		}
+
+		mdelay(5);
+		timer--;
+	}
+
+	if (res < -1)
+		ipio_info("Check busy timeout !!\n");
+
+	return res;
+}
+EXPORT_SYMBOL(core_config_check_int_status);
+
+int core_config_get_project_id(uint8_t *pid_data)
+{
+	int i = 0, res = 0;
+	uint32_t pid_addr = 0x1D000, pid_size = 10;
+
+	res = core_config_ice_mode_enable();
+	if (res < 0) {
+		ipio_err("Failed to enter ICE mode, res = %d\n", res);
+		return -1;
+	}
+
+	/* Disable watch dog */
+	core_config_set_watch_dog(false);
+
+	core_config_ice_mode_write(0x041000, 0x0, 1);   /* CS low */
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);  /* Key */
+
+	core_config_ice_mode_write(0x041008, 0x06, 1);
+	core_config_ice_mode_write(0x041000, 0x01, 1);
+	core_config_ice_mode_write(0x041000, 0x00, 1);
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);  /* Key */
+	core_config_ice_mode_write(0x041008, 0x03, 1);
+
+	core_config_ice_mode_write(0x041008, (pid_addr & 0xFF0000) >> 16, 1);
+	core_config_ice_mode_write(0x041008, (pid_addr & 0x00FF00) >> 8, 1);
+	core_config_ice_mode_write(0x041008, (pid_addr & 0x0000FF), 1);
+
+	for(i = 0; i < pid_size; i++) {
+		core_config_ice_mode_write(0x041008, 0xFF, 1);
+		pid_data[i] = core_config_ice_mode_read(0x41010);
+		ipio_info("pid_data[%d] = 0x%x\n", i, pid_data[i]);
+	}
+
+	core_config_ice_mode_write(0x041010, 0x1, 0);   /* CS high */
+	core_config_ic_reset();
+
+	return res;
+}
+EXPORT_SYMBOL(core_config_get_project_id);
 
 int core_config_get_key_info(void)
 {
@@ -515,7 +677,7 @@ int core_config_get_key_info(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_key_info;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -523,7 +685,7 @@ int core_config_get_key_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -531,7 +693,7 @@ int core_config_get_key_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
 	if (res < 0) {
 		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
@@ -571,7 +733,7 @@ int core_config_get_tp_info(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_tp_info;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -579,7 +741,7 @@ int core_config_get_tp_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -587,7 +749,7 @@ int core_config_get_tp_info(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
 	if (res < 0) {
 		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
@@ -635,7 +797,7 @@ int core_config_get_protocol_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_pro_ver;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -643,7 +805,7 @@ int core_config_get_protocol_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -651,15 +813,16 @@ int core_config_get_protocol_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
 	if (res < 0) {
 		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
 	}
 
 	/* ignore the first btye because of a header. */
-	for (; i < protocol->pro_ver_len; i++)
+	for (; i < protocol->pro_ver_len - 1; i++) {
 		core_config->protocol_ver[i] = g_read_buf[i + 1];
+	}
 
 	ipio_info("Procotol Version = %d.%d.%d\n",
 		 core_config->protocol_ver[0], core_config->protocol_ver[1], core_config->protocol_ver[2]);
@@ -690,7 +853,7 @@ int core_config_get_core_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_core_ver;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -698,7 +861,7 @@ int core_config_get_core_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -706,14 +869,14 @@ int core_config_get_core_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
 	if (res < 0) {
 		ipio_err("Failed to read data via I2C, %d\n", res);
 		goto out;
 	}
 
-	for (; i < protocol->core_ver_len; i++)
-		core_config->core_ver[i] = g_read_buf[i];
+	for (; i < protocol->core_ver_len - 1; i++)
+		core_config->core_ver[i] = g_read_buf[i + 1];
 
 	/* in protocol v5, ignore the first btye because of a header. */
 	ipio_info("Core Version = %d.%d.%d.%d\n",
@@ -739,7 +902,7 @@ int core_config_get_fw_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_fw_ver;
 
-	res = core_i2c_write(core_config->slave_i2c_addr, cmd, 2);
+	res = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -747,7 +910,7 @@ int core_config_get_fw_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (res < 0) {
 		ipio_err("Failed to write data via I2C, %d\n", res);
 		goto out;
@@ -755,7 +918,7 @@ int core_config_get_fw_ver(void)
 
 	mdelay(1);
 
-	res = core_i2c_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->fw_ver_len);
+	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->fw_ver_len);
 	if (res < 0) {
 		ipio_err("Failed to read fw version %d\n", res);
 		goto out;
@@ -764,10 +927,12 @@ int core_config_get_fw_ver(void)
 	for (; i < protocol->fw_ver_len; i++)
 		core_config->firmware_ver[i] = g_read_buf[i];
 
-	/* in protocol v5, ignore the first btye because of a header. */
-	ipio_info("Firmware Version = %d.%d.%d\n",
-		 core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3]);
-
+	if (protocol->mid >= 0x3) {
+		ipio_info("Firmware Version = %d.%d.%d.%d\n", core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3], core_config->firmware_ver[4]);
+	} else {
+		ipio_info("Firmware Version = %d.%d.%d\n",
+			core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3]);
+	}
 out:
 	return res;
 }
@@ -788,12 +953,13 @@ int core_config_get_chip_id(void)
 	mdelay(20);
 
 	PIDData = core_config_ice_mode_read(core_config->pid_addr);
-
-	ipio_info("PID = 0x%x\n",PIDData);
+	core_config->chip_pid = PIDData;
+	core_config->core_type = PIDData & 0xFF;
+	ipio_info("PID = 0x%x, Core type = 0x%x\n",
+		core_config->chip_pid, core_config->core_type);
 
 	if (PIDData) {
 		RealID = check_chip_id(PIDData);
-
 		if (RealID != core_config->chip_id) {
 			ipio_err("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", RealID, TP_TOUCH_IC);
 			res = -ENODEV;
@@ -848,10 +1014,12 @@ int core_config_init(void)
 				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI7807_PID_ADDR;
+				core_config->wdt_addr = ILI7808_WDT_ADDR;
 			} else if (core_config->chip_id == CHIP_TYPE_ILI9881) {
 				core_config->slave_i2c_addr = ILI9881_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
+				core_config->wdt_addr = ILI9881_WDT_ADDR;
 			}
 			return 0;
 		}

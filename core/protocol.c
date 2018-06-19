@@ -24,9 +24,16 @@
 #include "../common.h"
 #include "config.h"
 #include "i2c.h"
+#include "spi.h"
 #include "protocol.h"
 
 #define FUNC_NUM    20
+
+struct protocol_sup_list {
+	uint8_t major;
+	uint8_t mid;
+	uint8_t minor;
+};
 
 struct DataItem {
 	int key;
@@ -37,6 +44,26 @@ struct DataItem {
 
 struct DataItem *hashArray[FUNC_NUM];
 struct protocol_cmd_list *protocol = NULL;
+
+int core_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
+{
+#if (INTERFACE == I2C_INTERFACE)
+	return core_i2c_write(nSlaveId, pBuf, nSize);
+#else
+	return core_spi_write(pBuf, nSize);
+#endif
+}
+EXPORT_SYMBOL(core_write);
+
+int core_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
+{
+#if (INTERFACE == I2C_INTERFACE)
+	return core_i2c_read(nSlaveId, pBuf, nSize);
+#else
+	return core_spi_read(pBuf, nSize);
+#endif
+}
+EXPORT_SYMBOL(core_read);
 
 static int hashCode(int key)
 {
@@ -204,13 +231,16 @@ static void config_protocol_v5_cmd(void)
 
 		protocol->phone_cover_window[0] = 0xE;
 	}
-
-	protocol->fw_ver_len = 4;
-
-	if (protocol->mid >= 0x2)
-		protocol->pro_ver_len = 4;
+	if (protocol->mid >= 0x3)
+		protocol->fw_ver_len = 9;
 	else
+		protocol->fw_ver_len = 4;
+
+	if (protocol->mid == 0x1) {
 		protocol->pro_ver_len = 3;
+	} else {
+		protocol->pro_ver_len = 4;
+	}
 
 	protocol->tp_info_len = 14;
 	protocol->key_info_len = 30;
@@ -234,6 +264,7 @@ static void config_protocol_v5_cmd(void)
 	protocol->debug_mode = P5_0_FIRMWARE_DEBUG_MODE;
 	protocol->test_mode = P5_0_FIRMWARE_TEST_MODE;
 	protocol->i2cuart_mode = P5_0_FIRMWARE_I2CUART_MODE;
+	protocol->gesture_mode = P5_0_FIRMWARE_GESTURE_MODE;
 
 	protocol->demo_pid = P5_0_DEMO_PACKET_ID;
 	protocol->debug_pid = P5_0_DEBUG_PACKET_ID;
@@ -248,6 +279,12 @@ static void config_protocol_v5_cmd(void)
 	/* The commands about MP test */
 	protocol->cmd_cdc = P5_0_SET_CDC_INIT;
 	protocol->cmd_get_cdc = P5_0_GET_CDC_DATA;
+
+	if (protocol->mid < 4) {
+		protocol->cdc_len = 3;
+	} else {
+		protocol->cdc_len = 15;
+	}
 
 	protocol->mutual_dac = 0x1;
 	protocol->mutual_bg = 0x2;
@@ -292,6 +329,11 @@ static void config_protocol_v5_cmd(void)
 	protocol->self_integra_time = 0x23;
 	protocol->key_integra_time = 0x24;
 	protocol->st_integra_time = 0x25;
+	protocol->peak_to_peak = 0x1D;
+
+	protocol->get_timing = 0x30;
+	protocol->doze_p2p = 0x32;
+	protocol->doze_raw = 0x33;
 }
 
 void core_protocol_func_control(int key, int ctrl)
@@ -305,7 +347,7 @@ void core_protocol_func_control(int key, int ctrl)
 		if (tmp->key != 9)
 			tmp->cmd[tmp->len - 1] = ctrl;
 
-		core_i2c_write(core_config->slave_i2c_addr, tmp->cmd, tmp->len);
+		core_write(core_config->slave_i2c_addr, tmp->cmd, tmp->len);
 		return;
 	}
 
@@ -316,16 +358,13 @@ EXPORT_SYMBOL(core_protocol_func_control);
 int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
 {
 	int i = 0;
-
-	struct protocol_sup_list {
-		uint8_t major;
-		uint8_t mid;
-		uint8_t minor;
-	} pver[] = {
-		{
-		0x5, 0x0, 0x0}, {
-		0x5, 0x1, 0x0}, {
-	0x5, 0x2, 0x0},};
+	struct protocol_sup_list pver[] = {
+		{0x5, 0x0, 0x0},
+		{0x5, 0x1, 0x0},
+		{0x5, 0x2, 0x0},
+		{0x5, 0x3, 0x0},
+		{0x5, 0x4, 0x0},
+	};
 
 	for (i = 0; i < ARRAY_SIZE(pver); i++) {
 		if (pver[i].major == major && pver[i].mid == mid && pver[i].minor == minor) {

@@ -77,7 +77,7 @@ struct core_fr_data *core_fr = NULL;
  * @pMsg: packet come from firmware
  * @nLength : the length of its packet
  */
-static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
+uint8_t core_fr_calc_checksum(uint8_t *pMsg, uint32_t nLength)
 {
 	int i;
 	int32_t nCheckSum = 0;
@@ -88,6 +88,7 @@ static uint8_t cal_fr_checksum(uint8_t *pMsg, uint32_t nLength)
 
 	return (uint8_t) ((-nCheckSum) & 0xFF);
 }
+EXPORT_SYMBOL(core_fr_calc_checksum);
 
 /**
  *  Receive data when fw mode stays at i2cuart mode.
@@ -134,7 +135,7 @@ static void i2cuart_recv_packet(void)
 		}
 
 		g_total_len += g_fr_uart->len;
-		res = core_i2c_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
+		res = core_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
 		if (res < 0)
 			ipio_err("Failed to read finger report packet\n");
 	}
@@ -225,7 +226,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	for (i = 0; i < 9; i++)
 		ipio_debug(DEBUG_FINGER_REPORT, "data[%d] = %x\n", i, g_fr_node->data[i]);
 
-	check_sum = cal_fr_checksum(&g_fr_node->data[0], (g_fr_node->len - 1));
+	check_sum = core_fr_calc_checksum(&g_fr_node->data[0], (g_fr_node->len - 1));
 	ipio_debug(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x\n", g_fr_node->data[g_fr_node->len - 1], check_sum);
 
 	if (g_fr_node->data[g_fr_node->len - 1] != check_sum) {
@@ -347,10 +348,15 @@ static int finger_report_ver_5_0(void)
 #ifdef I2C_SEGMENT
 	res = core_i2c_segmental_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #else
-	res = core_i2c_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
+	res = core_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #endif
+
 	if (res < 0) {
 		ipio_err("Failed to read finger report packet\n");
+		if(res == CHECK_RECOVER) {
+			ipio_err("==================Recover=================\n");
+			ilitek_platform_tp_hw_reset(true);
+		}
 		goto out;
 	}
 
@@ -365,7 +371,7 @@ static int finger_report_ver_5_0(void)
 
 	if (pid == protocol->ges_pid && core_config->isEnableGesture) {
 		ipio_debug(DEBUG_FINGER_REPORT, "pid = 0x%x, code = %x\n", pid, g_fr_node->data[1]);
-		gesture = core_gesture_key(g_fr_node->data[1]);
+		gesture = core_gesture_match_key(g_fr_node->data[1]);
 		if (gesture != -1) {
 			input_report_key(core_fr->input_device, gesture, 1);
 			input_sync(core_fr->input_device);
@@ -466,7 +472,7 @@ void core_fr_mode_control(uint8_t *from_user)
 
 			ipio_info("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x\n", cmd[0], cmd[1], cmd[2]);
 
-			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
+			if ((core_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
 				ipio_err("Failed to switch I2CUART mode\n");
 				goto out;
 			}
@@ -477,7 +483,7 @@ void core_fr_mode_control(uint8_t *from_user)
 
 			ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
+			if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
 				ipio_err("Failed to switch Demo/Debug mode\n");
 				goto out;
 			}
@@ -490,7 +496,7 @@ void core_fr_mode_control(uint8_t *from_user)
 
 			ipio_info("Switch to Test mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			if ((core_i2c_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
+			if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
 				ipio_err("Failed to switch Test mode\n");
 				goto out;
 			}
@@ -498,9 +504,9 @@ void core_fr_mode_control(uint8_t *from_user)
 			cmd[0] = 0xFE;
 
 			/* Read MP Test information to ensure if fw supports test mode. */
-			core_i2c_write(core_config->slave_i2c_addr, cmd, 1);
+			core_write(core_config->slave_i2c_addr, cmd, 1);
 			mdelay(10);
-			core_i2c_read(core_config->slave_i2c_addr, mp_code, codeLength);
+			core_read(core_config->slave_i2c_addr, mp_code, codeLength);
 
 			for (i = 0; i < codeLength - 1; i++)
 				checksum += mp_code[i];
@@ -512,6 +518,7 @@ void core_fr_mode_control(uint8_t *from_user)
 			}
 
 			/* FW enter to Test Mode */
+			core_fr->actual_fw_mode = mode;
 			if (core_mp_move_code() == 0)
 				core_fr->actual_fw_mode = mode;
 
@@ -567,7 +574,14 @@ static uint16_t calc_packet_length(void)
 				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + (8 * 2) + 1;
 				rlen += 35;
 			}
-		} else {
+		} else if (protocol->gesture_mode == core_fr->actual_fw_mode) {
+			if(core_gesture->mode == GESTURE_NORMAL_MODE)
+				rlen = GESTURE_MORMAL_LENGTH;
+			else
+				rlen = GESTURE_INFO_LENGTH;
+			ipio_debug(DEBUG_FINGER_REPORT, "rlen = %d\n", rlen);
+		}
+		else {
 			ipio_err("Unknown firmware mode : %d\n", core_fr->actual_fw_mode);
 			rlen = 0;
 		}
@@ -688,6 +702,7 @@ void core_fr_handler(void)
 		ipio_err("The figner report was disabled\n");
 		return;
 	}
+	ilitek_platform_enable_irq();
 
 out:
 	ipio_kfree((void **)&tdata);
@@ -761,11 +776,11 @@ void core_fr_input_set_param(struct input_dev *input_device)
 #endif /* MT_B_TYPE */
 
 	/* Set up virtual key with gesture code */
-	core_gesture_init(core_fr);
+	core_gesture_set_key(core_fr);
 }
 EXPORT_SYMBOL(core_fr_input_set_param);
 
-int core_fr_init(struct i2c_client *pClient)
+int core_fr_init(void)
 {
 	int i = 0;
 
@@ -781,7 +796,7 @@ int core_fr_init(struct i2c_client *pClient)
 			core_fr->isEnableFR = true;
 			core_fr->isEnableNetlink = false;
 			core_fr->isEnablePressure = false;
-			core_fr->isSetResolution = true;
+			core_fr->isSetResolution = false;
 			core_fr->actual_fw_mode = protocol->demo_mode;
 			return 0;
 		}

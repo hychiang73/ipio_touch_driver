@@ -24,8 +24,63 @@
 
 #ifndef __GESTURE_H
 #define __GESTURE_H
+#define GESTURE_NORMAL_MODE          0
+#define GESTURE_INFO_MPDE            1
+#define GESTURE_INFO_LENGTH          170
+#define GESTURE_MORMAL_LENGTH        8
 
-extern int core_gesture_key(uint8_t gid);
-extern void core_gesture_init(struct core_fr_data *fr_data);
+/* The example for the gesture virtual keys */
+#define GESTURE_DOUBLECLICK			    0x58
+#define GESTURE_UP						0x60
+#define GESTURE_DOWN					0x61
+#define GESTURE_LEFT					0x62
+#define GESTURE_RIGHT					0x63
+#define GESTURE_M						0x64
+#define GESTURE_W						0x65
+#define GESTURE_C						0x66
+#define GESTURE_E						0x67
+#define GESTURE_V						0x68
+#define GESTURE_O						0x69
+#define GESTURE_S						0x6A
+#define GESTURE_Z						0x6B
 
+/* oppo gesture define */
+#define GESTURE_CODE_V_DOWN						0x6C
+#define GESTURE_CODE_V_LEFT						0x6D
+#define GESTURE_CODE_V_RIGHT					0x6E
+#define GESTURE_CODE_TWO_LINE_2_BOTTOM			0x6F
+
+#define KEY_GESTURE_D					KEY_D
+#define KEY_GESTURE_UP					KEY_UP
+#define KEY_GESTURE_DOWN				KEY_DOWN
+#define KEY_GESTURE_LEFT				KEY_LEFT
+#define KEY_GESTURE_RIGHT				KEY_RIGHT
+#define KEY_GESTURE_O					KEY_O
+#define KEY_GESTURE_E					KEY_E
+#define KEY_GESTURE_M					KEY_M
+#define KEY_GESTURE_W					KEY_W
+#define KEY_GESTURE_S					KEY_S
+#define KEY_GESTURE_V					KEY_V
+#define KEY_GESTURE_C					KEY_C
+#define KEY_GESTURE_Z					KEY_Z
+
+struct core_gesture_data {
+    uint32_t start_addr;
+    uint32_t length;
+    bool entry;
+    uint8_t mode; //normal:0 info:1
+    uint32_t ap_start_addr;
+    uint32_t ap_length;
+    uint32_t area_section;
+    bool suspend;
+};
+
+extern struct core_gesture_data *core_gesture;
+
+extern int core_gesture_load_code(void);
+extern int core_gesture_load_ap_code(void);
+extern int core_gesture_match_key(uint8_t gid);
+extern void core_gesture_set_key(struct core_fr_data *fr_data);
+extern int core_gesture_init(void);
+extern void core_gesture_remove(void);
 #endif
