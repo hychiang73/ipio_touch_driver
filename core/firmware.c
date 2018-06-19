@@ -489,7 +489,7 @@ static int iram_upgrade(void)
 
 	mdelay(20);
 
-	core_config_set_watch_dog();
+	core_config_set_watch_dog(false);
 
 	ipio_debug(DEBUG_FIRMWARE, "nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X\n",
 	    core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
@@ -528,6 +528,8 @@ static int iram_upgrade(void)
 	core_config_ice_mode_write(0x40040, 0x00, 1);
 
 	mdelay(10);
+
+	core_config_set_watch_dog(true);
 
 	core_config_ice_mode_disable();
 
@@ -1229,7 +1231,9 @@ out:
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
 	int index = 0, block = 0;
+#ifdef HOST_DOWNLOAD
 	static int do_once = 0;
+#endif
 	uint32_t i = 0, j = 0, k = 0;
 	uint32_t nLength = 0, nAddr = 0, nType = 0;
 	uint32_t nStartAddr = 0x0, nEndAddr = 0x0, nChecksum = 0x0, nExAddr = 0;

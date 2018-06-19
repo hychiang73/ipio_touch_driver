@@ -1975,14 +1975,11 @@ void core_mp_run_test(char *item, bool ini)
 						core_mp_ctrl_lcm_status(false);
 				}
 
-				core_mp->run = true;
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
 
 				for (j = 0; j < core_mp->frame_len; j++)
 					tItems[i].result_buf[j] = tItems[i].buf[j];
-
-				core_mp->run = false;
 
 				/* LCM on */
 				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL) {

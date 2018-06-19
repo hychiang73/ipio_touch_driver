@@ -387,7 +387,9 @@ static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *
 
 	core_fr->actual_fw_mode = P5_0_FIRMWARE_GESTURE_MODE;
 
+#ifdef HOST_DOWNLOAD
 	core_gesture_load_code();
+#endif
 
 	/* Switch to test mode which moves mp code to iram */
 	core_fr_mode_control(&protocol->test_mode);
@@ -447,6 +449,9 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	ilitek_platform_disable_irq();
 
+	/* Start to run MP test */
+	core_mp->run = true;
+
 	/*
 	 * Get timing parameters first.
 	 * Howerver, this can be ignored if read them from ini.
@@ -477,6 +482,8 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	//core_mp_run_test("Pin Test(INT & RST)", true);
 
 	core_mp_show_result();
+
+	core_mp->run = false;
 
 	core_mp_test_free();
 
