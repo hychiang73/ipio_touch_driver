@@ -28,6 +28,19 @@ The default in this driver works on Qualcomm platform. If you'd like to port oth
 #define PT_SPRD	3
 #define TP_PLATFORM PT_QCOM
 ```
+
+# Interface
+This driver supports SPI interface in the version of 1.0.3.0 above. If you'd like to change the interface between I2C and SPI:
+
+```
+/* A interface currently supported by driver */
+#define I2C_INTERFACE 1
+#define SPI_INTERFACE 2
+#define INTERFACE SPI_INTERFACE
+```
+
+Note that SPI is only used on ILI9881H series.
+
 # Functions
 
 ## Gesture
@@ -213,9 +226,10 @@ Additionly, we offer a useful feature to do Write/Read at once: Delay time. In t
 │   ├── parser.c
 │   ├── parser.h
 │   ├── protocol.c
-│   └── protocol.h
+│   ├── protocol.h
+│   ├── spi.c
+│   └── spi.h
 ├── Makefile
-├── m.sh
 ├── platform.c
 ├── platform.h
 ├── README.md
@@ -261,6 +275,33 @@ In this case the driver now supports the type of ILI9881.
 In this case the slave address is 0x41, and the name of table calls **tchip,ilitek**. **touch,irq-gpio** and **touch,reset-gpio** represent INT pin and RESET pin separately.
 
 # Release Note
+* V1.0.3.3
+  * Fixed some bugs in loading gestue code.
+  * Fixed the format of CSV output.
+  * Added HW CRC read from DMA.
+  * Added features to distinguish the golden in INI file.
+  * Adjusted code style.
+  * Added the node to test LCM ON/OFF (only for OPPO).
+
+* V1.0.3.2
+  * Added gesture function in SPI.
+  * Added loading code in gesture mode.
+  * Fixed host download error when there is no hex to be read.
+
+* V1.0.3.1
+  * Fixed wrong output in open test.
+  * Fixed failure of LCM control.
+  * Fixed the incorrect result of MP test after run.
+  * Added two MP test items: Doze mode with LCM off.
+  * Changed the sequence of MP test.
+
+* V1.0.3.0
+  * Supports SPI interface
+  * Remove the check of detection of chip id in init time.
+  * Add new MP test & flow.
+  * CDC commands read from INI file in protocol v5.4.0.
+  * Recovery mechanism in SPI interface.
+  * In MP test, ther are three ways to check busy when getting raw data: Polling, INT and mdelay.
 
 * V1.0.2.0
   * Fully support new IC type, ILI9881H.
