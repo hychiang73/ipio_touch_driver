@@ -26,8 +26,8 @@
 #include "parser.h"
 #include "config.h"
 
-#define PARSER_MAX_CFG_BUF          512
-#define PARSER_MAX_KEY_NUM	        600
+#define PARSER_MAX_CFG_BUF          (512 * 3)
+#define PARSER_MAX_KEY_NUM	        (600 * 3)
 #define PARSER_MAX_KEY_NAME_LEN	    100
 #define PARSER_MAX_KEY_VALUE_LEN	2000
 
@@ -133,7 +133,7 @@ static int get_ini_phy_data(char *data, int fsize)
 	}
 
 	temp = strnstr(data, TYPE_MARK, fsize);
-	if(temp > 0) {
+	if(temp != NULL) {
 		ipio_debug(DEBUG_PARSER, "Find Type mark, locat = %d",temp-data);
 		if(core_config->core_type == CORE_TYPE_B)
 			offset = temp-data;

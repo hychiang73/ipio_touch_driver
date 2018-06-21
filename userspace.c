@@ -469,17 +469,17 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_mp_run_test("Short Test -ILI9881", true);
 	core_mp_run_test("Open Test(integration)_SP", true);
 	core_mp_run_test("Raw Data(Have BK)", true);
-	//core_mp_run_test("Raw Data(Have BK)(LCM OFF)", true);
+	//core_mp_run_test("Raw Data(Have BK) (LCM OFF)", true);
 	core_mp_run_test("Calibration Data(DAC)", true);
 	core_mp_run_test("Raw Data(No BK)", true);
-	core_mp_run_test("Raw Data(No BK)(LCM OFF)", true);
-	core_mp_run_test("Noise Peak to Peak(With Panel)(LCM OFF)", true);
-	//core_mp_run_test("Noise Peak to Peak(IC Only)(LCM OFF)", true);
-	core_mp_run_test("Raw Data_TD(LCM OFF)", true);
-	core_mp_run_test("Peak To Peak_TD(LCM OFF)", true);
+	core_mp_run_test("Raw Data(No BK) (LCM OFF)", true);
+	core_mp_run_test("Noise Peak to Peak(With Panel) (LCM OFF)", true);
+	//core_mp_run_test("Noise Peak to Peak(IC Only) (LCM OFF)", true);
+	core_mp_run_test("Raw Data_TD (LCM OFF)", true);
+	core_mp_run_test("Peak To Peak_TD (LCM OFF)", true);
 	core_mp_run_test("Doze Raw Data", true);
 	core_mp_run_test("Doze Peak To Peak", true);
-	//core_mp_run_test("Pin Test(INT & RST)", true);
+	//core_mp_run_test("Pin Test ( INT and RST )", true);
 
 	core_mp_show_result();
 

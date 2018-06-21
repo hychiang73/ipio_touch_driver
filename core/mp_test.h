@@ -54,7 +54,6 @@ struct mp_test_items {
 	uint8_t cmd;
 	uint8_t spec_option;
 	uint8_t type_option;
-	uint8_t node_type_option;
 	bool run;
 	int max;
 	int max_res;

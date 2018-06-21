@@ -101,9 +101,9 @@ struct mp_test_items tItems[] = {
 	{.name = "mutual_bg", .desp = "Baseline Data(BG)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_signal", .desp = "Untouch Signal Data(BG-Raw-4096) - Mutual", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_no_bk", .desp = "Raw Data(No BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_no_bk_lcm_off", .desp = "Raw Data(No BK)(LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.name = "mutual_no_bk_lcm_off", .desp = "Raw Data(No BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_has_bk", .desp = "Raw Data(Have BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_has_bk_lcm_off", .desp = "Raw Data(Have BK)(LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.name = "mutual_has_bk_lcm_off", .desp = "Raw Data(Have BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "mutual_bk_dac", .desp = "Manual BK Data(Mutual)", .result = "FAIL", .catalog = MUTUAL_TEST},
 
 	{.name = "self_dac", .desp = "Calibration Data(DAC) - Self", .result = "FAIL", .catalog = SELF_TEST},
@@ -143,10 +143,11 @@ struct mp_test_items tItems[] = {
 	{.name = "open_integration", .desp = "Open Test(integration)", .result = "FAIL", .catalog = OPEN_TEST},
 	{.name = "open_integration_sp", .desp = "Open Test(integration)_SP", .result = "FAIL", .catalog = OPEN_TEST},
 	{.name = "open_cap", .desp = "Open Test(Cap)", .result = "FAIL", .catalog = OPEN_TEST},
+
 	{.name = "noise_peak_to_peak_ic", .desp = "Noise Peak to Peak(IC Only)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-	{.name = "noise_peak_to_peak_ic_lcm_off", .desp = "Noise Peak to Peak(IC Only)(LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 	{.name = "noise_peak_to_peak_panel", .desp = "Noise Peak To Peak(With Panel)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-	{.name = "noise_peak_to_peak_panel_lcm_off", .desp = "Noise Peak to Peak(With Panel)(LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.name = "noise_peak_to_peak_ic_lcm_off", .desp = "Noise Peak to Peak(IC Only) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.name = "noise_peak_to_peak_panel_lcm_off", .desp = "Noise Peak to Peak(With Panel) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 
 	{.name = "doze_raw", .desp = "Doze Raw Data", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "doze_p2p", .desp = "Doze Peak To Peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
@@ -240,6 +241,12 @@ static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len, in
 	int x, y, tmp_len = *csv_len;
 	int mp_result = MP_PASS;
 
+	if (ERR_ALLOC_MEM(tmp)) {
+		ipio_err("The data of test item is null (%p)\n", tmp);
+		mp_result = MP_FAIL;
+		goto out;
+	}
+
 	/* print X raw only */
 	for (x = 0; x < core_mp->xch_len; x++) {
 		if (x == 0) {
@@ -288,6 +295,7 @@ static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len, in
 		tmp_len += sprintf(csv + tmp_len, "\n");
 	}
 
+out:
 	if(type == TYPE_JUGE)
 	{
 		if (mp_result == MP_PASS){
@@ -305,7 +313,7 @@ static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len, in
 
 static int create_mp_test_frame_buffer(int index, int frame_count)
 {
-	ipio_debug(DEBUG_MP_TEST, "Create MP frame buffers (index = %d)\n",index);
+	ipio_debug(DEBUG_MP_TEST, "Create MP frame buffers (index = %d), count = %d\n",index, frame_count);
 
 	if (tItems[index].catalog == TX_RX_DELTA) {
 		core_mp->tx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
@@ -334,6 +342,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 
 	} else {
 		tItems[index].buf = kcalloc(frame_count * core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		tItems[index].buf = vmalloc(frame_count * core_mp->frame_len * sizeof(int32_t));
 		tItems[index].result_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
@@ -341,15 +350,9 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 		if (tItems[index].spec_option == BENCHMARK) {
 			tItems[index].bench_mark_max = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 			tItems[index].bench_mark_min = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+
 			if (ERR_ALLOC_MEM(tItems[index].bench_mark_max) || ERR_ALLOC_MEM(tItems[index].bench_mark_min)){
 				ipio_err("Failed to allocate bench_mark FRAME buffer\n");
-				return -ENOMEM;
-			}
-		}
-		if (tItems[index].node_type_option == NODETYPE){
-			tItems[index].node_type = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-			if (ERR_ALLOC_MEM(tItems[index].node_type)){
-				ipio_err("Failed to allocate node_type FRAME buffer\n");
 				return -ENOMEM;
 			}
 		}
@@ -691,15 +694,15 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 	char tmp[128] = {0};
 	char *key = tItems[index].desp;
 
-	if (strncmp(key, "Raw Data_TD(LCM OFF)", strlen(key)) == 0)
+	if (strncmp(key, "Raw Data_TD (LCM OFF)", strlen(key)) == 0)
 		key = "Doze Raw Data";
-	else if (strncmp(key, "Peak To Peak_TD(LCM OFF)", strlen(key)) == 0)
+	else if (strncmp(key, "Peak To Peak_TD (LCM OFF)", strlen(key)) == 0)
 		key = "Doze Peak To Peak";
-	else if (strncmp(key, "Raw Data(No BK)(LCM OFF)", strlen(key)) == 0)
+	else if (strncmp(key, "Raw Data(No BK) (LCM OFF)", strlen(key)) == 0)
 		key = "Raw Data(No BK)";
-	else if (strncmp(key, "Raw Data(Have BK)(LCM OFF)", strlen(key)) == 0)
+	else if (strncmp(key, "Raw Data(Have BK) (LCM OFF)", strlen(key)) == 0)
 		key = "Raw Data(Have BK)";
-	else if (strncmp(key, "Noise Peak to Peak(With Panel)(LCM OFF)", strlen(key)) == 0 )
+	else if (strncmp(key, "Noise Peak to Peak(With Panel) (LCM OFF)", strlen(key)) == 0 )
 		key = "Noise Peak To Peak(With Panel)";
 
 	ipio_info("%s gets %s command from INI.\n", tItems[index].desp, key);
@@ -1281,11 +1284,6 @@ static int open_test_sp(int index)
 	ipio_debug(DEBUG_MP_TEST, "index = %d, name = %s, CMD = 0x%x, Frame Count = %d\n",
 	    index, tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
-	if (tItems[index].node_type_option != NODETYPE) {
-		ipio_err("open_test_sp function was disable\n");
-		res = -1;
-		return res;
-	}
 	/*
 	 * We assume that users who are calling the test forget to config frame count
 	 * as 1, so we just help them to set it up.
@@ -1298,6 +1296,12 @@ static int open_test_sp(int index)
 	res = create_mp_test_frame_buffer(index, tItems[index].frame_count);
 	if (res < 0)
 		goto out;
+
+	tItems[index].node_type = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(tItems[index].node_type)){
+		ipio_err("Failed to allocate node_type FRAME buffer\n");
+		return -ENOMEM;
+	}
 
 	/* Init Max/Min buffer */
 	for (y = 0; y < core_mp->ych_len; y++) {
@@ -1410,6 +1414,9 @@ static int open_test_sp(int index)
 		compare_MaxMin_result(index, &tItems[index].buf[(i * core_mp->frame_len)]);
 	}
 
+out:
+	ipio_kfree((void **)&tItems[index].node_type);
+
 	for(i = 0; i < tItems[index].frame_count; i++) {
 		ipio_kfree((void **)&open[i].cbk_700);
 		ipio_kfree((void **)&open[i].cbk_250);
@@ -1419,7 +1426,6 @@ static int open_test_sp(int index)
 		ipio_kfree((void **)&open[i].dac);
 	}
 
-out:
 	return res;
 }
 
@@ -1505,6 +1511,7 @@ static int mutual_test(int index)
 			}
 		}
 	}
+
 	if (tItems[index].catalog != PEAK_TO_PEAK_TEST)
 		get_frame_cont = tItems[index].frame_count;
 
@@ -1919,7 +1926,7 @@ void core_mp_run_test(char *item, bool ini)
 		return;
 	}
 
-	ipio_debug(DEBUG_MP_TEST, "item = %s\n", item);
+	ipio_debug(DEBUG_MP_TEST, "item = %s, core type = %d\n", item, core_config->core_type);
 
 	for (i = 0; i < core_mp->mp_items; i++) {
 		if (strncmp(item, tItems[i].desp, strlen(item)) == 0) {
@@ -1929,8 +1936,6 @@ void core_mp_run_test(char *item, bool ini)
 				core_parser_get_int_data(item, "SPEC Option", str);
 				tItems[i].spec_option= katoi(str);
 				core_parser_get_int_data(item, "node type", str);
-				tItems[i].node_type_option= katoi(str);
-				core_parser_get_int_data(item, "Type Option", str);
 				tItems[i].type_option= katoi(str);
  				core_parser_get_int_data(item, "Frame Count", str);
 				tItems[i].frame_count= katoi(str);
@@ -2072,9 +2077,18 @@ void core_mp_test_free(void)
 				ipio_kfree((void **)&tItems[i].bench_mark_min);
 			}
 			ipio_kfree((void **)&tItems[i].result_buf);
-			ipio_kfree((void **)&tItems[i].buf);
+			//ipio_kfree((void **)&tItems[i].buf);
 			ipio_kfree((void **)&tItems[i].max_buf);
 			ipio_kfree((void **)&tItems[i].min_buf);
+
+			vfree(tItems[i].buf);
+			tItems[i].buf = NULL;
+			// vfree(tItems[i].result_buf);
+			// tItems[i].result_buf = NULL;
+			// vfree(tItems[i].max_buf);
+			// tItems[i].max_buf = NULL;
+			// vfree(tItems[i].min_buf);
+			// tItems[i].min_buf = NULL;
 		}
 	}
 
@@ -2095,7 +2109,6 @@ static void mp_test_init_item(void)
 
 		tItems[i].spec_option = 0;
 		tItems[i].type_option = 0;
-		tItems[i].node_type_option = 0;
 		tItems[i].run = false;
 		tItems[i].max = 0;
 		tItems[i].max_res = MP_FAIL;
