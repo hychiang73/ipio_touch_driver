@@ -1929,7 +1929,7 @@ void core_mp_run_test(char *item, bool ini)
 				tItems[i].run = katoi(str);
 				core_parser_get_int_data(item, "SPEC Option", str);
 				tItems[i].spec_option= katoi(str);
-				core_parser_get_int_data(item, "node type", str);
+				core_parser_get_int_data(item, "Type Option", str);
 				tItems[i].type_option= katoi(str);
  				core_parser_get_int_data(item, "Frame Count", str);
 				tItems[i].frame_count= katoi(str);

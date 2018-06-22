@@ -103,7 +103,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 			check_sum = core_fr_calc_checksum(pBuf, nSize);
 			txbuf = (uint8_t*)kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(txbuf)) {
-				ipio_err("Failed to allocate CSV mem\n");
+				ipio_err("Failed to allocate txbuf mem\n");
 				res = -ENOMEM;
 				goto out;
 			}

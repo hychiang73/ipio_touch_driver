@@ -415,14 +415,11 @@ static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *
 
 	core_mp_test_free();
 
-	//core_fr_mode_control(&protocol->demo_mode);
+	core_fr_mode_control(&protocol->demo_mode);
 
-	core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
+	ilitek_platform_tp_hw_reset(true);
 
-	// ilitek_platform_tp_hw_reset(true);
-
-	// ilitek_platform_enable_irq();
-	core_config_ic_resume();
+	ilitek_platform_enable_irq();
 
 out:
 	*pPos = len;
