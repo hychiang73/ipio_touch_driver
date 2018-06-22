@@ -462,9 +462,12 @@ void core_config_ic_resume(void)
 	core_fr_mode_control(&protocol->demo_mode);
 
 	/* Soft reset */
-	// core_config_ice_mode_enable();
-	// mdelay(10);
-	// core_config_ic_reset();
+	core_config_ice_mode_enable();
+	core_config_set_watch_dog(false);
+	mdelay(10);
+	core_config_ic_reset();
+
+	//ilitek_platform_tp_hw_reset(true);
 
 	ilitek_platform_enable_irq();
 

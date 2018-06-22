@@ -151,8 +151,8 @@ struct mp_test_items tItems[] = {
 
 	{.name = "doze_raw", .desp = "Doze Raw Data", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.name = "doze_p2p", .desp = "Doze Peak To Peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-	{.name = "doze_raw_td_lcm_off", .desp = "Raw Data_TD(LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "doze_p2p_td_lcm_off", .desp = "Peak To Peak_TD(LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.name = "doze_raw_td_lcm_off", .desp = "Raw Data_TD (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.name = "doze_p2p_td_lcm_off", .desp = "Peak To Peak_TD (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 };
 
 int32_t *frame_buf = NULL;
@@ -341,7 +341,6 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 		}
 
 	} else {
-		tItems[index].buf = kcalloc(frame_count * core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].buf = vmalloc(frame_count * core_mp->frame_len * sizeof(int32_t));
 		tItems[index].result_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
@@ -1681,11 +1680,6 @@ int mp_test_data_sort_average(int32_t *oringin_data,int index, int32_t *avg_resu
 		avg_result[i] = u32sum_raw_data[i] / (tItems[index].frame_count - u32down_frame - u32up_frame);
 	}
 
-	// for(j = 0 ;j < core_mp->frame_len ; j++){
-	// 	tItems[index].max_buf[j] = u32data_buff[(j + (tItems[index].frame_count - u32up_frame -1)* core_mp->frame_len)];
-	// 	tItems[index].min_buf[j] = u32data_buff[(j + u32down_frame * core_mp->frame_len)];
-	// }
-
 	if (ipio_debug_level & DEBUG_MP_TEST) {
 		printk("\n[Average result frist%d and last%d node data]\n",len,len);
 		for(i = 0 ; i < core_mp->frame_len ; i++){
@@ -2076,19 +2070,12 @@ void core_mp_test_free(void)
 				ipio_kfree((void **)&tItems[i].bench_mark_max);
 				ipio_kfree((void **)&tItems[i].bench_mark_min);
 			}
+
 			ipio_kfree((void **)&tItems[i].result_buf);
-			//ipio_kfree((void **)&tItems[i].buf);
 			ipio_kfree((void **)&tItems[i].max_buf);
 			ipio_kfree((void **)&tItems[i].min_buf);
-
 			vfree(tItems[i].buf);
 			tItems[i].buf = NULL;
-			// vfree(tItems[i].result_buf);
-			// tItems[i].result_buf = NULL;
-			// vfree(tItems[i].max_buf);
-			// tItems[i].max_buf = NULL;
-			// vfree(tItems[i].min_buf);
-			// tItems[i].min_buf = NULL;
 		}
 	}
 

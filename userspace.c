@@ -401,10 +401,10 @@ static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *
 	core_mp->oppo_lcm = true;
 
 	/* Do not chang the sequence of test */
-	core_mp_run_test("Raw Data(No BK)(LCM OFF)", true);
-	core_mp_run_test("Noise Peak to Peak(With Panel)(LCM OFF)", true);
-	core_mp_run_test("Raw Data_TD(LCM OFF)", true);
-	core_mp_run_test("Peak To Peak_TD(LCM OFF)", true);
+	core_mp_run_test("Raw Data(No BK) (LCM OFF)", true);
+	core_mp_run_test("Noise Peak to Peak(With Panel) (LCM OFF)", true);
+	core_mp_run_test("Raw Data_TD (LCM OFF)", true);
+	core_mp_run_test("Peak To Peak_TD (LCM OFF)", true);
 
 	core_mp_show_result();
 
@@ -415,11 +415,14 @@ static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *
 
 	core_mp_test_free();
 
-	core_fr_mode_control(&protocol->demo_mode);
+	//core_fr_mode_control(&protocol->demo_mode);
 
-	ilitek_platform_tp_hw_reset(true);
+	core_fr->actual_fw_mode = P5_0_FIRMWARE_DEMO_MODE;
 
-	ilitek_platform_enable_irq();
+	// ilitek_platform_tp_hw_reset(true);
+
+	// ilitek_platform_enable_irq();
+	core_config_ic_resume();
 
 out:
 	*pPos = len;
@@ -495,12 +498,6 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	}
 
 	core_config_ic_reset();
-
-	if (core_config_set_watch_dog(true) < 0) {
-		ipio_err("Failed to disable watch dog\n");
-	}
-
-	core_config_ice_mode_disable();
 #endif
 	/* Switch to Demo mode */
 	core_fr_mode_control(&protocol->demo_mode);
@@ -586,12 +583,6 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	}
 
 	core_config_ic_reset();
-
-	if (core_config_set_watch_dog(true) < 0) {
-		ipio_err("Failed to disable watch dog\n");
-	}
-
-	core_config_ice_mode_disable();
 #endif
 
 	core_fr_mode_control(&protocol->demo_mode);
