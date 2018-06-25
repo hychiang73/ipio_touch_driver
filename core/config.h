@@ -100,7 +100,7 @@ extern int core_config_ice_mode_enable(void);
 
 /* Touch IC status */
 extern int core_config_set_watch_dog(bool enable);
-extern int core_config_check_cdc_busy(int delay);
+extern int core_config_check_cdc_busy(int count, int delay);
 extern int core_config_check_int_status(bool high);
 extern void core_config_ic_suspend(void);
 extern void core_config_ic_resume(void);

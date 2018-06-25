@@ -382,7 +382,7 @@ static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *
 	/* sense stop */
 	core_config_sense_ctrl(false);
 
-	if (core_config_check_cdc_busy(50) < 0)
+	if (core_config_check_cdc_busy(50, 100) < 0)
 		ipio_err("Check busy is timout !\n");
 
 	core_fr->actual_fw_mode = P5_0_FIRMWARE_GESTURE_MODE;
@@ -1047,16 +1047,16 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		temp[2] = 0x00;
 		w_len = 3;
 		core_write(core_config->slave_i2c_addr, temp, w_len);
-		if (core_config_check_cdc_busy(50) < 0)
+		if (core_config_check_cdc_busy(50, 100) < 0)
 			ipio_err("Check busy is timout !\n");
-	} 
+	}
 	else if (strcmp(cmd, "gt2") == 0) {
 		temp[0] = 0x01;
 		temp[1] = 0x0A;
 		temp[2] = 0x01;
 		w_len = 3;
 		core_write(core_config->slave_i2c_addr, temp, w_len);
-		ipio_info("test Gesture test\n");	
+		ipio_info("test Gesture test\n");
 	} else if (strcmp(cmd, "i2c_w") == 0) {
 		w_len = data[1];
 		ipio_info("w_len = %d\n", w_len);

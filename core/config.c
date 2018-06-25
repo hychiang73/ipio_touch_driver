@@ -406,7 +406,7 @@ void core_config_ic_suspend(void)
 	core_config_sense_ctrl(false);
 
 	/* check system busy */
-	if (core_config_check_cdc_busy(50) < 0)
+	if (core_config_check_cdc_busy(50, 10) < 0)
 		ipio_err("Check busy is timout !\n");
 
 	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
@@ -453,7 +453,7 @@ void core_config_ic_resume(void)
 	core_config_sleep_ctrl(true);
 
 	/* check system busy */
-	if (core_config_check_cdc_busy(50) < 0)
+	if (core_config_check_cdc_busy(50, 10) < 0)
 		ipio_err("Check busy is timout !\n");
 
 	/* sense start for TP */
@@ -566,9 +566,9 @@ int core_config_set_watch_dog(bool enable)
 }
 EXPORT_SYMBOL(core_config_set_watch_dog);
 
-int core_config_check_cdc_busy(int delay)
+int core_config_check_cdc_busy(int conut, int delay)
 {
-	int timer = delay, res = -1;
+	int timer = conut, res = -1;
 	uint8_t cmd[2] = { 0 };
 	uint8_t busy = 0;
 
@@ -576,11 +576,9 @@ int core_config_check_cdc_busy(int delay)
 	cmd[1] = protocol->cmd_cdc_busy;
 
 	while (timer > 0) {
-		mdelay(100);
+		mdelay(delay);
 		core_write(core_config->slave_i2c_addr, cmd, 2);
-		mdelay(1);
 		core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-		mdelay(1);
 		core_read(core_config->slave_i2c_addr, &busy, 1);
 		if (busy == 0x41 || busy == 0x51) {
 			ipio_info("Check busy is free\n");

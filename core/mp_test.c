@@ -39,6 +39,7 @@
 #include "mp_test.h"
 #include "protocol.h"
 #include "parser.h"
+#include "finger_report.h"
 
 #define EXEC_READ  0
 #define EXEC_WRITE 1
@@ -46,6 +47,7 @@
 #define INT_CHECK 0
 #define POLL_CHECK 1
 #define DELAY_CHECK 2
+#define RETRY_COUNT 3
 
 #define NORMAL_CSV_PASS_NAME		"mp_pass"
 #define NORMAL_CSV_FAIL_NAME		"mp_fail"
@@ -341,14 +343,18 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 		}
 
 	} else {
-		tItems[index].buf = vmalloc(frame_count * core_mp->frame_len * sizeof(int32_t));
-		tItems[index].result_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-		tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-		tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		if (tItems[index].buf == NULL && tItems[index].max_buf == NULL
+				&& tItems[index].min_buf == NULL) {
+			tItems[index].buf = vmalloc(frame_count * core_mp->frame_len * sizeof(int32_t));
+			tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		}
 
 		if (tItems[index].spec_option == BENCHMARK) {
-			tItems[index].bench_mark_max = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-			tItems[index].bench_mark_min = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (tItems[index].bench_mark_max == NULL && tItems[index].bench_mark_min == NULL) {
+				tItems[index].bench_mark_max = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+				tItems[index].bench_mark_min = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			}
 
 			if (ERR_ALLOC_MEM(tItems[index].bench_mark_max) || ERR_ALLOC_MEM(tItems[index].bench_mark_min)){
 				ipio_err("Failed to allocate bench_mark FRAME buffer\n");
@@ -506,7 +512,7 @@ static int allnode_key_cdc_data(int index)
 	mdelay(1);
 
 	/* Check busy */
-	if (core_config_check_cdc_busy(50) < 0) {
+	if (core_config_check_cdc_busy(50, 100) < 0) {
 		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
@@ -792,7 +798,7 @@ static int allnode_mutual_cdc_data(int index)
 	/* Check busy */
 	ipio_info("Check busy method = %d\n",core_mp->busy_cdc);
 	if (core_mp->busy_cdc == POLL_CHECK) {
-		res = core_config_check_cdc_busy(50);
+		res = core_config_check_cdc_busy(50, 100);
 	} else if (core_mp->busy_cdc == INT_CHECK) {
 		res = core_config_check_int_status(false);
 	} else if (core_mp->busy_cdc == DELAY_CHECK) {
@@ -1187,7 +1193,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	/* Check busy */
 	ipio_info("Check busy method = %d\n",core_mp->busy_cdc);
 	if (core_mp->busy_cdc == POLL_CHECK) {
-		res = core_config_check_cdc_busy(50);
+		res = core_config_check_cdc_busy(50, 100);
 	} else if (core_mp->busy_cdc == INT_CHECK) {
 		res = core_config_check_int_status(false);
 	} else if (core_mp->busy_cdc == DELAY_CHECK) {
@@ -1296,6 +1302,7 @@ static int open_test_sp(int index)
 	if (res < 0)
 		goto out;
 
+	/* Allocate node type buffer only for open test SP */
 	tItems[index].node_type = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tItems[index].node_type)){
 		ipio_err("Failed to allocate node_type FRAME buffer\n");
@@ -1694,6 +1701,108 @@ int mp_test_data_sort_average(int32_t *oringin_data,int index, int32_t *avg_resu
 	ipio_kfree((void **)&u32sum_raw_data);
 	return 0;
 }
+
+int core_mp_compare_retry_cdc_result(int index)
+{
+	int x, y, shift;
+	int max_ts, min_ts, retry_result = MP_PASS;
+	int32_t *bench = NULL, *tmp_max = NULL, *tmp_min = NULL;
+
+	ipio_info("index = %d, item = %s\n",index,tItems[index].desp);
+
+	if (tItems[index].spec_option == BENCHMARK) {
+
+		if (ERR_ALLOC_MEM(tItems[index].buf)) {
+			ipio_err("The buffer in NULL, retry failed\n");
+			retry_result = MP_FAIL;
+			goto out;
+		}
+
+		bench = tItems[index].buf;
+
+		for (y = 0; y < core_mp->ych_len; y++) {
+			for (x = 0; x < core_mp->xch_len; x++) {
+				shift = y * core_mp->xch_len + x;
+				if (bench[shift] > tItems[index].bench_mark_max[shift] ||
+					bench[shift] < tItems[index].bench_mark_min[shift]) {
+						retry_result = MP_FAIL;
+						break;
+				}
+			}
+		}
+	} else {
+
+		if (ERR_ALLOC_MEM(tItems[index].max_buf) || ERR_ALLOC_MEM(tItems[index].min_buf)) {
+			ipio_err("The buffer in NULL, retry failed\n");
+			retry_result = MP_FAIL;
+			goto out;
+		}
+
+		tmp_max = tItems[index].max_buf;
+		tmp_min = tItems[index].min_buf;
+
+		max_ts = tItems[index].max;
+		min_ts = tItems[index].min;
+
+		for (y = 0; y < core_mp->ych_len; y++) {
+			for (x = 0; x < core_mp->xch_len; x++) {
+				shift = y * core_mp->xch_len + x;
+				if (tmp_max[shift] > max_ts || tmp_min[shift] < min_ts) {
+					retry_result = MP_FAIL;
+					break;
+				}
+			}
+		}
+	}
+
+out:
+	ipio_info("Result = %s\n", ((retry_result == MP_PASS) ? "MP PASS" : "MP FAIL"));
+
+	if (retry_result == MP_PASS) {
+		tItems[index].max_res = MP_PASS;
+		tItems[index].min_res = MP_PASS;
+	} else {
+		tItems[index].max_res = MP_FAIL;
+		tItems[index].min_res = MP_FAIL;
+	}
+
+	return retry_result;
+}
+
+void core_mp_retry(int index, int count)
+{
+	if (count == 0) {
+		ipio_info("Finish retry action\n");
+		return;
+	}
+
+	core_config_ice_mode_enable();
+
+	if (core_config_set_watch_dog(false) < 0) {
+		ipio_err("Failed to disable watch dog\n");
+	}
+
+	core_config_ic_reset();
+
+	core_config_ice_mode_disable();
+
+	/* Switch to Demo mode */
+	core_fr_mode_control(&protocol->demo_mode);
+	ilitek_platform_disable_irq();
+
+	/* Switch to test mode */
+	core_fr_mode_control(&protocol->test_mode);
+	ilitek_platform_disable_irq();
+
+	ipio_info("retry = %d, item = %s\n", count, tItems[index].desp);
+
+	tItems[index].do_test(index);
+
+	if (core_mp_compare_retry_cdc_result(index) == MP_FAIL) {
+		return core_mp_retry(index, count - 1);
+	}
+}
+
 void core_mp_show_result(void)
 {
 	int i, x, y, j, csv_len = 0, pass_item_count = 0;
@@ -1900,7 +2009,7 @@ EXPORT_SYMBOL(core_mp_show_result);
 
 void core_mp_run_test(char *item, bool ini)
 {
-	int i = 0, j = 0;
+	int i = 0;
 	char str[512] = { 0 };
 
 	/* update X/Y channel length if they're changed */
@@ -1977,8 +2086,9 @@ void core_mp_run_test(char *item, bool ini)
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
 
-				for (j = 0; j < core_mp->frame_len; j++)
-					tItems[i].result_buf[j] = tItems[i].buf[j];
+				/* To see if this item needs to do retry  */
+				if (core_mp_compare_retry_cdc_result(i) == MP_FAIL)
+					core_mp_retry(i, RETRY_COUNT);
 
 				/* LCM on */
 				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL) {
@@ -2000,7 +2110,7 @@ int core_mp_move_code(void)
 #ifdef HOST_DOWNLOAD
 	ilitek_platform_tp_hw_reset(true);
 #else
-	if (core_config_check_cdc_busy(50) < 0) {
+	if (core_config_check_cdc_busy(50, 10) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
@@ -2033,7 +2143,7 @@ int core_mp_move_code(void)
 
 	core_config_ice_mode_disable();
 
-	if (core_config_check_cdc_busy(300) < 0) {
+	if (core_config_check_cdc_busy(300, 50) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
