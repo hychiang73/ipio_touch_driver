@@ -275,6 +275,16 @@ In this case the driver now supports the type of ILI9881.
 In this case the slave address is 0x41, and the name of table calls **tchip,ilitek**. **touch,irq-gpio** and **touch,reset-gpio** represent INT pin and RESET pin separately.
 
 # Release Note
+* V1.0.3.5
+  * Fixed issue that coludn't read type option from INI file.
+  * Delete redundant buffer memory allocated by kernel in MP.
+  * No need to disable WDT when to exit ICE mode.
+
+* V1.0.3.4
+  * Support MP CDC command under protocol 5.3.0.
+  * Add a switch of watch dog.
+  * Modified MP test item folloing with INI section.
+
 * V1.0.3.3
   * Fixed some bugs in loading gestue code.
   * Fixed the format of CSV output.
