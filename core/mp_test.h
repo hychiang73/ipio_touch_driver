@@ -116,6 +116,7 @@ struct core_mp_test_data {
 	struct mp_nodp_calc nodp;
 	/* A flag shows a test run in particular */
 	bool run;
+	bool retry;
 	bool oppo_run;
 	bool oppo_lcm;
 	bool m_signal;
