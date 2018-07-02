@@ -109,7 +109,7 @@
 #define INTERFACE SPI_INTERFACE
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.5"
+#define DRIVER_VERSION	"1.0.3.6"
 
 /* Driver core type */
 #define CORE_TYPE_B		0x00
