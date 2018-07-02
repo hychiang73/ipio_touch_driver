@@ -1460,7 +1460,7 @@ int codeToOhm(int32_t Code)
 	}
 	else
 	{
-		temp = ((douTVCH - douTVCL) * douVariation * (douTDF1 - douTDF2) * (1<<14) / (36 * Code * douCint)) * 100;
+		temp = ((douTVCH - douTVCL) * douVariation * (douTDF1 - douTDF2) * (1<<12) / (9 * Code * douCint)) * 100;
 		temp = (temp - douRinternal) / 1000;
 	}
 	/* Unit = M Ohm */
