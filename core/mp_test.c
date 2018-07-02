@@ -2086,9 +2086,11 @@ void core_mp_run_test(char *item, bool ini)
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
 
-				/* To see if this item needs to do retry  */
-				if (core_mp_compare_retry_cdc_result(i) == MP_FAIL)
-					core_mp_retry(i, RETRY_COUNT);
+				if (core_mp->retry) {
+					/* To see if this item needs to do retry  */
+					if (core_mp_compare_retry_cdc_result(i) == MP_FAIL)
+						core_mp_retry(i, RETRY_COUNT);
+				}
 
 				/* LCM on */
 				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL) {
@@ -2320,6 +2322,7 @@ int core_mp_init(void)
 			core_mp->busy_cdc = INT_CHECK;
 
 			core_mp->run = false;
+			core_mp->retry = true;
 			core_mp->oppo_run = false;
 			core_mp->oppo_lcm = false;
 			core_mp->final_result = MP_FAIL;
