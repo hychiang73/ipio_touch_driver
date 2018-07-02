@@ -1702,18 +1702,18 @@ int mp_test_data_sort_average(int32_t *oringin_data,int index, int32_t *avg_resu
 	return 0;
 }
 
-int core_mp_compare_retry_cdc_result(int index)
+static int mp_retry_comp_cdc_result(int index)
 {
 	int x, y, shift;
 	int max_ts, min_ts, retry_result = MP_PASS;
 	int32_t *bench = NULL, *tmp_max = NULL, *tmp_min = NULL;
 
-	ipio_info("index = %d, item = %s\n",index,tItems[index].desp);
+	ipio_info("index = %d, item = %s\n", index, tItems[index].desp);
 
 	if (tItems[index].spec_option == BENCHMARK) {
 
 		if (ERR_ALLOC_MEM(tItems[index].buf)) {
-			ipio_err("The buffer in NULL, retry failed\n");
+			ipio_err("The buffer is NULL, retry failed\n");
 			retry_result = MP_FAIL;
 			goto out;
 		}
@@ -1732,8 +1732,9 @@ int core_mp_compare_retry_cdc_result(int index)
 		}
 	} else {
 
-		if (ERR_ALLOC_MEM(tItems[index].max_buf) || ERR_ALLOC_MEM(tItems[index].min_buf)) {
-			ipio_err("The buffer in NULL, retry failed\n");
+		if (ERR_ALLOC_MEM(tItems[index].max_buf) ||
+				ERR_ALLOC_MEM(tItems[index].min_buf)) {
+			ipio_err("The buffer is NULL, retry failed\n");
 			retry_result = MP_FAIL;
 			goto out;
 		}
@@ -1769,7 +1770,7 @@ out:
 	return retry_result;
 }
 
-void core_mp_retry(int index, int count)
+static void mp_do_retry(int index, int count)
 {
 	if (count == 0) {
 		ipio_info("Finish retry action\n");
@@ -1788,18 +1789,18 @@ void core_mp_retry(int index, int count)
 
 	/* Switch to Demo mode */
 	core_fr_mode_control(&protocol->demo_mode);
-	ilitek_platform_disable_irq();
 
 	/* Switch to test mode */
 	core_fr_mode_control(&protocol->test_mode);
-	ilitek_platform_disable_irq();
 
 	ipio_info("retry = %d, item = %s\n", count, tItems[index].desp);
 
+	ilitek_platform_disable_irq();
+
 	tItems[index].do_test(index);
 
-	if (core_mp_compare_retry_cdc_result(index) == MP_FAIL) {
-		return core_mp_retry(index, count - 1);
+	if (mp_retry_comp_cdc_result(index) == MP_FAIL) {
+		return mp_do_retry(index, count - 1);
 	}
 }
 
@@ -2012,6 +2013,11 @@ void core_mp_run_test(char *item, bool ini)
 	int i = 0;
 	char str[512] = { 0 };
 
+	if (ERR_ALLOC_MEM(core_mp)) {
+		ipio_err("core_mp is null, fails to be allocated\n");
+		return;
+	}
+
 	/* update X/Y channel length if they're changed */
 	core_mp->xch_len = core_config->tp_info->nXChannelNum;
 	core_mp->ych_len = core_config->tp_info->nYChannelNum;
@@ -2088,8 +2094,8 @@ void core_mp_run_test(char *item, bool ini)
 
 				if (core_mp->retry) {
 					/* To see if this item needs to do retry  */
-					if (core_mp_compare_retry_cdc_result(i) == MP_FAIL)
-						core_mp_retry(i, RETRY_COUNT);
+					if (mp_retry_comp_cdc_result(i) == MP_FAIL)
+						mp_do_retry(i, RETRY_COUNT);
 				}
 
 				/* LCM on */
