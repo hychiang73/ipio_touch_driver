@@ -290,17 +290,15 @@ int core_spi_write_9881H11(uint8_t *pBuf, uint16_t nSize)
 	if (ERR_ALLOC_MEM(txbuf)) {
 		ipio_err("Failed to allocate txbuf\n");
 		return -ENOMEM;
-		goto out;
 	}
 
 	res = core_ice_mode_enable_9881H11();
 	if (res < 0)
-		return res;
-
-	if (core_ice_mode_write_9881H11(pBuf, nSize) < 0) {
-		res = -EIO;
 		goto out;
-	}
+
+	res = core_ice_mode_write_9881H11(pBuf, nSize);
+	if (res < 0)
+		goto out;
 
 	if(core_Tx_unlock_check() < 0) {
 		res = -ETXTBSY;

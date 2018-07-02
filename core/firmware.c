@@ -542,7 +542,7 @@ static int iram_upgrade(void)
 #ifdef HOST_DOWNLOAD
 static int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t r_len)
 {
-	int addr = 0, i = 0;
+	int ret, addr = 0, i = 0;
 	uint32_t end = start + size;
 	uint8_t *buf = NULL;
 
@@ -566,19 +566,22 @@ static int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t
 
 		if (core_write(core_config->slave_i2c_addr, buf, 4)) {
 			ipio_err("Failed to write data via SPI in host download\n");
-			return -EIO;
+			ret = -EIO;
+			goto out;
 		}
 
 		if (core_read(core_config->slave_i2c_addr, buf, r_len)) {
 			ipio_err("Failed to Read data via SPI in host download\n");
-			return -EIO;
+			ret = -EIO;
+			goto out;
 		}
 
 		memcpy(r_buf + i, buf, r_len);
 	}
 
+out:
 	ipio_kfree((void **)&buf);
-	return 0;
+	return ret;
 }
 
 static int write_download(uint32_t start, uint32_t size, uint8_t *w_buf, uint32_t w_len)
