@@ -194,7 +194,7 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 		if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_F)
 			busy = core_config_read_write_onebyte(0x041014);
 		else if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_H) {
-			busy = core_config_read_write_onebyte(0x041014);
+			busy = core_config_read_write_onebyte(0x048007);
 			busy = busy >> 1;
 		} else {
 			ipio_err("Unknow chip type\n");
