@@ -315,59 +315,113 @@ out:
 
 static int create_mp_test_frame_buffer(int index, int frame_count)
 {
-	ipio_debug(DEBUG_MP_TEST, "Create MP frame buffers (index = %d), count = %d\n",index, frame_count);
+	ipio_debug(DEBUG_MP_TEST, "Create MP frame buffers (index = %d), count = %d\n"
+			,index, frame_count);
 
 	if (tItems[index].catalog == TX_RX_DELTA) {
-		core_mp->tx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-		core_mp->rx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-
-		core_mp->tx_max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-		core_mp->tx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-
-		core_mp->rx_max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-		core_mp->rx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-
-		if (ERR_ALLOC_MEM(core_mp->tx_delta_buf) || ERR_ALLOC_MEM(core_mp->rx_delta_buf)) {
-			ipio_err("Failed to allocate Tx/Rx Delta buffer\n");
-			return -ENOMEM;
-		}
-
-		if (ERR_ALLOC_MEM(core_mp->tx_max_buf) || ERR_ALLOC_MEM(core_mp->tx_min_buf)) {
-			ipio_err("Failed to allocate Tx Max/Min buffer\n");
-			return -ENOMEM;
-		}
-
-		if (ERR_ALLOC_MEM(core_mp->rx_max_buf) || ERR_ALLOC_MEM(core_mp->rx_min_buf)) {
-			ipio_err("Failed to allocate Rx Max/Min buffe\n");
-			return -ENOMEM;
-		}
-
-	} else {
-		if (tItems[index].buf == NULL && tItems[index].max_buf == NULL
-				&& tItems[index].min_buf == NULL) {
-			tItems[index].buf = vmalloc(frame_count * core_mp->frame_len * sizeof(int32_t));
-			tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-			tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-		}
-
-		if (tItems[index].spec_option == BENCHMARK) {
-			if (tItems[index].bench_mark_max == NULL && tItems[index].bench_mark_min == NULL) {
-				tItems[index].bench_mark_max = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-				tItems[index].bench_mark_min = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-			}
-
-			if (ERR_ALLOC_MEM(tItems[index].bench_mark_max) || ERR_ALLOC_MEM(tItems[index].bench_mark_min)){
-				ipio_err("Failed to allocate bench_mark FRAME buffer\n");
+		if (core_mp->tx_delta_buf == NULL) {
+			core_mp->tx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(core_mp->tx_delta_buf)) {
+				ipio_err("Failed to allocate tx_delta_buf mem\n");
 				return -ENOMEM;
 			}
 		}
-		if (ERR_ALLOC_MEM(tItems[index].buf) || ERR_ALLOC_MEM(tItems[index].max_buf) ||
-				ERR_ALLOC_MEM(tItems[index].min_buf) || ERR_ALLOC_MEM(tItems[index].result_buf)) {
-			ipio_err("Failed to allocate FRAME buffer\n");
-			return -ENOMEM;
+
+		if (core_mp->rx_delta_buf == NULL) {
+			core_mp->rx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(core_mp->rx_delta_buf)) {
+				ipio_err("Failed to allocate rx_delta_buf mem\n");
+				return -ENOMEM;
+			}
+		}
+
+		if (core_mp->tx_max_buf == NULL) {
+			core_mp->tx_max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(core_mp->tx_max_buf)) {
+				ipio_err("Failed to allocate tx_max_buf mem\n");
+				return -ENOMEM;
+			}
+		}
+
+		if (core_mp->tx_min_buf == NULL) {
+			core_mp->tx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(core_mp->tx_min_buf)) {
+				ipio_err("Failed to allocate tx_min_buf mem\n");
+				return -ENOMEM;
+			}
+		}
+
+		if (core_mp->rx_max_buf == NULL) {
+			core_mp->rx_max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(core_mp->rx_max_buf)) {
+				ipio_err("Failed to allocate rx_max_buf mem\n");
+				return -ENOMEM;
+			}
+		}
+
+		if (core_mp->rx_min_buf == NULL) {
+			core_mp->rx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(core_mp->rx_min_buf)) {
+				ipio_err("Failed to allocate rx_min_buf mem\n");
+				return -ENOMEM;
+			}
+		}
+	} else {
+		if (tItems[index].buf == NULL) {
+			tItems[index].buf = vmalloc(frame_count * core_mp->frame_len * sizeof(int32_t));
+			if (ERR_ALLOC_MEM(tItems[index].buf)) {
+				ipio_err("Failed to allocate buf mem\n");
+				ipio_kfree((void **)&tItems[index].buf);
+				return -ENOMEM;
+			}
+		}
+
+		if (tItems[index].result_buf == NULL) {
+			tItems[index].result_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(tItems[index].result_buf)) {
+				ipio_err("Failed to allocate result_buf mem\n");
+				ipio_kfree((void **)&tItems[index].result_buf);
+				return -ENOMEM;
+			}
+		}
+
+		if (tItems[index].max_buf == NULL) {
+			tItems[index].max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(tItems[index].max_buf)) {
+				ipio_err("Failed to allocate max_buf mem\n");
+				ipio_kfree((void **)&tItems[index].max_buf);
+				return -ENOMEM;
+			}
+		}
+
+		if (tItems[index].min_buf == NULL) {
+			tItems[index].min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+			if (ERR_ALLOC_MEM(tItems[index].min_buf)) {
+				ipio_err("Failed to allocate min_buf mem\n");
+				ipio_kfree((void **)&tItems[index].min_buf);
+				return -ENOMEM;
+			}
+		}
+
+		if (tItems[index].spec_option == BENCHMARK) {
+			if (tItems[index].bench_mark_max == NULL) {
+				tItems[index].bench_mark_max = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+				if (ERR_ALLOC_MEM(tItems[index].bench_mark_max)) {
+					ipio_err("Failed to allocate bench_mark_max mem\n");
+					ipio_kfree((void **)&tItems[index].bench_mark_max);
+					return -ENOMEM;
+				}
+			}
+			if (tItems[index].bench_mark_min == NULL) {
+				tItems[index].bench_mark_min = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+				if (ERR_ALLOC_MEM(tItems[index].bench_mark_min)) {
+					ipio_err("Failed to allocate bench_mark_min mem\n");
+					ipio_kfree((void **)&tItems[index].bench_mark_min);
+					return -ENOMEM;
+				}
+			}
 		}
 	}
-
 	return 0;
 }
 

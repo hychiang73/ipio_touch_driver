@@ -570,26 +570,37 @@ int core_config_check_cdc_busy(int conut, int delay)
 {
 	int timer = conut, res = -1;
 	uint8_t cmd[2] = { 0 };
-	uint8_t busy = 0;
+	uint8_t busy = 0, busy_byte = 0;
 
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_cdc_busy;
 
+	if (core_fr->actual_fw_mode == protocol->demo_mode) {
+		busy_byte = 0x41;
+	} else if (core_fr->actual_fw_mode == protocol->test_mode) {
+		busy_byte = 0x51;
+	} else {
+		ipio_err("Unknown fw mode (0x%x)\n", core_fr->actual_fw_mode);
+		return -EINVAL;
+	}
+
+	ipio_debug(DEBUG_CONFIG, "busy byte = %x\n", busy_byte);
+
 	while (timer > 0) {
-		mdelay(delay);
 		core_write(core_config->slave_i2c_addr, cmd, 2);
 		core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 		core_read(core_config->slave_i2c_addr, &busy, 1);
-		if (busy == 0x41 || busy == 0x51) {
+		if (busy == busy_byte) {
 			ipio_info("Check busy is free\n");
 			res = 0;
 			break;
 		}
 		timer--;
+		mdelay(delay);
 	}
 
 	if (res < -1)
-		ipio_info("Check busy timeout !!\n");
+		ipio_err("Check busy (0x%x) timeout\n", busy);
 
 	return res;
 }
