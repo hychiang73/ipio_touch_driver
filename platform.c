@@ -853,6 +853,11 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	}
 	ipd->client = client;
 	ipd->i2c_id = id;
+
+	if (!i2c_check_functionality(ipd->client->adapter, I2C_FUNC_I2C)) {
+		ipio_err("I2C not supported\n");
+		return -ENODEV;
+	}
 #else
 	if (spi == NULL) {
 		ipio_err("spi device is NULL\n");
