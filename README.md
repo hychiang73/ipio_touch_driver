@@ -6,8 +6,6 @@ Ipio touch driver is implemented by ILI Technology Corp, which is mainly used on
 
 The following lists which of TDDI IC types supported by the driver.
 
-* ILI7807F
-* ILI7807H
 * ILI9881F
 * ILI9881H
 
@@ -275,6 +273,15 @@ In this case the driver now supports the type of ILI9881.
 In this case the slave address is 0x41, and the name of table calls **tchip,ilitek**. **touch,irq-gpio** and **touch,reset-gpio** represent INT pin and RESET pin separately.
 
 # Release Note
+* V1.0.3.6
+  * Remove ILI7807(F & H) from support list.
+  * Add ESD check
+  * In boot upgrade, we compare HW and Hex CRC to see if need to do upgrade process rathan than just check firmware version.
+  * Fixed MP short calculation.
+  * Fixed wrong addrees while polling busy flag in fw upgrade.
+  * Add MP retry mechanism, default is open and do three times.
+  * Fixed some bugs.
+
 * V1.0.3.5
   * Fixed issue that coludn't read type option from INI file.
   * Delete redundant buffer memory allocated by kernel in MP.
