@@ -511,6 +511,8 @@ int core_config_set_watch_dog(bool enable)
 	} else {
 		core_config_ice_mode_write(wdt_addr, value_low, 1);
 		core_config_ice_mode_write(wdt_addr, value_high, 1);
+		/* need to delay 300us after stop mcu to wait fw relaod */
+		udelay(300);
 	}
 
 	while (timeout > 0) {
