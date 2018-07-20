@@ -90,11 +90,11 @@ enum mp_test_catalog {
 };
 
 enum open_test_node_type {
-	NO_COMPARE = 0x00,  //Not A Area, No Compare
-	AA_Area = 0x01,	    //AA Area, Compare using Charge_AA
-	Border_Area = 0x02, //Border Area, Compare using Charge_Border
-	Notch = 0x04,       //Notch Area, Compare using Charge_Notch
-	Round_Corner = 0x08 //Round Corner, No Compare
+	NO_COMPARE = 0x00,  /* Not A Area, No Compare */
+	AA_Area = 0x01,	    /* AA Area, Compare using Charge_AA */
+	Border_Area = 0x02, /* Border Area, Compare using Charge_Border */
+	Notch = 0x04,       /* Notch Area, Compare using Charge_Notch */
+	Round_Corner = 0x08 /* Round Corner, No Compare */
 };
 
 /* You must declare a new test in this struct before running a new process of mp test */
@@ -167,7 +167,7 @@ void dump_data(void *data, int type, int len, int row_len, const char *name)
 	uint8_t *p8 = NULL;
 	int32_t *p32 = NULL;
 
-	if(row_len > 0)
+	if (row_len > 0)
 		row = row_len;
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
@@ -199,6 +199,74 @@ void dump_data(void *data, int type, int len, int row_len, const char *name)
 }
 EXPORT_SYMBOL(dump_data);
 
+static void mp_print_csv_header(char *csv, int *csv_len, int *csv_line)
+{
+	int i, tmp_len = *csv_len, tmp_line = *csv_line;
+
+	/* header must has 19 line*/
+	tmp_len += sprintf(csv + tmp_len,"==============================================================================\n");
+	tmp_line++;
+	tmp_len += sprintf(csv + tmp_len,"ILITek C-TP Utility V%s  %x : Driver Sensor Test\n", DRIVER_VERSION, core_config->chip_pid);
+	tmp_line++;
+	tmp_len += sprintf(csv + tmp_len,"Confidentiality Notice:\n");
+	tmp_line++;
+	tmp_len += sprintf(csv + tmp_len,"Any information of this tool is confidential and privileged.\n");
+	tmp_line++;
+	tmp_len += sprintf(csv + tmp_len,"@ ILI TECHNOLOGY CORP. All Rights Reserved.\n");
+	tmp_line++;
+	tmp_len += sprintf(csv + tmp_len,"==============================================================================\n");
+	tmp_line++;
+
+	if (protocol->mid >= 0x3) {
+		/*line7*/
+		tmp_len += sprintf(csv + tmp_len,"Firmware Version ,V%d.%d.%d.%d\n", core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3], core_config->firmware_ver[4]);
+	} else {
+		tmp_len += sprintf(csv + tmp_len,"Firmware Version ,V%d.%d.%d\n",core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3]);
+	}
+
+	tmp_line++;
+	tmp_len += sprintf(csv + tmp_len,"Panel information ,XCH=%d, YCH=%d\n", core_mp->xch_len, core_mp->ych_len);
+	tmp_line++;
+	tmp_len += sprintf(csv + tmp_len,"Test Item:\n");
+	tmp_line++;
+
+	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
+		if (tItems[i].run == 1) {
+			tmp_len += sprintf(csv + tmp_len, "	  ---%s\n", tItems[i].desp);
+			tmp_line++;
+		}
+	}
+
+	while(tmp_line < 19) {
+		tmp_len += sprintf(csv + tmp_len,"\n");
+		tmp_line++;
+	}
+
+	tmp_len += sprintf(csv + tmp_len,"==============================================================================\n");
+
+	*csv_len = tmp_len;
+	*csv_line = tmp_line;
+}
+
+static void mp_print_csv_tail(char *csv, int *csv_len)
+{
+	int i, tmp_len = *csv_len;;
+
+	tmp_len += sprintf(csv + tmp_len,"==============================================================================\n");
+	tmp_len += sprintf(csv + tmp_len,"Result_Summary           \n");
+
+	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
+		if (tItems[i].run) {
+			if (tItems[i].item_result == MP_PASS)
+				tmp_len += sprintf(csv + tmp_len,"   {%s}     ,OK\n",tItems[i].desp);
+			else
+				tmp_len += sprintf(csv + tmp_len,"   {%s}     ,NG\n",tItems[i].desp);
+		}
+	}
+
+	*csv_len = tmp_len;
+}
+
 static void dump_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
 {
 	int i;
@@ -222,23 +290,41 @@ static void dump_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
 	}
 }
 
-void dump_node_type_buffer(int32_t* node_ptr, uint8_t *name)
+void dump_node_type_buffer(int32_t *node_ptr, uint8_t *name)
 {
 	int i;
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		ipio_info("Node Type buffer: %s\n", name);
-		for(i=0; i<core_mp->frame_len ; i++)
-		{
+		for (i = 0; i < core_mp->frame_len; i++) {
 			printk("%d, ",node_ptr[i]);
 			if(i % core_mp->xch_len == core_mp->xch_len-1)
 				printk("\n");
 		}
 	}
-
 }
 
-static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len, int type, int32_t *max_ts, int32_t *min_ts, int* result, const char *desp)
+static void mp_compare_cdc_result(int32_t *tmp, int32_t *max_ts, int32_t *min_ts, int* result)
+{
+	int x, y;
+
+	if (ERR_ALLOC_MEM(tmp)) {
+		ipio_err("The data of test item is null (%p)\n", tmp);
+		*result = MP_FAIL;
+		return;
+	}
+
+	for (y = 0; y < core_mp->ych_len; y++) {
+		for (x = 0; x < core_mp->xch_len; x++) {
+			int shift = y * core_mp->xch_len + x;
+			if (tmp[shift] > max_ts[shift] || tmp[shift] < min_ts[shift]){
+				*result = MP_FAIL;
+			}
+		}
+	}
+}
+
+static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len,
+		int type, int32_t *max_ts, int32_t *min_ts, const char *desp)
 {
 	int x, y, tmp_len = *csv_len;
 	int mp_result = MP_PASS;
@@ -253,19 +339,19 @@ static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len, in
 	for (x = 0; x < core_mp->xch_len; x++) {
 		if (x == 0) {
 			DUMP(DEBUG_MP_TEST, "\n %s ", desp);
-			tmp_len += sprintf(csv + tmp_len, "\n  %s,", desp);
+			tmp_len += sprintf(csv + tmp_len, "\n      %s ,", desp);
 		}
 
-		DUMP(DEBUG_MP_TEST, "X%02d      ", x);
-		tmp_len += sprintf(csv + tmp_len, "X%02d, ", x);
+		DUMP(DEBUG_MP_TEST, "  X_%d  ,", (x+1));
+		tmp_len += sprintf(csv + tmp_len, "  X_%d  ,", (x+1));
 	}
 
 	DUMP(DEBUG_MP_TEST, "\n");
 	tmp_len += sprintf(csv + tmp_len, "\n");
 
 	for (y = 0; y < core_mp->ych_len; y++) {
-		DUMP(DEBUG_MP_TEST, " Y%02d ", y);
-		tmp_len += sprintf(csv + tmp_len, "Y%02d, ", y);
+		DUMP(DEBUG_MP_TEST, "  Y_%d  ,", (y+1));
+		tmp_len += sprintf(csv + tmp_len, "  Y_%d  ,", (y+1));
 
 		for (x = 0; x < core_mp->xch_len; x++) {
 			int shift = y * core_mp->xch_len + x;
@@ -288,7 +374,6 @@ static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len, in
 					DUMP(DEBUG_MP_TEST, " #%7d ", tmp[shift]);
 					tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
 				}
-				*result = MP_FAIL;
 				mp_result = MP_FAIL;
 			}
 		}
@@ -298,13 +383,11 @@ static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len, in
 	}
 
 out:
-	if(type == TYPE_JUGE)
-	{
-		if (mp_result == MP_PASS){
+	if (type == TYPE_JUGE) {
+		if (mp_result == MP_PASS) {
 			pr_info("\n Result : PASS\n");
 			tmp_len += sprintf(csv + tmp_len, "Result : PASS\n");
-		}
-		else{
+		} else {
 			pr_info("\n Result : FAIL\n");
 			tmp_len += sprintf(csv + tmp_len, "Result : FAIL\n");
 		}
@@ -323,6 +406,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 			core_mp->tx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_mp->tx_delta_buf)) {
 				ipio_err("Failed to allocate tx_delta_buf mem\n");
+				ipio_kfree((void **)&core_mp->tx_delta_buf);
 				return -ENOMEM;
 			}
 		}
@@ -331,6 +415,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 			core_mp->rx_delta_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_mp->rx_delta_buf)) {
 				ipio_err("Failed to allocate rx_delta_buf mem\n");
+				ipio_kfree((void **)&core_mp->rx_delta_buf);
 				return -ENOMEM;
 			}
 		}
@@ -339,6 +424,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 			core_mp->tx_max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_mp->tx_max_buf)) {
 				ipio_err("Failed to allocate tx_max_buf mem\n");
+				ipio_kfree((void **)&core_mp->tx_max_buf);
 				return -ENOMEM;
 			}
 		}
@@ -347,6 +433,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 			core_mp->tx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_mp->tx_min_buf)) {
 				ipio_err("Failed to allocate tx_min_buf mem\n");
+				ipio_kfree((void **)&core_mp->tx_min_buf);
 				return -ENOMEM;
 			}
 		}
@@ -355,6 +442,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 			core_mp->rx_max_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_mp->rx_max_buf)) {
 				ipio_err("Failed to allocate rx_max_buf mem\n");
+				ipio_kfree((void **)&core_mp->rx_max_buf);
 				return -ENOMEM;
 			}
 		}
@@ -363,6 +451,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 			core_mp->rx_min_buf = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_mp->rx_min_buf)) {
 				ipio_err("Failed to allocate rx_min_buf mem\n");
+				ipio_kfree((void **)&core_mp->rx_min_buf);
 				return -ENOMEM;
 			}
 		}
@@ -501,9 +590,9 @@ static void mp_calc_nodp(bool long_v)
 		tmp1 = (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (multi_term_num - 1));
 		real_tx_dura = (tmp - tmp1) / (multi_term_num * 5);
 
-		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + ( phase << 5 ) + real_tx_dura * 5 ) / 5;
-		core_mp->nodp.tp_width = ( ( ( tp2dp * 10 + phase ) << 6 )  + real_tx_dura * 10 ) / 10;
-		core_mp->nodp.txpw = ( qsh_tdf + rst + qsh_pw + qsh_td + 2 );
+		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + (phase << 5) + real_tx_dura * 5) / 5;
+		core_mp->nodp.tp_width = (((tp2dp * 10 + phase) << 6)  + real_tx_dura * 10) / 10;
+		core_mp->nodp.txpw = (qsh_tdf + rst + qsh_pw + qsh_td + 2);
 
 		if ( core_mp->nodp.txpw % 2 == 1 )
 			core_mp->nodp.txpw = core_mp->nodp.txpw + 1;
@@ -515,23 +604,23 @@ static void mp_calc_nodp(bool long_v)
 
 		real_tx_dura = (((tshd << 2) - (at << 6) - ddi_width * (11) - 64 - dp2tp - twc) * 5 - (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (11))) / (12 * 5);
 
-		core_mp->nodp.long_tsdh_wait = (tsvd_to_tshd + 10 ) << 6;
+		core_mp->nodp.long_tsdh_wait = (tsvd_to_tshd + 10) << 6;
 
-		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + ( phase << 5 ) + real_tx_dura * 5) / 5;
-		core_mp->nodp.tp_width = (((tp2dp * 10 + phase ) << 6 )  + real_tx_dura * 10) / 10;
+		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + (phase << 5) + real_tx_dura * 5) / 5;
+		core_mp->nodp.tp_width = (((tp2dp * 10 + phase) << 6)  + real_tx_dura * 10) / 10;
 		core_mp->nodp.txpw = (qsh_tdf + rst + qsh_pw + qsh_td + 2);
 
-		if ( core_mp->nodp.txpw % 2 == 1 )
+		if (core_mp->nodp.txpw % 2 == 1)
 			core_mp->nodp.txpw = core_mp->nodp.txpw + 1;
 
 		core_mp->nodp.nodp = real_tx_dura / core_mp->nodp.txpw / 2;
 	}
 
-	ipio_info("Read Tx Duration = %d\n",real_tx_dura);
-	ipio_info("First TP Width = %d\n",core_mp->nodp.first_tp_width);
-	ipio_info("TP Width = %d\n",core_mp->nodp.tp_width);
-	ipio_info("TXPW = %d\n",core_mp->nodp.txpw);
-	ipio_info("NODP = %d\n",core_mp->nodp.nodp);
+	ipio_info("Read Tx Duration = %d\n", real_tx_dura);
+	ipio_info("First TP Width = %d\n", core_mp->nodp.first_tp_width);
+	ipio_info("TP Width = %d\n", core_mp->nodp.tp_width);
+	ipio_info("TXPW = %d\n", core_mp->nodp.txpw);
+	ipio_info("NODP = %d\n", core_mp->nodp.nodp);
 }
 
 static int allnode_key_cdc_data(int index)
@@ -566,7 +655,7 @@ static int allnode_key_cdc_data(int index)
 	mdelay(1);
 
 	/* Check busy */
-	if (core_config_check_cdc_busy(50, 100) < 0) {
+	if (core_config_check_cdc_busy(50, 50) < 0) {
 		ipio_err("Check busy is timout !\n");
 		res = -1;
 		goto out;
@@ -689,22 +778,22 @@ int core_mp_calc_timing_nodp(void)
 	dump_data(get_timing, 8, 41, 0, "Timing parameters (41bytes)");
 
 	/* Combine timing data */
-	core_mp->nodp.is60HZ = false; // This will get from ini file by default.
+	core_mp->nodp.is60HZ = false; /* This will get from ini file by default.  */
 	core_mp->nodp.isLongV = get_timing[2];
-	core_mp->nodp.tshd = (get_timing[3] << 8 ) + get_timing[4];
+	core_mp->nodp.tshd = (get_timing[3] << 8) + get_timing[4];
 	core_mp->nodp.multi_term_num_120 = get_timing[5];
 	core_mp->nodp.multi_term_num_60 = get_timing[6];
-	core_mp->nodp.tsvd_to_tshd = (get_timing[7] << 8 ) + get_timing[8];
-	core_mp->nodp.qsh_tdf = (get_timing[9] << 8 ) + get_timing[10];
+	core_mp->nodp.tsvd_to_tshd = (get_timing[7] << 8) + get_timing[8];
+	core_mp->nodp.qsh_tdf = (get_timing[9] << 8) + get_timing[10];
 	core_mp->nodp.auto_trim = get_timing[11];
-	core_mp->nodp.tp_tshd_wait_120 = (get_timing[12] << 8 ) + get_timing[13];
-	core_mp->nodp.ddi_width_120 = (get_timing[14] << 8 ) + get_timing[15];
-	core_mp->nodp.tp_tshd_wait_60 = (get_timing[16] << 8 ) + get_timing[17];
-	core_mp->nodp.ddi_width_60 = (get_timing[18] << 8 ) + get_timing[19];
-	core_mp->nodp.dp_to_tp = (get_timing[20] << 8 ) + get_timing[21];
-	core_mp->nodp.tx_wait_const = (get_timing[22] << 8 ) + get_timing[23];
-	core_mp->nodp.tx_wait_const_multi = (get_timing[24] << 8 ) + get_timing[25];
-	core_mp->nodp.tp_to_dp = (get_timing[26] << 8 ) + get_timing[27];
+	core_mp->nodp.tp_tshd_wait_120 = (get_timing[12] << 8) + get_timing[13];
+	core_mp->nodp.ddi_width_120 = (get_timing[14] << 8) + get_timing[15];
+	core_mp->nodp.tp_tshd_wait_60 = (get_timing[16] << 8) + get_timing[17];
+	core_mp->nodp.ddi_width_60 = (get_timing[18] << 8) + get_timing[19];
+	core_mp->nodp.dp_to_tp = (get_timing[20] << 8) + get_timing[21];
+	core_mp->nodp.tx_wait_const = (get_timing[22] << 8) + get_timing[23];
+	core_mp->nodp.tx_wait_const_multi = (get_timing[24] << 8) + get_timing[25];
+	core_mp->nodp.tp_to_dp = (get_timing[26] << 8) + get_timing[27];
 	core_mp->nodp.phase_adc = get_timing[28];
 	core_mp->nodp.r2d_pw = get_timing[29];
 	core_mp->nodp.rst_pw = get_timing[30];
@@ -714,30 +803,30 @@ int core_mp_calc_timing_nodp(void)
 	core_mp->nodp.qsh_td = get_timing[34];
 	core_mp->nodp.drop_nodp = get_timing[35];
 
-	ipio_info("60HZ = %d\n",core_mp->nodp.is60HZ);
-	ipio_info("DDI Mode = %d\n",core_mp->nodp.isLongV);
-	ipio_info("TSHD = %d\n",core_mp->nodp.tshd);
-	ipio_info("Multi Term Num (120Hz) = %d\n",core_mp->nodp.multi_term_num_120);
-	ipio_info("Multi Term Num (60Hz) = %d\n",core_mp->nodp.multi_term_num_60);
-	ipio_info("TSVD to TSHD = %d\n",core_mp->nodp.tsvd_to_tshd);
-	ipio_info("QSH TDF = %d\n",core_mp->nodp.qsh_tdf);
-	ipio_info("AutoTrim Variation = %d\n",core_mp->nodp.auto_trim);
-	ipio_info("TP TSHD Wait (120Hz) = %d\n",core_mp->nodp.tp_tshd_wait_120);
-	ipio_info("DDI Width (120Hz) = %d\n",core_mp->nodp.ddi_width_120);
-	ipio_info("TP TSHD Wait (60Hz) = %d\n",core_mp->nodp.tp_tshd_wait_60);
-	ipio_info("DDI Width (60Hz) = %d\n",core_mp->nodp.ddi_width_60);
-	ipio_info("DP to TP = %d\n",core_mp->nodp.dp_to_tp);
-	ipio_info("TX Wait Const = %d\n",core_mp->nodp.tx_wait_const);
-	ipio_info("TX Wait Const Multi = %d\n",core_mp->nodp.tx_wait_const_multi);
-	ipio_info("TP to DP = %d\n",core_mp->nodp.tp_to_dp);
-	ipio_info("Phase ADC = %d\n",core_mp->nodp.phase_adc);
-	ipio_info("R2D PW = %d\n",core_mp->nodp.r2d_pw);
-	ipio_info("RST PW = %d\n",core_mp->nodp.rst_pw);
-	ipio_info("RST PW Back = %d\n",core_mp->nodp.rst_pw_back);
-	ipio_info("DAC TD = %d\n",core_mp->nodp.dac_td);
-	ipio_info("QSH PW = %d\n",core_mp->nodp.qsh_pw);
-	ipio_info("QSH TD = %d\n",core_mp->nodp.qsh_td);
-	ipio_info("Drop NODP Num = %d\n",core_mp->nodp.drop_nodp);
+	ipio_info("60HZ = %d\n", core_mp->nodp.is60HZ);
+	ipio_info("DDI Mode = %d\n", core_mp->nodp.isLongV);
+	ipio_info("TSHD = %d\n", core_mp->nodp.tshd);
+	ipio_info("Multi Term Num (120Hz) = %d\n", core_mp->nodp.multi_term_num_120);
+	ipio_info("Multi Term Num (60Hz) = %d\n", core_mp->nodp.multi_term_num_60);
+	ipio_info("TSVD to TSHD = %d\n", core_mp->nodp.tsvd_to_tshd);
+	ipio_info("QSH TDF = %d\n", core_mp->nodp.qsh_tdf);
+	ipio_info("AutoTrim Variation = %d\n", core_mp->nodp.auto_trim);
+	ipio_info("TP TSHD Wait (120Hz) = %d\n", core_mp->nodp.tp_tshd_wait_120);
+	ipio_info("DDI Width (120Hz) = %d\n", core_mp->nodp.ddi_width_120);
+	ipio_info("TP TSHD Wait (60Hz) = %d\n", core_mp->nodp.tp_tshd_wait_60);
+	ipio_info("DDI Width (60Hz) = %d\n", core_mp->nodp.ddi_width_60);
+	ipio_info("DP to TP = %d\n", core_mp->nodp.dp_to_tp);
+	ipio_info("TX Wait Const = %d\n", core_mp->nodp.tx_wait_const);
+	ipio_info("TX Wait Const Multi = %d\n", core_mp->nodp.tx_wait_const_multi);
+	ipio_info("TP to DP = %d\n", core_mp->nodp.tp_to_dp);
+	ipio_info("Phase ADC = %d\n", core_mp->nodp.phase_adc);
+	ipio_info("R2D PW = %d\n", core_mp->nodp.r2d_pw);
+	ipio_info("RST PW = %d\n", core_mp->nodp.rst_pw);
+	ipio_info("RST PW Back = %d\n", core_mp->nodp.rst_pw_back);
+	ipio_info("DAC TD = %d\n", core_mp->nodp.dac_td);
+	ipio_info("QSH PW = %d\n", core_mp->nodp.qsh_pw);
+	ipio_info("QSH TD = %d\n", core_mp->nodp.qsh_td);
+	ipio_info("Drop NODP Num = %d\n", core_mp->nodp.drop_nodp);
 
 	mp_calc_nodp(core_mp->nodp.isLongV);
 
@@ -761,14 +850,14 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 		key = "Raw Data(No BK)";
 	else if (strncmp(key, "Raw Data(Have BK) (LCM OFF)", strlen(key)) == 0)
 		key = "Raw Data(Have BK)";
-	else if (strncmp(key, "Noise Peak to Peak(With Panel) (LCM OFF)", strlen(key)) == 0 )
+	else if (strncmp(key, "Noise Peak to Peak(With Panel) (LCM OFF)", strlen(key)) == 0)
 		key = "Noise Peak To Peak(With Panel)";
 
 	ipio_info("%s gets %s command from INI.\n", tItems[index].desp, key);
 
 	ret = core_parser_get_int_data("PV5_4 Command", key, str);
 	if (ret < 0) {
-		ipio_err("Failed to parse PV54 command, ret = %d\n",ret);
+		ipio_err("Failed to parse PV54 command, ret = %d\n", ret);
 		goto out;
 	}
 
@@ -850,9 +939,9 @@ static int allnode_mutual_cdc_data(int index)
 	}
 
 	/* Check busy */
-	ipio_info("Check busy method = %d\n",core_mp->busy_cdc);
+	ipio_info("Check busy method = %d\n", core_mp->busy_cdc);
 	if (core_mp->busy_cdc == POLL_CHECK) {
-		res = core_config_check_cdc_busy(50, 100);
+		res = core_config_check_cdc_busy(50, 50);
 	} else if (core_mp->busy_cdc == INT_CHECK) {
 		res = core_config_check_int_status(false);
 	} else if (core_mp->busy_cdc == DELAY_CHECK) {
@@ -940,14 +1029,12 @@ static int allnode_mutual_cdc_data(int index)
 			else
 				frame_buf[i] = tmp;
 
-			if(strncmp(tItems[index].name, "mutual_no_bk", strlen("mutual_no_bk")) == 0 ||
-				strncmp(tItems[index].name, "mutual_no_bk_lcm_off", strlen("mutual_no_bk_lcm_off")) == 0)
-			{
-				if(core_config->chip_id == CHIP_TYPE_ILI9881)
-				{
-					if(core_config->chip_type == ILI9881_TYPE_H)
+			if (strncmp(tItems[index].name, "mutual_no_bk", strlen("mutual_no_bk")) == 0 ||
+				strncmp(tItems[index].name, "mutual_no_bk_lcm_off", strlen("mutual_no_bk_lcm_off")) == 0) {
+				if (core_config->chip_id == CHIP_TYPE_ILI9881) {
+					if (core_config->chip_type == ILI9881_TYPE_H)
 						frame_buf[i] -= RAWDATA_NO_BK_DATA_SHIFT_9881H;
-					if(core_config->chip_type == ILI9881_TYPE_F)
+					if (core_config->chip_type == ILI9881_TYPE_F)
 						frame_buf[i] -= RAWDATA_NO_BK_DATA_SHIFT_9881F;
 				}
 			}
@@ -1145,19 +1232,18 @@ static void compare_MaxMin_result(int index, int32_t *data)
 }
 
 
-#define ABS(a,b) ( (a>b) ? (a-b) : (b-a) )
-#define ADDR(x,y) ((y*core_mp->xch_len)+(x))
+#define ABS(a, b) ((a > b) ? (a - b) : (b - a))
+#define ADDR(x, y) ((y * core_mp->xch_len) + (x))
 
 int full_open_rate_compare(int32_t* full_open, int32_t* cbk, int x, int y, int32_t inNodeType, int full_open_rate)
 {
 	int ret = true;
 
-	if ((inNodeType == NO_COMPARE) || ((inNodeType & Round_Corner) == Round_Corner))
-	{
+	if ((inNodeType == NO_COMPARE) || ((inNodeType & Round_Corner) == Round_Corner)) {
 		return true;
 	}
 
-	if(full_open[ADDR(x,y)] < (cbk[ADDR(x,y)] * full_open_rate / 100))
+	if (full_open[ADDR(x, y)] < (cbk[ADDR(x, y)] * full_open_rate / 100))
 		ret = false;
 
 	return ret;
@@ -1170,34 +1256,33 @@ int compare_charge(int32_t* charge_rate, int x, int y, int32_t* inNodeType, int 
 	int sx[8] = { -1, 0, 1, -1, 1, -1, 0, 1 };
 	int sy[8] = { -1, -1, -1, 0, 0, 1, 1, 1 };
 
-	ret = charge_rate[ADDR(x,y)];
+	ret = charge_rate[ADDR(x, y)];
 
-	//Setting Threadhold from node type
-	if ((inNodeType[ADDR(x,y)] & AA_Area) == AA_Area)
+	/*Setting Threadhold from node type  */
+	if ((inNodeType[ADDR(x, y)] & AA_Area) == AA_Area)
 		OpenThreadhold = Charge_AA;
-	else if ((inNodeType[ADDR(x,y)] & Border_Area) == Border_Area)
+	else if ((inNodeType[ADDR(x, y)] & Border_Area) == Border_Area)
 		OpenThreadhold = Charge_Border;
-	else if ((inNodeType[ADDR(x,y)] & Notch) == Notch)
+	else if ((inNodeType[ADDR(x, y)] & Notch) == Notch)
 		OpenThreadhold = Charge_Notch;
-	else if ((inNodeType[ADDR(x,y)] & Round_Corner) == Round_Corner)
+	else if ((inNodeType[ADDR(x, y)] & Round_Corner) == Round_Corner)
 		return ret;
 	else
 		return ret;
 
 
-	//compare carge rate with 3*3 node
-	for (k = 0; k < 8; k++)
-	{
+	/*compare carge rate with 3*3 node  */
+	for (k = 0; k < 8; k++) {
 		tempX = x + sx[k];
 		tempY = y + sy[k];
 
-		if ((tempX < 0) || (tempX >= core_mp->xch_len) || (tempY < 0) || (tempY >= core_mp->ych_len)) //out of range
+		if ((tempX < 0) || (tempX >= core_mp->xch_len) || (tempY < 0) || (tempY >= core_mp->ych_len)) /*out of range */
 			continue;
 
 		if ((inNodeType[ADDR(tempX, tempY)] == NO_COMPARE) || ((inNodeType[ADDR(tempX, tempY)] & Round_Corner) == Round_Corner))
 			continue;
 
-		if (ABS(charge_rate[ADDR(tempX, tempY)],charge_rate[ADDR(x, y)])> OpenThreadhold)
+		if (ABS(charge_rate[ADDR(tempX, tempY)], charge_rate[ADDR(x, y)]) > OpenThreadhold)
 			return OpenThreadhold;
 	}
 	return ret;
@@ -1229,7 +1314,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	/* CDC init. Read command from ini file */
 	res = core_parser_get_int_data("PV5_4 Command", key[mode], str);
 	if (res < 0) {
-		ipio_err("Failed to parse PV54 command, res = %d\n",res);
+		ipio_err("Failed to parse PV54 command, res = %d\n", res);
 		goto out;
 	}
 
@@ -1245,9 +1330,9 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	}
 
 	/* Check busy */
-	ipio_info("Check busy method = %d\n",core_mp->busy_cdc);
+	ipio_info("Check busy method = %d\n", core_mp->busy_cdc);
 	if (core_mp->busy_cdc == POLL_CHECK) {
-		res = core_config_check_cdc_busy(50, 100);
+		res = core_config_check_cdc_busy(50, 1);
 	} else if (core_mp->busy_cdc == INT_CHECK) {
 		res = core_config_check_int_status(false);
 	} else if (core_mp->busy_cdc == DELAY_CHECK) {
@@ -1336,8 +1421,8 @@ out:
 static int open_test_sp(int index)
 {
 	struct mp_test_P540_open open[tItems[index].frame_count];
-	int i = 0, x = 0, y = 0, res = 0 ,get_frame_cont = tItems[index].frame_count, addr;
-	int Charge_AA = 0, Charge_Border = 0, Charge_Notch =0, full_open_rate = 0;
+	int i = 0, x = 0, y = 0, res = 0, addr = 0; /*get_frame_cont = tItems[index].frame_count*/
+	int Charge_AA = 0, Charge_Border = 0, Charge_Notch = 0, full_open_rate = 0;
 	char str[512] = { 0 };
 
 	ipio_debug(DEBUG_MP_TEST, "index = %d, name = %s, CMD = 0x%x, Frame Count = %d\n",
@@ -1358,7 +1443,7 @@ static int open_test_sp(int index)
 
 	/* Allocate node type buffer only for open test SP */
 	tItems[index].node_type = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(tItems[index].node_type)){
+	if (ERR_ALLOC_MEM(tItems[index].node_type)) {
 		ipio_err("Failed to allocate node_type FRAME buffer\n");
 		return -ENOMEM;
 	}
@@ -1372,13 +1457,14 @@ static int open_test_sp(int index)
 	}
 
 	if (tItems[index].spec_option == BENCHMARK) {
-		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option,tItems[index].desp);
-		if (ipio_debug_level&&DEBUG_PARSER > 0)
+		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min,
+								tItems[index].type_option, tItems[index].desp);
+		if (ipio_debug_level && DEBUG_PARSER > 0)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
 
-	core_parser_nodetype(tItems[index].node_type,"Node Type");
-	if (ipio_debug_level&&DEBUG_PARSER > 0)
+	core_parser_nodetype(tItems[index].node_type, "Node Type");
+	if (ipio_debug_level && DEBUG_PARSER > 0)
 		dump_node_type_buffer(tItems[index].node_type, "node type");
 
 	res = core_parser_get_int_data(tItems[index].desp, "Charge_AA", str);
@@ -1402,8 +1488,8 @@ static int open_test_sp(int index)
 		goto out;
 	}
 
-	ipio_debug(DEBUG_MP_TEST,"pen test frame_cont %d, AA %d,Border %d, Notch %d, full_open_rate %d \n",
-			get_frame_cont,Charge_AA,Charge_Border,Charge_Notch,full_open_rate);
+	ipio_debug(DEBUG_MP_TEST, "pen test frame_cont %d, AA %d,Border %d, Notch %d, full_open_rate %d \n",
+			tItems[index].frame_count,Charge_AA,Charge_Border,Charge_Notch,full_open_rate);
 
 	for(i = 0; i < tItems[index].frame_count; i++) {
 		open[i].cbk_700 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
@@ -1415,7 +1501,7 @@ static int open_test_sp(int index)
 		open[i].cdc = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 	}
 
-	for (i = 0; i < get_frame_cont; i++) {
+	for (i = 0; i < tItems[index].frame_count; i++) {
 		res = allnode_open_cdc_data(0, open[i].dac, open[i].dac);
 		if (res < 0) {
 			ipio_err("Failed to get Open SP DAC data, %d\n", res);
@@ -1436,38 +1522,39 @@ static int open_test_sp(int index)
 			ipio_err("Failed to get Open SP Raw3 data, %d\n", res);
 			goto out;
 		}
-        addr = 0;
-        for(y = 0; y < core_mp->ych_len; y++){
-            for(x = 0; x < core_mp->xch_len; x++){
-                open[i].charg_rate[addr] = open[i].cbk_250[addr] * 100 / open[i].cbk_700[addr];
+
+		addr = 0;
+		for (y = 0; y < core_mp->ych_len; y++) {
+			for (x = 0; x < core_mp->xch_len; x++) {
+				open[i].charg_rate[addr] = open[i].cbk_250[addr] * 100 / open[i].cbk_700[addr];
 				open[i].full_Open[addr] = open[i].cbk_700[addr] - open[i].cbk_200[addr];
-                addr++;
-            }
-        }
-		if (ipio_debug_level & DEBUG_MP_TEST)
-		{
+				addr++;
+			}
+		}
+		if (ipio_debug_level & DEBUG_MP_TEST) {
 			dump_data(open[i].charg_rate, 10, core_mp->frame_len, core_mp->xch_len, "origin charge rate");
 			dump_data(open[i].full_Open, 10, core_mp->frame_len, core_mp->xch_len, "origin full open");
 		}
 
-        addr = 0;
-        for(y = 0; y < core_mp->ych_len; y++){
-            for(x = 0; x < core_mp->xch_len; x++){
-                tItems[index].buf[(i * core_mp->frame_len) + addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);
-                addr++;
-            }
-        }
+		addr = 0;
+		for (y = 0; y < core_mp->ych_len; y++) {
+			for (x = 0; x < core_mp->xch_len; x++) {
+				tItems[index].buf[(i * core_mp->frame_len) + addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);
+				addr++;
+			}
+		}
 		if (ipio_debug_level & DEBUG_MP_TEST)
 			dump_data(&tItems[index].buf[(i * core_mp->frame_len)], 10, core_mp->frame_len, core_mp->xch_len, "after compare charge rate");
 
-        addr = 0;
-        for(y = 0; y < core_mp->ych_len; y++){
-            for(x = 0; x < core_mp->xch_len; x++){
-				if(full_open_rate_compare(open[i].full_Open, open[i].cbk_700, x, y, tItems[index].node_type[addr], full_open_rate) == false)
-                	tItems[index].buf[(i * core_mp->frame_len) + addr] = 0;
-                addr++;
-            }
-        }
+		addr = 0;
+		for (y = 0; y < core_mp->ych_len; y++) {
+			for (x = 0; x < core_mp->xch_len; x++) {
+				if (full_open_rate_compare(open[i].full_Open, open[i].cbk_700, x, y, tItems[index].node_type[addr], full_open_rate) == false)
+					tItems[index].buf[(i * core_mp->frame_len) + addr] = 0;
+
+				addr++;
+			}
+		}
 		if (ipio_debug_level & DEBUG_MP_TEST)
 			dump_data(&tItems[index].buf[(i * core_mp->frame_len)], 10, core_mp->frame_len, core_mp->xch_len, "after full_open_rate_compare");
 
@@ -1477,7 +1564,7 @@ static int open_test_sp(int index)
 out:
 	ipio_kfree((void **)&tItems[index].node_type);
 
-	for(i = 0; i < tItems[index].frame_count; i++) {
+	for (i = 0; i < tItems[index].frame_count; i++) {
 		ipio_kfree((void **)&open[i].cbk_700);
 		ipio_kfree((void **)&open[i].cbk_250);
 		ipio_kfree((void **)&open[i].cbk_200);
@@ -1508,12 +1595,9 @@ int codeToOhm(int32_t Code)
 		douTDF2 = 100;
 	}
 
-	if(Code == 0)
-	{
+	if (Code == 0) {
 		ipio_debug(DEBUG_MP_TEST, "code is invalid\n");
-	}
-	else
-	{
+	} else {
 		temp = ((douTVCH - douTVCL) * douVariation * (douTDF1 - douTDF2) * (1<<12) / (9 * Code * douCint)) * 100;
 		temp = (temp - douRinternal) / 1000;
 	}
@@ -1521,11 +1605,11 @@ int codeToOhm(int32_t Code)
 	return temp;
 }
 
-static int short_test(int index,int frame_index)
+static int short_test(int index, int frame_index)
 {
 	int j = 0, res = 0;
 
-	if(protocol->major >= 5 && protocol->mid >= 4) {
+	if (protocol->major >= 5 && protocol->mid >= 4) {
 		/* Calculate code to ohm and save to tItems[index].buf */
 		for (j = 0; j < core_mp->frame_len; j++)
 			tItems[index].buf[frame_index * core_mp->frame_len + j] = codeToOhm(frame_buf[j]);
@@ -1539,7 +1623,7 @@ static int short_test(int index,int frame_index)
 
 static int mutual_test(int index)
 {
-	int i = 0, j = 0, x = 0, y = 0, res = 0 ,get_frame_cont =1 ;
+	int i = 0, j = 0, x = 0, y = 0, res = 0, get_frame_cont = 1;
 
 	ipio_debug(DEBUG_MP_TEST, "index = %d, name = %s, CMD = 0x%x, Frame Count = %d\n",
 	    index, tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
@@ -1576,8 +1660,8 @@ static int mutual_test(int index)
 		get_frame_cont = tItems[index].frame_count;
 
 	if (tItems[index].spec_option == BENCHMARK) {
-		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option,tItems[index].desp);
-		if (ipio_debug_level&&DEBUG_PARSER > 0)
+		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option, tItems[index].desp);
+		if (ipio_debug_level && DEBUG_PARSER > 0)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
 
@@ -1661,58 +1745,56 @@ static int st_test(int index)
 	return -1;
 }
 
-int mp_test_data_sort_average(int32_t *oringin_data,int index, int32_t *avg_result)
+int mp_test_data_sort_average(int32_t *oringin_data, int index, int32_t *avg_result)
 {
-	int i,j,k,x,y,len = 5;
+	int i, j, k, x, y, len = 5;
 	int32_t u32temp;
-	int u32up_frame,u32down_frame;
-	int32_t* u32sum_raw_data;
-	int32_t* u32data_buff;
+	int u32up_frame, u32down_frame;
+	int32_t *u32sum_raw_data;
+	int32_t *u32data_buff;
 
-	if(tItems[index].frame_count <= 1)
+	if (tItems[index].frame_count <= 1)
 		return 0;
 
 
-	if (ERR_ALLOC_MEM(oringin_data)){
+	if (ERR_ALLOC_MEM(oringin_data)) {
 		ipio_err("Input wrong adress\n");
 			return -ENOMEM;
 	}
 
 	u32data_buff = kcalloc(core_mp->frame_len * tItems[index].frame_count, sizeof(int32_t), GFP_KERNEL);
 	u32sum_raw_data = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(u32sum_raw_data) || (ERR_ALLOC_MEM(u32data_buff))){
+	if (ERR_ALLOC_MEM(u32sum_raw_data) || (ERR_ALLOC_MEM(u32data_buff))) {
 		ipio_err("Failed to allocate u32sum_raw_data FRAME buffer\n");
 		return -ENOMEM;
 	}
 
-	for(i = 0 ; i < core_mp->frame_len * tItems[index].frame_count ; i++)
-	{
+	for (i = 0; i < core_mp->frame_len * tItems[index].frame_count; i++) {
 		u32data_buff[i] = oringin_data[i];
 	}
 
 	u32up_frame = tItems[index].frame_count * tItems[index].highest_percentage / 100;
 	u32down_frame = tItems[index].frame_count * tItems[index].lowest_percentage / 100;
-	ipio_debug(DEBUG_MP_TEST,"Up=%d,Down=%d -%s\n",u32up_frame,u32down_frame,tItems[index].desp);
+	ipio_debug(DEBUG_MP_TEST, "Up=%d,Down=%d -%s\n", u32up_frame, u32down_frame, tItems[index].desp);
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		printk("\n[Show Original frist%d and last%d node data]\n",len,len);
-		for(i = 0 ; i < core_mp->frame_len ; i++){
-			for(j = 0 ; j < tItems[index].frame_count ; j++){
-				if((i<len) || (i >= (core_mp->frame_len-len)))
-					printk("%d,",u32data_buff[j* core_mp->frame_len + i]);
+		printk("\n[Show Original frist%d and last%d node data]\n", len, len);
+		for (i = 0; i < core_mp->frame_len; i++) {
+			for (j = 0 ; j < tItems[index].frame_count ; j++) {
+				if ((i < len) || (i >= (core_mp->frame_len-len)))
+					printk("%d,", u32data_buff[j * core_mp->frame_len + i]);
 			}
-			if((i<len) || (i >=(core_mp->frame_len-len)))
+			if ((i < len) || (i >= (core_mp->frame_len-len)))
 				printk("\n");
 		}
 	}
 
-	for(i = 0 ; i < core_mp->frame_len ; i++){
-		for(j = 0 ; j < tItems[index].frame_count-1 ; j++){
-			for(k = 0 ; k < (tItems[index].frame_count-1-j) ; k++){
-				x=i+k*core_mp->frame_len;
-				y=i+(k+1)*core_mp->frame_len;
-				if (*(u32data_buff+x) > *(u32data_buff+y))
-				{
+	for (i = 0; i < core_mp->frame_len; i++) {
+		for (j = 0; j < tItems[index].frame_count-1; j++) {
+			for (k = 0; k < (tItems[index].frame_count-1-j); k++) {
+				x = i+k*core_mp->frame_len;
+				y = i+(k+1)*core_mp->frame_len;
+				if (*(u32data_buff+x) > *(u32data_buff+y)) {
 					u32temp = *(u32data_buff+x);
 					*(u32data_buff+x) = *(u32data_buff+y);
 					*(u32data_buff+y) = u32temp;
@@ -1722,32 +1804,32 @@ int mp_test_data_sort_average(int32_t *oringin_data,int index, int32_t *avg_resu
 	}
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		printk("\n[After sorting frist%d and last%d node data]\n",len,len);
-		for(i = 0 ; i < core_mp->frame_len ; i++){
-			for(j = u32down_frame ; j < tItems[index].frame_count - u32up_frame ; j++){
-				if((i<len) || (i >= (core_mp->frame_len-len)))
-					printk("%d,",u32data_buff[i + j * core_mp->frame_len]);
+		printk("\n[After sorting frist%d and last%d node data]\n", len, len);
+		for (i = 0; i < core_mp->frame_len; i++) {
+			for (j = u32down_frame; j < tItems[index].frame_count - u32up_frame; j++) {
+				if ((i < len) || (i >= (core_mp->frame_len - len)))
+					printk("%d,", u32data_buff[i + j * core_mp->frame_len]);
 			}
-			if((i<len) || (i >= (core_mp->frame_len-len)))
+			if ((i < len) || (i >= (core_mp->frame_len-len)))
 				printk("\n");
 		}
 	}
 
-	for(i = 0 ; i < core_mp->frame_len ; i++){
-		u32sum_raw_data[i]=0;
-		for(j = u32down_frame ; j < tItems[index].frame_count - u32up_frame ; j++)
+	for (i = 0 ; i < core_mp->frame_len ; i++) {
+		u32sum_raw_data[i] = 0;
+		for (j = u32down_frame; j < tItems[index].frame_count - u32up_frame; j++)
 			u32sum_raw_data[i] += u32data_buff[i + j * core_mp->frame_len];
 
 		avg_result[i] = u32sum_raw_data[i] / (tItems[index].frame_count - u32down_frame - u32up_frame);
 	}
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		printk("\n[Average result frist%d and last%d node data]\n",len,len);
-		for(i = 0 ; i < core_mp->frame_len ; i++){
-			if((i<len) || (i >= (core_mp->frame_len-len)))
-				printk("%d,",avg_result[i]);
+		printk("\n[Average result frist%d and last%d node data]\n", len, len);
+		for (i = 0; i < core_mp->frame_len; i++) {
+			if ((i < len) || (i >= (core_mp->frame_len-len)))
+				printk("%d,", avg_result[i]);
 		}
-		if((i<len) || (i >= (core_mp->frame_len-len)))
+		if ((i < len) || (i >= (core_mp->frame_len-len)))
 			printk("\n");
 	}
 
@@ -1758,70 +1840,84 @@ int mp_test_data_sort_average(int32_t *oringin_data,int index, int32_t *avg_resu
 
 static int mp_retry_comp_cdc_result(int index)
 {
-	int x, y, shift;
-	int max_ts, min_ts, retry_result = MP_PASS;
-	int32_t *bench = NULL, *tmp_max = NULL, *tmp_min = NULL;
+	int i, test_result = MP_PASS;
+	int32_t *max_threshold = NULL, *min_threshold = NULL;
 
-	ipio_info("index = %d, item = %s\n", index, tItems[index].desp);
+	max_threshold = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(max_threshold)) {
+		ipio_err("Failed to allocate threshold FRAME buffer\n");
+		ipio_kfree((void **)&max_threshold);
+		test_result = MP_FAIL;
+		goto fail_alloc;
+	}
 
-	if (tItems[index].spec_option == BENCHMARK) {
+	min_threshold = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(min_threshold)) {
+		ipio_err("Failed to allocate threshold FRAME buffer\n");
+		ipio_kfree((void **)&min_threshold);
+		test_result = MP_FAIL;
+		goto fail_alloc;
+	}
 
-		if (ERR_ALLOC_MEM(tItems[index].buf)) {
-			ipio_err("The buffer is NULL, retry failed\n");
-			retry_result = MP_FAIL;
+	/* Show test result as below */
+	if (tItems[index].catalog == TX_RX_DELTA) {
+		if (ERR_ALLOC_MEM(core_mp->rx_delta_buf) || ERR_ALLOC_MEM(core_mp->tx_delta_buf)) {
+			ipio_err("This test item (%s) has no data inside its buffer\n", tItems[index].desp);
+			test_result = MP_FAIL;
 			goto out;
 		}
 
-		bench = tItems[index].buf;
-
-		for (y = 0; y < core_mp->ych_len; y++) {
-			for (x = 0; x < core_mp->xch_len; x++) {
-				shift = y * core_mp->xch_len + x;
-				if (bench[shift] > tItems[index].bench_mark_max[shift] ||
-					bench[shift] < tItems[index].bench_mark_min[shift]) {
-						retry_result = MP_FAIL;
-						break;
-				}
-			}
+		for(i = 0; i < core_mp->frame_len; i++) {
+			max_threshold[i] = core_mp->TxDeltaMax;
+			min_threshold[i] = core_mp->TxDeltaMin;
 		}
+		mp_compare_cdc_result(core_mp->tx_max_buf, max_threshold, min_threshold, &test_result);
+		mp_compare_cdc_result(core_mp->tx_min_buf, max_threshold, min_threshold, &test_result);
+
+		for(i = 0; i < core_mp->frame_len; i++) {
+			max_threshold[i] = core_mp->RxDeltaMax;
+			min_threshold[i] = core_mp->RxDeltaMin;
+		}
+
+		mp_compare_cdc_result(core_mp->rx_max_buf, max_threshold, min_threshold, &test_result);
+		mp_compare_cdc_result(core_mp->rx_min_buf, max_threshold, min_threshold, &test_result);
 	} else {
-
-		if (ERR_ALLOC_MEM(tItems[index].max_buf) ||
-				ERR_ALLOC_MEM(tItems[index].min_buf)) {
-			ipio_err("The buffer is NULL, retry failed\n");
-			retry_result = MP_FAIL;
+		if (ERR_ALLOC_MEM(tItems[index].buf) || ERR_ALLOC_MEM(tItems[index].max_buf) ||
+				ERR_ALLOC_MEM(tItems[index].min_buf) || ERR_ALLOC_MEM(tItems[index].result_buf)) {
+			ipio_err("This test item (%s) has no data inside its buffer\n", tItems[index].desp);
+			test_result = MP_FAIL;
 			goto out;
 		}
 
-		tmp_max = tItems[index].max_buf;
-		tmp_min = tItems[index].min_buf;
-
-		max_ts = tItems[index].max;
-		min_ts = tItems[index].min;
-
-		for (y = 0; y < core_mp->ych_len; y++) {
-			for (x = 0; x < core_mp->xch_len; x++) {
-				shift = y * core_mp->xch_len + x;
-				if (tmp_max[shift] > max_ts || tmp_min[shift] < min_ts) {
-					retry_result = MP_FAIL;
-					break;
-				}
+		if (tItems[index].spec_option == BENCHMARK) {
+			for(i = 0; i < core_mp->frame_len; i++) {
+				max_threshold[i] = tItems[index].bench_mark_max[i];
+				min_threshold[i] = tItems[index].bench_mark_min[i];
 			}
+		} else {
+			for(i = 0; i < core_mp->frame_len; i++) {
+				max_threshold[i] = tItems[index].max;
+				min_threshold[i] = tItems[index].min;
+			}
+		}
+
+		/* general result */
+		if(tItems[index].trimmed_mean && tItems[index].catalog != PEAK_TO_PEAK_TEST) {
+			mp_test_data_sort_average(tItems[index].buf, index, tItems[index].result_buf);
+			mp_compare_cdc_result(tItems[index].result_buf, max_threshold, min_threshold, &test_result);
+		} else {
+			mp_compare_cdc_result(tItems[index].max_buf, max_threshold, min_threshold, &test_result);
+			mp_compare_cdc_result(tItems[index].min_buf, max_threshold, min_threshold, &test_result);
 		}
 	}
 
 out:
-	ipio_info("Result = %s\n", ((retry_result == MP_PASS) ? "MP PASS" : "MP FAIL"));
+	ipio_kfree((void **)&max_threshold);
+	ipio_kfree((void **)&min_threshold);
 
-	if (retry_result == MP_PASS) {
-		tItems[index].max_res = MP_PASS;
-		tItems[index].min_res = MP_PASS;
-	} else {
-		tItems[index].max_res = MP_FAIL;
-		tItems[index].min_res = MP_FAIL;
-	}
-
-	return retry_result;
+fail_alloc:
+	tItems[index].item_result = test_result;
+	return test_result;
 }
 
 static void mp_do_retry(int index, int count)
@@ -1860,12 +1956,11 @@ static void mp_do_retry(int index, int count)
 
 void core_mp_show_result(void)
 {
-	int i, x, y, j, csv_len = 0, pass_item_count = 0;
+	int i, x, y, j, csv_len = 0, pass_item_count = 0 ,line_count = 0 ,get_frame_cont = 1;
 	int32_t *max_threshold = NULL, *min_threshold = NULL;
 	char *csv = NULL;
 	char csv_name[128] = { 0 };
 	char *ret_pass_name = NULL, *ret_fail_name = NULL;
-	char *line_breaker = "\n";
 	struct file *f = NULL;
 	mm_segment_t fs;
 	loff_t pos;
@@ -1883,14 +1978,19 @@ void core_mp_show_result(void)
 		goto fail_open;
 	}
 
-	csv_len += sprintf(csv + csv_len, "%x\n", core_config->chip_pid);
+	mp_print_csv_header(csv, &csv_len, &line_count);
 
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run != 1)
 			continue;
 
-		pr_info("\n\n[%s]\n", tItems[i].desp);
-		csv_len += sprintf(csv + csv_len, "\n\n[%s]\n", tItems[i].desp);
+		if (tItems[i].item_result == MP_PASS) {
+			pr_info("\n\n[%s],OK \n", tItems[i].desp);
+			csv_len += sprintf(csv + csv_len, "\n\n[%s],OK\n", tItems[i].desp);
+		} else {
+			pr_info("\n\n[%s],NG \n", tItems[i].desp);
+			csv_len += sprintf(csv + csv_len, "\n\n[%s],NG\n", tItems[i].desp);
+		}
 
 		pr_info("Frame count = %d\n",tItems[i].frame_count);
 		csv_len += sprintf(csv + csv_len, "Frame count = %d\n", tItems[i].frame_count);
@@ -1901,8 +2001,6 @@ void core_mp_show_result(void)
 
 			pr_info("Highest Percentage = %d\n",tItems[i].highest_percentage);
 			csv_len += sprintf(csv + csv_len, "Highest Percentage = %d\n", tItems[i].highest_percentage);
-
-			mp_test_data_sort_average(tItems[i].buf, i, tItems[i].result_buf);
 		}
 
 		/* Show result of benchmark max and min */
@@ -1912,8 +2010,8 @@ void core_mp_show_result(void)
 				min_threshold[j] = tItems[i].bench_mark_min[j];
 			}
 
-			mp_compare_cdc_show_result(tItems[i].bench_mark_max, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,&tItems[i].item_result,"Max_Bench");
-			mp_compare_cdc_show_result(tItems[i].bench_mark_min, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,&tItems[i].item_result,"Min_Bench");
+			mp_compare_cdc_show_result(tItems[i].bench_mark_max, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Max_Bench");
+			mp_compare_cdc_show_result(tItems[i].bench_mark_min, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Min_Bench");
 		} else {
 
 			for(j = 0 ;j < core_mp->frame_len ; j++) {
@@ -1949,7 +2047,7 @@ void core_mp_show_result(void)
 			}
 
 			DUMP(DEBUG_MP_TEST, "\n");
-			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+			csv_len += sprintf(csv + csv_len, "\n");
 
 			for (y = 0; y < core_mp->key_len; y++) {
 				DUMP(DEBUG_MP_TEST, " %3d   ", tItems[i].buf[y]);
@@ -1957,48 +2055,51 @@ void core_mp_show_result(void)
 			}
 
 			DUMP(DEBUG_MP_TEST, "\n");
-			csv_len += sprintf(csv + csv_len, "%s", line_breaker);
+			csv_len += sprintf(csv + csv_len, "\n");
 		} else if (tItems[i].catalog == TX_RX_DELTA) {
 
 			for(j = 0 ;j < core_mp->frame_len ; j++) {
 				max_threshold[j] = core_mp->TxDeltaMax;
 				min_threshold[j] = core_mp->TxDeltaMin;
 			}
-			mp_compare_cdc_show_result(core_mp->tx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"TX Max Hold");
-			mp_compare_cdc_show_result(core_mp->tx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"TX Min Hold");
+			mp_compare_cdc_show_result(core_mp->tx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Max Hold");
+			mp_compare_cdc_show_result(core_mp->tx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Min Hold");
 
 			for(j = 0 ;j < core_mp->frame_len ; j++) {
 				max_threshold[j] = core_mp->RxDeltaMax;
 				min_threshold[j] = core_mp->RxDeltaMin;
 			}
-			mp_compare_cdc_show_result(core_mp->rx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"RX Max Hold");
-			mp_compare_cdc_show_result(core_mp->rx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"RX Min Hold");
+			mp_compare_cdc_show_result(core_mp->rx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Max Hold");
+			mp_compare_cdc_show_result(core_mp->rx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Min Hold");
 
 		} else {
 			/* general result */
 			if(tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST){
-				mp_compare_cdc_show_result(tItems[i].result_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"Mean result");
+				mp_compare_cdc_show_result(tItems[i].result_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Mean result");
 			} else {
-				mp_compare_cdc_show_result(tItems[i].max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"Max Hold");
-				mp_compare_cdc_show_result(tItems[i].min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,&tItems[i].item_result,"Min Hold");
+				mp_compare_cdc_show_result(tItems[i].max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Max Hold");
+				mp_compare_cdc_show_result(tItems[i].min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Min Hold");
 			}
+			if(tItems[i].catalog != PEAK_TO_PEAK_TEST)
+				get_frame_cont = tItems[i].frame_count;
+
 			/* result of each frame */
-			if(tItems[i].catalog != PEAK_TO_PEAK_TEST) {
-				for(j = 0; j < tItems[i].frame_count; j++) {
-					char frame_name[128] ={ 0 };
-					sprintf(frame_name, "Frame %d", (j+1));
-					mp_compare_cdc_show_result(&tItems[i].buf[(j*core_mp->frame_len)], csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold,&tItems[i].item_result,frame_name);
-				}
+			for(j = 0; j < get_frame_cont; j++) {
+				char frame_name[128] ={ 0 };
+				sprintf(frame_name, "Frame %d", (j+1));
+				mp_compare_cdc_show_result(&tItems[i].buf[(j*core_mp->frame_len)], csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, frame_name);
 			}
+
 		}
 	}
 
 	memset(csv_name, 0, 128 * sizeof(char));
 
+	mp_print_csv_tail(csv, &csv_len);
+
 	for (i = 0; i < ARRAY_SIZE(tItems); i++) {
 		if (tItems[i].run) {
-			if (tItems[i].item_result == MP_FAIL)
-			{
+			if (tItems[i].item_result == MP_FAIL) {
 				pass_item_count = 0;
 				break;
 			}
@@ -2062,13 +2163,38 @@ fail_open:
 }
 EXPORT_SYMBOL(core_mp_show_result);
 
+/* The method to copy results to user depends on what APK needs */
+void core_mp_copy_reseult(int *buf, int size)
+{
+	int i, run = 0;
+
+	if (size < core_mp->mp_items) {
+		ipio_err("The size given from caller is less than item\n");
+		return;
+	}
+
+	for (i = 0; i < core_mp->mp_items; i++) {
+		if (tItems[i].run) {
+			if(tItems[i].item_result == MP_FAIL)
+				buf[i + 1] = 1;
+			else
+				buf[i + 1] = 0;
+
+			run++;
+		}
+	}
+
+	buf[0] = run;
+}
+EXPORT_SYMBOL(core_mp_copy_reseult);
+
 void core_mp_run_test(char *item, bool ini)
 {
 	int i = 0;
 	char str[512] = { 0 };
 
 	if (ERR_ALLOC_MEM(core_mp)) {
-		ipio_err("core_mp is null, fails to be allocated\n");
+		ipio_err("core_mp is null, do nothing\n");
 		return;
 	}
 
@@ -2170,9 +2296,12 @@ int core_mp_move_code(void)
 
 	ipio_info("Prepaing to enter Test Mode\n");
 #ifdef HOST_DOWNLOAD
-	ilitek_platform_tp_hw_reset(true);
+	ret = ilitek_platform_tp_hw_reset(true);
+	if(ret < 0) {
+		ipio_info("host download failed!\n");
+	}
 #else
-	if (core_config_check_cdc_busy(50, 10) < 0) {
+	if (core_config_check_cdc_busy(50, 0) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
@@ -2205,7 +2334,7 @@ int core_mp_move_code(void)
 
 	core_config_ice_mode_disable();
 
-	if (core_config_check_cdc_busy(300, 50) < 0) {
+	if (core_config_check_cdc_busy(300, 1) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}

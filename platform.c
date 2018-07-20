@@ -102,8 +102,9 @@ void ilitek_platform_enable_irq(void)
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
 
-void ilitek_platform_tp_hw_reset(bool isEnable)
+int ilitek_platform_tp_hw_reset(bool isEnable)
 {
+	int ret = 0;
 	ipio_info("HW Reset: %d\n", isEnable);
 
 	ilitek_platform_disable_irq();
@@ -134,10 +135,11 @@ void ilitek_platform_tp_hw_reset(bool isEnable)
 
 #ifdef HOST_DOWNLOAD
 	core_config_ice_mode_enable();
-	core_firmware_upgrade(UPDATE_FW_PATH, true);
+	ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
 #endif
 	mdelay(10);
 	ilitek_platform_enable_irq();
+	return ret;
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
 
@@ -228,6 +230,32 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 
 	if (ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+}
+#endif
+
+#ifdef ESD_CHECK
+static void ilitek_platform_esd_check(struct work_struct *pWork)
+{
+	int ret;
+	uint8_t tx_data = 0x82, rx_data = 0;
+
+#if (INTERFACE == SPI_INTERFACE)
+	ipio_debug(DEBUG_BATTERY, "isEnablePollCheckEsd = %d\n", ipd->isEnablePollCheckEsd);
+	if (spi_write_then_read(core_spi->spi, &tx_data, 1, &rx_data, 1) < 0) {
+		ipio_err("spi Write Error\n");
+	}
+
+	if(rx_data == 0x82) {
+		ipio_info("Doing ESD recovery (0x%x)\n", rx_data);
+		ret = ilitek_platform_tp_hw_reset(true);
+		if(ret < 0)
+			ipio_err("host download failed!\n");
+	}
+#endif
+
+	if (ipd->isEnablePollCheckEsd)
+		queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work,
+					ipd->esd_check_time);
 }
 #endif
 
@@ -347,6 +375,35 @@ static int ilitek_platform_reg_power_check(void)
 	return res;
 }
 
+static int ilitek_platform_reg_esd_check(void)
+{
+	int res = 0;
+
+#ifdef ESD_CHECK
+	ipio_info("--------------------------------------------------------\n");
+	INIT_DELAYED_WORK(&ipd->check_esd_status_work, ilitek_platform_esd_check);
+	ipd->check_esd_status_queue = create_workqueue("ili_esd_check");
+	ipd->esd_check_time = msecs_to_jiffies(CHECK_ESD_TIME);
+	ipd->isEnablePollCheckEsd = true;
+	if (!ipd->check_esd_status_queue) {
+		ipio_err("Failed to create a work thread to check power status\n");
+		ipd->vesd_reg_nb = false;
+		res = -1;
+	} else {
+		ipio_info("Created a work thread to check power status at every %u jiffies\n",
+			 (unsigned)ipd->esd_check_time);
+
+		if (ipd->isEnablePollCheckEsd) {
+			ipio_info("--------------------------------------------------------\n");
+			queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work,
+					   ipd->esd_check_time);
+			ipd->vesd_reg_nb = true;
+		}
+	}
+#endif /* ESD_CHECK */
+
+	return res;
+}
 /**
  * Register a callback function when the event of suspend and resume occurs.
  *
@@ -682,11 +739,11 @@ static int ilitek_platform_core_init(void)
 	}
 
 #if (INTERFACE == I2C_INTERFACE)
-	if(core_i2c_init(ipd->client) < 0)
+	if (core_i2c_init(ipd->client) < 0) {
 #else
-	if(core_spi_init(ipd->spi) < 0)
+	if (core_spi_init(ipd->spi) < 0) {
 #endif
-	{
+
 		ipio_err("Failed to initialise interface\n");
 		return -EINVAL;
 	}
@@ -736,6 +793,10 @@ static int ilitek_platform_remove(struct spi_device *spi)
 		destroy_workqueue(ipd->check_power_status_queue);
 	}
 
+	if (ipd->vesd_reg_nb) {
+		cancel_delayed_work_sync(&ipd->check_esd_status_work);
+		destroy_workqueue(ipd->check_esd_status_queue);
+	}
 	ipio_kfree((void **)&ipd);
 	ilitek_platform_core_remove();
 
@@ -796,7 +857,9 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ipd->chip_id = TP_TOUCH_IC;
 	ipd->isEnableIRQ = false;
 	ipd->isEnablePollCheckPower = false;
+	ipd->isEnablePollCheckEsd = false;
 	ipd->vpower_reg_nb = false;
+	ipd->vesd_reg_nb = false;
 
 	ipio_info("Driver Version : %s\n", DRIVER_VERSION);
 	ipio_info("Driver for Touch IC :  %x\n", TP_TOUCH_IC);
@@ -900,6 +963,8 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	if (ilitek_platform_reg_power_check() < 0)
 		ipio_err("Failed to register power check function\n");
 
+	if (ilitek_platform_reg_esd_check() < 0)
+		ipio_err("Failed to register esd check function\n");
 	/* Create nodes for users */
 	ilitek_proc_init();
 

@@ -85,6 +85,8 @@ struct flash_sector {
 struct flash_block_info {
 	uint32_t start_addr;
 	uint32_t end_addr;
+	uint32_t hex_crc;
+	uint32_t block_crc;
 };
 
 struct flash_sector *g_flash_sector = NULL;
@@ -613,6 +615,7 @@ static int write_download(uint32_t start, uint32_t size, uint8_t *w_buf, uint32_
 
 		if (core_write(core_config->slave_i2c_addr, buf, w_len + 4)) {
 			ipio_err("Failed to write data via SPI in host download (%x)\n", w_len);
+			ipio_kfree((void **)&buf);
 			return -EIO;
 		}
 
@@ -667,7 +670,7 @@ static int host_download_dma_check(int block)
 		mdelay(1);
 		busy = core_config_read_write_onebyte(0x048006);
 
-		if (busy == 1)
+		if ((busy & 0x01) == 1)
 			break;
 
 		count--;
@@ -735,38 +738,38 @@ int tddi_host_download(bool mode)
 		goto out;
 	}
 
-	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE) {
+	if (core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE) {
 		/* write hex to the addr of MP code */
 		ipio_info("Writing data into MP code ...\n");
 
-		if(write_download(0, MAX_MP_FIRMWARE_SIZE, mp_fw, SPI_UPGRADE_LEN) < 0) {
+		if (write_download(0, MAX_MP_FIRMWARE_SIZE, mp_fw, SPI_UPGRADE_LEN) < 0) {
 			ipio_err("SPI Write MP code data error\n");
 		}
 
-		if(read_download(0, MAX_MP_FIRMWARE_SIZE, read_mp_buf, SPI_UPGRADE_LEN)) {
+		if (read_download(0, MAX_MP_FIRMWARE_SIZE, read_mp_buf, SPI_UPGRADE_LEN)) {
 			ipio_err("SPI Read MP code data error\n");
 		}
 
-		if(memcmp(mp_fw, read_mp_buf, MAX_MP_FIRMWARE_SIZE) == 0) {
+		if (memcmp(mp_fw, read_mp_buf, MAX_MP_FIRMWARE_SIZE) == 0) {
 			ipio_info("Check MP Mode upgrade: PASS\n");
 		} else {
 			ipio_info("Check MP Mode upgrade: FAIL\n");
 			res = UPDATE_FAIL;
 			goto out;
 		}
-	} else if(core_gesture->entry) {
-		if(mode) {
+	} else if (core_gesture->entry) {
+		if (mode) {
 			/* write hex to the addr of Gesture code */
 			ipio_info("Writing data into Gesture code ...\n");
-			if(write_download(core_gesture->ap_start_addr, core_gesture->length, gesture_fw, core_gesture->length) < 0) {
+			if (write_download(core_gesture->ap_start_addr, core_gesture->length, gesture_fw, core_gesture->length) < 0) {
 				ipio_err("SPI Write Gesture code data error\n");
 			}
 
-			if(read_download(core_gesture->ap_start_addr, core_gesture->length, read_gesture_buf, core_gesture->length)) {
+			if (read_download(core_gesture->ap_start_addr, core_gesture->length, read_gesture_buf, core_gesture->length)) {
 				ipio_err("SPI Read Gesture code data error\n");
 			}
 
-			if(memcmp(gesture_fw, read_gesture_buf, core_gesture->length) == 0) {
+			if (memcmp(gesture_fw, read_gesture_buf, core_gesture->length) == 0) {
 				ipio_info("Check Gesture Mode upgrade: PASS\n");
 			} else {
 				ipio_info("Check Gesture Mode upgrade: FAIL\n");
@@ -777,14 +780,14 @@ int tddi_host_download(bool mode)
 			/* write hex to the addr of AP code */
 			memcpy(gesture_ap_buf, ap_fw + core_gesture->ap_start_addr, core_gesture->ap_length);
 			ipio_info("Writing data into AP code ...\n");
-			if(write_download(core_gesture->ap_start_addr, core_gesture->ap_length, gesture_ap_buf, core_gesture->ap_length) < 0) {
+			if (write_download(core_gesture->ap_start_addr, core_gesture->ap_length, gesture_ap_buf, core_gesture->ap_length) < 0) {
 				ipio_err("SPI Write AP code data error\n");
 			}
-			if(read_download(core_gesture->ap_start_addr, core_gesture->ap_length, read_ap_buf, core_gesture->ap_length)) {
+			if (read_download(core_gesture->ap_start_addr, core_gesture->ap_length, read_ap_buf, core_gesture->ap_length)) {
 				ipio_err("SPI Read AP code data error\n");
 			}
 
-			if(memcmp(gesture_ap_buf, read_ap_buf, core_gesture->ap_length) == 0) {
+			if (memcmp(gesture_ap_buf, read_ap_buf, core_gesture->ap_length) == 0) {
 				ipio_info("Check AP Mode upgrade: PASS\n");
 			} else {
 				ipio_info("Check AP Mode upgrade: FAIL\n");
@@ -795,18 +798,18 @@ int tddi_host_download(bool mode)
 	} else {
 		/* write hex to the addr of AP code */
 		ipio_info("Writing data into AP code ...\n");
-		if(write_download(0, MAX_AP_FIRMWARE_SIZE, ap_fw, SPI_UPGRADE_LEN) < 0) {
+		if (write_download(0, MAX_AP_FIRMWARE_SIZE, ap_fw, SPI_UPGRADE_LEN) < 0) {
 			ipio_err("SPI Write AP code data error\n");
 		}
 
 		/* write hex to the addr of DLM code */
 		ipio_info("Writing data into DLM code ...\n");
-		if(write_download(DLM_START_ADDRESS, MAX_DLM_FIRMWARE_SIZE, dlm_fw, SPI_UPGRADE_LEN) < 0) {
+		if (write_download(DLM_START_ADDRESS, MAX_DLM_FIRMWARE_SIZE, dlm_fw, SPI_UPGRADE_LEN) < 0) {
 			ipio_err("SPI Write DLM code data error\n");
 		}
 
 		/* Check AP/DLM mode Buffer data */
-		if (method == CORE_TYPE_E) {
+		if (method >= CORE_TYPE_E) {
 			ap_crc = calc_crc32(0, MAX_AP_FIRMWARE_SIZE - 4, ap_fw);
 			ap_dma = host_download_dma_check(0);
 
@@ -841,19 +844,15 @@ int tddi_host_download(bool mode)
 	}
 
 out:
-	if(!core_gesture->entry) {
+	if (!core_gesture->entry) {
 		/* ice mode code reset */
 		ipio_info("Doing code reset ...\n");
 		core_config_ice_mode_write(0x40040, 0xAE, 1);
 	}
 
-	if (core_config_set_watch_dog(true) < 0) {
-		ipio_err("Failed to enable watch dog\n");
-		res = -EINVAL;
-	}
-
 	core_config_ice_mode_disable();
-	if(core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
+
+	if (core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
 		mdelay(1200);
 
 	ipio_kfree((void **)&buf);
@@ -869,7 +868,7 @@ EXPORT_SYMBOL(tddi_host_download);
 int core_firmware_boot_host_download(void)
 {
 	int res = 0;
-	bool power = false;
+	bool power = false, esd = false;
 
 	ipio_info("BOOT: Starting to upgrade firmware ...\n");
 
@@ -881,7 +880,11 @@ int core_firmware_boot_host_download(void)
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
 		power = true;
 	}
-
+	if (ipd->isEnablePollCheckEsd) {
+		ipd->isEnablePollCheckEsd = false;
+		cancel_delayed_work_sync(&ipd->check_esd_status_work);
+		esd = true;
+	}
 	memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER, MAX_AP_FIRMWARE_SIZE);
 	memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
 
@@ -921,6 +924,11 @@ out:
 		ipd->isEnablePollCheckPower = true;
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
+	if (esd) {
+		ipd->isEnablePollCheckEsd = true;
+		queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work, ipd->esd_check_time);
+	}
+
 	core_firmware->isUpgrading = false;
 	return res;
 }
@@ -1020,9 +1028,11 @@ out:
 #ifdef BOOT_FW_UPGRADE
 static int convert_hex_array(void)
 {
-	int i, j, index = 0;
+	int i, j, index = 0, crc_byte_len = 4;
 	int block = 0, blen = 0, bindex = 0;
 	uint32_t tmp_addr = 0x0;
+	uint32_t start_addr = 0x0, end_addr = 0;
+	bool boot_crc = false;
 
 	core_firmware->start_addr = 0;
 	core_firmware->end_addr = 0;
@@ -1038,25 +1048,33 @@ static int convert_hex_array(void)
 	}
 
 	/* Get new version from ILI array */
-	core_firmware->new_fw_ver[0] = CTPM_FW[19];
-	core_firmware->new_fw_ver[1] = CTPM_FW[20];
-	core_firmware->new_fw_ver[2] = CTPM_FW[21];
-
-	/* The process will be executed if the comparison is different with origin ver */
-	for (i = 0; i < ARRAY_SIZE(core_firmware->old_fw_ver); i++) {
-		if (core_firmware->old_fw_ver[i] != core_firmware->new_fw_ver[i]) {
-			ipio_info("FW version is different, preparing to upgrade FW\n");
-			break;
-		}
+	if(protocol->mid >= 0x3) {
+		core_firmware->new_fw_ver[0] = CTPM_FW[18];
+		core_firmware->new_fw_ver[1] = CTPM_FW[19];
+		core_firmware->new_fw_ver[2] = CTPM_FW[20];
+		core_firmware->new_fw_ver[3] = CTPM_FW[21];
+	} else {
+		core_firmware->new_fw_ver[0] = CTPM_FW[19];
+		core_firmware->new_fw_ver[1] = CTPM_FW[20];
+		core_firmware->new_fw_ver[2] = CTPM_FW[21];
 	}
 
-	if (i == ARRAY_SIZE(core_firmware->old_fw_ver)) {
-		ipio_err("FW version is the same as previous version\n");
-		goto out;
-	}
+	ipio_info("HW ver: %d.%d.%d.%d\n",core_firmware->old_fw_ver[0],
+	core_firmware->old_fw_ver[1], core_firmware->old_fw_ver[2], core_firmware->old_fw_ver[3]);
+	ipio_info("Hex ver: %d.%d.%d.%d\n", core_firmware->new_fw_ver[0],
+		core_firmware->new_fw_ver[1], core_firmware->new_fw_ver[2], core_firmware->new_fw_ver[3]);
 
 	/* Extract block info */
 	block = CTPM_FW[33];
+
+	/* To get HW CRC, we must enter to ICE mode */
+	ilitek_platform_disable_irq();
+	core_config_ice_mode_enable();
+
+	mdelay(30);
+
+	if (core_config_set_watch_dog(false) < 0)
+		ipio_err("Failed to disable watch dog\n");
 
 	if (block > 0) {
 		core_firmware->hasBlockInfo = true;
@@ -1075,9 +1093,32 @@ static int convert_hex_array(void)
 					    (g_flash_block_info[i].end_addr << 8) | CTPM_FW[bindex + j];
 			}
 
+			start_addr = g_flash_block_info[i].start_addr;
+			end_addr = g_flash_block_info[i].end_addr;
+			g_flash_block_info[i].hex_crc = (CTPM_FW[64 + end_addr - 3] << 24) + (CTPM_FW[64 + end_addr - 2] << 16)
+			+ (CTPM_FW[64 + end_addr - 1] << 8) + CTPM_FW[64 +(end_addr)];
+
+			/* Get HW CRC for each block */
+			g_flash_block_info[i].block_crc = tddi_check_data(start_addr, end_addr - start_addr - crc_byte_len + 1);
+
+			ipio_info("block = %d, start_addr = 0x%06x, end_addr = 0x%06x, H_CRC = 0x%06x, B_CRC = 0x%06x\n",
+					i, start_addr, end_addr, g_flash_block_info[i].hex_crc, g_flash_block_info[i].block_crc);
+
 			bindex += blen;
+
+			/* Compare Hex to HW's CRC directly instead of fw version */
+			if(g_flash_block_info[i].hex_crc != g_flash_block_info[i].block_crc)
+				boot_crc = true;
 		}
 	}
+
+	core_config_ice_mode_disable();
+	if(boot_crc == false) {
+		ipio_info("CRC isn't different, no need to upgrade\n");
+		goto out;
+	}
+
+	ipio_info("CRC is different, prepare to upgrade firmware\n");
 
 	/* Fill data into buffer */
 	for (i = 0; i < ARRAY_SIZE(CTPM_FW) - 64; i++) {
@@ -1150,7 +1191,7 @@ out:
 int core_firmware_boot_upgrade(void)
 {
 	int res = 0;
-	bool power = false;
+	bool power = false, esd = false;
 
 	ipio_info("BOOT: Starting to upgrade firmware ...\n");
 
@@ -1162,11 +1203,23 @@ int core_firmware_boot_upgrade(void)
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
 		power = true;
 	}
+	if (ipd->isEnablePollCheckEsd) {
+		ipd->isEnablePollCheckEsd = false;
+		cancel_delayed_work_sync(&ipd->check_esd_status_work);
+		esd = true;
+	}
 
 	/* store old version before upgrade fw */
-	core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
-	core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
-	core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
+	if(protocol->mid >= 0x3) {
+		core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
+		core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
+		core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
+		core_firmware->old_fw_ver[3] = core_config->firmware_ver[4];
+	} else {
+		core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
+		core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
+		core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
+	}
 
 	if (flashtab == NULL) {
 		ipio_err("Flash table isn't created\n");
@@ -1202,6 +1255,7 @@ int core_firmware_boot_upgrade(void)
 		ipio_err("Failed to covert firmware data, res = %d\n", res);
 		goto out;
 	}
+
 	/* calling that function defined at init depends on chips. */
 	res = core_firmware->upgrade_func(false);
 	if (res < 0) {
@@ -1222,6 +1276,10 @@ out:
 	if (power) {
 		ipd->isEnablePollCheckPower = true;
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+	}
+	if (esd) {
+		ipd->isEnablePollCheckEsd = true;
+		queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work, ipd->esd_check_time);
 	}
 
 	ipio_kfree((void **)&flash_fw);
@@ -1314,33 +1372,37 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			}
 			/* fill data */
 			for (j = 0, k = 0; j < (nLength * 2); j += 2, k++) {
-				if (isIRAM)
-				{
+				if (isIRAM) {
 #ifdef HOST_DOWNLOAD
-					if(nAddr < 0x10000) {
+					if (nAddr < 0x10000) {
 						ap_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
-					} else if(nAddr >= DLM_HEX_ADDRESS && nAddr < MP_HEX_ADDRESS ) {
-						if(nAddr < DLM_HEX_ADDRESS + MAX_DLM_FIRMWARE_SIZE)
+					} else if ((nAddr >= DLM_HEX_ADDRESS) && (nAddr < MP_HEX_ADDRESS)) {
+						if (nAddr < DLM_HEX_ADDRESS + MAX_DLM_FIRMWARE_SIZE) {
 							dlm_fw[nAddr - DLM_HEX_ADDRESS + k] = HexToDec(&pBuf[i + 9 + j], 2);
-					} else if(nAddr >= MP_HEX_ADDRESS) {
+						}
+					} else if (nAddr >= MP_HEX_ADDRESS) {
 						mp_fw[nAddr - MP_HEX_ADDRESS + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					}
-                    if(nAddr > MAX_AP_FIRMWARE_SIZE && do_once == 0) {
-                        do_once = 1;
-                        core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
-                        core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
-                        core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
-                        core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
-                        core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
-                    }
-					if(nAddr >= core_gesture->start_addr && nAddr < core_gesture->start_addr + MAX_GESTURE_FIRMWARE_SIZE) {
+					if (nAddr > MAX_AP_FIRMWARE_SIZE && do_once == 0) {
+						do_once = 1;
+						core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
+						core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
+						core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
+						core_gesture->end_addr = (ap_fw[0xFFDF] << 24) + (ap_fw[0xFFDE] << 16) + (ap_fw[0xFFDD] << 8) + ap_fw[0xFFDC];
+						core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
+						core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
+						ipio_info("gesture_start_addr = 0x%x, gesture_end_addr = 0x%x, gesture_length = 0x%x\n",
+									core_gesture->start_addr, core_gesture->end_addr, core_gesture->length);
+						ipio_info("area = %d, ap_start_addr = 0x%x, ap_end_addr = 0x%x\n",
+									core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
+					}
+					if (nAddr >= core_gesture->start_addr && nAddr < core_gesture->start_addr + MAX_GESTURE_FIRMWARE_SIZE) {
 						gesture_fw[nAddr - core_gesture->start_addr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 					}
 #else
 					iram_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 #endif
-				}
-				else {
+				} else {
 					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 
 					if ((nAddr + k) != 0) {
@@ -1423,8 +1485,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 {
 	int res = 0, fsize;
 	uint8_t *hex_buffer = NULL;
-	bool power = false;
-
+	bool power = false, esd = false;
 	struct file *pfile = NULL;
 	mm_segment_t old_fs;
 	loff_t pos = 0;
@@ -1437,13 +1498,21 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
 		power = true;
 	}
+	if (ipd->isEnablePollCheckEsd) {
+		ipd->isEnablePollCheckEsd = false;
+		cancel_delayed_work_sync(&ipd->check_esd_status_work);
+		esd = true;
+	}
 
 	pfile = filp_open(pFilePath, O_RDONLY, 0);
 	if (ERR_ALLOC_MEM(pfile)) {
 		ipio_err("Failed to open the file at %s.\n", pFilePath);
-		//if not hex file can ili file
 #ifdef HOST_DOWNLOAD
-		goto no_hex_file;
+		ipio_info("Feed ili file to host download instead of hex\n");
+		res = core_firmware->upgrade_func(isIRAM);
+		if (res < 0)
+			ipio_err("host download failed, res = %d\n", res);
+		goto out_hd;
 #endif
 		res = -ENOENT;
 		return res;
@@ -1459,7 +1528,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		goto out;
 	}
 
-#ifndef HOST_DOWNLOAD
 	if (flashtab == NULL) {
 		ipio_err("Flash table isn't created\n");
 		res = -ENOMEM;
@@ -1488,7 +1556,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		res = -ENOMEM;
 		goto out;
 	}
-#endif
 
 	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(hex_buffer)) {
@@ -1515,9 +1582,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		goto out;
 	}
 
-#ifdef HOST_DOWNLOAD
-no_hex_file:
-#endif
 	/* calling that function defined at init depends on chips. */
 	res = core_firmware->upgrade_func(isIRAM);
 	if (res < 0) {
@@ -1525,25 +1589,31 @@ no_hex_file:
 		goto out;
 	}
 
-#ifndef HOST_DOWNLOAD
 	ipio_info("Update TP/Firmware information...\n");
+#ifdef HOST_DOWNLOAD
+	mdelay(10);
+#endif
 	core_config_get_fw_ver();
 	core_config_get_protocol_ver();
 	core_config_get_core_ver();
 	core_config_get_tp_info();
 	core_config_get_key_info();
-#endif
 
 out:
+	filp_close(pfile, NULL);
+
+out_hd:
 	if (power) {
 		ipd->isEnablePollCheckPower = true;
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 	}
-	core_firmware->isUpgrading = false;
-	if (ERR_ALLOC_MEM(pfile))
-		return res;
+	if (esd) {
+		ipd->isEnablePollCheckEsd = true;
+		queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work, ipd->esd_check_time);
+	}
 
-	filp_close(pfile, NULL);
+	core_firmware->isUpgrading = false;
+	ipio_kfree((void **)&g_flash_sector);
 	ipio_kfree((void **)&hex_buffer);
 	ipio_kfree((void **)&flash_fw);
 	ipio_kfree((void **)&g_flash_sector);

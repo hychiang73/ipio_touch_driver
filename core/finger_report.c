@@ -223,11 +223,10 @@ static int parse_touch_package_v5_0(uint8_t pid)
 	uint8_t check_sum = 0;
 	uint32_t nX = 0, nY = 0;
 
-	for (i = 0; i < 9; i++)
-		ipio_debug(DEBUG_FINGER_REPORT, "data[%d] = %x\n", i, g_fr_node->data[i]);
+	dump_data(g_fr_node->data, 8, g_fr_node->len, 0, "touch report");
 
 	check_sum = core_fr_calc_checksum(&g_fr_node->data[0], (g_fr_node->len - 1));
-	ipio_debug(DEBUG_FINGER_REPORT, "data = %x  ;  check_sum : %x\n", g_fr_node->data[g_fr_node->len - 1], check_sum);
+	ipio_debug(DEBUG_FINGER_REPORT, "data = %x;  check_sum : %x\n", g_fr_node->data[g_fr_node->len - 1], check_sum);
 
 	if (g_fr_node->data[g_fr_node->len - 1] != check_sum) {
 		ipio_err("Wrong checksum\n");
@@ -353,10 +352,14 @@ static int finger_report_ver_5_0(void)
 
 	if (res < 0) {
 		ipio_err("Failed to read finger report packet\n");
+#if (INTERFACE == SPI_INTERFACE)
 		if(res == CHECK_RECOVER) {
-			ipio_err("==================Recover=================\n");
-			ilitek_platform_tp_hw_reset(true);
+			ipio_err("Doing host download recovery !\n");
+			res = ilitek_platform_tp_hw_reset(true);
+			if(res < 0)
+				ipio_info("host download failed!\n");
 		}
+#endif
 		goto out;
 	}
 

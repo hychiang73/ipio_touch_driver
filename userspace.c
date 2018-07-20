@@ -33,6 +33,7 @@
 #include "core/mp_test.h"
 #include "core/parser.h"
 #include "core/gesture.h"
+#include "core/mp_test.h"
 
 #define USER_STR_BUFF	128
 #define ILITEK_IOCTL_MAGIC	100
@@ -62,6 +63,7 @@
 
 #define ILITEK_IOCTL_TP_MODE_CTRL			_IOWR(ILITEK_IOCTL_MAGIC, 17, uint8_t*)
 #define ILITEK_IOCTL_TP_MODE_STATUS			_IOWR(ILITEK_IOCTL_MAGIC, 18, int*)
+#define ILITEK_IOCTL_ICE_MODE_SWITCH		_IOWR(ILITEK_IOCTL_MAGIC, 19, int)
 
 unsigned char g_user_buf[USER_STR_BUFF] = { 0 };
 
@@ -300,7 +302,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 /* Created only for oppo */
 static ssize_t ilitek_proc_oppo_mp_lcm_on_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	int len = 0;
+	int len = 0, ret = 0;
 
 	if (*pPos != 0)
 		return 0;
@@ -344,7 +346,10 @@ static ssize_t ilitek_proc_oppo_mp_lcm_on_read(struct file *filp, char __user *b
 	core_fr_mode_control(&protocol->demo_mode);
 
 #ifdef HOST_DOWNLOAD
-	ilitek_platform_tp_hw_reset(true);
+	ret = ilitek_platform_tp_hw_reset(true);
+	if(ret < 0) {
+		ipio_info("host download failed!\n");
+	}
 #endif
 
 	ilitek_platform_enable_irq();
@@ -382,7 +387,7 @@ static ssize_t ilitek_proc_oppo_mp_lcm_off_read(struct file *filp, char __user *
 	/* sense stop */
 	core_config_sense_ctrl(false);
 
-	if (core_config_check_cdc_busy(50, 100) < 0)
+	if (core_config_check_cdc_busy(50, 50) < 0)
 		ipio_err("Check busy is timout !\n");
 
 	core_fr->actual_fw_mode = P5_0_FIRMWARE_GESTURE_MODE;
@@ -428,7 +433,8 @@ out:
 
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	uint32_t len = 0;
+	uint32_t res, len = 0;
+	int apk[100] = {0};
 
 	if (*pPos != 0)
 		return 0;
@@ -447,7 +453,10 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	/* Switch to Test mode nad move mp code */
 	core_fr_mode_control(&protocol->test_mode);
 
+	mutex_lock(&ipd->plat_mutex);
+
 	ilitek_platform_disable_irq();
+	core_fr->isEnableFR = false;
 
 	/* Start to run MP test */
 	core_mp->run = true;
@@ -483,6 +492,13 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	core_mp_show_result();
 
+	/* copy result to user */
+	memset(apk, 2, sizeof(apk));
+	core_mp_copy_reseult(apk, sizeof(apk));
+	res = copy_to_user((uint32_t *)buff, apk, sizeof(apk));
+	if (res < 0)
+		ipio_err("Failed to copy data to user space\n");
+
 	core_mp->run = false;
 
 	core_mp_test_free();
@@ -500,12 +516,14 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	core_fr_mode_control(&protocol->demo_mode);
 
 #ifdef HOST_DOWNLOAD
-	ilitek_platform_tp_hw_reset(true);
+	if(ilitek_platform_tp_hw_reset(true) < 0)
+		ipio_info("host download failed!\n");
 #endif
 
-	ilitek_platform_enable_irq();
-
 out:
+	core_fr->isEnableFR = true;
+	ilitek_platform_enable_irq();
+	mutex_unlock(&ipd->plat_mutex);
 	*pPos = len;
 	return len;
 }
@@ -585,7 +603,8 @@ static ssize_t ilitek_proc_mp_test_write(struct file *filp, const char *buff, si
 	core_fr_mode_control(&protocol->demo_mode);
 
 #ifdef HOST_DOWNLOAD
-	ilitek_platform_tp_hw_reset(true);
+	if(ilitek_platform_tp_hw_reset(true) < 0)
+		ipio_info("host download failed!\n");
 #endif
 
 	ilitek_platform_enable_irq();
@@ -811,11 +830,16 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	if (ipd->isEnablePollCheckPower)
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
+
 #ifdef HOST_DOWNLOAD
-	ilitek_platform_tp_hw_reset(true);
+	res = ilitek_platform_tp_hw_reset(true);
+	if(res < 0) {
+		ipio_info("host download failed!\n");
+	}
 #else
 	res = core_firmware_upgrade(UPDATE_FW_PATH, false);
 #endif
+
 	ilitek_platform_enable_irq();
 
 	if (ipd->isEnablePollCheckPower)
@@ -907,7 +931,6 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int res = 0, count = 0, i;
-	int w_len = 0, r_len = 0, delay = 0;
 	char cmd[512] = { 0 };
 	char *token = NULL, *cur = NULL;
 	uint8_t temp[256] = { 0 };
@@ -1038,26 +1061,8 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	} else if (strcmp(cmd, "resume") == 0) {
 		ipio_info("test resume test\n");
 		core_config_ic_resume();
-	}
-
-	else if (strcmp(cmd, "gt1") == 0) {
-		ipio_info("test Gesture test 1\n");
-		temp[0] = 0x01;
-		temp[1] = 0x01;
-		temp[2] = 0x00;
-		w_len = 3;
-		core_write(core_config->slave_i2c_addr, temp, w_len);
-		if (core_config_check_cdc_busy(50, 100) < 0)
-			ipio_err("Check busy is timout !\n");
-	}
-	else if (strcmp(cmd, "gt2") == 0) {
-		temp[0] = 0x01;
-		temp[1] = 0x0A;
-		temp[2] = 0x01;
-		w_len = 3;
-		core_write(core_config->slave_i2c_addr, temp, w_len);
-		ipio_info("test Gesture test\n");
 	} else if (strcmp(cmd, "i2c_w") == 0) {
+		int w_len = 0;
 		w_len = data[1];
 		ipio_info("w_len = %d\n", w_len);
 
@@ -1068,6 +1073,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 
 		core_write(core_config->slave_i2c_addr, temp, w_len);
 	} else if (strcmp(cmd, "i2c_r") == 0) {
+		int r_len = 0;
 		r_len = data[1];
 		ipio_info("r_len = %d\n", r_len);
 
@@ -1076,6 +1082,8 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 		for (i = 0; i < r_len; i++)
 			ipio_info("temp[%d] = %x\n", i, temp[i]);
 	} else if (strcmp(cmd, "i2c_w_r") == 0) {
+		int delay = 0;
+		int w_len = 0, r_len = 0;
 		w_len = data[1];
 		r_len = data[2];
 		delay = data[3];
@@ -1308,6 +1316,19 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		res = copy_to_user((int *)arg, &core_fr->actual_fw_mode, sizeof(int));
 		if (res < 0) {
 			ipio_err("Failed to copy chip id to user space\n");
+		}
+		break;
+	/* It works for host downloado only */
+	case ILITEK_IOCTL_ICE_MODE_SWITCH:
+		res = copy_from_user(szBuf, (uint8_t *) arg, 1);
+		if (res < 0) {
+			ipio_err("Failed to copy data from user space\n");
+		} else {
+			if (szBuf[0]) {
+				core_config->icemodeenable = true;
+			} else {
+				core_config->icemodeenable = false;
+			}
 		}
 		break;
 

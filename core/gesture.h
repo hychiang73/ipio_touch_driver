@@ -66,9 +66,10 @@
 
 struct core_gesture_data {
     uint32_t start_addr;
+    uint32_t end_addr;
     uint32_t length;
     bool entry;
-    uint8_t mode; //normal:0 info:1
+    uint8_t mode; /* normal:0 info:1  */
     uint32_t ap_start_addr;
     uint32_t ap_length;
     uint32_t area_section;

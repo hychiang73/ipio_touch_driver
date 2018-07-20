@@ -182,8 +182,7 @@ extern uint32_t ipio_chip_list[2];
 #define UPDATE_RETRY_COUNT          3
 
 /* ILI7807 Series */
-enum ili7881_types
-{
+enum ili7881_types {
 	ILI7807_TYPE_F_AA = 0x0000,
 	ILI7807_TYPE_F_AB = 0x0001,
 	ILI7807_TYPE_H = 0x1100
@@ -195,11 +194,11 @@ enum ili7881_types
 #define ILI7808_WDT_ADDR		0x5100C
 
 /* ILI9881 Series */
-enum ili9881_types
-{
+enum ili9881_types {
 	ILI9881_TYPE_F = 0x0F,
 	ILI9881_TYPE_H = 0x11
 };
+
 /*Error code*/
 #define SUCCESS 				0
 #define UPDATE_FAIL 			-1
@@ -215,9 +214,10 @@ enum ili9881_types
  */
 #define CSV_PATH			"/sdcard"
 #define INI_NAME_PATH		"/sdcard/mp.ini"
-#define UPDATE_FW_PATH		"/mnt/sdcard/ILITEK_FW"
+#define UPDATE_FW_PATH		"/sdcard/ILITEK_FW"
 #define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
 #define CHECK_BATTERY_TIME  2000
+#define CHECK_ESD_TIME		4000
 #define VDD_VOLTAGE			1800000
 #define VDD_I2C_VOLTAGE		1800000
 
@@ -249,16 +249,19 @@ enum ili9881_types
 #define USE_KTHREAD
 
 /* Enable DMA with I2C. */
-/* #define I2C_DMA */
+//#define I2C_DMA
 
 /* Split the length written to or read from IC via I2C. */
-/* #define I2C_SEGMENT */
+//#define I2C_SEGMENT
 
 /* Be able to upgrade fw at boot stage */
-/* #define BOOT_FW_UPGRADE */
+//#define BOOT_FW_UPGRADE
 
 /* Check battery's status in order to avoid some effects from charge. */
-/* #define BATTERY_CHECK */
+//#define BATTERY_CHECK
+
+/* Check whether the IC is damaged by ESD */
+//#define ESD_CHECK
 
 static inline void ipio_kfree(void **mem)
 {

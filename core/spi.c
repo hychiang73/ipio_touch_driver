@@ -240,7 +240,7 @@ int core_ice_mode_enable_9881H11(void)
 
 	/* check recover data */
 	if(rxbuf[0] == 0x82) {
-		ipio_info("rxbuf:0x%x\n", rxbuf[0]);
+		ipio_err("Check Recovery data failed (0x%x)\n", rxbuf[0]);
 		return CHECK_RECOVER;
 	}
 

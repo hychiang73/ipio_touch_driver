@@ -53,6 +53,7 @@ struct ilitek_platform_data {
 
 	bool isEnableIRQ;
 	bool isEnablePollCheckPower;
+	bool isEnablePollCheckEsd;
 
 #ifdef USE_KTHREAD
 	struct task_struct *irq_thread;
@@ -74,9 +75,13 @@ struct ilitek_platform_data {
 
 	/* obtain msg when battery status has changed */
 	struct delayed_work check_power_status_work;
+	struct delayed_work check_esd_status_work;
 	struct workqueue_struct *check_power_status_queue;
+	struct workqueue_struct *check_esd_status_queue;
 	unsigned long work_delay;
+	unsigned long esd_check_time;
 	bool vpower_reg_nb;
+	bool vesd_reg_nb;
 
 	/* Sending report data to users for the debug */
 	bool debug_node_open;
@@ -95,7 +100,7 @@ extern struct ilitek_platform_data *ipd;
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
 extern void ilitek_platform_read_tp_info(void);
-extern void ilitek_platform_tp_hw_reset(bool isEnable);
+extern int ilitek_platform_tp_hw_reset(bool isEnable);
 #ifdef ENABLE_REGULATOR_POWER_ON
 extern void ilitek_regulator_power_on(bool status);
 #endif
