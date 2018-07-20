@@ -264,12 +264,6 @@ static int verify_flash_data(void)
 	int fps = flashtab->sector;
 	uint32_t ss = 0x0;
 
-	/* check chip type with its max count */
-	if (core_config->chip_id == CHIP_TYPE_ILI7807 && core_config->chip_type == ILI7807_TYPE_H) {
-		core_firmware->max_count = 0x1FFFF;
-		core_firmware->isCRC = true;
-	}
-
 	for (i = 0; i < g_section_len + 1; i++) {
 		if (g_flash_sector[i].data_flag) {
 			if (ss > g_flash_sector[i].ss_addr || len == 0)
@@ -916,8 +910,6 @@ int core_firmware_boot_host_download(void)
 	}
 
 	core_firmware->update_status = 100;
-	// ipio_info("Update firmware information...\n");
-	// ilitek_platform_read_tp_info();
 
 out:
 	if (power) {
@@ -933,8 +925,7 @@ out:
 	return res;
 }
 EXPORT_SYMBOL(core_firmware_boot_host_download);
-#endif /* HOST_DOWNLOAD */
-
+#else
 static int tddi_fw_upgrade(bool isIRAM)
 {
 	int res = 0;
@@ -954,18 +945,6 @@ static int tddi_fw_upgrade(bool isIRAM)
 	if (res < 0) {
 		ipio_err("Failed to enable ICE mode\n");
 		goto out;
-	}
-
-	mdelay(5);
-
-	/*
-	 * This command is used to fix the bug of spi clk in 7807F-AB
-	 * while operating with flash.
-	 */
-	if (core_config->chip_id == CHIP_TYPE_ILI7807 && core_config->chip_type == ILI7807_TYPE_F_AB) {
-		res = core_config_ice_mode_write(0x4100C, 0x01, 1);
-		if (res < 0)
-			goto out;
 	}
 
 	mdelay(25);
@@ -1025,7 +1004,6 @@ out:
 	return res;
 }
 
-#ifdef BOOT_FW_UPGRADE
 static int convert_hex_array(void)
 {
 	int i, j, index = 0, crc_byte_len = 4;
@@ -1287,7 +1265,7 @@ out:
 	core_firmware->isUpgrading = false;
 	return res;
 }
-#endif /* BOOT_FW_UPGRADE */
+#endif /* HOST_DOWNLOAD */
 
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 {
@@ -1641,19 +1619,14 @@ int core_firmware_init(void)
 				core_firmware->new_fw_ver[i] = 0x0;
 			}
 
-			if (ipio_chip_list[i] == CHIP_TYPE_ILI7807) {
-				core_firmware->max_count = 0xFFFF;
-				core_firmware->isCRC = false;
-				core_firmware->upgrade_func = tddi_fw_upgrade;
-				core_firmware->delay_after_upgrade = 100;
-			} else if (ipio_chip_list[i] == CHIP_TYPE_ILI9881) {
+			if (ipio_chip_list[i] == CHIP_TYPE_ILI9881) {
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;
-			#ifdef HOST_DOWNLOAD
+#ifdef HOST_DOWNLOAD
 				core_firmware->upgrade_func = tddi_host_download;
-			#else
+#else
 				core_firmware->upgrade_func = tddi_fw_upgrade;
-			#endif
+#endif
 				core_firmware->delay_after_upgrade = 200;
 			}
 			return 0;

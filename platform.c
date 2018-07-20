@@ -537,11 +537,14 @@ static int kthread_handler(void *arg)
 
 		ilitek_platform_disable_irq();
 
-#ifdef BOOT_FW_UPGRADE
+#ifdef HOST_DOWNLOAD
+		res = core_firmware_boot_host_download();
+#else
 		res = core_firmware_boot_upgrade();
+#endif
 		if (res < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
-#endif
+
 		ilitek_platform_enable_irq();
 
 		ilitek_platform_input_init();
@@ -839,7 +842,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 	/* Set i2c slave addr if it's not configured */
 	ipio_info("I2C Slave address = 0x%x\n", client->addr);
-	if (client->addr != ILI7807_SLAVE_ADDR || client->addr != ILI9881_SLAVE_ADDR) {
+	if (client->addr != ILI9881_SLAVE_ADDR) {
 		client->addr = ILI9881_SLAVE_ADDR;
 		ipio_err("I2C Slave addr doesn't be set up, use default : 0x%x\n", client->addr);
 	}
@@ -870,22 +873,14 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	 * Different ICs may require different delay time for the reset.
 	 * They may also depend on what your platform need to.
 	 */
-	if (ipd->chip_id == CHIP_TYPE_ILI7807) {
-		ipd->delay_time_high = 10;
-		ipd->delay_time_low = 5;
-		ipd->edge_delay = 200;
-	} else if (ipd->chip_id == CHIP_TYPE_ILI9881) {
-		ipd->delay_time_high = 10;
-		ipd->delay_time_low = 5;
-#if(INTERFACE == I2C_INTERFACE)
-		ipd->edge_delay = 100;
+	 if (ipd->chip_id == CHIP_TYPE_ILI9881) {
+		 ipd->delay_time_high = 10;
+		 ipd->delay_time_low = 5;
+#if (INTERFACE == I2C_INTERFACE)
+		 ipd->edge_delay = 100;
 #else
-		ipd->edge_delay = 1;
+		 ipd->edge_delay = 1;
 #endif
-	} else {
-		ipd->delay_time_high = 10;
-		ipd->delay_time_low = 10;
-		ipd->edge_delay = 10;
 	}
 
 	mutex_init(&ipd->plat_mutex);

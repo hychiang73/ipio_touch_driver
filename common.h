@@ -91,7 +91,6 @@
  */
 
 /* An Touch IC currently supported by driver */
-#define CHIP_TYPE_ILI7807	0x7807
 #define CHIP_TYPE_ILI9881	0x9881
 #define TP_TOUCH_IC		CHIP_TYPE_ILI9881
 
@@ -180,18 +179,6 @@ extern uint32_t ipio_chip_list[2];
 #define MP_HEX_ADDRESS              0x13000
 #define SPI_UPGRADE_LEN		        2048
 #define UPDATE_RETRY_COUNT          3
-
-/* ILI7807 Series */
-enum ili7881_types {
-	ILI7807_TYPE_F_AA = 0x0000,
-	ILI7807_TYPE_F_AB = 0x0001,
-	ILI7807_TYPE_H = 0x1100
-};
-
-#define ILI7807_SLAVE_ADDR		0x41
-#define ILI7807_ICE_MODE_ADDR	0x181062
-#define ILI7807_PID_ADDR		0x4009C
-#define ILI7808_WDT_ADDR		0x5100C
 
 /* ILI9881 Series */
 enum ili9881_types {

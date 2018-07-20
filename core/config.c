@@ -34,7 +34,6 @@
 
 /* the list of support chip */
 uint32_t ipio_chip_list[] = {
-	CHIP_TYPE_ILI7807,
 	CHIP_TYPE_ILI9881,
 };
 
@@ -47,15 +46,6 @@ static void read_flash_info(uint8_t cmd, int len)
 	int i;
 	uint16_t flash_id = 0, flash_mid = 0;
 	uint8_t buf[4] = { 0 };
-
-	/*
-	 * This command is used to fix the bug of spi clk for 7807F-AB
-	 * when operating with its flash.
-	 */
-	if (core_config->chip_id == CHIP_TYPE_ILI7807 && core_config->chip_type == ILI7807_TYPE_F_AB) {
-		core_config_ice_mode_write(0x4100C, 0x01, 1);
-		mdelay(25);
-	}
 
 	core_config_ice_mode_write(0x41000, 0x0, 1);	/* CS high */
 	core_config_ice_mode_write(0x41004, 0x66aa55, 3);	/* Key */
@@ -96,20 +86,6 @@ static uint32_t check_chip_id(uint32_t pid_data)
 			if (i == type) {
 				core_config->chip_type = i;
 				core_config->ic_reset_addr = 0x040050;
-				return id;
-			}
-		}
-	}
-
-	if(id == CHIP_TYPE_ILI7807) {
-		for(i = ILI7807_TYPE_F_AA; i <= ILI7807_TYPE_H; i++) {
-			if (i == type) {
-				core_config->chip_type = i;
-				if (i == ILI7807_TYPE_F_AB)
-					core_config->ic_reset_addr = 0x04004C;
-				else if (i == ILI7807_TYPE_H)
-					core_config->ic_reset_addr = 0x040050;
-
 				return id;
 			}
 		}
@@ -516,10 +492,7 @@ int core_config_set_watch_dog(bool enable)
 	}
 
 	/* Config register and values by IC */
-	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
-		value_low = 0x07;
-		value_high = 0x78;
-	} else if (core_config->chip_id == CHIP_TYPE_ILI9881 ) {
+	 if (core_config->chip_id == CHIP_TYPE_ILI9881 ) {
 		value_low = 0x81;
 		value_high = 0x98;
 	} else {
@@ -1020,12 +993,7 @@ int core_config_init(void)
 			core_config->do_ic_reset = false;
 			core_config->isEnableGesture = false;
 
-			if (core_config->chip_id == CHIP_TYPE_ILI7807) {
-				core_config->slave_i2c_addr = ILI7807_SLAVE_ADDR;
-				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI7807_PID_ADDR;
-				core_config->wdt_addr = ILI7808_WDT_ADDR;
-			} else if (core_config->chip_id == CHIP_TYPE_ILI9881) {
+			 if (core_config->chip_id == CHIP_TYPE_ILI9881) {
 				core_config->slave_i2c_addr = ILI9881_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
