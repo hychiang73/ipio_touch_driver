@@ -914,11 +914,13 @@ int core_firmware_boot_host_download(void)
 out:
 	if (power) {
 		ipd->isEnablePollCheckPower = true;
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		queue_delayed_work(ipd->check_power_status_queue,
+			&ipd->check_power_status_work, ipd->work_delay);
 	}
 	if (esd) {
 		ipd->isEnablePollCheckEsd = true;
-		queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work, ipd->esd_check_time);
+		queue_delayed_work(ipd->check_esd_status_queue,
+			&ipd->check_esd_status_work, ipd->esd_check_time);
 	}
 
 	core_firmware->isUpgrading = false;
@@ -926,7 +928,7 @@ out:
 }
 EXPORT_SYMBOL(core_firmware_boot_host_download);
 #else
-static int tddi_fw_upgrade(bool isIRAM)
+int tddi_fw_upgrade(bool isIRAM)
 {
 	int res = 0;
 
@@ -1004,6 +1006,7 @@ out:
 	return res;
 }
 
+#ifdef BOOT_FW_UPGRADE
 static int convert_hex_array(void)
 {
 	int i, j, index = 0, crc_byte_len = 4;
@@ -1253,11 +1256,13 @@ int core_firmware_boot_upgrade(void)
 out:
 	if (power) {
 		ipd->isEnablePollCheckPower = true;
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		queue_delayed_work(ipd->check_power_status_queue,
+			&ipd->check_power_status_work, ipd->work_delay);
 	}
 	if (esd) {
 		ipd->isEnablePollCheckEsd = true;
-		queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work, ipd->esd_check_time);
+		queue_delayed_work(ipd->check_esd_status_queue,
+			&ipd->check_esd_status_work, ipd->esd_check_time);
 	}
 
 	ipio_kfree((void **)&flash_fw);
@@ -1265,6 +1270,7 @@ out:
 	core_firmware->isUpgrading = false;
 	return res;
 }
+#endif /* BOOT_FW_UPGRADE */
 #endif /* HOST_DOWNLOAD */
 
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
@@ -1569,6 +1575,7 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 	ipio_info("Update TP/Firmware information...\n");
 #ifdef HOST_DOWNLOAD
+	/* Waiting for fw load code finished in order to get TP info */
 	mdelay(10);
 #endif
 	core_config_get_fw_ver();
@@ -1583,11 +1590,13 @@ out:
 out_hd:
 	if (power) {
 		ipd->isEnablePollCheckPower = true;
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
+		queue_delayed_work(ipd->check_power_status_queue,
+			&ipd->check_power_status_work, ipd->work_delay);
 	}
 	if (esd) {
 		ipd->isEnablePollCheckEsd = true;
-		queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work, ipd->esd_check_time);
+		queue_delayed_work(ipd->check_esd_status_queue,
+			&ipd->check_esd_status_work, ipd->esd_check_time);
 	}
 
 	core_firmware->isUpgrading = false;

@@ -62,8 +62,6 @@ void ilitek_platform_disable_irq(void)
 {
 	unsigned long nIrqFlag;
 
-	ipio_debug(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
-
 	spin_lock_irqsave(&ipd->plat_spinlock, nIrqFlag);
 
 	if (ipd->isEnableIRQ) {
@@ -83,8 +81,6 @@ EXPORT_SYMBOL(ilitek_platform_disable_irq);
 void ilitek_platform_enable_irq(void)
 {
 	unsigned long nIrqFlag;
-
-	ipio_debug(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
 
 	spin_lock_irqsave(&ipd->plat_spinlock, nIrqFlag);
 
@@ -136,6 +132,8 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 #ifdef HOST_DOWNLOAD
 	core_config_ice_mode_enable();
 	ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
+	if(ret < 0)
+		ipio_err("host download failed!\n");
 #endif
 	mdelay(10);
 	ilitek_platform_enable_irq();
@@ -231,9 +229,20 @@ static void ilitek_platform_vpower_notify(struct work_struct *pWork)
 	if (ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 }
-#endif
+#endif /* BATTERY_CHECK */
 
 #ifdef ESD_CHECK
+static void ilitek_platform_esd_recovery(struct work_struct *work)
+{
+	int ret = 0;
+
+	mutex_lock(&ipd->plat_mutex);
+	ret = ilitek_platform_tp_hw_reset(true);
+	if(ret < 0)
+		ipio_err("host download failed!\n");
+	mutex_unlock(&ipd->plat_mutex);
+}
+
 static void ilitek_platform_esd_check(struct work_struct *pWork)
 {
 	int ret;
@@ -247,17 +256,15 @@ static void ilitek_platform_esd_check(struct work_struct *pWork)
 
 	if(rx_data == 0x82) {
 		ipio_info("Doing ESD recovery (0x%x)\n", rx_data);
-		ret = ilitek_platform_tp_hw_reset(true);
-		if(ret < 0)
-			ipio_err("host download failed!\n");
+		schedule_work(&ipd->esd_recovery);
+	} else {
+		if (ipd->isEnablePollCheckEsd)
+			queue_delayed_work(ipd->check_esd_status_queue,
+				&ipd->check_esd_status_work, ipd->esd_check_time);
 	}
-#endif
-
-	if (ipd->isEnablePollCheckEsd)
-		queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work,
-					ipd->esd_check_time);
+#endif /* SPI_INTERFACE */
 }
-#endif
+#endif /* ESD_CHECK */
 
 #if (TP_PLATFORM == PT_MTK)
 static void tpd_resume(struct device *h)
@@ -356,6 +363,7 @@ static int ilitek_platform_reg_power_check(void)
 	INIT_DELAYED_WORK(&ipd->check_power_status_work, ilitek_platform_vpower_notify);
 	ipd->check_power_status_queue = create_workqueue("ili_power_check");
 	ipd->work_delay = msecs_to_jiffies(CHECK_BATTERY_TIME);
+	ipd->isEnablePollCheckPower = true;
 	if (!ipd->check_power_status_queue) {
 		ipio_err("Failed to create a work thread to check power status\n");
 		ipd->vpower_reg_nb = false;
@@ -380,7 +388,6 @@ static int ilitek_platform_reg_esd_check(void)
 	int res = 0;
 
 #ifdef ESD_CHECK
-	ipio_info("--------------------------------------------------------\n");
 	INIT_DELAYED_WORK(&ipd->check_esd_status_work, ilitek_platform_esd_check);
 	ipd->check_esd_status_queue = create_workqueue("ili_esd_check");
 	ipd->esd_check_time = msecs_to_jiffies(CHECK_ESD_TIME);
@@ -393,8 +400,9 @@ static int ilitek_platform_reg_esd_check(void)
 		ipio_info("Created a work thread to check power status at every %u jiffies\n",
 			 (unsigned)ipd->esd_check_time);
 
+		INIT_WORK(&ipd->esd_recovery, ilitek_platform_esd_recovery);
+
 		if (ipd->isEnablePollCheckEsd) {
-			ipio_info("--------------------------------------------------------\n");
 			queue_delayed_work(ipd->check_esd_status_queue, &ipd->check_esd_status_work,
 					   ipd->esd_check_time);
 			ipd->vesd_reg_nb = true;
@@ -457,7 +465,6 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 		ilitek_platform_disable_irq();
 #ifdef USE_KTHREAD
 		ipd->irq_trigger = true;
-		ipio_debug(DEBUG_IRQ, "kthread: irq_trigger = %d\n", ipd->irq_trigger);
 		wake_up_interruptible(&waiter);
 #else
 		schedule_work(&ipd->report_work_queue);
@@ -525,7 +532,6 @@ out:
 #endif /* PT_MTK */
 }
 
-#ifdef USE_KTHREAD
 static int kthread_handler(void *arg)
 {
 	int res = 0;
@@ -540,8 +546,10 @@ static int kthread_handler(void *arg)
 #ifdef HOST_DOWNLOAD
 		res = core_firmware_boot_host_download();
 #else
+#ifdef BOOT_FW_UPGRADE
 		res = core_firmware_boot_upgrade();
-#endif
+#endif /* BOOT_FW_UPGRADE */
+#endif /* HOST_DOWNLOAD */
 		if (res < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
 
@@ -557,12 +565,10 @@ static int kthread_handler(void *arg)
 		sched_setscheduler(current, SCHED_RR, &param);
 
 		while (!kthread_should_stop() && !ipd->free_irq_thread) {
-			ipio_debug(DEBUG_IRQ, "kthread: before->irq_trigger = %d\n", ipd->irq_trigger);
 			set_current_state(TASK_INTERRUPTIBLE);
 			wait_event_interruptible(waiter, ipd->irq_trigger);
 			ipd->irq_trigger = false;
 			set_current_state(TASK_RUNNING);
-			ipio_debug(DEBUG_IRQ, "kthread: after->irq_trigger = %d\n", ipd->irq_trigger);
 			core_fr_handler();
 			ilitek_platform_enable_irq();
 		}
@@ -572,7 +578,6 @@ static int kthread_handler(void *arg)
 
 	return res;
 }
-#endif
 
 static int ilitek_platform_isr_register(void)
 {
@@ -945,12 +950,6 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 	if (ilitek_platform_isr_register() < 0)
 		ipio_err("Failed to register ISR\n");
-
-	/*
-	 * To make sure our ic running well before the work,
-	 * pulling RESET pin as low/high once after read TP info.
-	 */
-	//ilitek_platform_tp_hw_reset(true);
 
 	if (ilitek_platform_reg_suspend() < 0)
 		ipio_err("Failed to register suspend/resume function\n");

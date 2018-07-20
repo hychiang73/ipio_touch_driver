@@ -198,12 +198,7 @@ void core_config_ic_reset(void)
 	core_config_ice_mode_disable();
 #else
 	uint32_t key = 0;
-	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
-		if (core_config->chip_type == ILI7807_TYPE_H)
-			key = 0x00117807;
-		else
-			key = 0x00017807;
-	}
+
 	if (core_config->chip_id == CHIP_TYPE_ILI9881) {
 		key = 0x00019881;
 	}
@@ -377,6 +372,8 @@ void core_config_ic_suspend(void)
 
 	if (ipd->isEnablePollCheckPower)
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
+	if (ipd->isEnablePollCheckEsd)
+		cancel_delayed_work_sync(&ipd->check_esd_status_work);
 
 	/* sense stop */
 	core_config_sense_ctrl(false);
@@ -423,8 +420,11 @@ void core_config_ic_resume(void)
 		}
 #endif
 	} else {
+#ifdef HOST_DOWNLOAD
 		ilitek_platform_tp_hw_reset(true);
+#endif
 	}
+
 	/* sleep out */
 	core_config_sleep_ctrl(true);
 
@@ -437,17 +437,23 @@ void core_config_ic_resume(void)
 
 	core_fr_mode_control(&protocol->demo_mode);
 
+#ifndef HOST_DOWNLOAD
 	/* Soft reset */
-	// core_config_ice_mode_enable();
-	// core_config_set_watch_dog(false);
-	// mdelay(10);
-	// core_config_ic_reset();
+	core_config_ice_mode_enable();
+	core_config_set_watch_dog(false);
+	mdelay(10);
+	core_config_ic_reset();
+#endif
+
+out:
+	if (ipd->isEnablePollCheckPower)
+		queue_delayed_work(ipd->check_power_status_queue,
+			&ipd->check_power_status_work, ipd->work_delay);
+	if (ipd->isEnablePollCheckEsd)
+		queue_delayed_work(ipd->check_esd_status_queue,
+			&ipd->check_esd_status_work, ipd->esd_check_time);
 
 	ilitek_platform_enable_irq();
-
-	if (ipd->isEnablePollCheckPower)
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
-
 	ipio_info("Resume done\n");
 }
 EXPORT_SYMBOL(core_config_ic_resume);

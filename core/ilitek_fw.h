@@ -1,3 +1,3 @@
 static unsigned char CTPM_FW[] = {
-	#include "DD005_INX_V0x00060x0E.ili"
+	#include "FW_TDDI_9881H.ili"
 };

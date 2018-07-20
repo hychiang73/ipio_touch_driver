@@ -628,84 +628,96 @@ void core_fr_handler(void)
 	int i = 0;
 	uint8_t *tdata = NULL;
 
-	if (core_fr->isEnableFR) {
-		g_total_len = calc_packet_length();
-		if (g_total_len) {
-			g_fr_node = kmalloc(sizeof(*g_fr_node), GFP_ATOMIC);
-			if (ERR_ALLOC_MEM(g_fr_node)) {
-				ipio_err("Failed to allocate g_fr_node memory %ld\n", PTR_ERR(g_fr_node));
-				goto out;
-			}
-
-			g_fr_node->data = kcalloc(g_total_len, sizeof(uint8_t), GFP_ATOMIC);
-			if (ERR_ALLOC_MEM(g_fr_node->data)) {
-				ipio_err("Failed to allocate g_fr_node memory %ld\n", PTR_ERR(g_fr_node->data));
-				goto out;
-			}
-
-			g_fr_node->len = g_total_len;
-			memset(g_fr_node->data, 0xFF, (uint8_t) sizeof(uint8_t) * g_total_len);
-
-			while (i < ARRAY_SIZE(fr_t)) {
-				if (protocol->major == fr_t[i].protocol_marjor_ver) {
-					mutex_lock(&ipd->plat_mutex);
-					fr_t[i].finger_report();
-					mutex_unlock(&ipd->plat_mutex);
-
-					/* 2048 is referred to the defination by user */
-					if (g_total_len < 2048) {
-						tdata = kmalloc(g_total_len, GFP_ATOMIC);
-						if (ERR_ALLOC_MEM(tdata)) {
-							ipio_err("Failed to allocate g_fr_node memory %ld\n",
-								PTR_ERR(tdata));
-							goto out;
-						}
-
-						memcpy(tdata, g_fr_node->data, g_fr_node->len);
-						/* merge uart data if it's at i2cuart mode */
-						if (g_fr_uart != NULL)
-							memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len);
-					} else {
-						ipio_err("total length (%d) is too long than user can handle\n",
-							g_total_len);
-						goto out;
-					}
-
-					if (core_fr->isEnableNetlink)
-						netlink_reply_msg(tdata, g_total_len);
-
-					if (ipd->debug_node_open) {
-						mutex_lock(&ipd->ilitek_debug_mutex);
-						memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
-						       (uint8_t) sizeof(uint8_t) * 2048);
-						memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len);
-						ipd->debug_data_frame++;
-						if (ipd->debug_data_frame > 1) {
-							ipio_info("ipd->debug_data_frame = %d\n", ipd->debug_data_frame);
-						}
-						if (ipd->debug_data_frame > 1023) {
-							ipio_err("ipd->debug_data_frame = %d > 1024\n",
-								ipd->debug_data_frame);
-							ipd->debug_data_frame = 1023;
-						}
-						mutex_unlock(&ipd->ilitek_debug_mutex);
-						wake_up(&(ipd->inq));
-					}
-					break;
-				}
-				i++;
-			}
-
-			if (i >= ARRAY_SIZE(fr_t))
-				ipio_err("Can't find any callback functions to handle INT event\n");
-		} else {
-			ipio_err("Wrong the length of packet\n");
-		}
-	} else {
-		ipio_err("The figner report was disabled\n");
+	if (!core_fr->isEnableFR) {
+		ipio_err("Figner report was disabled, do nothing\n");
 		return;
 	}
-	ilitek_platform_enable_irq();
+
+	if (ipd->isEnablePollCheckPower) {
+		mutex_lock(&ipd->plat_mutex);
+		cancel_delayed_work_sync(&ipd->check_power_status_work);
+		mutex_unlock(&ipd->plat_mutex);
+	}
+	if (ipd->isEnablePollCheckEsd) {
+		mutex_lock(&ipd->plat_mutex);
+		cancel_delayed_work_sync(&ipd->check_esd_status_work);
+		mutex_unlock(&ipd->plat_mutex);
+	}
+
+	g_total_len = calc_packet_length();
+
+	if (g_total_len <= 0) {
+		ipio_err("Wrong the length of packet (%d)\n", g_total_len);
+		goto out;;
+	}
+
+	g_fr_node = kmalloc(sizeof(*g_fr_node), GFP_ATOMIC);
+	if (ERR_ALLOC_MEM(g_fr_node)) {
+		ipio_err("Failed to allocate g_fr_node memory %ld\n", PTR_ERR(g_fr_node));
+		goto out;
+	}
+
+	g_fr_node->data = kcalloc(g_total_len, sizeof(uint8_t), GFP_ATOMIC);
+	if (ERR_ALLOC_MEM(g_fr_node->data)) {
+		ipio_err("Failed to allocate g_fr_node memory %ld\n", PTR_ERR(g_fr_node->data));
+		goto out;
+	}
+
+	g_fr_node->len = g_total_len;
+	memset(g_fr_node->data, 0xFF, (uint8_t) sizeof(uint8_t) * g_total_len);
+
+	while (i < ARRAY_SIZE(fr_t)) {
+		if (protocol->major == fr_t[i].protocol_marjor_ver) {
+			mutex_lock(&ipd->plat_mutex);
+			fr_t[i].finger_report();
+			mutex_unlock(&ipd->plat_mutex);
+
+			/* 2048 is referred to the defination by user */
+			if (g_total_len < 2048) {
+				tdata = kmalloc(g_total_len, GFP_ATOMIC);
+				if (ERR_ALLOC_MEM(tdata)) {
+					ipio_err("Failed to allocate g_fr_node memory %ld\n",
+						PTR_ERR(tdata));
+					goto out;
+				}
+
+				memcpy(tdata, g_fr_node->data, g_fr_node->len);
+				/* merge uart data if it's at i2cuart mode */
+				if (g_fr_uart != NULL)
+					memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len);
+			} else {
+				ipio_err("total length (%d) is too long than user can handle\n",
+					g_total_len);
+				goto out;
+			}
+
+			if (core_fr->isEnableNetlink)
+				netlink_reply_msg(tdata, g_total_len);
+
+			if (ipd->debug_node_open) {
+				mutex_lock(&ipd->ilitek_debug_mutex);
+				memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
+						(uint8_t) sizeof(uint8_t) * 2048);
+				memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len);
+				ipd->debug_data_frame++;
+				if (ipd->debug_data_frame > 1) {
+					ipio_info("ipd->debug_data_frame = %d\n", ipd->debug_data_frame);
+				}
+				if (ipd->debug_data_frame > 1023) {
+					ipio_err("ipd->debug_data_frame = %d > 1024\n",
+						ipd->debug_data_frame);
+					ipd->debug_data_frame = 1023;
+				}
+				mutex_unlock(&ipd->ilitek_debug_mutex);
+				wake_up(&(ipd->inq));
+			}
+			break;
+		}
+		i++;
+	}
+
+	if (i >= ARRAY_SIZE(fr_t))
+		ipio_err("Can't find any callback functions to handle INT event\n");
 
 out:
 	ipio_kfree((void **)&tdata);
@@ -720,7 +732,20 @@ out:
 		ipio_kfree((void **)&g_fr_uart);
 	}
 
-	g_total_len = 0;
+	if (ipd->isEnablePollCheckPower) {
+		mutex_lock(&ipd->plat_mutex);
+		queue_delayed_work(ipd->check_power_status_queue,
+				&ipd->check_power_status_work, ipd->work_delay);
+		mutex_unlock(&ipd->plat_mutex);
+	}
+
+	if (ipd->isEnablePollCheckEsd) {
+		mutex_lock(&ipd->plat_mutex);
+		queue_delayed_work(ipd->check_power_status_queue,
+				&ipd->check_power_status_work, ipd->work_delay);
+		mutex_unlock(&ipd->plat_mutex);
+	}
+
 	ipio_debug(DEBUG_IRQ, "handle INT done\n\n");
 }
 EXPORT_SYMBOL(core_fr_handler);

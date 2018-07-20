@@ -756,6 +756,16 @@ static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *bu
 	int res = 0;
 	char cmd[10] = { 0 };
 
+	if (size > sizeof(cmd)) {
+		ipio_err("Size is larger than the length of cmd\n");
+		goto out;
+	}
+
+	if (ipd->check_power_status_queue == NULL) {
+		ipio_err("work queue isn't created, do nothing\n");
+		goto out;
+	}
+
 	if (buff != NULL) {
 		res = copy_from_user(cmd, buff, size - 1);
 		if (res < 0) {
@@ -766,7 +776,6 @@ static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *bu
 
 	ipio_info("size = %d, cmd = %s\n", (int)size, cmd);
 
-#ifdef ENABLE_BATTERY_CHECK
 	if (strcmp(cmd, "on") == 0) {
 		ipio_info("Start the thread of check power status\n");
 		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
@@ -777,10 +786,73 @@ static ssize_t ilitek_proc_check_battery_write(struct file *filp, const char *bu
 		ipd->isEnablePollCheckPower = false;
 	} else
 		ipio_err("Unknown command\n");
-#else
-	ipio_err("You need to enable its MACRO before operate it.\n");
-#endif
 
+out:
+	return size;
+}
+
+static ssize_t ilitek_proc_check_esd_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	uint32_t len = 0;
+
+	if (*pPos != 0)
+		return 0;
+
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
+
+	len = sprintf(g_user_buf, "%d", ipd->isEnablePollCheckEsd);
+
+	ipio_info("isEnablePollCheckEsd = %d\n", ipd->isEnablePollCheckEsd);
+
+	res = copy_to_user((uint32_t *) buff, &ipd->isEnablePollCheckEsd, len);
+	if (res < 0) {
+		ipio_err("Failed to copy data to user space\n");
+	}
+
+	*pPos = len;
+
+	return len;
+}
+
+static ssize_t ilitek_proc_check_esd_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int res = 0;
+	char cmd[10] = { 0 };
+
+	if (size > sizeof(cmd)) {
+		ipio_err("Size is larger than the length of cmd\n");
+		goto out;
+	}
+
+	if (ipd->check_esd_status_queue == NULL) {
+		ipio_err("work queue isn't created, do nothing\n");
+		goto out;
+	}
+
+	if (buff != NULL) {
+		res = copy_from_user(cmd, buff, size - 1);
+		if (res < 0) {
+			ipio_info("copy data from user space, failed\n");
+			return -1;
+		}
+	}
+
+	ipio_info("size = %d, cmd = %s\n", (int)size, cmd);
+
+	if (strcmp(cmd, "on") == 0) {
+		ipio_info("Start the thread of check esd status\n");
+		queue_delayed_work(ipd->check_esd_status_queue,
+			&ipd->check_esd_status_work, ipd->esd_check_time);
+		ipd->isEnablePollCheckEsd = true;
+	} else if (strcmp(cmd, "off") == 0) {
+		ipio_info("Cancel the thread of check esd status\n");
+		cancel_delayed_work_sync(&ipd->check_esd_status_work);
+		ipd->isEnablePollCheckEsd = false;
+	} else
+		ipio_err("Unknown command\n");
+
+out:
 	return size;
 }
 
@@ -828,22 +900,15 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	ilitek_platform_disable_irq();
 
-	if (ipd->isEnablePollCheckPower)
-		cancel_delayed_work_sync(&ipd->check_power_status_work);
-
 #ifdef HOST_DOWNLOAD
 	res = ilitek_platform_tp_hw_reset(true);
-	if(res < 0) {
+	if(res < 0)
 		ipio_info("host download failed!\n");
-	}
 #else
 	res = core_firmware_upgrade(UPDATE_FW_PATH, false);
 #endif
 
 	ilitek_platform_enable_irq();
-
-	if (ipd->isEnablePollCheckPower)
-		queue_delayed_work(ipd->check_power_status_queue, &ipd->check_power_status_work, ipd->work_delay);
 
 	if (res < 0) {
 		core_firmware->update_status = res;
@@ -1379,6 +1444,11 @@ struct file_operations proc_check_battery_fops = {
 	.read = ilitek_proc_check_battery_read,
 };
 
+struct file_operations proc_check_esd_fops = {
+	.write = ilitek_proc_check_esd_write,
+	.read = ilitek_proc_check_esd_read,
+};
+
 struct file_operations proc_debug_level_fops = {
 	.write = ilitek_proc_debug_level_write,
 	.read = ilitek_proc_debug_level_read,
@@ -1429,6 +1499,7 @@ proc_node_t proc_table[] = {
 	{"iram_upgrade", NULL, &proc_iram_upgrade_fops, false},
 	{"gesture", NULL, &proc_gesture_fops, false},
 	{"check_battery", NULL, &proc_check_battery_fops, false},
+	{"check_esd", NULL, &proc_check_esd_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
 	{"mp_test", NULL, &proc_mp_test_fops, false},
 	{"oppo_mp_lcm_on", NULL, &proc_oppo_mp_lcm_on_fops, false},

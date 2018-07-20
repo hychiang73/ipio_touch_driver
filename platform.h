@@ -73,11 +73,12 @@ struct ilitek_platform_data {
 	struct task_struct *update_thread;
 #endif
 
-	/* obtain msg when battery status has changed */
+	/* check battery & ESD workqueue functions */
 	struct delayed_work check_power_status_work;
 	struct delayed_work check_esd_status_work;
 	struct workqueue_struct *check_power_status_queue;
 	struct workqueue_struct *check_esd_status_queue;
+	struct work_struct esd_recovery;
 	unsigned long work_delay;
 	unsigned long esd_check_time;
 	bool vpower_reg_nb;
