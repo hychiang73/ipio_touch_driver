@@ -22,6 +22,7 @@
  *
  */
 #include "../common.h"
+#include "../platform.h"
 #include "config.h"
 #include "i2c.h"
 #include "spi.h"
@@ -390,13 +391,10 @@ EXPORT_SYMBOL(core_protocol_update_ver);
 
 int core_protocol_init(void)
 {
-	if (protocol == NULL) {
-		protocol = kzalloc(sizeof(*protocol), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(protocol)) {
-			ipio_err("Failed to allocate protocol mem, %ld\n", PTR_ERR(protocol));
-			core_protocol_remove();
-			return -ENOMEM;
-		}
+	protocol = devm_kzalloc(ipd->dev, sizeof(*protocol), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(protocol)) {
+		ipio_err("Failed to allocate protocol mem, %ld\n", PTR_ERR(protocol));
+		return -ENOMEM;
 	}
 
 	/* The default version must only once be set up at this initial time. */

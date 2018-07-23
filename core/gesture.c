@@ -23,6 +23,7 @@
  */
 
 #include "../common.h"
+#include "../platform.h"
 #include "finger_report.h"
 #include "firmware.h"
 #include "gesture.h"
@@ -270,16 +271,13 @@ EXPORT_SYMBOL(core_gesture_set_key);
 
 int core_gesture_init(void)
 {
-	if (core_gesture == NULL) {
-		core_gesture = kzalloc(sizeof(*core_gesture), GFP_KERNEL);
-		if (ERR_ALLOC_MEM(core_gesture)) {
-			ipio_err("Failed to allocate core_gesture mem, %ld\n", PTR_ERR(core_gesture));
-			core_gesture_remove();
-			return -ENOMEM;
-		}
-
-		core_gesture->entry = false;
+	core_gesture = devm_kzalloc(ipd->dev, sizeof(*core_gesture), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(core_gesture)) {
+		ipio_err("Failed to allocate core_gesture mem, %ld\n", PTR_ERR(core_gesture));
+		return -ENOMEM;
 	}
+
+	core_gesture->entry = false;
 
 	return 0;
 }

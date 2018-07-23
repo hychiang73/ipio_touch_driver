@@ -23,6 +23,7 @@
  */
 
 #include "../common.h"
+#include "../platform.h"
 #include "config.h"
 #include "spi.h"
 #include "finger_report.h"
@@ -378,10 +379,9 @@ int core_spi_init(struct spi_device *spi)
 {
 	int ret;
 
-	core_spi = kmalloc(sizeof(*core_spi), GFP_KERNEL);
+	core_spi = devm_kmalloc(ipd->dev, sizeof(*core_spi), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_spi)) {
 		ipio_err("Failed to alllocate core_i2c mem %ld\n", PTR_ERR(core_spi));
-		core_spi_remove();
 		return -ENOMEM;
 	}
 

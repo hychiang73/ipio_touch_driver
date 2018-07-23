@@ -979,17 +979,15 @@ int core_config_init(void)
 {
 	int i = 0;
 
-	core_config = kzalloc(sizeof(*core_config) * sizeof(uint8_t) * 6, GFP_KERNEL);
+	core_config = devm_kzalloc(ipd->dev, sizeof(*core_config) * sizeof(uint8_t) * 6, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_config)) {
 		ipio_err("Failed to allocate core_config mem, %ld\n", PTR_ERR(core_config));
-		core_config_remove();
 		return -ENOMEM;
 	}
 
-	core_config->tp_info = kzalloc(sizeof(*core_config->tp_info), GFP_KERNEL);
+	core_config->tp_info = devm_kzalloc(ipd->dev, sizeof(*core_config->tp_info), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_config->tp_info)) {
 		ipio_err("Failed to allocate core_config->tp_info mem, %ld\n", PTR_ERR(core_config->tp_info));
-		core_config_remove();
 		return -ENOMEM;
 	}
 

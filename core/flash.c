@@ -23,6 +23,7 @@
  */
 
 #include "../common.h"
+#include "../platform.h"
 #include "config.h"
 #include "flash.h"
 
@@ -142,7 +143,7 @@ void core_flash_init(uint16_t mid, uint16_t did)
 
 	ipio_info("M_ID = %x, DEV_ID = %x", mid, did);
 
-	flashtab = kzalloc(sizeof(ft), GFP_KERNEL);
+	flashtab = devm_kzalloc(ipd->dev, sizeof(ft), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(flashtab)) {
 		ipio_err("Failed to allocate flashtab memory, %ld\n", PTR_ERR(flashtab));
 		return;

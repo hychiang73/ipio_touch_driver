@@ -716,22 +716,6 @@ void ilitek_platform_read_tp_info(void)
 EXPORT_SYMBOL(ilitek_platform_read_tp_info);
 
 /**
- * Remove Core APIs memeory being allocated.
- */
-static void ilitek_platform_core_remove(void)
-{
-	ipio_info("Remove all core's compoenets\n");
-	ilitek_proc_remove();
-	core_flash_remove();
-	core_firmware_remove();
-	core_fr_remove();
-	core_config_remove();
-	core_i2c_remove();
-	core_protocol_remove();
-	core_gesture_remove();
-}
-
-/**
  * The function is to initialise all necessary structurs in those core APIs,
  * they must be called before the i2c dev probes up successfully.
  */
@@ -805,9 +789,8 @@ static int ilitek_platform_remove(struct spi_device *spi)
 		cancel_delayed_work_sync(&ipd->check_esd_status_work);
 		destroy_workqueue(ipd->check_esd_status_queue);
 	}
-	ipio_kfree((void **)&ipd);
-	ilitek_platform_core_remove();
 
+	ilitek_proc_remove();
 	return 0;
 }
 
@@ -833,12 +816,6 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	const char *vcc_i2c_name = "vcc_i2c";
 #endif /* REGULATOR_POWER_ON */
 
-	/* initialise the struct of touch ic memebers. */
-	ipd = kzalloc(sizeof(*ipd), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(ipd)) {
-		ipio_err("Failed to allocate ipd memory, %ld\n", PTR_ERR(ipd));
-		return -ENOMEM;
-	}
 #if (INTERFACE == I2C_INTERFACE)
 	if (client == NULL) {
 		ipio_err("i2c client is NULL\n");
@@ -851,10 +828,8 @@ static int ilitek_platform_probe(struct spi_device *spi)
 		client->addr = ILI9881_SLAVE_ADDR;
 		ipio_err("I2C Slave addr doesn't be set up, use default : 0x%x\n", client->addr);
 	}
-	ipd->client = client;
-	ipd->i2c_id = id;
 
-	if (!i2c_check_functionality(ipd->client->adapter, I2C_FUNC_I2C)) {
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		ipio_err("I2C not supported\n");
 		return -ENODEV;
 	}
@@ -863,8 +838,28 @@ static int ilitek_platform_probe(struct spi_device *spi)
 		ipio_err("spi device is NULL\n");
 		return -ENODEV;
 	}
+#endif
+
+	/* initialise the struct of touch ic memebers. */
+#if (INTERFACE == I2C_INTERFACE)
+	ipd = devm_kzalloc(&client->dev, sizeof(*ipd), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(ipd)) {
+		ipio_err("Failed to allocate ipd memory, %ld\n", PTR_ERR(ipd));
+		return -ENOMEM;
+	}
+
+	ipd->client = client;
+	ipd->i2c_id = id;
+	ipd->dev = &client->dev;
+#else
+	ipd = devm_kzalloc(&spi->dev, sizeof(*ipd), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(ipd)) {
+		ipio_err("Failed to allocate ipd memory, %ld\n", PTR_ERR(ipd));
+		return -ENOMEM;
+	}
 
 	ipd->spi = spi;
+	ipd->dev = &spi->dev;
 #endif
 
 	ipd->chip_id = TP_TOUCH_IC;
@@ -1072,9 +1067,8 @@ static int __init ilitek_platform_init(void)
 {
 	int res = 0;
 
-	ipio_info("TP driver init\n");
-
 #if (TP_PLATFORM == PT_MTK)
+	ipio_info("TDDI TP driver add i2c interface for MTK\n");
 	tpd_get_dts_info();
 	res = tpd_driver_add(&tpd_device_driver);
 	if (res < 0) {
@@ -1084,15 +1078,10 @@ static int __init ilitek_platform_init(void)
 	}
 #else
 #if (INTERFACE == I2C_INTERFACE)
-	ipio_info("TP driver add i2c interface\n");
-	res = i2c_add_driver(&tp_i2c_driver);
-	if (res < 0) {
-		ipio_err("Failed to add i2c driver\n");
-		i2c_del_driver(&tp_i2c_driver);
-		return -ENODEV;
-	}
+	ipio_info("TDDI TP driver add i2c interface\n");
+	return i2c_add_driver(&tp_i2c_driver);;
 #else
-	ipio_info("TP driver add spi interface\n");
+	ipio_info("TDDI TP driver add spi interface\n");
 	res = spi_register_driver(&tp_spi_driver);
 	if (res < 0) {
 		ipio_err("Failed to add ilitek driver\n");
@@ -1101,9 +1090,6 @@ static int __init ilitek_platform_init(void)
 	}
 #endif
 #endif /* PT_MTK */
-
-	ipio_info("Succeed to add ilitek driver\n");
-	return res;
 }
 
 static void __exit ilitek_platform_exit(void)

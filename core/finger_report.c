@@ -812,10 +812,9 @@ int core_fr_init(void)
 {
 	int i = 0;
 
-	core_fr = kzalloc(sizeof(*core_fr), GFP_KERNEL);
+	core_fr = devm_kzalloc(ipd->dev, sizeof(*core_fr), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_fr)) {
 		ipio_err("Failed to allocate core_fr mem, %ld\n", PTR_ERR(core_fr));
-		core_fr_remove();
 		return -ENOMEM;
 	}
 

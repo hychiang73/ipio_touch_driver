@@ -23,6 +23,7 @@
  */
 
 #include "../common.h"
+#include "../platform.h"
 #include "config.h"
 #include "i2c.h"
 #include "mp_test.h"
@@ -215,10 +216,9 @@ int core_i2c_init(struct i2c_client *client)
 {
 	int i;
 
-	core_i2c = kmalloc(sizeof(*core_i2c), GFP_KERNEL);
+	core_i2c = devm_kmalloc(ipd->dev, sizeof(*core_i2c), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_i2c)) {
 		ipio_err("Failed to alllocate core_i2c mem %ld\n", PTR_ERR(core_i2c));
-		core_i2c_remove();
 		return -ENOMEM;
 	}
 

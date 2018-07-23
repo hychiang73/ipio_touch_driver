@@ -28,10 +28,10 @@
 struct ilitek_platform_data {
 
 	struct i2c_client *client;
-
 	struct input_dev *input_device;
-
 	const struct i2c_device_id *i2c_id;
+	struct device *dev;
+	struct spi_device *spi;
 
 #ifdef REGULATOR_POWER_ON
 	struct regulator *vdd;
@@ -91,8 +91,6 @@ struct ilitek_platform_data {
 	unsigned char debug_buf[1024][2048];
 	struct mutex ilitek_debug_mutex;
 	struct mutex ilitek_debug_read_mutex;
-
-	struct spi_device *spi;
 };
 
 extern struct ilitek_platform_data *ipd;

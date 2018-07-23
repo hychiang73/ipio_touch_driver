@@ -1611,10 +1611,9 @@ int core_firmware_init(void)
 {
 	int i = 0, j = 0;
 
-	core_firmware = kzalloc(sizeof(*core_firmware), GFP_KERNEL);
+	core_firmware = devm_kzalloc(ipd->dev, sizeof(*core_firmware), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_firmware)) {
 		ipio_err("Failed to allocate core_firmware mem, %ld\n", PTR_ERR(core_firmware));
-		core_firmware_remove();
 		return -ENOMEM;
 	}
 
