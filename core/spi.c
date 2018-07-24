@@ -401,10 +401,3 @@ int core_spi_init(struct spi_device *spi)
 	return 0;
 }
 EXPORT_SYMBOL(core_spi_init);
-
-void core_spi_remove(void)
-{
-	ipio_info("Remove core-spi members\n");
-	ipio_kfree((void **)&core_spi);
-}
-EXPORT_SYMBOL(core_spi_remove);

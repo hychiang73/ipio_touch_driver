@@ -1644,9 +1644,3 @@ int core_firmware_init(void)
 	ipio_err("Can't find this chip in support list\n");
 	return 0;
 }
-
-void core_firmware_remove(void)
-{
-	ipio_info("Remove core-firmware members\n");
-	ipio_kfree((void **)&core_firmware);
-}

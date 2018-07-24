@@ -833,10 +833,3 @@ int core_fr_init(void)
 	return 0;
 }
 EXPORT_SYMBOL(core_fr_init);
-
-void core_fr_remove(void)
-{
-	ipio_info("Remove core-FingerReport members\n");
-	ipio_kfree((void **)&core_fr);
-}
-EXPORT_SYMBOL(core_fr_remove);

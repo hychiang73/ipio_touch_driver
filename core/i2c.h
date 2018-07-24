@@ -39,6 +39,5 @@ extern int core_i2c_read(uint8_t, uint8_t *, uint16_t);
 extern int core_i2c_segmental_read(uint8_t, uint8_t *, uint16_t);
 
 extern int core_i2c_init(struct i2c_client *);
-extern void core_i2c_remove(void);
 
 #endif

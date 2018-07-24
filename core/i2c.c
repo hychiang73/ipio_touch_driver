@@ -42,7 +42,7 @@ static int dma_alloc(struct core_i2c_data *i2c)
 {
 	if (i2c->client != NULL) {
 		i2c->client->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-		ilitek_dma_va = (u8 *) dma_alloc_coherent(&i2c->client->dev, DMA_VA_BUFFER, &ilitek_dma_pa, GFP_KERNEL);
+		ilitek_dma_va = (u8 *) dmam_alloc_coherent(ipd->dev, DMA_VA_BUFFER, &ilitek_dma_pa, GFP_KERNEL);
 		if (ERR_ALLOC_MEM(ilitek_dma_va)) {
 			ipio_err("Allocate DMA I2C Buffer failed\n");
 			return -ENOMEM;
@@ -55,18 +55,6 @@ static int dma_alloc(struct core_i2c_data *i2c)
 
 	ipio_err("i2c->client is NULL, return fail\n");
 	return -ENODEV;
-}
-
-static void dma_free(void)
-{
-	if (ilitek_dma_va != NULL) {
-		dma_free_coherent(&core_i2c->client->dev, DMA_VA_BUFFER, ilitek_dma_va, ilitek_dma_pa);
-
-		ilitek_dma_va = NULL;
-		ilitek_dma_pa = 0;
-
-		ipio_info("Succeed to free DMA buffer\n");
-	}
 }
 #endif /* I2C_DMA */
 
@@ -245,15 +233,3 @@ int core_i2c_init(struct i2c_client *client)
 	return 0;
 }
 EXPORT_SYMBOL(core_i2c_init);
-
-void core_i2c_remove(void)
-{
-	ipio_info("Remove core-i2c members\n");
-
-#ifdef I2C_DMA
-	dma_free();
-#endif /* I2C_DMA */
-
-	ipio_kfree((void **)&core_i2c);
-}
-EXPORT_SYMBOL(core_i2c_remove);

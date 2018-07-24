@@ -402,11 +402,3 @@ int core_protocol_init(void)
 	return 0;
 }
 EXPORT_SYMBOL(core_protocol_init);
-
-void core_protocol_remove(void)
-{
-	ipio_info("Remove core-protocol memebers\n");
-	ipio_kfree((void **)&protocol);
-	free_func_hash();
-}
-EXPORT_SYMBOL(core_protocol_remove);

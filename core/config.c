@@ -1013,14 +1013,3 @@ int core_config_init(void)
 	return 0;
 }
 EXPORT_SYMBOL(core_config_init);
-
-void core_config_remove(void)
-{
-	ipio_info("Remove core-config memebers\n");
-
-	if (core_config != NULL) {
-		ipio_kfree((void **)&core_config->tp_info);
-		ipio_kfree((void **)&core_config);
-	}
-}
-EXPORT_SYMBOL(core_config_remove);

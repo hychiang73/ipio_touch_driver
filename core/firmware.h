@@ -61,6 +61,5 @@ extern int tddi_fw_upgrade(bool isIRAM);
 /* extern int core_firmware_iram_upgrade(const char* fpath); */
 extern int core_firmware_upgrade(const char *, bool isIRAM);
 extern int core_firmware_init(void);
-extern void core_firmware_remove(void);
 
 #endif /* __FIRMWARE_H */

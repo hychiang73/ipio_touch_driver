@@ -179,11 +179,3 @@ void core_flash_init(uint16_t mid, uint16_t did)
 	ipio_info("Block size = %d\n", flashtab->block);
 }
 EXPORT_SYMBOL(core_flash_init);
-
-void core_flash_remove(void)
-{
-	ipio_info("Remove core-flash memebers\n");
-
-	ipio_kfree((void **)&flashtab);
-}
-EXPORT_SYMBOL(core_flash_remove);

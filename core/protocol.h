@@ -182,7 +182,6 @@ extern struct protocol_cmd_list *protocol;
 extern void core_protocol_func_control(int key, int ctrl);
 extern int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor);
 extern int core_protocol_init(void);
-extern void core_protocol_remove(void);
 extern int core_write(uint8_t, uint8_t *, uint16_t);
 extern int core_read(uint8_t, uint8_t *, uint16_t);
 

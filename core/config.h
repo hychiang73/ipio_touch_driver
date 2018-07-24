@@ -129,6 +129,4 @@ extern int core_config_get_fw_ver(void);
 extern int core_config_get_chip_id(void);
 
 extern int core_config_init(void);
-extern void core_config_remove(void);
-
 #endif /* __CONFIG_H */
