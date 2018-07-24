@@ -2301,7 +2301,7 @@ int core_mp_move_code(void)
 		ipio_info("host download failed!\n");
 	}
 #else
-	if (core_config_check_cdc_busy(50, 0) < 0) {
+	if (core_config_check_cdc_busy(50, 10) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
@@ -2334,7 +2334,7 @@ int core_mp_move_code(void)
 
 	core_config_ice_mode_disable();
 
-	if (core_config_check_cdc_busy(300, 1) < 0) {
+	if (core_config_check_cdc_busy(300, 50) < 0) {
 		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
