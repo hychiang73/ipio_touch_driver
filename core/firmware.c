@@ -68,8 +68,8 @@ int g_total_sector = 0;
 
 #ifdef BOOT_FW_UPGRADE
 /* The addr of block reserved for customers */
-int g_start_resrv = 0x1C000;
-int g_end_resrv = 0x1CFFF;
+int g_start_resrv = 0x1D000;
+int g_end_resrv = 0x1DFFF;
 #endif
 
 struct flash_sector {
@@ -732,7 +732,7 @@ int tddi_host_download(bool mode)
 		goto out;
 	}
 
-	if (core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE) {
+	if (core_fr->actual_fw_mode == protocol->test_mode) {
 		/* write hex to the addr of MP code */
 		ipio_info("Writing data into MP code ...\n");
 
@@ -846,7 +846,7 @@ out:
 
 	core_config_ice_mode_disable();
 
-	if (core_fr->actual_fw_mode == P5_0_FIRMWARE_TEST_MODE)
+	if (core_fr->actual_fw_mode == protocol->test_mode)
 		mdelay(1200);
 
 	ipio_kfree((void **)&buf);

@@ -451,15 +451,16 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	}
 
 	/* Switch to Test mode nad move mp code */
-	core_fr_mode_control(&protocol->test_mode);
+	res = core_fr_mode_control(&protocol->test_mode);
+	if (res < 0) {
+		ipio_err("Switch to test mode failed\n");
+		goto out;
+	}
 
 	mutex_lock(&ipd->plat_mutex);
 
 	ilitek_platform_disable_irq();
 	core_fr->isEnableFR = false;
-
-	/* Start to run MP test */
-	core_mp->run = true;
 
 	/*
 	 * Get timing parameters first.
@@ -499,8 +500,6 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	if (res < 0)
 		ipio_err("Failed to copy data to user space\n");
 
-	core_mp->run = false;
-
 	core_mp_test_free();
 
 #ifndef HOST_DOWNLOAD
@@ -512,8 +511,13 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	core_config_ic_reset();
 #endif
+
 	/* Switch to Demo mode */
-	core_fr_mode_control(&protocol->demo_mode);
+	res = core_fr_mode_control(&protocol->demo_mode);
+	if (res < 0) {
+		ipio_err("Switch to dmoe mode failed\n");
+		goto out;
+	}
 
 #ifdef HOST_DOWNLOAD
 	if(ilitek_platform_tp_hw_reset(true) < 0)

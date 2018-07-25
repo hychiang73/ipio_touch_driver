@@ -448,9 +448,9 @@ out:
 	return res;
 }
 
-void core_fr_mode_control(uint8_t *from_user)
+int core_fr_mode_control(uint8_t *from_user)
 {
-	int i, mode;
+	int ret = 0, i, mode, prev_mode;
 	int checksum = 0, codeLength = 8;
 	uint8_t mp_code[8] = { 0 };
 	uint8_t cmd[4] = { 0 };
@@ -466,74 +466,99 @@ void core_fr_mode_control(uint8_t *from_user)
 	    from_user[0], from_user[1], from_user[2], from_user[3]);
 
 	mode = from_user[0];
+	prev_mode = core_fr->actual_fw_mode;
+	core_fr->actual_fw_mode = mode;
 
-	if (protocol->major == 0x5) {
-		if (mode == protocol->i2cuart_mode) {
-			cmd[0] = protocol->cmd_i2cuart;
-			cmd[1] = *(from_user + 1);
-			cmd[2] = *(from_user + 2);
+	ipio_info("Actual FW mode = %d\n", core_fr->actual_fw_mode);
 
-			ipio_info("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x\n", cmd[0], cmd[1], cmd[2]);
+	if (protocol->major != 0x5) {
+		ipio_err("Wrong the major version of protocol, 0x%x\n", protocol->major);
+		ret = -1;
+		goto out;
+	}
 
-			if ((core_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
-				ipio_err("Failed to switch I2CUART mode\n");
-				goto out;
-			}
+	if (mode == protocol->i2cuart_mode) {
+		cmd[0] = protocol->cmd_i2cuart;
+		cmd[1] = *(from_user + 1);
+		cmd[2] = *(from_user + 2);
 
-		} else if (mode == protocol->demo_mode || mode == protocol->debug_mode) {
-			cmd[0] = protocol->cmd_mode_ctrl;
-			cmd[1] = mode;
+		ipio_info("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x\n", cmd[0], cmd[1], cmd[2]);
 
-			ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
+		if ((core_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
+			ipio_err("Failed to switch I2CUART mode\n");
+			ret = -1;
+			goto out;
+		}
+	} else if (mode == protocol->demo_mode || mode == protocol->debug_mode) {
+		cmd[0] = protocol->cmd_mode_ctrl;
+		cmd[1] = mode;
 
-			if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
-				ipio_err("Failed to switch Demo/Debug mode\n");
-				goto out;
-			}
+		ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			core_fr->actual_fw_mode = mode;
+		if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
+			ipio_err("Failed to switch Demo/Debug mode\n");
+			ret = -1;
+			goto out;
+		}
+	} else if (mode == protocol->test_mode) {
+		cmd[0] = protocol->cmd_mode_ctrl;
+		cmd[1] = mode;
 
-		} else if (mode == protocol->test_mode) {
-			cmd[0] = protocol->cmd_mode_ctrl;
-			cmd[1] = mode;
+		ipio_info("Switch to Test mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
 
-			ipio_info("Switch to Test mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
+		if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
+			ipio_err("Failed to switch Test mode\n");
+			ret = -1;
+			goto out;
+		}
 
-			if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
-				ipio_err("Failed to switch Test mode\n");
-				goto out;
-			}
+		cmd[0] = 0xFE;
 
-			cmd[0] = 0xFE;
+		/* Read MP Test information to ensure if fw supports test mode. */
+		core_write(core_config->slave_i2c_addr, cmd, 1);
+		mdelay(10);
+		core_read(core_config->slave_i2c_addr, mp_code, codeLength);
 
-			/* Read MP Test information to ensure if fw supports test mode. */
-			core_write(core_config->slave_i2c_addr, cmd, 1);
-			mdelay(10);
-			core_read(core_config->slave_i2c_addr, mp_code, codeLength);
+		for (i = 0; i < codeLength - 1; i++)
+			checksum += mp_code[i];
 
-			for (i = 0; i < codeLength - 1; i++)
-				checksum += mp_code[i];
+		if ((-checksum & 0xFF) != mp_code[codeLength - 1]) {
+			ipio_info("checksume error (0x%x), FW doesn't support test mode.\n",
+					(-checksum & 0XFF));
+			ret = -1;
+			goto out;
+		}
 
-			if ((-checksum & 0xFF) != mp_code[codeLength - 1]) {
-				ipio_info("checksume error (0x%x), FW doesn't support test mode.\n",
-						(-checksum & 0XFF));
-				goto out;
-			}
+		/* After command to test mode, fw stays at demo mode until busy free. */
+		core_fr->actual_fw_mode = protocol->demo_mode;
 
-			/* FW enter to Test Mode */
-			core_fr->actual_fw_mode = mode;
-			if (core_mp_move_code() == 0)
-				core_fr->actual_fw_mode = mode;
+		/* Check ready to switch test mode from demo mode */
+		if (core_config_check_cdc_busy(50, 50) < 0) {
+			ipio_err("Mode(%d) Check busy is timout\n", core_fr->actual_fw_mode);
+			ret = -1;
+			goto out;
+		}
 
-		} else {
-			ipio_err("Unknown firmware mode: %x\n", mode);
+		/* Now set up fw as test mode */
+		core_fr->actual_fw_mode = protocol->test_mode;
+
+		if (core_mp_move_code() != 0) {
+			ipio_err("Switch to test mode failed\n");
+			ret = -1;
+			goto out;
 		}
 	} else {
-		ipio_err("Wrong the major version of protocol, 0x%x\n", protocol->major);
+		ipio_err("Unknown firmware mode: %x\n", mode);
+		ret = -1;
 	}
 
 out:
+	if (ret < 0)
+		core_fr->actual_fw_mode = prev_mode;
+
+	ipio_info("Actual FW mode = %d\n", core_fr->actual_fw_mode);
 	ilitek_platform_enable_irq();
+	return ret;
 }
 EXPORT_SYMBOL(core_fr_mode_control);
 

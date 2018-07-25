@@ -88,7 +88,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 	 * to the last index and plus 1 with size.
 	 */
 	if (protocol->major >= 5 && protocol->mid >= 4) {
-		if (!core_config->icemodeenable && pBuf[0] == 0xF1 && core_mp->run) {
+		if (pBuf[0] == 0xF1 && core_fr->actual_fw_mode == protocol->test_mode) {
 			check_sum = core_fr_calc_checksum(pBuf, nSize);
 			txbuf = (uint8_t*)kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(txbuf)) {

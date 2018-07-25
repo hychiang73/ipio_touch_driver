@@ -90,11 +90,12 @@ enum mp_test_catalog {
 };
 
 enum open_test_node_type {
-	NO_COMPARE = 0x00,  /* Not A Area, No Compare */
-	AA_Area = 0x01,	    /* AA Area, Compare using Charge_AA */
-	Border_Area = 0x02, /* Border Area, Compare using Charge_Border */
-	Notch = 0x04,       /* Notch Area, Compare using Charge_Notch */
-	Round_Corner = 0x08 /* Round Corner, No Compare */
+	NO_COMPARE = 0x00,  /*Not A Area, No Compare  */
+	AA_Area = 0x01,	    /*AA Area, Compare using Charge_AA  */
+	Border_Area = 0x02, /*Border Area, Compare using Charge_Border  */
+	Notch = 0x04,       /*Notch Area, Compare using Charge_Notch  */
+	Round_Corner = 0x08,/* Round Corner, No Compare */
+	Skip_Micro = 0x10   /* Skip_Micro, No Compare */
 };
 
 /* You must declare a new test in this struct before running a new process of mp test */
@@ -159,6 +160,8 @@ struct mp_test_items tItems[] = {
 
 int32_t *frame_buf = NULL;
 int32_t *key_buf = NULL;
+/* For printing open_test_sp data */
+int32_t *frame1_cbk700 = NULL, *frame1_cbk250 = NULL, *frame1_cbk200 = NULL;
 struct core_mp_test_data *core_mp = NULL;
 
 void dump_data(void *data, int type, int len, int row_len, const char *name)
@@ -1259,19 +1262,20 @@ int compare_charge(int32_t* charge_rate, int x, int y, int32_t* inNodeType, int 
 	ret = charge_rate[ADDR(x, y)];
 
 	/*Setting Threadhold from node type  */
-	if ((inNodeType[ADDR(x, y)] & AA_Area) == AA_Area)
+
+	if(charge_rate[ADDR(x, y)] == 0)
+		return ret;
+	else if ((inNodeType[ADDR(x, y)] & AA_Area) == AA_Area)
 		OpenThreadhold = Charge_AA;
 	else if ((inNodeType[ADDR(x, y)] & Border_Area) == Border_Area)
 		OpenThreadhold = Charge_Border;
 	else if ((inNodeType[ADDR(x, y)] & Notch) == Notch)
 		OpenThreadhold = Charge_Notch;
-	else if ((inNodeType[ADDR(x, y)] & Round_Corner) == Round_Corner)
-		return ret;
 	else
 		return ret;
 
-
-	/*compare carge rate with 3*3 node  */
+	/* compare carge rate with 3*3 node */
+	/* by pass => 1.no compare 2.corner 3.Skip_Micro 4.full open fail node */
 	for (k = 0; k < 8; k++) {
 		tempX = x + sx[k];
 		tempY = y + sy[k];
@@ -1279,10 +1283,11 @@ int compare_charge(int32_t* charge_rate, int x, int y, int32_t* inNodeType, int 
 		if ((tempX < 0) || (tempX >= core_mp->xch_len) || (tempY < 0) || (tempY >= core_mp->ych_len)) /*out of range */
 			continue;
 
-		if ((inNodeType[ADDR(tempX, tempY)] == NO_COMPARE) || ((inNodeType[ADDR(tempX, tempY)] & Round_Corner) == Round_Corner))
+		if ((inNodeType[ADDR(tempX, tempY)] == NO_COMPARE) || ((inNodeType[ADDR(tempX, tempY)] & Round_Corner) == Round_Corner) ||
+		((inNodeType[ADDR(tempX, tempY)] & Skip_Micro) == Skip_Micro) || charge_rate[ADDR(tempX, tempY)] == 0)
 			continue;
 
-		if (ABS(charge_rate[ADDR(tempX, tempY)], charge_rate[ADDR(x, y)]) > OpenThreadhold)
+		if ((charge_rate[ADDR(tempX, tempY)]-charge_rate[ADDR(x, y)])> OpenThreadhold)
 			return OpenThreadhold;
 	}
 	return ret;
@@ -1332,7 +1337,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	/* Check busy */
 	ipio_info("Check busy method = %d\n", core_mp->busy_cdc);
 	if (core_mp->busy_cdc == POLL_CHECK) {
-		res = core_config_check_cdc_busy(50, 1);
+		res = core_config_check_cdc_busy(100, 50);
 	} else if (core_mp->busy_cdc == INT_CHECK) {
 		res = core_config_check_int_status(false);
 	} else if (core_mp->busy_cdc == DELAY_CHECK) {
@@ -1441,7 +1446,39 @@ static int open_test_sp(int index)
 	if (res < 0)
 		goto out;
 
-	/* Allocate node type buffer only for open test SP */
+	if (frame1_cbk700 == NULL) {
+		frame1_cbk700 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(frame1_cbk700)) {
+			ipio_err("Failed to allocate frame1_cbk700 buffer\n");
+			return -ENOMEM;
+		}
+	} else {
+		memset(frame1_cbk700, 0x0, core_mp->frame_len);
+	}
+
+	if (frame1_cbk250 == NULL) {
+		frame1_cbk250 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(frame1_cbk250)) {
+			ipio_err("Failed to allocate frame1_cbk250 buffer\n");
+			ipio_kfree((void **)&frame1_cbk700);
+			return -ENOMEM;
+		}
+	} else {
+		memset(frame1_cbk250, 0x0, core_mp->frame_len);
+	}
+
+	if (frame1_cbk200 == NULL) {
+		frame1_cbk200 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(frame1_cbk200)) {
+			ipio_err("Failed to allocate cbk buffer\n");
+			ipio_kfree((void **)&frame1_cbk700);
+			ipio_kfree((void **)&frame1_cbk250);
+			return -ENOMEM;
+		}
+	} else {
+		memset(frame1_cbk200, 0x0, core_mp->frame_len);
+	}
+
 	tItems[index].node_type = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tItems[index].node_type)) {
 		ipio_err("Failed to allocate node_type FRAME buffer\n");
@@ -1457,8 +1494,7 @@ static int open_test_sp(int index)
 	}
 
 	if (tItems[index].spec_option == BENCHMARK) {
-		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min,
-								tItems[index].type_option, tItems[index].desp);
+		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option, tItems[index].desp);
 		if (ipio_debug_level && DEBUG_PARSER > 0)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
@@ -1524,6 +1560,18 @@ static int open_test_sp(int index)
 		}
 
 		addr = 0;
+
+		/* record fist frame for debug */
+		if(i == 0) {
+			memcpy(frame1_cbk700, open[i].cbk_700, core_mp->frame_len * sizeof(int32_t));
+			memcpy(frame1_cbk250, open[i].cbk_250, core_mp->frame_len * sizeof(int32_t));
+			memcpy(frame1_cbk200, open[i].cbk_200, core_mp->frame_len * sizeof(int32_t));
+		}
+
+		dump_data(open[i].cbk_700, 10, core_mp->frame_len, core_mp->xch_len, "cbk 700");
+		dump_data(open[i].cbk_250, 10, core_mp->frame_len, core_mp->xch_len, "cbk 250");
+		dump_data(open[i].cbk_200, 10, core_mp->frame_len, core_mp->xch_len, "cbk 200");
+
 		for (y = 0; y < core_mp->ych_len; y++) {
 			for (x = 0; x < core_mp->xch_len; x++) {
 				open[i].charg_rate[addr] = open[i].cbk_250[addr] * 100 / open[i].cbk_700[addr];
@@ -1531,32 +1579,36 @@ static int open_test_sp(int index)
 				addr++;
 			}
 		}
+
 		if (ipio_debug_level & DEBUG_MP_TEST) {
 			dump_data(open[i].charg_rate, 10, core_mp->frame_len, core_mp->xch_len, "origin charge rate");
 			dump_data(open[i].full_Open, 10, core_mp->frame_len, core_mp->xch_len, "origin full open");
 		}
 
-		addr = 0;
-		for (y = 0; y < core_mp->ych_len; y++) {
-			for (x = 0; x < core_mp->xch_len; x++) {
-				tItems[index].buf[(i * core_mp->frame_len) + addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);
-				addr++;
-			}
-		}
-		if (ipio_debug_level & DEBUG_MP_TEST)
-			dump_data(&tItems[index].buf[(i * core_mp->frame_len)], 10, core_mp->frame_len, core_mp->xch_len, "after compare charge rate");
-
-		addr = 0;
-		for (y = 0; y < core_mp->ych_len; y++) {
-			for (x = 0; x < core_mp->xch_len; x++) {
-				if (full_open_rate_compare(open[i].full_Open, open[i].cbk_700, x, y, tItems[index].node_type[addr], full_open_rate) == false)
+        addr = 0;
+        for(y = 0; y < core_mp->ych_len; y++){
+            for(x = 0; x < core_mp->xch_len; x++){
+				if(full_open_rate_compare(open[i].full_Open, open[i].cbk_700, x, y, tItems[index].node_type[addr], full_open_rate) == false) {
 					tItems[index].buf[(i * core_mp->frame_len) + addr] = 0;
+					open[i].charg_rate[addr] = 0;
+				}
+                addr++;
+            }
+        }
 
-				addr++;
-			}
-		}
 		if (ipio_debug_level & DEBUG_MP_TEST)
 			dump_data(&tItems[index].buf[(i * core_mp->frame_len)], 10, core_mp->frame_len, core_mp->xch_len, "after full_open_rate_compare");
+
+        addr = 0;
+        for(y = 0; y < core_mp->ych_len; y++) {
+            for(x = 0; x < core_mp->xch_len; x++) {
+				tItems[index].buf[(i * core_mp->frame_len) + addr] = compare_charge(open[i].charg_rate, x, y, tItems[index].node_type, Charge_AA, Charge_Border, Charge_Notch);
+				addr++;
+            }
+        }
+
+		if (ipio_debug_level & DEBUG_MP_TEST)
+			dump_data(&tItems[index].buf[(i * core_mp->frame_len)], 10, core_mp->frame_len, core_mp->xch_len, "after compare charge rate");
 
 		compare_MaxMin_result(index, &tItems[index].buf[(i * core_mp->frame_len)]);
 	}
@@ -1927,6 +1979,17 @@ static void mp_do_retry(int index, int count)
 		return;
 	}
 
+#ifdef HOST_DOWNLOAD
+	/* Makre sure that fw mode is in test mode and reload MP code */
+	core_fr->actual_fw_mode = protocol->test_mode;
+
+	if(ilitek_platform_tp_hw_reset(true) < 0)
+		ipio_info("host download failed!\n");
+
+	/* Check ready to switch test mode */
+	if (core_config_check_cdc_busy(50, 50) < 0)
+		ipio_err("Check busy is timout\n");
+#else
 	core_config_ice_mode_enable();
 
 	if (core_config_set_watch_dog(false) < 0) {
@@ -1944,6 +2007,7 @@ static void mp_do_retry(int index, int count)
 	core_fr_mode_control(&protocol->test_mode);
 
 	ipio_info("retry = %d, item = %s\n", count, tItems[index].desp);
+#endif
 
 	ilitek_platform_disable_irq();
 
@@ -2024,6 +2088,12 @@ void core_mp_show_result(void)
 
 			pr_info("Min = %d\n",tItems[i].min);
 			csv_len += sprintf(csv + csv_len, "Min = %d\n", tItems[i].min);
+		}
+
+		if (strcmp(tItems[i].name, "open_integration_sp") == 0) {
+			mp_compare_cdc_show_result(frame1_cbk700, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk700");
+			mp_compare_cdc_show_result(frame1_cbk250, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk250");
+			mp_compare_cdc_show_result(frame1_cbk200, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk200");
 		}
 
 		if (tItems[i].catalog == TX_RX_DELTA) {
@@ -2274,8 +2344,10 @@ void core_mp_run_test(char *item, bool ini)
 
 				if (core_mp->retry) {
 					/* To see if this item needs to do retry  */
-					if (mp_retry_comp_cdc_result(i) == MP_FAIL)
+					if (mp_retry_comp_cdc_result(i) == MP_FAIL) {
+						ipio_info("MP failed, doing retry\n");
 						mp_do_retry(i, RETRY_COUNT);
+					}
 				}
 
 				/* LCM on */
@@ -2292,20 +2364,13 @@ EXPORT_SYMBOL(core_mp_run_test);
 
 int core_mp_move_code(void)
 {
-	int ret = 0;
-
 	ipio_info("Prepaing to enter Test Mode\n");
 #ifdef HOST_DOWNLOAD
-	ret = ilitek_platform_tp_hw_reset(true);
-	if(ret < 0) {
+	if(ilitek_platform_tp_hw_reset(true) < 0) {
 		ipio_info("host download failed!\n");
-	}
-#else
-	if (core_config_check_cdc_busy(50, 10) < 0) {
-		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
 		return -1;
 	}
-
+#else
 	if (core_config_ice_mode_enable() < 0) {
 		ipio_err("Failed to enter ICE mode\n");
 		return -1;
@@ -2313,6 +2378,7 @@ int core_mp_move_code(void)
 
 	if (core_config_set_watch_dog(false) < 0) {
 		ipio_err("Failed to disable watch dog\n");
+		return -1;
 	}
 
 	/* DMA Trigger */
@@ -2340,7 +2406,7 @@ int core_mp_move_code(void)
 	}
 #endif
 	ipio_info("FW Test Mode ready\n");
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(core_mp_move_code);
 
@@ -2380,6 +2446,9 @@ void core_mp_test_free(void)
 		}
 	}
 
+	ipio_kfree((void **)&frame1_cbk700);
+	ipio_kfree((void **)&frame1_cbk250);
+	ipio_kfree((void **)&frame1_cbk200);
 	ipio_kfree((void **)&frame_buf);
 	ipio_kfree((void **)&key_buf);
 	ipio_kfree((void **)&core_mp);
@@ -2510,7 +2579,6 @@ int core_mp_init(void)
 			core_mp->tdf = 240;
 			core_mp->busy_cdc = INT_CHECK;
 
-			core_mp->run = false;
 			core_mp->retry = true;
 			core_mp->oppo_run = false;
 			core_mp->oppo_lcm = false;
