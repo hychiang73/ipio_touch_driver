@@ -33,6 +33,8 @@ struct core_firmware_data {
 	uint32_t end_addr;
 	uint32_t checksum;
 	uint32_t crc32;
+	uint32_t new_fw_cb;
+	uint32_t old_fw_cb;
 
 	uint32_t update_status;
 	uint32_t max_count;

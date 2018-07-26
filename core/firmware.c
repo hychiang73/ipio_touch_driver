@@ -50,6 +50,8 @@
 #define CHECK_FW_FAIL -1
 #define NEED_UPDATE	   1
 #define NO_NEED_UPDATE 0
+#define FW_VER_ADDR	   0xFFE0
+#define CRC_ONESET(X, Y)	({Y = (*(X+0) << 24) | (*(X+1) << 16) | (*(X+2) << 8) | (*(X+3));})
 
 /*
  * the size of two arrays is different depending on
@@ -232,28 +234,70 @@ out:
 
 }
 
+static int tddi_read_flash(uint32_t start, uint32_t end, uint8_t *data, int dlen)
+{
+	uint32_t i, cont = 0;
+
+	if (data == NULL) {
+		ipio_err("data is null, read failed\n");
+		return -1;
+	}
+
+	if (end - start > dlen) {
+		ipio_err("the length (%d) reading crc is over than dlen(%d)\n", end - start, dlen);
+		return -1;
+	}
+
+	core_config_ice_mode_write(0x041000, 0x0, 1);	/* CS low */
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);	/* Key */
+	core_config_ice_mode_write(0x041008, 0x03, 1);
+
+	core_config_ice_mode_write(0x041008, (start & 0xFF0000) >> 16, 1);
+	core_config_ice_mode_write(0x041008, (start & 0x00FF00) >> 8, 1);
+	core_config_ice_mode_write(0x041008, (start & 0x0000FF), 1);
+
+	for (i = start; i <= end; i++) {
+		core_config_ice_mode_write(0x041008, 0xFF, 1);	/* Dummy */
+
+		data[cont] = core_config_read_write_onebyte(0x41010);
+		ipio_info("data[%d] = %x\n", cont, data[cont]);
+		cont++;
+	}
+
+	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
+	return 0;
+}
+
 static int tddi_check_fw_upgrade(void)
 {
 	int ret = NO_NEED_UPDATE;
 	int i, crc_byte_len = 4;
-	uint32_t start_addr = 0, end_addr = 0;
+	uint8_t flash_crc[4] = {0};
+	uint32_t start_addr = 0, end_addr = 0, flash_crc_cb;
 
 	if (flash_fw == NULL) {
 		ipio_err("Flash data is null, ignore upgrade\n");
 		return CHECK_FW_FAIL;
 	}
 
-	/* To get HW CRC, we must enter to ICE mode */
-	core_config_ice_mode_enable();
-
-	mdelay(30);
-
-	if (core_config_set_watch_dog(false) < 0) {
-		ipio_err("Failed to disable watch dog, check failed\n");
-		ret = CHECK_FW_FAIL;
-		goto out;
+	/* No need to check fw ver/crc if we upgrade it by manual */
+	if (!core_firmware->isboot) {
+		ipio_info("Upgrad FW forcly by manual\n");
+		return NEED_UPDATE;
 	}
 
+	/* Check FW version */
+	ipio_info("New FW ver = 0x%x, Old FW ver = 0x%x\n", core_firmware->new_fw_cb, core_firmware->old_fw_cb);
+	if (core_firmware->new_fw_cb >= core_firmware->old_fw_cb) {
+		ipio_info("New FW ver is greater or equial to old, need to check hw crc if it's correct\n");
+		goto check_hw_crc;
+	} else {
+		ipio_info("New FW ver is smaller than old, need to check flash crc if it's correct\n");
+		goto check_flash_crc;
+	}
+
+check_hw_crc:
+	/* Check HW and Hex CRC */
 	for(i = 0; i < ARRAY_SIZE(g_flash_block_info); i++) {
 		start_addr = g_flash_block_info[i].start_addr;
 		end_addr = g_flash_block_info[i].end_addr;
@@ -267,16 +311,44 @@ static int tddi_check_fw_upgrade(void)
 		/* Get HW CRC for each block */
 		g_flash_block_info[i].block_crc = tddi_check_data(start_addr, end_addr - start_addr - crc_byte_len + 1);
 
-		ipio_info("block = %d, start_addr = 0x%06x, end_addr = 0x%06x, H_CRC = 0x%06x, B_CRC = 0x%06x\n",
-			i, start_addr, end_addr, g_flash_block_info[i].hex_crc, g_flash_block_info[i].block_crc);
+		ipio_info("HW CRC = 0x%06x, HEX CRC = 0x%06x\n", g_flash_block_info[i].hex_crc, g_flash_block_info[i].block_crc);
 
-		/* Compare Hex to HW's CRC directly instead of fw version */
+		/* Compare HW CRC with HEX CRC */
 		if(g_flash_block_info[i].hex_crc != g_flash_block_info[i].block_crc)
 			ret = NEED_UPDATE;
 	}
 
-out:
-	core_config_ice_mode_disable();
+	return ret;
+
+check_flash_crc:
+	/* Check Flash CRC and HW CRC */
+	for(i = 0; i < ARRAY_SIZE(g_flash_block_info); i++) {
+		start_addr = g_flash_block_info[i].start_addr;
+		end_addr = g_flash_block_info[i].end_addr;
+
+		/* Invaild end address */
+		if (end_addr == 0)
+			continue;
+
+		ret = tddi_read_flash(end_addr - crc_byte_len + 1, end_addr, flash_crc, sizeof(flash_crc));
+		if (ret < 0) {
+			ipio_err("Read Flash failed\n");
+			return CHECK_FW_FAIL;
+		}
+
+		g_flash_block_info[i].block_crc = tddi_check_data(start_addr, end_addr - start_addr - crc_byte_len + 1);
+
+		CRC_ONESET(flash_crc, flash_crc_cb);
+
+		ipio_info("HW CRC = 0x%06x, Flash CRC = 0x%06x\n", g_flash_block_info[i].block_crc, flash_crc_cb);
+
+		/* Compare Flash CRC with HW CRC */
+		if(flash_crc_cb != g_flash_block_info[i].block_crc)
+			ret = NEED_UPDATE;
+
+		memset(flash_crc, 0, sizeof(flash_crc));
+	}
+
 	return ret;
 }
 
@@ -318,6 +390,18 @@ static int verify_flash_data(void)
 
 	for (i = 0; i < g_section_len + 1; i++) {
 		if (g_flash_sector[i].data_flag) {
+			if (core_firmware->isboot && !g_flash_sector[i].inside_block) {
+				if (len != 0) {
+					res = do_check(ss, len);
+					if (res < 0)
+						goto out;
+
+					ss = g_flash_sector[i].ss_addr;
+					len = 0;
+				}
+				continue;
+			}
+
 			if (ss > g_flash_sector[i].ss_addr || len == 0)
 				ss = g_flash_sector[i].ss_addr;
 
@@ -995,8 +1079,6 @@ int tddi_fw_upgrade(bool isIRAM)
 
 	ilitek_platform_disable_irq();
 
-	mdelay(30);
-
 	ipio_info("Enter to ICE Mode\n");
 
 	res = core_config_ice_mode_enable();
@@ -1010,6 +1092,18 @@ int tddi_fw_upgrade(bool isIRAM)
 	if (core_config_set_watch_dog(false) < 0) {
 		ipio_err("Failed to disable watch dog\n");
 		res = -EINVAL;
+		goto out;
+	}
+
+	/* Check if need to upgrade fw */
+	res = tddi_check_fw_upgrade();
+	if (res == NEED_UPDATE) {
+		ipio_info("FW CRC is different, doing upgrade\n");
+	} else if (res == NO_NEED_UPDATE) {
+		ipio_info("FW CRC is the same, doing nothing\n");
+		goto out;
+	} else {
+		ipio_err("FW check is incorrect, unexpected errors\n");
 		goto out;
 	}
 
@@ -1068,8 +1162,6 @@ static int convert_hex_array(void)
 	int i, j, index = 0, crc_byte_len = 4;
 	int block = 0, blen = 0, bindex = 0;
 	uint32_t tmp_addr = 0x0;
-	uint32_t start_addr = 0x0, end_addr = 0;
-	bool boot_crc = false;
 
 	core_firmware->start_addr = 0;
 	core_firmware->end_addr = 0;
@@ -1083,23 +1175,6 @@ static int convert_hex_array(void)
 		ipio_err("The size of CTPM_FW is invaild (%d)\n", (int)ARRAY_SIZE(CTPM_FW));
 		goto out;
 	}
-
-	/* Get new version from ILI array */
-	if(protocol->mid >= 0x3) {
-		core_firmware->new_fw_ver[0] = CTPM_FW[18];
-		core_firmware->new_fw_ver[1] = CTPM_FW[19];
-		core_firmware->new_fw_ver[2] = CTPM_FW[20];
-		core_firmware->new_fw_ver[3] = CTPM_FW[21];
-	} else {
-		core_firmware->new_fw_ver[0] = CTPM_FW[19];
-		core_firmware->new_fw_ver[1] = CTPM_FW[20];
-		core_firmware->new_fw_ver[2] = CTPM_FW[21];
-	}
-
-	ipio_info("HW ver: %d.%d.%d.%d\n",core_firmware->old_fw_ver[0],
-	core_firmware->old_fw_ver[1], core_firmware->old_fw_ver[2], core_firmware->old_fw_ver[3]);
-	ipio_info("Hex ver: %d.%d.%d.%d\n", core_firmware->new_fw_ver[0],
-		core_firmware->new_fw_ver[1], core_firmware->new_fw_ver[2], core_firmware->new_fw_ver[3]);
 
 	/* Extract block info */
 	block = CTPM_FW[33];
@@ -1136,6 +1211,10 @@ static int convert_hex_array(void)
 			g_flash_sector[index].data_flag = true;
 		}
 	}
+
+	/* Get hex fw vers */
+	core_firmware->new_fw_cb = (flash_fw[FW_VER_ADDR] << 24) | (flash_fw[FW_VER_ADDR + 1] << 16) |
+			(flash_fw[FW_VER_ADDR + 2] << 8) | (flash_fw[FW_VER_ADDR + 3]);
 
 	g_section_len = index;
 
@@ -1219,10 +1298,14 @@ int core_firmware_boot_upgrade(void)
 		core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
 		core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
 		core_firmware->old_fw_ver[3] = core_config->firmware_ver[4];
+		core_firmware->old_fw_cb = (core_firmware->old_fw_ver[0] << 24) |
+			(core_firmware->old_fw_ver[1] << 16)| (core_firmware->old_fw_ver[2] << 8) | core_firmware->old_fw_ver[3];
 	} else {
 		core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
 		core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
 		core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
+		core_firmware->old_fw_cb = (core_firmware->old_fw_ver[0] << 16) |
+				(core_firmware->old_fw_ver[1] << 8) | core_firmware->old_fw_ver[2];
 	}
 
 	if (flashtab == NULL) {
@@ -1257,17 +1340,6 @@ int core_firmware_boot_upgrade(void)
 	res = convert_hex_array();
 	if (res < 0) {
 		ipio_err("Failed to covert firmware data, res = %d\n", res);
-		goto out;
-	}
-
-	res = tddi_check_fw_upgrade();
-	if (res == NEED_UPDATE) {
-		ipio_info("FW CRC is different, doing upgrade\n");
-	} else if (res == NO_NEED_UPDATE) {
-		ipio_info("FW CRC is the same, doing nothing\n");
-		goto out;
-	} else {
-		ipio_err("FW check is incorrect, unexpected errors\n");
 		goto out;
 	}
 
@@ -1445,6 +1517,10 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	return 0;
 #endif
 
+	/* Get hex fw vers */
+	core_firmware->new_fw_cb = (flash_fw[FW_VER_ADDR] << 24) | (flash_fw[FW_VER_ADDR + 1] << 16) |
+			(flash_fw[FW_VER_ADDR + 2] << 8) | (flash_fw[FW_VER_ADDR + 3]);
+
 	/* Update the length of section */
 	g_section_len = index;
 
@@ -1520,6 +1596,21 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		ipd->isEnablePollCheckEsd = false;
 		cancel_delayed_work_sync(&ipd->check_esd_status_work);
 		esd = true;
+	}
+
+	if(protocol->mid >= 0x3) {
+		core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
+		core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
+		core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
+		core_firmware->old_fw_ver[3] = core_config->firmware_ver[4];
+		core_firmware->old_fw_cb = (core_firmware->old_fw_ver[0] << 24) |
+			(core_firmware->old_fw_ver[1] << 16)| (core_firmware->old_fw_ver[2] << 8) | core_firmware->old_fw_ver[3];
+	} else {
+		core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
+		core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
+		core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
+		core_firmware->old_fw_cb = (core_firmware->old_fw_ver[0] << 16) |
+				(core_firmware->old_fw_ver[1] << 8) | core_firmware->old_fw_ver[2];
 	}
 
 	pfile = filp_open(pFilePath, O_RDONLY, 0);
@@ -1600,18 +1691,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		goto out;
 	}
 
-	/* Check if need to upgrade fw */
-	res = tddi_check_fw_upgrade();
-	if (res == NEED_UPDATE) {
-		ipio_info("FW CRC is different, doing upgrade\n");
-	} else if (res == NO_NEED_UPDATE) {
-		ipio_info("FW CRC is the same, doing nothing\n");
-		goto out;
-	} else {
-		ipio_err("FW check is incorrect, unexpected errors\n");
-		goto out;
-	}
-
 	/* calling that function defined at init depends on chips. */
 	res = core_firmware->upgrade_func(isIRAM);
 	if (res < 0) {
@@ -1620,10 +1699,10 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	}
 
 	ipio_info("Update TP/Firmware information...\n");
-#ifdef HOST_DOWNLOAD
+
 	/* Waiting for fw load code finished in order to get TP info */
 	mdelay(10);
-#endif
+
 	core_config_get_fw_ver();
 	core_config_get_protocol_ver();
 	core_config_get_core_ver();
