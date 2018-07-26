@@ -273,6 +273,13 @@ In this case the driver now supports the type of ILI9881.
 In this case the slave address is 0x41, and the name of table calls **tchip,ilitek**. **touch,irq-gpio** and **touch,reset-gpio** represent INT pin and RESET pin separately.
 
 # Release Note
+* V1.0.3.7
+  * Usiing devm (resource-managed) to allocate memory for the core structures.
+  * Patch open test.
+  * Fixed FW mode switch to be more readable.
+  * Rewrite HW CRC mechnaism.
+  * Improved the mechnaism of check fw upgrade.
+
 * V1.0.3.6
   * Remove ILI7807(F & H) from support list.
   * Add ESD check
