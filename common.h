@@ -105,10 +105,10 @@
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
-#define INTERFACE SPI_INTERFACE
+#define INTERFACE I2C_INTERFACE
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.6"
+#define DRIVER_VERSION	"1.0.3.7"
 
 /* Driver core type */
 #define CORE_TYPE_B		0x00

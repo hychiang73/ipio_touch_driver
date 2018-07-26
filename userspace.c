@@ -439,6 +439,11 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	if (*pPos != 0)
 		return 0;
 
+	if (core_firmware->isUpgrading) {
+		ipio_err("FW upgrading, please wait to complete\n");
+		goto out;
+	}
+
 	if (core_parser_path(INI_NAME_PATH) < 0) {
 		ipio_err("Failed to parsing INI file\n");
 		goto out;
