@@ -175,6 +175,41 @@ void ilitek_regulator_power_on(bool status)
 	mdelay(5);
 }
 EXPORT_SYMBOL(ilitek_regulator_power_on);
+
+static void ilitek_regulator_power_reg(struct ilitek_platform_data *ipd)
+{
+#if (TP_PLATFORM == PT_MTK)
+	const char *vdd_name = "vtouch";
+#else
+	const char *vdd_name = "vdd";
+#endif /* PT_MTK */
+	const char *vcc_i2c_name = "vcc_i2c";
+
+#if (TP_PLATFORM == PT_MTK)
+	ipd->vdd = regulator_get(tpd->tpd_dev, vdd_name);
+	tpd->reg = ipd->vdd;
+#else
+	ipd->vdd = regulator_get(&ipd->client->dev, vdd_name);
+#endif /* PT_MTK */
+
+	if (ERR_ALLOC_MEM(ipd->vdd)) {
+		ipio_err("regulator_get vdd fail\n");
+		ipd->vdd = NULL;
+	} else {
+		if (regulator_set_voltage(ipd->vdd, VDD_VOLTAGE, VDD_VOLTAGE) < 0)
+			ipio_err("Failed to set vdd %d.\n", VDD_VOLTAGE);
+	}
+
+	ipd->vdd_i2c = regulator_get(ipd->dev, vcc_i2c_name);
+	if (ERR_ALLOC_MEM(ipd->vdd_i2c)) {
+		ipio_err("regulator_get vdd_i2c fail.\n");
+		ipd->vdd_i2c = NULL;
+	} else {
+		if (regulator_set_voltage(ipd->vdd_i2c, VDD_I2C_VOLTAGE, VDD_I2C_VOLTAGE) < 0)
+			ipio_err("Failed to set vdd_i2c %d\n", VDD_I2C_VOLTAGE);
+	}
+	ilitek_regulator_power_on(true);
+}
 #endif /* REGULATOR_POWER_ON */
 
 #ifdef BATTERY_CHECK
@@ -807,15 +842,6 @@ static int ilitek_platform_probe(struct i2c_client *client, const struct i2c_dev
 static int ilitek_platform_probe(struct spi_device *spi)
 #endif
 {
-#ifdef REGULATOR_POWER_ON
-#if (TP_PLATFORM == PT_MTK)
-	const char *vdd_name = "vtouch";
-#else
-	const char *vdd_name = "vdd";
-#endif /* PT_MTK */
-	const char *vcc_i2c_name = "vcc_i2c";
-#endif /* REGULATOR_POWER_ON */
-
 #if (INTERFACE == I2C_INTERFACE)
 	if (client == NULL) {
 		ipio_err("i2c client is NULL\n");
@@ -899,30 +925,8 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ipd->debug_node_open = false;
 
 #ifdef REGULATOR_POWER_ON
-#if (TP_PLATFORM == PT_MTK)
-	ipd->vdd = regulator_get(tpd->tpd_dev, vdd_name);
-	tpd->reg = ipd->vdd;
-#else
-	ipd->vdd = regulator_get(&ipd->client->dev, vdd_name);
-#endif /* PT_MTK */
-	if (ERR_ALLOC_MEM(ipd->vdd)) {
-		ipio_err("regulator_get vdd fail\n");
-		ipd->vdd = NULL;
-	} else {
-		if (regulator_set_voltage(ipd->vdd, VDD_VOLTAGE, VDD_VOLTAGE) < 0)
-			ipio_err("Failed to set vdd %d.\n", VDD_VOLTAGE);
-	}
-
-	ipd->vdd_i2c = regulator_get(&ipd->client->dev, vcc_i2c_name);
-	if (ERR_ALLOC_MEM(ipd->vdd_i2c)) {
-		ipio_err("regulator_get vdd_i2c fail.\n");
-		ipd->vdd_i2c = NULL;
-	} else {
-		if (regulator_set_voltage(ipd->vdd_i2c, VDD_I2C_VOLTAGE, VDD_I2C_VOLTAGE) < 0)
-			ipio_err("Failed to set vdd_i2c %d\n", VDD_I2C_VOLTAGE);
-	}
-	ilitek_regulator_power_on(true);
-#endif /* REGULATOR_POWER_ON */
+	ilitek_regulator_power_reg(ipd);
+#endif
 
 	if (ilitek_platform_gpio() < 0)
 		ipio_err("Failed to request gpios\n ");
