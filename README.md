@@ -273,6 +273,20 @@ In this case the driver now supports the type of ILI9881.
 In this case the slave address is 0x41, and the name of table calls **tchip,ilitek**. **touch,irq-gpio** and **touch,reset-gpio** represent INT pin and RESET pin separately.
 
 # Release Note
+* V1.0.3.8
+  * expaned block info from 4 to 6 and add new type 0xAF.
+  * Add reading OTP & ANA ID.
+  * Adjust the time of delay in chip reset from 300ms to 100ms.
+  * Able to run MP test for v5.3 below.
+  * Modify the flow of suspend and resume.
+  * Remove device node for oppo.
+  * Change the detection of INT status from low to high in MP test.
+  * Add gesture mode with info and normal.
+  * Support request_firmware in boot upgrade.
+  * Add gesture in i2c interface.
+  * Fix crash when running open test.
+  * Modify the method to check cdc status from INT to POLLING.
+  * Add the method of DMA moving MP code to the driver.
 * V1.0.3.7
   * Usiing devm (resource-managed) to allocate memory for the core structures.
   * Patch open test.
