@@ -55,12 +55,9 @@ int core_gesture_load_code(void)
 	}
 
 	/* enter gesture cmd lpwg start */
-	temp[0] = 0x01;
-	temp[1] = 0x0A;
-	temp[2] = core_gesture->mode + 1;
-	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
-		ipio_err("write lpwg start error\n");
-	}
+	ret = core_config_switch_fw_mode(&protocol->gesture_mode);
+	if (ret < 0)
+		ipio_err("Failed to switch gesture mode\n");
 
 	for(i = 0; i < 20; i++) {
 		temp[0] = 0xF6;
@@ -221,6 +218,9 @@ int core_gesture_match_key(uint8_t gdata)
 	case GESTURE_C:
 		gcode = KEY_GESTURE_C;
 		break;
+	case GESTURE_F:
+		gcode = KEY_GESTURE_F;
+		break;
 	default:
 		gcode = -1;
 		break;
@@ -248,6 +248,7 @@ void core_gesture_set_key(struct core_fr_data *fr_data)
 		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_V);
 		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_Z);
 		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_C);
+		input_set_capability(input_dev, EV_KEY, KEY_GESTURE_F);
 
 		__set_bit(KEY_POWER, input_dev->keybit);
 		__set_bit(KEY_GESTURE_UP, input_dev->keybit);
@@ -262,6 +263,7 @@ void core_gesture_set_key(struct core_fr_data *fr_data)
 		__set_bit(KEY_GESTURE_V, input_dev->keybit);
 		__set_bit(KEY_GESTURE_Z, input_dev->keybit);
 		__set_bit(KEY_GESTURE_C, input_dev->keybit);
+		__set_bit(KEY_GESTURE_F, input_dev->keybit);
 		return;
 	}
 
@@ -278,6 +280,7 @@ int core_gesture_init(void)
 	}
 
 	core_gesture->entry = false;
+	core_gesture->mode = GESTURE_MODE;
 
 	return 0;
 }

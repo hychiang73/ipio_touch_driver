@@ -103,7 +103,7 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 
 static int get_ini_phy_data(char *data, int fsize)
 {
-	int i, n = 0, res = 0 , banchmark_flag = 0, empty_section, nodetype_flag = 0;
+	int i, n = 0, ret = 0 , banchmark_flag = 0, empty_section, nodetype_flag = 0;
 	int offset = 0, isEqualSign = 0;
 	char *ini_buf = NULL, *tmpSectionName = NULL, *temp;
 	char M_CFG_SSL = '[';
@@ -114,21 +114,21 @@ static int get_ini_phy_data(char *data, int fsize)
 
 	if (data == NULL) {
 		ipio_err("INI data is NULL\n");
-		res = -EINVAL;
+		ret = -EINVAL;
 		goto out;
 	}
 
 	ini_buf = kzalloc((PARSER_MAX_CFG_BUF + 1) * sizeof(char), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ini_buf)) {
 		ipio_err("Failed to allocate ini_buf memory, %ld\n", PTR_ERR(ini_buf));
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
 	tmpSectionName = kzalloc((PARSER_MAX_CFG_BUF + 1) * sizeof(char), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tmpSectionName)) {
 		ipio_err("Failed to allocate tmpSectionName memory, %ld\n", PTR_ERR(tmpSectionName));
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -169,14 +169,14 @@ static int get_ini_phy_data(char *data, int fsize)
 		/* Get section names */
 		if (n > 2 && ((ini_buf[0] == M_CFG_SSL && ini_buf[n - 1] != M_CFG_SSR))) {
 			ipio_err("Bad Section: %s\n", ini_buf);
-			res = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		} else {
 			if (ini_buf[0] == M_CFG_SSL) {
 				ilitek_ini_file_data[g_ini_items].iSectionNameLen = n - 2;
 				if (ilitek_ini_file_data[g_ini_items].iSectionNameLen > PARSER_MAX_KEY_NAME_LEN) {
 					ipio_err("MAX_KEY_NAME_LEN: Out Of Length\n");
-					res = INI_ERR_OUT_OF_LINE;
+					ret = INI_ERR_OUT_OF_LINE;
 					goto out;
 				}
 
@@ -240,7 +240,7 @@ static int get_ini_phy_data(char *data, int fsize)
 			if (ilitek_ini_file_data[g_ini_items].iKeyNameLen > PARSER_MAX_KEY_NAME_LEN) {
 				/* ret = CFG_ERR_OUT_OF_LEN; */
 				ipio_err("MAX_KEY_NAME_LEN: Out Of Length\n");
-				res = INI_ERR_OUT_OF_LINE;
+				ret = INI_ERR_OUT_OF_LINE;
 				goto out;
 			}
 
@@ -253,7 +253,7 @@ static int get_ini_phy_data(char *data, int fsize)
 
 		if (ilitek_ini_file_data[g_ini_items].iKeyValueLen > PARSER_MAX_KEY_VALUE_LEN) {
 			ipio_err("MAX_KEY_VALUE_LEN: Out Of Length\n");
-			res = INI_ERR_OUT_OF_LINE;
+			ret = INI_ERR_OUT_OF_LINE;
 			goto out;
 		}
 
@@ -269,7 +269,7 @@ static int get_ini_phy_data(char *data, int fsize)
 out:
 	ipio_kfree((void **)&ini_buf);
 	ipio_kfree((void **)&tmpSectionName);
-	return res;
+	return ret;
 }
 
 static void init_ilitek_ini_data(void)
@@ -404,17 +404,17 @@ int core_parser_get_u8_array(char *key, uint8_t *buf)
 {
 	char *s = key;
 	char *pToken;
-	int res, conut = 0;
+	int ret, conut = 0;
     long s_to_long = 0;
 
 	if(isspace_t((int)(unsigned char)*s) == 0)
 	{
 		while((pToken = strsep(&s, ",")) != NULL){
-			res = kstrtol(pToken, 0, &s_to_long);
-			if(res == 0)
+			ret = kstrtol(pToken, 0, &s_to_long);
+			if(ret == 0)
 				buf[conut] = s_to_long;
 			else
-				ipio_info("convert string too long, res = %d\n", res);
+				ipio_info("convert string too long, ret = %d\n", ret);
 			conut++;
 		}
 	}
@@ -446,7 +446,7 @@ EXPORT_SYMBOL(core_parser_get_int_data);
 
 int core_parser_path(char *path)
 {
-	int res = 0, fsize = 0;
+	int ret = 0, fsize = 0;
 	char *tmp = NULL;
 	struct file *f = NULL;
 	struct inode *inode;
@@ -457,8 +457,8 @@ int core_parser_path(char *path)
 	f = filp_open(path, O_RDONLY, 0);
 	if (ERR_ALLOC_MEM(f)) {
 		ipio_err("Failed to open the file at %ld.\n", PTR_ERR(f));
-		res = -ENOENT;
-		return res;
+		ret = -ENOENT;
+		return ret;
 	}
 
 #if KERNEL_VERSION(3, 18, 0) >= LINUX_VERSION_CODE
@@ -471,14 +471,14 @@ int core_parser_path(char *path)
 	ipio_info("fsize = %d\n", fsize);
 	if (fsize <= 0) {
 		ipio_err("The size of file is invaild\n");
-		res = -EINVAL;
+		ret = -EINVAL;
 		goto out;
 	}
 
 	tmp = kmalloc(fsize+1, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tmp)) {
 		ipio_err("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -491,9 +491,9 @@ int core_parser_path(char *path)
 
 	init_ilitek_ini_data();
 
-	res = get_ini_phy_data(tmp,fsize);
-	if (res < 0) {
-		ipio_err("Failed to get physical ini data, res = %d\n", res);
+	ret = get_ini_phy_data(tmp,fsize);
+	if (ret < 0) {
+		ipio_err("Failed to get physical ini data, ret = %d\n", ret);
 		goto out;
 	}
 
@@ -502,6 +502,6 @@ int core_parser_path(char *path)
 out:
 	ipio_kfree((void **)&tmp);
 	filp_close(f, NULL);
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_parser_path);

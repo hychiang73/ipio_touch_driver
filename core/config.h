@@ -63,12 +63,15 @@ struct core_config_data {
 	uint32_t chip_id;
 	uint32_t chip_type;
 	uint32_t chip_pid;
-
+	uint32_t chip_otp_id;
+	uint32_t chip_ana_id;
 	uint8_t core_type;
 
 	uint32_t slave_i2c_addr;
 	uint32_t ice_mode_addr;
 	uint32_t pid_addr;
+	uint32_t otp_id_addr;
+	uint32_t ana_id_addr;
 	uint32_t wdt_addr;
 	uint32_t ic_reset_addr;
 
@@ -94,11 +97,15 @@ extern int core_cmd_len;
 /* R/W with Touch ICs */
 extern uint32_t core_config_ice_mode_read(uint32_t addr);
 extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size);
+extern int core_config_ice_mode_bit_mask(uint32_t addr, uint32_t nMask, uint32_t value);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);
 extern int core_config_ice_mode_disable(void);
 extern int core_config_ice_mode_enable(void);
 
 /* Touch IC status */
+
+extern void core_config_read_pc_counter(void);
+extern int core_config_switch_fw_mode(uint8_t *data);
 extern int core_config_set_watch_dog(bool enable);
 extern int core_config_check_cdc_busy(int count, int delay);
 extern int core_config_check_int_status(bool high);

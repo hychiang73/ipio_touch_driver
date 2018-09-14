@@ -31,6 +31,7 @@
 #include <linux/file.h>
 #include <linux/version.h>
 #include <asm/uaccess.h>
+#include <linux/firmware.h>
 
 #include "../common.h"
 #include "../platform.h"
@@ -44,8 +45,10 @@
 #include "mp_test.h"
 
 #if defined(BOOT_FW_UPGRADE) || defined(HOST_DOWNLOAD)
+#ifndef BOOT_FW_UPGRADE_READ_HEX
 #include "ilitek_fw.h"
 #endif
+#endif /* BOOT_FW_UPGRADE || HOST_DOWNLOAD */
 
 #define CHECK_FW_FAIL -1
 #define NEED_UPDATE	   1
@@ -93,11 +96,14 @@ struct flash_block_info {
 	uint32_t end_addr;
 	uint32_t hex_crc;
 	uint32_t block_crc;
+	uint8_t  number;
 };
 
 struct flash_sector *g_flash_sector = NULL;
-struct flash_block_info g_flash_block_info[4];
+struct flash_block_info g_flash_block_info[FW_BLOCK_INFO_NUM];
 struct core_firmware_data *core_firmware = NULL;
+
+static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM);
 
 static uint32_t HexToDec(char *pHex, int32_t nLength)
 {
@@ -232,6 +238,50 @@ out:
 	ipio_err("Failed to read Checksum/CRC from IC\n");
 	return -1;
 
+}
+
+void tddi_clear_dma_flash(void)
+{
+	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_preclk_sel, (2 << 16));
+	core_config_ice_mode_write(FLASH0_reg_flash_csb, 0x01, 1);	/* CS high */
+
+	core_config_ice_mode_bit_mask(FLASH4_ADDR, FLASH4_reg_flash_dma_trigger_en, (0 << 24));
+	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_rx_dual, (0 << 24));
+
+	core_config_ice_mode_write(FLASH3_reg_rcv_cnt, 0x00, 1);
+	core_config_ice_mode_write(FLASH4_reg_rcv_data, 0xFF, 1);
+}
+
+void tddi_write_dma_flash(uint32_t start, uint32_t end, uint32_t len)
+{
+	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_preclk_sel, 1 << 16);
+
+	core_config_ice_mode_write(FLASH0_reg_flash_csb, 0x00, 1);	/* CS low */
+	core_config_ice_mode_write(FLASH1_reg_flash_key1, 0x66aa55, 3);	/* Key */
+
+	core_config_ice_mode_write(FLASH2_reg_tx_data, 0x0b, 1);
+	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
+
+	core_config_ice_mode_write(FLASH2_reg_tx_data, (start & 0xFF0000) >> 16, 1);
+	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
+
+	core_config_ice_mode_write(FLASH2_reg_tx_data, (start & 0x00FF00) >> 8, 1);
+	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
+
+	core_config_ice_mode_write(FLASH2_reg_tx_data, (start & 0x0000FF), 1);
+	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
+
+	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_rx_dual, 0 << 24);
+
+	core_config_ice_mode_write(FLASH2_reg_tx_data, 0x00, 1);	/* Dummy */
+	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
+
+	core_config_ice_mode_write(FLASH3_reg_rcv_cnt, len, 4);	/* Write Length */
 }
 
 static int tddi_read_flash(uint32_t start, uint32_t end, uint8_t *data, int dlen)
@@ -370,21 +420,21 @@ static void calc_verify_data(uint32_t sa, uint32_t se, uint32_t *check)
 
 static int do_check(uint32_t start, uint32_t len)
 {
-	int res = 0;
+	int ret = 0;
 	uint32_t vd = 0, lc = 0;
 
 	calc_verify_data(start, len, &lc);
 	vd = tddi_check_data(start, len);
-	res = CHECK_EQUAL(vd, lc);
+	ret = CHECK_EQUAL(vd, lc);
 
-	ipio_info("%s (%x) : (%x)\n", (res < 0 ? "Invalid !" : "Correct !"), vd, lc);
+	ipio_info("%s (%x) : (%x)\n", (ret < 0 ? "Invalid !" : "Correct !"), vd, lc);
 
-	return res;
+	return ret;
 }
 
 static int verify_flash_data(void)
 {
-	int i = 0, res = 0, len = 0;
+	int i = 0, ret = 0, len = 0;
 	int fps = flashtab->sector;
 	uint32_t ss = 0x0;
 
@@ -392,8 +442,8 @@ static int verify_flash_data(void)
 		if (g_flash_sector[i].data_flag) {
 			if (core_firmware->isboot && !g_flash_sector[i].inside_block) {
 				if (len != 0) {
-					res = do_check(ss, len);
-					if (res < 0)
+					ret = do_check(ss, len);
+					if (ret < 0)
 						goto out;
 
 					ss = g_flash_sector[i].ss_addr;
@@ -409,8 +459,8 @@ static int verify_flash_data(void)
 
 			/* if larger than max count, then committing data to check */
 			if (len >= (core_firmware->max_count - fps)) {
-				res = do_check(ss, len);
-				if (res < 0)
+				ret = do_check(ss, len);
+				if (ret < 0)
 					goto out;
 
 				ss = g_flash_sector[i].ss_addr;
@@ -419,8 +469,8 @@ static int verify_flash_data(void)
 		} else {
 			/* split flash sector and commit the last data to fw */
 			if (len != 0) {
-				res = do_check(ss, len);
-				if (res < 0)
+				ret = do_check(ss, len);
+				if (ret < 0)
 					goto out;
 
 				ss = g_flash_sector[i].ss_addr;
@@ -430,21 +480,21 @@ static int verify_flash_data(void)
 	}
 
 	/* it might be lower than the size of sector if calc the last array. */
-	if (len != 0 && res != -1)
-		res = do_check(ss, core_firmware->end_addr - ss);
+	if (len != 0 && ret != -1)
+		ret = do_check(ss, core_firmware->end_addr - ss);
 
 out:
-	return res;
+	return ret;
 }
 
 static int do_program_flash(uint32_t start_addr)
 {
-	int res = 0;
+	int ret = 0;
 	uint32_t k;
 	uint8_t buf[512] = { 0 };
 
-	res = core_flash_write_enable();
-	if (res < 0)
+	ret = core_flash_write_enable();
+	if (ret < 0)
 		goto out;
 
 	core_config_ice_mode_write(0x041000, 0x0, 1);	/* CS low */
@@ -470,14 +520,14 @@ static int do_program_flash(uint32_t start_addr)
 	if (core_write(core_config->slave_i2c_addr, buf, flashtab->program_page + 4) < 0) {
 		ipio_err("Failed to write data at start_addr = 0x%X, k = 0x%X, addr = 0x%x\n",
 			start_addr, k, start_addr + k);
-		res = -EIO;
+		ret = -EIO;
 		goto out;
 	}
 
 	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
 
-	res = core_flash_poll_busy();
-	if (res < 0)
+	ret = core_flash_poll_busy();
+	if (ret < 0)
 		goto out;
 
 	core_firmware->update_status = (start_addr * 101) / core_firmware->end_addr;
@@ -491,12 +541,12 @@ static int do_program_flash(uint32_t start_addr)
 			start_addr, core_firmware->update_status,'%');
 
 out:
-	return res;
+	return ret;
 }
 
 static int flash_program_sector(void)
 {
-	int i, j, res = 0;
+	int i, j, ret = 0;
 
 	for (i = 0; i < g_section_len + 1; i++) {
 		/*
@@ -516,23 +566,23 @@ static int flash_program_sector(void)
 			if (j > core_firmware->end_addr)
 				goto out;
 
-			res = do_program_flash(j);
-			if (res < 0)
+			ret = do_program_flash(j);
+			if (ret < 0)
 				goto out;
 		}
 	}
 
 out:
-	return res;
+	return ret;
 }
 
 static int do_erase_flash(uint32_t start_addr)
 {
-	int res = 0;
+	int ret = 0;
 	uint32_t temp_buf = 0;
 
-	res = core_flash_write_enable();
-	if (res < 0) {
+	ret = core_flash_write_enable();
+	if (ret < 0) {
 		ipio_err("Failed to config write enable\n");
 		goto out;
 	}
@@ -549,8 +599,8 @@ static int do_erase_flash(uint32_t start_addr)
 
 	mdelay(1);
 
-	res = core_flash_poll_busy();
-	if (res < 0)
+	ret = core_flash_poll_busy();
+	if (ret < 0)
 		goto out;
 
 	core_config_ice_mode_write(0x041000, 0x0, 1);	/* CS low */
@@ -565,7 +615,7 @@ static int do_erase_flash(uint32_t start_addr)
 	temp_buf = core_config_read_write_onebyte(0x041010);
 	if (temp_buf != 0xFF) {
 		ipio_err("Failed to erase data(0x%x) at 0x%x\n", temp_buf, start_addr);
-		res = -EINVAL;
+		ret = -EINVAL;
 		goto out;
 	}
 
@@ -574,12 +624,12 @@ static int do_erase_flash(uint32_t start_addr)
 	ipio_debug(DEBUG_FIRMWARE, "Earsing data at start addr: %x\n", start_addr);
 
 out:
-	return res;
+	return ret;
 }
 
 static int flash_erase_sector(void)
 {
-	int i, res = 0;
+	int i, ret = 0;
 
 	for (i = 0; i < g_total_sector; i++) {
 		if (core_firmware->isboot) {
@@ -590,19 +640,19 @@ static int flash_erase_sector(void)
 				continue;
 		}
 
-		res = do_erase_flash(g_flash_sector[i].ss_addr);
-		if (res < 0)
+		ret = do_erase_flash(g_flash_sector[i].ss_addr);
+		if (ret < 0)
 			goto out;
 	}
 
 out:
-	return res;
+	return ret;
 }
 
 #ifndef HOST_DOWNLOAD
 static int iram_upgrade(void)
 {
-	int i, j, res = 0;
+	int i, j, ret = 0;
 	uint8_t buf[512];
 	int upl = flashtab->program_page;
 
@@ -613,15 +663,13 @@ static int iram_upgrade(void)
 
 	ipio_info("Upgrade firmware written data into IRAM directly\n");
 
-	res = core_config_ice_mode_enable();
-	if (res < 0) {
-		ipio_err("Failed to enter ICE mode, res = %d\n", res);
-		return res;
+	ret = core_config_ice_mode_enable();
+	if (ret < 0) {
+		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
+		return ret;
 	}
 
 	mdelay(20);
-
-	core_config_set_watch_dog(false);
 
 	ipio_debug(DEBUG_FIRMWARE, "nStartAddr = 0x%06X, nEndAddr = 0x%06X, nChecksum = 0x%06X\n",
 	    core_firmware->start_addr, core_firmware->end_addr, core_firmware->checksum);
@@ -644,8 +692,8 @@ static int iram_upgrade(void)
 		if (core_write(core_config->slave_i2c_addr, buf, upl + 4)) {
 			ipio_err("Failed to write data via i2c, address = 0x%X, start_addr = 0x%X, end_addr = 0x%X\n",
 				(int)i, (int)core_firmware->start_addr, (int)core_firmware->end_addr);
-			res = -EIO;
-			return res;
+			ret = -EIO;
+			return ret;
 		}
 
 		core_firmware->update_status = (i * 101) / core_firmware->end_addr;
@@ -661,13 +709,11 @@ static int iram_upgrade(void)
 
 	mdelay(10);
 
-	core_config_set_watch_dog(true);
-
 	core_config_ice_mode_disable();
 
 	/*TODO: check iram status */
 
-	return res;
+	return ret;
 }
 #endif
 
@@ -816,14 +862,14 @@ static int host_download_dma_check(int block)
 
 int tddi_host_download(bool mode)
 {
-	int res = 0, ap_crc, ap_dma, dlm_crc, dlm_dma, method;
+	int ret = 0, ap_crc, ap_dma, dlm_crc, dlm_dma, method;
 	uint8_t *buf = NULL, *read_ap_buf = NULL, *read_dlm_buf = NULL, *read_mp_buf = NULL;
 	uint8_t *read_gesture_buf = NULL, *gesture_ap_buf = NULL;
 
-	res = core_config_ice_mode_enable();
-	if (res < 0) {
-		ipio_err("Failed to enter ICE mode, res = %d\n", res);
-		return res;
+	ret = core_config_ice_mode_enable();
+	if (ret < 0) {
+		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
+		return ret;
 	}
 
 	method = core_config_ice_mode_read(core_config->pid_addr);
@@ -831,10 +877,10 @@ int tddi_host_download(bool mode)
 	ipio_info("method of calculation for crc = %x\n", method);
 
 	/* Allocate buffers for host download */
-    read_ap_buf = kcalloc(MAX_AP_FIRMWARE_SIZE, sizeof(uint8_t), GFP_KERNEL);
+	read_ap_buf = kcalloc(MAX_AP_FIRMWARE_SIZE, sizeof(uint8_t), GFP_KERNEL);
 	read_mp_buf = kcalloc(MAX_MP_FIRMWARE_SIZE, sizeof(uint8_t), GFP_KERNEL);
-    read_dlm_buf = kcalloc(MAX_DLM_FIRMWARE_SIZE, sizeof(uint8_t), GFP_KERNEL);
-    buf = kcalloc(MAX_AP_FIRMWARE_SIZE + 4, sizeof(uint8_t), GFP_KERNEL);
+	read_dlm_buf = kcalloc(MAX_DLM_FIRMWARE_SIZE, sizeof(uint8_t), GFP_KERNEL);
+	buf = kcalloc(MAX_AP_FIRMWARE_SIZE + 4, sizeof(uint8_t), GFP_KERNEL);
 
 	if (ERR_ALLOC_MEM(read_ap_buf) || ERR_ALLOC_MEM(read_mp_buf) ||
 		ERR_ALLOC_MEM(read_dlm_buf) || ERR_ALLOC_MEM(buf)) {
@@ -864,7 +910,7 @@ int tddi_host_download(bool mode)
 
 	if (core_config_set_watch_dog(false) < 0) {
 		ipio_err("Failed to disable watch dog\n");
-		res = -EINVAL;
+		ret = -EINVAL;
 		goto out;
 	}
 
@@ -884,7 +930,7 @@ int tddi_host_download(bool mode)
 			ipio_info("Check MP Mode upgrade: PASS\n");
 		} else {
 			ipio_info("Check MP Mode upgrade: FAIL\n");
-			res = UPDATE_FAIL;
+			ret = UPDATE_FAIL;
 			goto out;
 		}
 	} else if (core_gesture->entry) {
@@ -903,7 +949,7 @@ int tddi_host_download(bool mode)
 				ipio_info("Check Gesture Mode upgrade: PASS\n");
 			} else {
 				ipio_info("Check Gesture Mode upgrade: FAIL\n");
-				res = UPDATE_FAIL;
+				ret = UPDATE_FAIL;
 				goto out;
 			}
 		} else {
@@ -921,7 +967,7 @@ int tddi_host_download(bool mode)
 				ipio_info("Check AP Mode upgrade: PASS\n");
 			} else {
 				ipio_info("Check AP Mode upgrade: FAIL\n");
-				res = UPDATE_FAIL;
+				ret = UPDATE_FAIL;
 				goto out;
 			}
 		}
@@ -955,7 +1001,7 @@ int tddi_host_download(bool mode)
 			if (CHECK_EQUAL(ap_crc, ap_dma) == UPDATE_FAIL ||
 					CHECK_EQUAL(dlm_crc, dlm_dma) == UPDATE_FAIL ) {
 				ipio_info("Check AP/DLM Mode upgrade: FAIL\n");
-				res = UPDATE_FAIL;
+				ret = UPDATE_FAIL;
 				goto out;
 			}
 		} else {
@@ -965,7 +1011,7 @@ int tddi_host_download(bool mode)
 			if (memcmp(ap_fw, read_ap_buf, MAX_AP_FIRMWARE_SIZE) != 0 ||
 					memcmp(dlm_fw, read_dlm_buf, MAX_DLM_FIRMWARE_SIZE) != 0) {
 				ipio_info("Check AP/DLM Mode upgrade: FAIL\n");
-				res = UPDATE_FAIL;
+				ret = UPDATE_FAIL;
 				goto out;
 			} else {
 				ipio_info("Check AP/DLM Mode upgrade: SUCCESS\n");
@@ -982,22 +1028,19 @@ out:
 
 	core_config_ice_mode_disable();
 
-	if (core_fr->actual_fw_mode == protocol->test_mode)
-		mdelay(1200);
-
 	ipio_kfree((void **)&buf);
 	ipio_kfree((void **)&read_ap_buf);
 	ipio_kfree((void **)&read_dlm_buf);
 	ipio_kfree((void **)&read_mp_buf);
 	ipio_kfree((void **)&read_gesture_buf);
 	ipio_kfree((void **)&gesture_ap_buf);
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(tddi_host_download);
 
 int core_firmware_boot_host_download(void)
 {
-	int res = 0;
+	int ret = 0;
 	bool power = false, esd = false;
 
 	ipio_info("BOOT: Starting to upgrade firmware ...\n");
@@ -1038,10 +1081,10 @@ int core_firmware_boot_host_download(void)
 	gpio_set_value(ipd->reset_gpio, 1);
 	mdelay(ipd->edge_delay);
 
-	res = core_firmware->upgrade_func(true);
-	if (res < 0) {
-		core_firmware->update_status = res;
-		ipio_err("Failed to upgrade firmware, res = %d\n", res);
+	ret = core_firmware->upgrade_func(true);
+	if (ret < 0) {
+		core_firmware->update_status = ret;
+		ipio_err("Failed to upgrade firmware, ret = %d\n", ret);
 		goto out;
 	}
 
@@ -1060,18 +1103,18 @@ out:
 	}
 
 	core_firmware->isUpgrading = false;
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_firmware_boot_host_download);
 #else
 int tddi_fw_upgrade(bool isIRAM)
 {
-	int res = 0;
+	int ret = 0;
 
 #ifndef HOST_DOWNLOAD
 	if (isIRAM) {
-		res = iram_upgrade();
-		return res;
+		ret = iram_upgrade();
+		return ret;
 	}
 #endif
 
@@ -1081,8 +1124,8 @@ int tddi_fw_upgrade(bool isIRAM)
 
 	ipio_info("Enter to ICE Mode\n");
 
-	res = core_config_ice_mode_enable();
-	if (res < 0) {
+	ret = core_config_ice_mode_enable();
+	if (ret < 0) {
 		ipio_err("Failed to enable ICE mode\n");
 		goto out;
 	}
@@ -1091,15 +1134,15 @@ int tddi_fw_upgrade(bool isIRAM)
 
 	if (core_config_set_watch_dog(false) < 0) {
 		ipio_err("Failed to disable watch dog\n");
-		res = -EINVAL;
+		ret = -EINVAL;
 		goto out;
 	}
 
 	/* Check if need to upgrade fw */
-	res = tddi_check_fw_upgrade();
-	if (res == NEED_UPDATE) {
+	ret = tddi_check_fw_upgrade();
+	if (ret == NEED_UPDATE) {
 		ipio_info("FW CRC is different, doing upgrade\n");
-	} else if (res == NO_NEED_UPDATE) {
+	} else if (ret == NO_NEED_UPDATE) {
 		ipio_info("FW CRC is the same, doing nothing\n");
 		goto out;
 	} else {
@@ -1110,16 +1153,16 @@ int tddi_fw_upgrade(bool isIRAM)
 	/* Disable flash protection from being written */
 	core_flash_enable_protect(false);
 
-	res = flash_erase_sector();
-	if (res < 0) {
+	ret = flash_erase_sector();
+	if (ret < 0) {
 		ipio_err("Failed to erase flash\n");
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = flash_program_sector();
-	if (res < 0) {
+	ret = flash_program_sector();
+	if (ret < 0) {
 		ipio_err("Failed to program flash\n");
 		goto out;
 	}
@@ -1133,8 +1176,8 @@ int tddi_fw_upgrade(bool isIRAM)
 
 	/* ensure that the chip has been updated */
 	ipio_info("Enter to ICE Mode again\n");
-	res = core_config_ice_mode_enable();
-	if (res < 0) {
+	ret = core_config_ice_mode_enable();
+	if (ret < 0) {
 		ipio_err("Failed to enable ICE mode\n");
 		goto out;
 	}
@@ -1142,21 +1185,21 @@ int tddi_fw_upgrade(bool isIRAM)
 	mdelay(20);
 
 	/* check the data that we've just written into the iram. */
-	res = verify_flash_data();
-	if (res == 0)
+	ret = verify_flash_data();
+	if (ret == 0)
 		ipio_info("Data Correct !\n");
 
 out:
 	if (core_config_set_watch_dog(true) < 0) {
 		ipio_err("Failed to enable watch dog\n");
-		res = -EINVAL;
+		ret = -EINVAL;
 	}
 
 	core_config_ice_mode_disable();
-	return res;
+	return ret;
 }
-
 #ifdef BOOT_FW_UPGRADE
+#ifndef BOOT_FW_UPGRADE_READ_HEX
 static int convert_hex_array(void)
 {
 	int i, j, index = 0, crc_byte_len = 4;
@@ -1270,11 +1313,15 @@ out:
 	ipio_err("Failed to convert ILI FW array\n");
 	return -1;
 }
+#endif /* BOOT_FW_UPGRADE_READ_HEX */
 
 int core_firmware_boot_upgrade(void)
 {
-	int res = 0;
+	int ret = 0, i = 0;
 	bool power = false, esd = false;
+	const struct firmware *fw;
+	int fsize = 0;
+	uint8_t *hex_buffer = NULL;
 
 	ipio_info("BOOT: Starting to upgrade firmware ...\n");
 
@@ -1310,14 +1357,14 @@ int core_firmware_boot_upgrade(void)
 
 	if (flashtab == NULL) {
 		ipio_err("Flash table isn't created\n");
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
 	flash_fw = kcalloc(flashtab->mem_size, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(flash_fw)) {
 		ipio_err("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -1326,28 +1373,61 @@ int core_firmware_boot_upgrade(void)
 	g_total_sector = flashtab->mem_size / flashtab->sector;
 	if (g_total_sector <= 0) {
 		ipio_err("Flash configure is wrong\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
 	g_flash_sector = kcalloc(g_total_sector, sizeof(struct flash_sector), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(g_flash_sector)) {
 		ipio_err("Failed to allocate g_flash_sector memory, %ld\n", PTR_ERR(g_flash_sector));
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
-	res = convert_hex_array();
-	if (res < 0) {
-		ipio_err("Failed to covert firmware data, res = %d\n", res);
+#ifdef BOOT_FW_UPGRADE_READ_HEX
+	msleep(BOOT_UPDATE_FW_DELAY_TIME);
+	ret = request_firmware(&fw, BOOT_FW_HEX_NAME, &ipd->client->dev);
+
+	if (ret < 0) {
+		ipio_err("Failed to open the file Name %s.\n", BOOT_FW_HEX_NAME);
+		ret = -ENOENT;
+		return ret;
+	}
+
+	fsize = fw->size;
+
+	ipio_info("fsize = %d\n", fsize);
+
+	if (fsize <= 0) {
+		ipio_err("The size of file is zero\n");
+		ret = -EINVAL;
 		goto out;
 	}
+
+	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
+	if (ERR_ALLOC_MEM(hex_buffer)) {
+		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	for (i = 0 ; i < fw->size ; i++)
+		hex_buffer[i] = fw->data[i];
+
+	ret = convert_hex_file(hex_buffer, fsize, false);
+#else
+	ret = convert_hex_array();
+	if (ret < 0) {
+		ipio_err("Failed to covert firmware data, ret = %d\n", ret);
+		goto out;
+	}
+#endif
 
 	/* calling that function defined at init depends on chips. */
-	res = core_firmware->upgrade_func(false);
-	if (res < 0) {
-		core_firmware->update_status = res;
-		ipio_err("Failed to upgrade firmware, res = %d\n", res);
+	ret = core_firmware->upgrade_func(false);
+	if (ret < 0) {
+		core_firmware->update_status = ret;
+		ipio_err("Failed to upgrade firmware, ret = %d\n", ret);
 		goto out;
 	}
 
@@ -1373,8 +1453,9 @@ out:
 
 	ipio_kfree((void **)&flash_fw);
 	ipio_kfree((void **)&g_flash_sector);
+	ipio_kfree((void **)&hex_buffer);
 	core_firmware->isUpgrading = false;
-	return res;
+	return ret;
 }
 #endif /* BOOT_FW_UPGRADE */
 #endif /* HOST_DOWNLOAD */
@@ -1429,14 +1510,19 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			nExAddr = nExAddr >> 12;
 		}
 
-		if (nType == 0xAE) {
+		if (nType == 0xAE || nType == 0xAF) {
 			core_firmware->hasBlockInfo = true;
 			/* insert block info extracted from hex */
-			if (block < 4) {
+			if (block < FW_BLOCK_INFO_NUM) {
 				g_flash_block_info[block].start_addr = HexToDec(&pBuf[i + 9], 6);
 				g_flash_block_info[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
 				ipio_debug(DEBUG_FIRMWARE, "Block[%d]: start_addr = %x, end = %x\n",
 				    block, g_flash_block_info[block].start_addr, g_flash_block_info[block].end_addr);
+				if(nType == 0xAF) {
+				    g_flash_block_info[block].number = HexToDec(&pBuf[i + 9 + 6 + 6], 2);
+					ipio_debug(DEBUG_FIRMWARE, "Block[%d]: number = %x\n",
+						block, g_flash_block_info[block].number);
+				}
 			}
 			block++;
 		}
@@ -1577,7 +1663,7 @@ out:
  */
 int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 {
-	int res = 0, fsize;
+	int ret = 0, fsize;
 	uint8_t *hex_buffer = NULL;
 	bool power = false, esd = false;
 	struct file *pfile = NULL;
@@ -1618,13 +1704,13 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		ipio_err("Failed to open the file at %s.\n", pFilePath);
 #ifdef HOST_DOWNLOAD
 		ipio_info("Feed ili file to host download instead of hex\n");
-		res = core_firmware->upgrade_func(isIRAM);
-		if (res < 0)
-			ipio_err("host download failed, res = %d\n", res);
+		ret = core_firmware->upgrade_func(isIRAM);
+		if (ret < 0)
+			ipio_err("host download failed, ret = %d\n", ret);
 		goto out_hd;
 #endif
-		res = -ENOENT;
-		return res;
+		ret = -ENOENT;
+		return ret;
 	}
 
 	fsize = pfile->f_inode->i_size;
@@ -1633,20 +1719,20 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 	if (fsize <= 0) {
 		ipio_err("The size of file is zero\n");
-		res = -EINVAL;
+		ret = -EINVAL;
 		goto out;
 	}
 
 	if (flashtab == NULL) {
 		ipio_err("Flash table isn't created\n");
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
 	flash_fw = kcalloc(flashtab->mem_size, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(flash_fw)) {
 		ipio_err("Failed to allocate flash_fw memory, %ld\n", PTR_ERR(flash_fw));
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -1655,21 +1741,21 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	g_total_sector = flashtab->mem_size / flashtab->sector;
 	if (g_total_sector <= 0) {
 		ipio_err("Flash configure is wrong\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
 	g_flash_sector = kcalloc(g_total_sector, sizeof(*g_flash_sector), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(g_flash_sector)) {
 		ipio_err("Failed to allocate g_flash_sector memory, %ld\n", PTR_ERR(g_flash_sector));
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
 	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(hex_buffer)) {
 		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -1685,23 +1771,25 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 	/* restore userspace mem segment after read. */
 	set_fs(old_fs);
 
-	res = convert_hex_file(hex_buffer, fsize, isIRAM);
-	if (res < 0) {
-		ipio_err("Failed to covert firmware data, res = %d\n", res);
+	ret = convert_hex_file(hex_buffer, fsize, isIRAM);
+	if (ret < 0) {
+		ipio_err("Failed to covert firmware data, ret = %d\n", ret);
 		goto out;
 	}
 
 	/* calling that function defined at init depends on chips. */
-	res = core_firmware->upgrade_func(isIRAM);
-	if (res < 0) {
-		ipio_err("Failed to upgrade firmware, res = %d\n", res);
+	ret = core_firmware->upgrade_func(isIRAM);
+	if (ret < 0) {
+		ipio_err("Failed to upgrade firmware, ret = %d\n", ret);
 		goto out;
 	}
 
 	ipio_info("Update TP/Firmware information...\n");
 
+#ifdef HOST_DOWNLOAD
 	/* Waiting for fw load code finished in order to get TP info */
 	mdelay(10);
+#endif
 
 	core_config_get_fw_ver();
 	core_config_get_protocol_ver();
@@ -1711,8 +1799,9 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 
 out:
 	filp_close(pfile, NULL);
-
+#ifdef HOST_DOWNLOAD
 out_hd:
+#endif
 	if (power) {
 		ipd->isEnablePollCheckPower = true;
 		queue_delayed_work(ipd->check_power_status_queue,
@@ -1729,7 +1818,7 @@ out_hd:
 	ipio_kfree((void **)&hex_buffer);
 	ipio_kfree((void **)&flash_fw);
 	ipio_kfree((void **)&g_flash_sector);
-	return res;
+	return ret;
 }
 
 int core_firmware_init(void)

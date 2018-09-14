@@ -48,7 +48,7 @@ struct flash_table *flashtab = NULL;
 
 int core_flash_poll_busy(void)
 {
-	int timer = 500, res = 0;
+	int timer = 500, ret = 0;
 
 	core_config_ice_mode_write(0x041000, 0x0, 1);	/* CS low */
 	core_config_ice_mode_write(0x041004, 0x66aa55, 3);	/* Key */
@@ -66,10 +66,10 @@ int core_flash_poll_busy(void)
 	}
 
 	ipio_err("Polling busy Time out !\n");
-	res = -1;
+	ret = -1;
 out:
 	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_flash_poll_busy);
 

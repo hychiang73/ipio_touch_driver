@@ -39,6 +39,7 @@ struct ilitek_platform_data {
 #endif
 
 	struct mutex plat_mutex;
+	struct mutex touch_mutex;
 	spinlock_t plat_spinlock;
 
 	uint32_t chip_id;

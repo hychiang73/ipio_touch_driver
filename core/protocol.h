@@ -41,6 +41,7 @@
 #define P5_0_SET_CDC_INIT               0xF1
 #define P5_0_GET_CDC_DATA               0xF2
 #define P5_0_CDC_BUSY_STATE			    0xF3
+#define P5_0_MP_TEST_MODE_INFO			0xFE
 #define P5_0_I2C_UART				    0x40
 
 #define P5_0_FIRMWARE_UNKNOWN_MODE		0xFF
@@ -76,6 +77,7 @@ struct protocol_cmd_list {
 	int window_len;
 	int cdc_len;
 	int cdc_raw_len;
+	int mp_info_len;
 
 	/* TP information */
 	uint8_t cmd_read_ctrl;
@@ -87,6 +89,7 @@ struct protocol_cmd_list {
 	uint8_t cmd_mode_ctrl;
 	uint8_t cmd_i2cuart;
 	uint8_t cmd_cdc_busy;
+	uint8_t cmd_get_mp_info;
 
 	/* Function control */
 	uint8_t sense_ctrl[3];

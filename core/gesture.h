@@ -24,10 +24,13 @@
 
 #ifndef __GESTURE_H
 #define __GESTURE_H
-#define GESTURE_NORMAL_MODE          0
-#define GESTURE_INFO_MPDE            1
+
 #define GESTURE_INFO_LENGTH          170
 #define GESTURE_MORMAL_LENGTH        8
+
+#define GESTURE_NORMAL_MODE          0
+#define GESTURE_INFO_MODE            1
+#define GESTURE_MODE GESTURE_NORMAL_MODE
 
 /* The example for the gesture virtual keys */
 #define GESTURE_DOUBLECLICK			    0x58
@@ -49,6 +52,8 @@
 #define GESTURE_CODE_V_LEFT						0x6D
 #define GESTURE_CODE_V_RIGHT					0x6E
 #define GESTURE_CODE_TWO_LINE_2_BOTTOM			0x6F
+#define GESTURE_F               			    0x70
+#define GESTURE_AT              			    0x71
 
 #define KEY_GESTURE_D					KEY_D
 #define KEY_GESTURE_UP					KEY_UP
@@ -63,6 +68,7 @@
 #define KEY_GESTURE_V					KEY_V
 #define KEY_GESTURE_C					KEY_C
 #define KEY_GESTURE_Z					KEY_Z
+#define KEY_GESTURE_F					KEY_F
 
 struct core_gesture_data {
     uint32_t start_addr;
@@ -77,6 +83,7 @@ struct core_gesture_data {
 };
 
 extern struct core_gesture_data *core_gesture;
+
 #ifdef HOST_DOWNLOAD
 extern int core_gesture_load_code(void);
 extern int core_gesture_load_ap_code(void);
@@ -85,4 +92,5 @@ extern int core_gesture_match_key(uint8_t gid);
 extern void core_gesture_set_key(struct core_fr_data *fr_data);
 extern int core_gesture_init(void);
 extern void core_gesture_remove(void);
-#endif
+
+#endif /* __GESTURE_H */
