@@ -624,7 +624,7 @@ EXPORT_SYMBOL(core_config_ice_mode_enable);
 
 int core_config_set_watch_dog(bool enable)
 {
-	int timeout = 10, ret = 0;
+	int timeout = 100, ret = 0;
 	uint8_t off_bit = 0x5A, on_bit = 0xA5;
 	uint8_t value_low = 0x0, value_high = 0x0;
 	uint32_t wdt_addr = core_config->wdt_addr;
