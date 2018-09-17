@@ -668,11 +668,10 @@ int core_config_set_watch_dog(bool enable)
 		} else {
 			if (CHECK_EQUAL(ret, off_bit) == 0)
 				break;
-			else {
-				/* If WDT can't be disabled, try to command and wait to see */
-				core_config_ice_mode_write(wdt_addr, 0x00, 1);
-				core_config_ice_mode_write(wdt_addr, 0x98, 1);
-			}
+
+			/* If WDT can't be disabled, try to command and wait to see */
+			core_config_ice_mode_write(wdt_addr, 0x00, 1);
+			core_config_ice_mode_write(wdt_addr, 0x98, 1);
 		}
 
 		timeout--;
