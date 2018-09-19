@@ -64,12 +64,6 @@ static void read_flash_info(uint8_t cmd, int len)
 	core_flash_init(flash_mid, flash_id);
 }
 
-/*
- * It checks chip id shifting sepcific bits based on chip's requirement.
- *
- * @pid_data: 4 bytes, reading from firmware.
- *
- */
 static uint32_t check_chip_id(uint32_t pid_data)
 {
 	int i;
@@ -94,12 +88,29 @@ static uint32_t check_chip_id(uint32_t pid_data)
 	return 0;
 }
 
-/*
- * Read & Write one byte in ICE Mode.
- */
+void core_config_read_pc_counter(void)
+{
+	uint32_t pc_cnt = 0x0;
+
+	if (!core_config->icemodeenable) {
+		if (core_config_ice_mode_enable() < 0)
+			ipio_err("Failed to enter ice mode\n");
+	}
+
+	/* Read fw status if it was hanging on a unknown status */
+	pc_cnt = core_config_ice_mode_read(ILI9881_PC_COUNTER_ADDR);
+	ipio_err("pc counter = 0x%x\n", pc_cnt);
+
+	if (core_config->icemodeenable) {
+		if (core_config_ice_mode_disable() < 0)
+			ipio_err("Failed to disable ice mode\n");
+	}
+}
+EXPORT_SYMBOL(core_config_read_pc_counter);
+
 uint32_t core_config_read_write_onebyte(uint32_t addr)
 {
-	int res = 0;
+	int ret = 0;
 	uint32_t data = 0;
 	uint8_t szOutBuf[64] = { 0 };
 
@@ -108,14 +119,14 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
 	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-	res = core_write(core_config->slave_i2c_addr, szOutBuf, 4);
-	if (res < 0)
+	ret = core_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	if (ret < 0)
 		goto out;
 
 	mdelay(1);
 
-	res = core_read(core_config->slave_i2c_addr, szOutBuf, 1);
-	if (res < 0)
+	ret = core_read(core_config->slave_i2c_addr, szOutBuf, 1);
+	if (ret < 0)
 		goto out;
 
 	data = (szOutBuf[0]);
@@ -123,14 +134,14 @@ uint32_t core_config_read_write_onebyte(uint32_t addr)
 	return data;
 
 out:
-	ipio_err("Failed to read/write data in ICE mode, res = %d\n", res);
-	return res;
+	ipio_err("Failed to read/write data in ICE mode, ret = %d\n", ret);
+	return ret;
 }
 EXPORT_SYMBOL(core_config_read_write_onebyte);
 
 uint32_t core_config_ice_mode_read(uint32_t addr)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t szOutBuf[64] = { 0 };
 	uint32_t data = 0;
 
@@ -139,14 +150,14 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 	szOutBuf[2] = (char)((addr & 0x0000FF00) >> 8);
 	szOutBuf[3] = (char)((addr & 0x00FF0000) >> 16);
 
-	res = core_write(core_config->slave_i2c_addr, szOutBuf, 4);
-	if (res < 0)
+	ret = core_write(core_config->slave_i2c_addr, szOutBuf, 4);
+	if (ret < 0)
 		goto out;
 
 	mdelay(10);
 
-	res = core_read(core_config->slave_i2c_addr, szOutBuf, 4);
-	if (res < 0)
+	ret = core_read(core_config->slave_i2c_addr, szOutBuf, 4);
+	if (ret < 0)
 		goto out;
 
 	data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
@@ -154,18 +165,143 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 	return data;
 
 out:
-	ipio_err("Failed to read data in ICE mode, res = %d\n", res);
-	return res;
+	ipio_err("Failed to read data in ICE mode, ret = %d\n", ret);
+	return ret;
 }
 EXPORT_SYMBOL(core_config_ice_mode_read);
 
-/*
- * Write commands into firmware in ICE Mode.
- *
- */
+int core_config_switch_fw_mode(uint8_t *data)
+{
+	int ret = 0, i, mode, prev_mode;
+	int checksum = 0;
+	uint8_t mp_code[14] = { 0 };
+	uint8_t cmd[4] = { 0 };
+
+	if (data == NULL) {
+		ipio_err("data is invaild\n");
+		return -1;
+	}
+
+	if (protocol->major != 0x5) {
+		ipio_err("Wrong the major version of protocol, 0x%x\n", protocol->major);
+		return -1;
+	}
+
+	ilitek_platform_disable_irq();
+
+	mode = data[0];
+	prev_mode = core_fr->actual_fw_mode;
+	core_fr->actual_fw_mode = mode;
+
+	ipio_info("change fw mode from (%d) to (%d).\n", prev_mode, core_fr->actual_fw_mode);
+
+	switch(core_fr->actual_fw_mode) {
+		case P5_0_FIRMWARE_I2CUART_MODE:
+			cmd[0] = protocol->cmd_i2cuart;
+			cmd[1] = *(data + 1);
+			cmd[2] = *(data + 2);
+
+			ipio_info("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x\n", cmd[0], cmd[1], cmd[2]);
+
+			ret = core_write(core_config->slave_i2c_addr, cmd, 3);
+			if (ret < 0)
+				ipio_err("Failed to switch I2CUART mode\n");
+
+			break;
+		case P5_0_FIRMWARE_DEMO_MODE:
+		case P5_0_FIRMWARE_DEBUG_MODE:
+			cmd[0] = protocol->cmd_mode_ctrl;
+			cmd[1] = mode;
+
+			ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
+
+			ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+			if (ret < 0)
+				ipio_err("Failed to switch Demo/Debug mode\n");
+
+			break;
+		case P5_0_FIRMWARE_GESTURE_MODE:
+			cmd[0] = 0x1;
+			cmd[1] = 0xA;
+			cmd[2] = core_gesture->mode + 1;
+
+			ipio_info("Switch to Gesture mode, b0[0] = 0x%x, b1 = 0x%x, b2 = 0x%x\n", cmd[0], cmd[1], cmd[2]);
+
+			ret = core_write(core_config->slave_i2c_addr, cmd, 3);
+			if (ret < 0)
+				ipio_err("Failed to switch I2CUART mode\n");
+			break;
+		case P5_0_FIRMWARE_TEST_MODE:
+			ipio_info("Switch to Test mode\n");
+
+			if (INTERFACE == I2C_INTERFACE) {
+				cmd[0] = protocol->cmd_mode_ctrl;
+				cmd[1] = mode;
+
+				ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+				if (ret < 0) {
+					ipio_err("Failed to switch Test mode\n");
+					break;
+				}
+
+				ipio_info("b0[0] = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
+
+				cmd[0] = protocol->cmd_get_mp_info;
+
+				/* Read MP Test information to ensure if fw supports test mode. */
+				core_write(core_config->slave_i2c_addr, cmd, 1);
+				mdelay(10);
+				core_read(core_config->slave_i2c_addr, mp_code, protocol->mp_info_len);
+
+				for (i = 0; i < protocol->mp_info_len - 1; i++)
+					checksum += mp_code[i];
+
+				if ((-checksum & 0xFF) != mp_code[protocol->mp_info_len - 1]) {
+					ipio_err("checksume error (0x%x), FW doesn't support test mode.\n",
+							(-checksum & 0XFF));
+					ret = -1;
+					break;
+				}
+			}
+
+			/* After command to test mode, fw stays at demo mode until busy free. */
+			core_fr->actual_fw_mode = protocol->demo_mode;
+
+			/* Check ready to switch test mode from demo mode */
+			if (core_config_check_cdc_busy(50, 50) < 0) {
+				ipio_err("Mode(%d) Check busy is timout\n", core_fr->actual_fw_mode);
+				ret = -1;
+				break;
+			}
+
+			/* Now set up fw as test mode */
+			core_fr->actual_fw_mode = protocol->test_mode;
+
+			if (core_mp_move_code() != 0) {
+				ipio_err("Switch to test mode failed\n");
+				ret = -1;
+			}
+			break;
+		default:
+			ipio_err("Unknown firmware mode: %x\n", mode);
+			ret = -1;
+			break;
+	}
+
+	if (ret < 0) {
+		ipio_err("switch mode failed, return to previous mode\n");
+		core_fr->actual_fw_mode = prev_mode;
+	}
+
+	ipio_info("Actual FW mode = %d\n", core_fr->actual_fw_mode);
+	ilitek_platform_enable_irq();
+	return ret;
+}
+EXPORT_SYMBOL(core_config_switch_fw_mode);
+
 int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 {
-	int res = 0, i;
+	int ret = 0, i;
 	uint8_t szOutBuf[64] = { 0 };
 
 	szOutBuf[0] = 0x25;
@@ -177,31 +313,41 @@ int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t size)
 		szOutBuf[i + 4] = (char)(data >> (8 * i));
 	}
 
-	res = core_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
+	ret = core_write(core_config->slave_i2c_addr, szOutBuf, size + 4);
 
-	if (res < 0)
-		ipio_err("Failed to write data in ICE mode, res = %d\n", res);
+	if (ret < 0)
+		ipio_err("Failed to write data in ICE mode, ret = %d\n", ret);
 
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_ice_mode_write);
 
-/*
- * Doing soft reset on ic.
- *
- * It resets ic's status, moves code and leave ice mode automatically if in
- * that mode.
- */
+int core_config_ice_mode_bit_mask(uint32_t addr, uint32_t nMask, uint32_t value)
+{
+	int ret = 0;
+	uint32_t data = 0;
+
+	data = core_config_ice_mode_read(addr);
+
+ 	data &= (~nMask);
+	data |= (value & nMask);
+
+	ipio_info("mask value data = %x\n", data);
+
+	ret = core_config_ice_mode_write(addr, data, 4);
+	if(ret < 0)
+		ipio_err("Failed to re-write data in ICE mode, ret = %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(core_config_ice_mode_bit_mask);
+
 void core_config_ic_reset(void)
 {
-#ifdef HOST_DOWNLOAD
-	core_config_ice_mode_disable();
-#else
 	uint32_t key = 0;
 
-	if (core_config->chip_id == CHIP_TYPE_ILI9881) {
+	if (core_config->chip_id == CHIP_TYPE_ILI9881)
 		key = 0x00019881;
-	}
 
 	ipio_debug(DEBUG_CONFIG, "key = 0x%x\n", key);
 	if (key != 0) {
@@ -210,8 +356,7 @@ void core_config_ic_reset(void)
 		core_config->do_ic_reset = false;
 	}
 
-	msleep(300);
-#endif
+	msleep(100);
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
@@ -357,17 +502,13 @@ void core_config_set_phone_cover(uint8_t *pattern)
 }
 EXPORT_SYMBOL(core_config_set_phone_cover);
 
-/*
- * ic_suspend: Get IC to suspend called from system.
- *
- * The timing when goes to sense stop or houw much times the command need to be called
- * is depending on customer's system requirement, which might be different due to
- * the DDI design or other conditions.
- */
 void core_config_ic_suspend(void)
 {
+	int i ;
+
 	ipio_info("Starting to suspend ...\n");
 
+	core_fr->isEnableFR = false;
 	ilitek_platform_disable_irq();
 
 	if (ipd->isEnablePollCheckPower)
@@ -385,10 +526,12 @@ void core_config_ic_suspend(void)
 	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
 
 	if (core_config->isEnableGesture) {
-		core_fr->actual_fw_mode = P5_0_FIRMWARE_GESTURE_MODE;
+		core_fr->isEnableFR = true;
 #ifdef HOST_DOWNLOAD
 		if(core_gesture_load_code() < 0)
 			ipio_err("load gesture code fail\n");
+#else
+		core_config_switch_fw_mode(&protocol->gesture_mode);
 #endif
 		ilitek_platform_enable_irq();
 	} else {
@@ -396,56 +539,46 @@ void core_config_ic_suspend(void)
 		core_config_sleep_ctrl(false);
 	}
 
+	/* release all touch points */
+#ifdef MT_B_TYPE
+	for (i = 0 ; i < MAX_TOUCH_NUM; i++)
+		core_fr_touch_release(0, 0, i);
+
+	input_report_key(core_fr->input_device, BTN_TOUCH, 0);
+	input_report_key(core_fr->input_device, BTN_TOOL_FINGER, 0);
+#else
+	core_fr_touch_release(0, 0, 0);
+#endif
+
+	input_sync(core_fr->input_device);
 	ipio_info("Suspend done\n");
 }
 EXPORT_SYMBOL(core_config_ic_suspend);
 
-/*
- * ic_resume: Get IC to resume called from system.
- *
- * The timing when goes to sense start or houw much times the command need to be called
- * is depending on customer's system requirement, which might be different due to
- * the DDI design or other conditions.
- */
 void core_config_ic_resume(void)
 {
 	ipio_info("Starting to resume ...\n");
 
-	if (core_config->isEnableGesture) {
+	core_fr->isEnableFR = false;
+
 #ifdef HOST_DOWNLOAD
+	if (core_config->isEnableGesture) {
 		ilitek_platform_disable_irq();
 		if(core_gesture_load_ap_code() < 0) {
 			ipio_err("load ap code fail\n");
 			ilitek_platform_tp_hw_reset(true);
 		}
-#endif
 	} else {
-#ifdef HOST_DOWNLOAD
 		ilitek_platform_tp_hw_reset(true);
-#endif
 	}
-
-	/* sleep out */
-	core_config_sleep_ctrl(true);
-
-	/* check system busy */
-	if (core_config_check_cdc_busy(50, 50) < 0)
-		ipio_err("Check busy is timout !\n");
-
-	/* sense start for TP */
-	core_config_sense_ctrl(true);
-
-	core_fr_mode_control(&protocol->demo_mode);
-
-#ifndef HOST_DOWNLOAD
-	/* Soft reset */
+#else
+	/* chip reset */
 	core_config_ice_mode_enable();
-	core_config_set_watch_dog(false);
-	mdelay(10);
 	core_config_ic_reset();
 #endif
 
-out:
+	core_config_switch_fw_mode(&protocol->demo_mode);
+
 	if (ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue,
 			&ipd->check_power_status_work, ipd->work_delay);
@@ -453,6 +586,7 @@ out:
 		queue_delayed_work(ipd->check_esd_status_queue,
 			&ipd->check_esd_status_work, ipd->esd_check_time);
 
+	core_fr->isEnableFR = true;
 	ilitek_platform_enable_irq();
 	ipio_info("Resume done\n");
 }
@@ -460,17 +594,20 @@ EXPORT_SYMBOL(core_config_ic_resume);
 
 int core_config_ice_mode_disable(void)
 {
-	uint32_t res = 0;
-	uint8_t cmd[4];
+	uint32_t ret = 0;
+	uint8_t cmd[4] = {0};
+
 	cmd[0] = 0x1b;
 	cmd[1] = 0x62;
 	cmd[2] = 0x10;
 	cmd[3] = 0x18;
 
 	ipio_info("ICE Mode disabled\n")
-	res = core_write(core_config->slave_i2c_addr, cmd, 4);
+
+	ret = core_write(core_config->slave_i2c_addr, cmd, 4);
 	core_config->icemodeenable = false;
-	return res;
+
+	return ret;
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
@@ -495,6 +632,12 @@ int core_config_set_watch_dog(bool enable)
 	if (wdt_addr <= 0 || core_config->chip_id <= 0) {
 		ipio_err("WDT/CHIP ID is invalid\n");
 		return -EINVAL;
+	}
+
+	/* FW will automatiacally disable WDT in I2C */
+	if(INTERFACE == I2C_INTERFACE) {
+		ipio_info("Interface is I2C, do nothing\n");
+		return 0;
 	}
 
 	/* Config register and values by IC */
@@ -525,6 +668,10 @@ int core_config_set_watch_dog(bool enable)
 		} else {
 			if (CHECK_EQUAL(ret, off_bit) == 0)
 				break;
+
+			/* If WDT can't be disabled, try to command and wait to see */
+			core_config_ice_mode_write(wdt_addr, 0x00, 1);
+			core_config_ice_mode_write(wdt_addr, 0x98, 1);
 		}
 
 		timeout--;
@@ -549,7 +696,7 @@ EXPORT_SYMBOL(core_config_set_watch_dog);
 
 int core_config_check_cdc_busy(int conut, int delay)
 {
-	int timer = conut, res = -1;
+	int timer = conut, ret = -1;
 	uint8_t cmd[2] = { 0 };
 	uint8_t busy = 0, busy_byte = 0;
 
@@ -576,36 +723,38 @@ int core_config_check_cdc_busy(int conut, int delay)
 
 		if (busy == busy_byte) {
 			ipio_info("Check busy is free\n");
-			res = 0;
+			ret = 0;
 			break;
 		}
 		timer--;
 		mdelay(delay);
 	}
 
-	if (res < -1)
+	if (ret < -1) {
 		ipio_err("Check busy (0x%x) timeout\n", busy);
+		core_config_read_pc_counter();
+	}
 
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_check_cdc_busy);
 
 int core_config_check_int_status(bool high)
 {
-	int timer = 1000, res = -1;
+	int timer = 1000, ret = -1;
 
 	/* From FW request, timeout should at least be 5 sec */
 	while (timer) {
 		if(high) {
 			if (gpio_get_value(ipd->int_gpio)) {
 				ipio_info("Check busy is free\n");
-				res = 0;
+				ret = 0;
 				break;
 			}
 		} else {
 			if (!gpio_get_value(ipd->int_gpio)) {
 				ipio_info("Check busy is free\n");
-				res = 0;
+				ret = 0;
 				break;
 			}
 		}
@@ -614,21 +763,21 @@ int core_config_check_int_status(bool high)
 		timer--;
 	}
 
-	if (res < -1)
+	if (ret < -1)
 		ipio_info("Check busy timeout !!\n");
 
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_check_int_status);
 
 int core_config_get_project_id(uint8_t *pid_data)
 {
-	int i = 0, res = 0;
+	int i = 0, ret = 0;
 	uint32_t pid_addr = 0x1D000, pid_size = 10;
 
-	res = core_config_ice_mode_enable();
-	if (res < 0) {
-		ipio_err("Failed to enter ICE mode, res = %d\n", res);
+	ret = core_config_ice_mode_enable();
+	if (ret < 0) {
+		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
 		return -1;
 	}
 
@@ -655,15 +804,15 @@ int core_config_get_project_id(uint8_t *pid_data)
 	}
 
 	core_config_ice_mode_write(0x041010, 0x1, 0);   /* CS high */
-	core_config_ic_reset();
+	core_config_ice_mode_disable();
 
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_get_project_id);
 
 int core_config_get_key_info(void)
 {
-	int res = 0, i;
+	int ret = 0, i;
 	uint8_t cmd[2] = { 0 };
 
 	memset(g_read_buf, 0, sizeof(g_read_buf));
@@ -671,25 +820,25 @@ int core_config_get_key_info(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_key_info;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 2);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
-	if (res < 0) {
-		ipio_err("Failed to read data via I2C, %d\n", res);
+	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
+	if (ret < 0) {
+		ipio_err("Failed to read data via I2C, %d\n", ret);
 		goto out;
 	}
 
@@ -713,13 +862,13 @@ int core_config_get_key_info(void)
 	}
 
 out:
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_get_key_info);
 
 int core_config_get_tp_info(void)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t cmd[2] = { 0 };
 
 	memset(g_read_buf, 0, sizeof(g_read_buf));
@@ -727,25 +876,25 @@ int core_config_get_tp_info(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_tp_info;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 2);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
-	if (res < 0) {
-		ipio_err("Failed to read data via I2C, %d\n", res);
+	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
+	if (ret < 0) {
+		ipio_err("Failed to read data via I2C, %d\n", ret);
 		goto out;
 	}
 
@@ -775,13 +924,13 @@ int core_config_get_tp_info(void)
 		 core_config->tp_info->nKeyCount, core_config->tp_info->nMaxKeyButtonNum);
 
 out:
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_get_tp_info);
 
 int core_config_get_protocol_ver(void)
 {
-	int res = 0, i = 0;
+	int ret = 0, i = 0;
 	int major, mid, minor;
 	uint8_t cmd[2] = { 0 };
 
@@ -791,25 +940,25 @@ int core_config_get_protocol_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_pro_ver;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 2);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
-	if (res < 0) {
-		ipio_err("Failed to read data via I2C, %d\n", res);
+	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
+	if (ret < 0) {
+		ipio_err("Failed to read data via I2C, %d\n", ret);
 		goto out;
 	}
 
@@ -827,19 +976,19 @@ int core_config_get_protocol_ver(void)
 
 	/* update protocol if they're different with the default ver set by driver */
 	if (major != PROTOCOL_MAJOR || mid != PROTOCOL_MID || minor != PROTOCOL_MINOR) {
-		res = core_protocol_update_ver(major, mid, minor);
-		if (res < 0)
+		ret = core_protocol_update_ver(major, mid, minor);
+		if (ret < 0)
 			ipio_err("Protocol version is invalid\n");
 	}
 
 out:
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_get_protocol_ver);
 
 int core_config_get_core_ver(void)
 {
-	int res = 0, i = 0;
+	int ret = 0, i = 0;
 	uint8_t cmd[2] = { 0 };
 
 	memset(g_read_buf, 0, sizeof(g_read_buf));
@@ -847,25 +996,25 @@ int core_config_get_core_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_core_ver;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 2);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
-	if (res < 0) {
-		ipio_err("Failed to read data via I2C, %d\n", res);
+	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
+	if (ret < 0) {
+		ipio_err("Failed to read data via I2C, %d\n", ret);
 		goto out;
 	}
 
@@ -878,7 +1027,7 @@ int core_config_get_core_ver(void)
 		 core_config->core_ver[3], core_config->core_ver[4]);
 
 out:
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_get_core_ver);
 
@@ -888,7 +1037,7 @@ EXPORT_SYMBOL(core_config_get_core_ver);
  */
 int core_config_get_fw_ver(void)
 {
-	int res = 0, i = 0;
+	int ret = 0, i = 0;
 	uint8_t cmd[2] = { 0 };
 
 	memset(g_read_buf, 0, sizeof(g_read_buf));
@@ -896,25 +1045,25 @@ int core_config_get_fw_ver(void)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_fw_ver;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 2);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-	if (res < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", res);
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
+		ipio_err("Failed to write data via I2C, %d\n", ret);
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->fw_ver_len);
-	if (res < 0) {
-		ipio_err("Failed to read fw version %d\n", res);
+	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->fw_ver_len);
+	if (ret < 0) {
+		ipio_err("Failed to read fw version %d\n", ret);
 		goto out;
 	}
 
@@ -928,40 +1077,46 @@ int core_config_get_fw_ver(void)
 			core_config->firmware_ver[1], core_config->firmware_ver[2], core_config->firmware_ver[3]);
 	}
 out:
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_get_fw_ver);
 
 int core_config_get_chip_id(void)
 {
-	int res = 0;
+	int ret = 0;
 	static int do_once = 0;
-	uint32_t RealID = 0, PIDData = 0;
+	uint32_t RealID = 0, PIDData = 0, OTPIDData = 0, ANAIDData = 0;
 
-	res = core_config_ice_mode_enable();
-	if (res < 0) {
-		ipio_err("Failed to enter ICE mode, res = %d\n", res);
-		goto out;
+	ret = core_config_ice_mode_enable();
+	if (ret < 0) {
+		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
+		return ret;
 	}
 
 	mdelay(20);
 
 	PIDData = core_config_ice_mode_read(core_config->pid_addr);
+	OTPIDData = core_config_ice_mode_read(core_config->otp_id_addr);
+	ANAIDData = core_config_ice_mode_read(core_config->ana_id_addr);
+
 	core_config->chip_pid = PIDData;
 	core_config->core_type = PIDData & 0xFF;
-	ipio_info("PID = 0x%x, Core type = 0x%x\n",
-		core_config->chip_pid, core_config->core_type);
+	core_config->chip_otp_id = OTPIDData & 0xFF;
+	core_config->chip_ana_id = ANAIDData & 0xFF;
+
+	ipio_info("PID = 0x%x, Core type = 0x%x, OTP ID = 0x%x, ANA ID = 0x%x\n",
+		core_config->chip_pid, core_config->core_type, core_config->chip_otp_id, core_config->chip_ana_id);
 
 	if (PIDData) {
 		RealID = check_chip_id(PIDData);
 		if (RealID != core_config->chip_id) {
 			ipio_err("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", RealID, TP_TOUCH_IC);
-			res = -ENODEV;
+			ret = -ENODEV;
 			goto out;
 		}
 	} else {
 		ipio_err("PID DATA error : 0x%x\n", PIDData);
-		res = -EINVAL;
+		ret = -EINVAL;
 		goto out;
 	}
 
@@ -972,9 +1127,8 @@ int core_config_get_chip_id(void)
 	}
 
 out:
-	core_config_ic_reset();
-	mdelay(150);
-	return res;
+	core_config_ice_mode_disable();
+	return ret;
 }
 EXPORT_SYMBOL(core_config_get_chip_id);
 
@@ -1000,12 +1154,17 @@ int core_config_init(void)
 			core_config->chip_type = 0x0000;
 
 			core_config->do_ic_reset = false;
+#ifdef GESTURE_ENABLE
+			core_config->isEnableGesture = true;
+#else
 			core_config->isEnableGesture = false;
-
+#endif
 			 if (core_config->chip_id == CHIP_TYPE_ILI9881) {
 				core_config->slave_i2c_addr = ILI9881_SLAVE_ADDR;
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
+				core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
+				core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
 				core_config->wdt_addr = ILI9881_WDT_ADDR;
 			}
 			return 0;

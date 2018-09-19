@@ -99,7 +99,7 @@ EXPORT_SYMBOL(core_fr_calc_checksum);
  */
 static void i2cuart_recv_packet(void)
 {
-	int res = 0, need_read_len = 0, one_data_bytes = 0;
+	int ret = 0, need_read_len = 0, one_data_bytes = 0;
 	int type = g_fr_node->data[3] & 0x0F;
 	int actual_len = g_fr_node->len - 5;
 
@@ -135,8 +135,8 @@ static void i2cuart_recv_packet(void)
 		}
 
 		g_total_len += g_fr_uart->len;
-		res = core_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
-		if (res < 0)
+		ret = core_read(core_config->slave_i2c_addr, g_fr_uart->data, g_fr_uart->len);
+		if (ret < 0)
 			ipio_err("Failed to read finger report packet\n");
 	}
 }
@@ -219,7 +219,7 @@ static int finger_report_ver_3_2(void)
  */
 static int parse_touch_package_v5_0(uint8_t pid)
 {
-	int i, res = 0;
+	int i, ret = 0;
 	uint8_t check_sum = 0;
 	uint32_t nX = 0, nY = 0;
 
@@ -230,7 +230,7 @@ static int parse_touch_package_v5_0(uint8_t pid)
 
 	if (g_fr_node->data[g_fr_node->len - 1] != check_sum) {
 		ipio_err("Wrong checksum\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
@@ -324,12 +324,12 @@ static int parse_touch_package_v5_0(uint8_t pid)
 		if (pid != 0) {
 			/* ignore the pid with 0x0 after enable irq at once */
 			ipio_err(" **** Unknown PID : 0x%x ****\n", pid);
-			res = -1;
+			ret = -1;
 		}
 	}
 
 out:
-	return res;
+	return ret;
 }
 
 /*
@@ -338,28 +338,28 @@ out:
  */
 static int finger_report_ver_5_0(void)
 {
-	int i, gesture, res = 0;
+	int i, gesture, ret = 0;
 	static int last_touch = 0;
 	uint8_t pid = 0x0;
 
 	memset(&g_mutual_data, 0x0, sizeof(struct mutual_touch_info));
 
 #ifdef I2C_SEGMENT
-	res = core_i2c_segmental_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
+	ret = core_i2c_segmental_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #else
-	res = core_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
+	ret = core_read(core_config->slave_i2c_addr, g_fr_node->data, g_fr_node->len);
 #endif
 
-	if (res < 0) {
+	if (ret < 0) {
 		ipio_err("Failed to read finger report packet\n");
-#if (INTERFACE == SPI_INTERFACE)
-		if(res == CHECK_RECOVER) {
-			ipio_err("Doing host download recovery !\n");
-			res = ilitek_platform_tp_hw_reset(true);
-			if(res < 0)
-				ipio_info("host download failed!\n");
+		if (INTERFACE == SPI_INTERFACE) {
+			if(ret == CHECK_RECOVER) {
+				ipio_err("Doing host download recovery !\n");
+				ret = ilitek_platform_tp_hw_reset(true);
+				if(ret < 0)
+					ipio_info("host download failed!\n");
+			}
 		}
-#endif
 		goto out;
 	}
 
@@ -384,8 +384,8 @@ static int finger_report_ver_5_0(void)
 		goto out;
 	}
 
-	res = parse_touch_package_v5_0(pid);
-	if (res < 0) {
+	ret = parse_touch_package_v5_0(pid);
+	if (ret < 0) {
 		ipio_err("Failed to parse packet of finger touch\n");
 		goto out;
 	}
@@ -445,122 +445,8 @@ static int finger_report_ver_5_0(void)
 	}
 
 out:
-	return res;
-}
-
-int core_fr_mode_control(uint8_t *from_user)
-{
-	int ret = 0, i, mode, prev_mode;
-	int checksum = 0, codeLength = 8;
-	uint8_t mp_code[8] = { 0 };
-	uint8_t cmd[4] = { 0 };
-
-	ilitek_platform_disable_irq();
-
-	if (from_user == NULL) {
-		ipio_err("Arguments from user space are invaild\n");
-		goto out;
-	}
-
-	ipio_debug(DEBUG_FINGER_REPORT, "mode = %x, b1 = %x, b2 = %x, b3 = %x\n",
-	    from_user[0], from_user[1], from_user[2], from_user[3]);
-
-	mode = from_user[0];
-	prev_mode = core_fr->actual_fw_mode;
-	core_fr->actual_fw_mode = mode;
-
-	ipio_info("Actual FW mode = %d\n", core_fr->actual_fw_mode);
-
-	if (protocol->major != 0x5) {
-		ipio_err("Wrong the major version of protocol, 0x%x\n", protocol->major);
-		ret = -1;
-		goto out;
-	}
-
-	if (mode == protocol->i2cuart_mode) {
-		cmd[0] = protocol->cmd_i2cuart;
-		cmd[1] = *(from_user + 1);
-		cmd[2] = *(from_user + 2);
-
-		ipio_info("Switch to I2CUART mode, cmd = %x, b1 = %x, b2 = %x\n", cmd[0], cmd[1], cmd[2]);
-
-		if ((core_write(core_config->slave_i2c_addr, cmd, 3)) < 0) {
-			ipio_err("Failed to switch I2CUART mode\n");
-			ret = -1;
-			goto out;
-		}
-	} else if (mode == protocol->demo_mode || mode == protocol->debug_mode) {
-		cmd[0] = protocol->cmd_mode_ctrl;
-		cmd[1] = mode;
-
-		ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
-
-		if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
-			ipio_err("Failed to switch Demo/Debug mode\n");
-			ret = -1;
-			goto out;
-		}
-	} else if (mode == protocol->test_mode) {
-		cmd[0] = protocol->cmd_mode_ctrl;
-		cmd[1] = mode;
-
-		ipio_info("Switch to Test mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
-
-		if ((core_write(core_config->slave_i2c_addr, cmd, 2)) < 0) {
-			ipio_err("Failed to switch Test mode\n");
-			ret = -1;
-			goto out;
-		}
-
-		cmd[0] = 0xFE;
-
-		/* Read MP Test information to ensure if fw supports test mode. */
-		core_write(core_config->slave_i2c_addr, cmd, 1);
-		mdelay(10);
-		core_read(core_config->slave_i2c_addr, mp_code, codeLength);
-
-		for (i = 0; i < codeLength - 1; i++)
-			checksum += mp_code[i];
-
-		if ((-checksum & 0xFF) != mp_code[codeLength - 1]) {
-			ipio_info("checksume error (0x%x), FW doesn't support test mode.\n",
-					(-checksum & 0XFF));
-			ret = -1;
-			goto out;
-		}
-
-		/* After command to test mode, fw stays at demo mode until busy free. */
-		core_fr->actual_fw_mode = protocol->demo_mode;
-
-		/* Check ready to switch test mode from demo mode */
-		if (core_config_check_cdc_busy(50, 50) < 0) {
-			ipio_err("Mode(%d) Check busy is timout\n", core_fr->actual_fw_mode);
-			ret = -1;
-			goto out;
-		}
-
-		/* Now set up fw as test mode */
-		core_fr->actual_fw_mode = protocol->test_mode;
-
-		if (core_mp_move_code() != 0) {
-			ipio_err("Switch to test mode failed\n");
-			ret = -1;
-			goto out;
-		}
-	} else {
-		ipio_err("Unknown firmware mode: %x\n", mode);
-		ret = -1;
-	}
-
-out:
-	if (ret < 0)
-		core_fr->actual_fw_mode = prev_mode;
-
-	ipio_info("Actual FW mode = %d\n", core_fr->actual_fw_mode);
-	ilitek_platform_enable_irq();
 	return ret;
 }
-EXPORT_SYMBOL(core_fr_mode_control);
 
 /**
  * Calculate the length with different modes according to the format of protocol 5.0
@@ -576,49 +462,45 @@ static uint16_t calc_packet_length(void)
 	uint16_t self_key = 2;
 	uint16_t rlen = 0;
 
-	if (protocol->major == 0x5) {
-		if (!ERR_ALLOC_MEM(core_config->tp_info)) {
-			xch = core_config->tp_info->nXChannelNum;
-			ych = core_config->tp_info->nYChannelNum;
-			stx = core_config->tp_info->self_tx_channel_num;
-			srx = core_config->tp_info->self_rx_channel_num;
-		}
+	if (protocol->major != 0x5) {
+		ipio_err("doesn't support this version of protocol");
+		return -1;
+	}
 
-		ipio_debug(DEBUG_FINGER_REPORT, "firmware mode : 0x%x\n", core_fr->actual_fw_mode);
+	if (!ERR_ALLOC_MEM(core_config->tp_info)) {
+		xch = core_config->tp_info->nXChannelNum;
+		ych = core_config->tp_info->nYChannelNum;
+		stx = core_config->tp_info->self_tx_channel_num;
+		srx = core_config->tp_info->self_rx_channel_num;
+	}
 
-		if (protocol->demo_mode == core_fr->actual_fw_mode) {
+	ipio_debug(DEBUG_FINGER_REPORT, "firmware mode : 0x%x\n", core_fr->actual_fw_mode);
+
+	switch(core_fr->actual_fw_mode) {
+		case P5_0_FIRMWARE_DEMO_MODE:
 			rlen = protocol->demo_len;
-		} else if (protocol->test_mode == core_fr->actual_fw_mode) {
-			if (ERR_ALLOC_MEM(core_config->tp_info)) {
-				rlen = protocol->test_len;
-			} else {
-				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + 1;
-				rlen += 1;
-			}
-		} else if (protocol->debug_mode == core_fr->actual_fw_mode) {
-			if (ERR_ALLOC_MEM(core_config->tp_info)) {
-				rlen = protocol->debug_len;
-			} else {
-				rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + (8 * 2) + 1;
-				rlen += 35;
-			}
-		} else if (protocol->gesture_mode == core_fr->actual_fw_mode) {
+			break;
+		case P5_0_FIRMWARE_DEBUG_MODE:
+			rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + (8 * 2) + 1;
+			rlen += 35;
+			break;
+		case P5_0_FIRMWARE_TEST_MODE:
+			rlen = (2 * xch * ych) + (stx * 2) + (srx * 2) + 2 * self_key + 1;
+			rlen += 1;
+			break;
+		case P5_0_FIRMWARE_GESTURE_MODE:
 			if(core_gesture->mode == GESTURE_NORMAL_MODE)
 				rlen = GESTURE_MORMAL_LENGTH;
 			else
 				rlen = GESTURE_INFO_LENGTH;
-			ipio_debug(DEBUG_FINGER_REPORT, "rlen = %d\n", rlen);
-		}
-		else {
+			break;
+		default:
 			ipio_err("Unknown firmware mode : %d\n", core_fr->actual_fw_mode);
 			rlen = 0;
-		}
-	} else {
-		ipio_err("Wrong the major version of protocol, 0x%x\n", protocol->major);
-		return -1;
+			break;
 	}
 
-	ipio_debug(DEBUG_FINGER_REPORT, "rlen = %d\n", rlen);
+	ipio_debug(DEBUG_FINGER_REPORT, "packet len = %d\n", rlen);
 	return rlen;
 }
 

@@ -47,13 +47,13 @@ int core_Rx_check(uint16_t check)
 		txbuf[0] = SPI_WRITE;
 		if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
 			size = -EIO;
-			ipio_err("spi Write Error, res = %d\n", size);
+			ipio_err("spi Write Error, ret = %d\n", size);
 		}
 
 		txbuf[0] = SPI_READ;
 		if (spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4) < 0) {
 			size = -EIO;
-			ipio_err("spi Read Error, res = %d\n", size);
+			ipio_err("spi Read Error, ret = %d\n", size);
 		}
 
 		status = (rxbuf[2] << 8) + rxbuf[3];
@@ -72,7 +72,7 @@ int core_Rx_check(uint16_t check)
 
 int core_Tx_unlock_check(void)
 {
-	int res = 0, i, count = 100;
+	int ret = 0, i, count = 100;
 	uint8_t txbuf[5] = { 0 }, rxbuf[4] = {0};
 	uint16_t unlock = 0;
 
@@ -85,31 +85,31 @@ int core_Tx_unlock_check(void)
 	for(i = 0; i < count; i++) {
 		txbuf[0] = SPI_WRITE;
 		if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
-			res = -EIO;
-			ipio_err("spi Write Error, res = %d\n", res);
+			ret = -EIO;
+			ipio_err("spi Write Error, ret = %d\n", ret);
 		}
 
 		txbuf[0] = SPI_READ;
 		if (spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4) < 0) {
-			res = -EIO;
-			ipio_err("spi Read Error, res = %d\n", res);
+			ret = -EIO;
+			ipio_err("spi Read Error, ret = %d\n", ret);
 		}
 
 		unlock = (rxbuf[2] << 8) + rxbuf[3];
 
 		if(unlock == 0x9881)
-			return res;
+			return ret;
 
 		mdelay(1);
 	}
 
 	ipio_err("Check unlock error\n");
-	return res;
+	return ret;
 }
 
 int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t txbuf[64] = { 0 };
 
 	/* set read address */
@@ -119,15 +119,15 @@ int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 	txbuf[3] = 0x0;
 	txbuf[4] = 0x2;
 	if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
-		res = -EIO;
-		return res;
+		ret = -EIO;
+		return ret;
 	}
 
 	/* read data */
 	txbuf[0] = SPI_READ;
 	if (spi_write_then_read(core_spi->spi, txbuf, 1, data, size) < 0) {
-		res = -EIO;
-		return res;
+		ret = -EIO;
+		return ret;
 	}
 
 	/* write data unlock */
@@ -141,23 +141,23 @@ int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 	txbuf[7] = (char)0x98;
 	txbuf[8] = (char)0x81;
 	if (spi_write_then_read(core_spi->spi, txbuf, 9, txbuf, 0) < 0) {
-		res = -EIO;
-		ipio_err("spi Write data unlock error, res = %d\n", res);
+		ret = -EIO;
+		ipio_err("spi Write data unlock error, ret = %d\n", ret);
 	}
 
-	return res;
+	return ret;
 }
 
 int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t check_sum = 0,wsize = 0;
 	uint8_t *txbuf = NULL;
 
     txbuf = kcalloc(size + 9, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(txbuf)) {
 		ipio_err("Failed to allocate txbuf\n");
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -178,8 +178,8 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 		wsize += 4 - (wsize % 4);
 
 	if (spi_write_then_read(core_spi->spi, txbuf, wsize + 5, txbuf, 0) < 0) {
-		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ret = -EIO;
+		ipio_err("spi Write Error, ret = %d\n", ret);
 		goto out;
 	}
 
@@ -194,18 +194,18 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 	txbuf[7] = (char)0x5A;
 	txbuf[8] = (char)0xA5;
 	if (spi_write_then_read(core_spi->spi, txbuf, 9, txbuf, 0) < 0) {
-		res = -EIO;
-		ipio_err("spi Write data lock Error, res = %d\n", res);
+		ret = -EIO;
+		ipio_err("spi Write data lock Error, ret = %d\n", ret);
 	}
 
 out:
 	ipio_kfree((void **)&txbuf);
-	return res;
+	return ret;
 }
 
 int core_ice_mode_disable_9881H11(void)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t txbuf[5] = {0};
 
 	txbuf[0] = 0x82;
@@ -215,16 +215,16 @@ int core_ice_mode_disable_9881H11(void)
 	txbuf[4] = 0x18;
 
 	if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
-		res = -EIO;
-		ipio_err("spi_write_then_read Error, res = %d\n", res);
+		ret = -EIO;
+		ipio_err("spi_write_then_read Error, ret = %d\n", ret);
 	}
 
-	return res;
+	return ret;
 }
 
 int core_ice_mode_enable_9881H11(void)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t txbuf[5] = {0}, rxbuf[2]= {0};
 
 	txbuf[0] = 0x82;
@@ -234,9 +234,9 @@ int core_ice_mode_enable_9881H11(void)
 	txbuf[4] = 0x18;
 
 	if (spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 1) < 0) {
-		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
-		return res;
+		ret = -EIO;
+		ipio_err("spi Write Error, ret = %d\n", ret);
+		return ret;
 	}
 
 	/* check recover data */
@@ -246,45 +246,45 @@ int core_ice_mode_enable_9881H11(void)
 	}
 
 	if (spi_write_then_read(core_spi->spi, txbuf, 5, rxbuf, 0) < 0) {
-		res = -EIO;
-		ipio_err("spi Write Error, res = %d\n", res);
+		ret = -EIO;
+		ipio_err("spi Write Error, ret = %d\n", ret);
 	}
 
-	return res;
+	return ret;
 }
 
 int core_spi_read_9881H11(uint8_t *pBuf, uint16_t nSize)
 {
-	int res = 0, size = 0;
+	int ret = 0, size = 0;
 
-	res = core_ice_mode_enable_9881H11();
-	if (res < 0) {
+	ret = core_ice_mode_enable_9881H11();
+	if (ret < 0) {
 		goto out;
 	}
 
 	size = core_Rx_check(0x5AA5);
 	if (size < 0) {
-		res = -EIO;
+		ret = -EIO;
 		goto out;
 	}
 
 	if (core_ice_mode_read_9881H11(pBuf, size) < 0) {
-		res = -EIO;
+		ret = -EIO;
 		goto out;
 	}
 
 	if (core_ice_mode_disable_9881H11() < 0) {
-		res = -EIO;
+		ret = -EIO;
 		goto out;
 	}
 
 out:
-	return res;
+	return ret;
 }
 
 int core_spi_write_9881H11(uint8_t *pBuf, uint16_t nSize)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t *txbuf = NULL;
 
     txbuf = kcalloc(nSize + 5, sizeof(uint8_t), GFP_KERNEL);
@@ -293,26 +293,26 @@ int core_spi_write_9881H11(uint8_t *pBuf, uint16_t nSize)
 		return -ENOMEM;
 	}
 
-	res = core_ice_mode_enable_9881H11();
-	if (res < 0)
+	ret = core_ice_mode_enable_9881H11();
+	if (ret < 0)
 		goto out;
 
-	res = core_ice_mode_write_9881H11(pBuf, nSize);
-	if (res < 0)
+	ret = core_ice_mode_write_9881H11(pBuf, nSize);
+	if (ret < 0)
 		goto out;
 
 	if(core_Tx_unlock_check() < 0) {
-		res = -ETXTBSY;
+		ret = -ETXTBSY;
 	}
 
 out:
 	ipio_kfree((void **)&txbuf);
-	return res;
+	return ret;
 }
 
 int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t *txbuf = NULL;
 
     txbuf = kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
@@ -323,10 +323,10 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 	}
 
 	if(core_config->icemodeenable == false) {
-		res = core_spi_write_9881H11(pBuf, nSize);
+		ret = core_spi_write_9881H11(pBuf, nSize);
 		core_ice_mode_disable_9881H11();
 		ipio_kfree((void **)&txbuf);
-		return res;
+		return ret;
 	}
 
 	txbuf[0] = SPI_WRITE;
@@ -335,23 +335,23 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 	if (spi_write_then_read(core_spi->spi, txbuf, nSize+1, txbuf, 0) < 0) {
 		if (core_config->do_ic_reset) {
 			/* ignore spi error if doing ic reset */
-			res = 0;
+			ret = 0;
 		} else {
-			res = -EIO;
-			ipio_err("spi Write Error, res = %d\n", res);
+			ret = -EIO;
+			ipio_err("spi Write Error, ret = %d\n", ret);
 			goto out;
 		}
 	}
 
 out:
 	ipio_kfree((void **)&txbuf);
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_spi_write);
 
 int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t txbuf[1] = {0};
 
 	txbuf[0] = SPI_READ;
@@ -362,16 +362,16 @@ int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 	if (spi_write_then_read(core_spi->spi, txbuf, 1, pBuf, nSize) < 0) {
 		if (core_config->do_ic_reset) {
 			/* ignore spi error if doing ic reset */
-			res = 0;
+			ret = 0;
 		} else {
-			res = -EIO;
-			ipio_err("spi Read Error, res = %d\n", res);
+			ret = -EIO;
+			ipio_err("spi Read Error, ret = %d\n", ret);
 			goto out;
 		}
 	}
 
 out:
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_spi_read);
 

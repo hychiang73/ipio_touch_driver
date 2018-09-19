@@ -108,7 +108,7 @@
 #define INTERFACE I2C_INTERFACE
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.7"
+#define DRIVER_VERSION	"1.0.3.8"
 
 /* Driver core type */
 #define CORE_TYPE_B		0x00
@@ -165,7 +165,7 @@ extern uint32_t ipio_chip_list[2];
 #define USEC	1
 #define MSEC	(USEC * 1000)
 
-/* The size of firmware upgrade */
+/* The definition for firmware upgrade */
 #define MAX_HEX_FILE_SIZE			(160*1024)
 #define MAX_FLASH_FIRMWARE_SIZE		(256*1024)
 #define MAX_IRAM_FIRMWARE_SIZE		(60*1024)
@@ -177,8 +177,9 @@ extern uint32_t ipio_chip_list[2];
 #define DLM_START_ADDRESS           0x20610
 #define DLM_HEX_ADDRESS             0x10000
 #define MP_HEX_ADDRESS              0x13000
-#define SPI_UPGRADE_LEN		        2048
-#define UPDATE_RETRY_COUNT          3
+#define SPI_UPGRADE_LEN				2048
+#define FW_BLOCK_INFO_NUM			6
+#define UPDATE_RETRY_COUNT			3
 
 /* ILI9881 Series */
 enum ili9881_types {
@@ -194,6 +195,9 @@ enum ili9881_types {
 #define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
 #define ILI9881_PID_ADDR		0x4009C
+#define ILI9881_OTP_ID_ADDR		0x400A0
+#define ILI9881_ANA_ID_ADDR		0x400A4
+#define ILI9881_PC_COUNTER_ADDR 0x44008
 #define ILI9881_WDT_ADDR		0x5100C
 
 /*
@@ -243,6 +247,17 @@ enum ili9881_types {
 
 /* Be able to upgrade fw at boot stage */
 //#define BOOT_FW_UPGRADE
+
+/* Read fw file by request_firmware */
+//#define BOOT_FW_UPGRADE_READ_HEX
+
+#ifdef BOOT_FW_UPGRADE_READ_HEX
+#define BOOT_FW_HEX_NAME "ilitek_fw.hex"
+#define BOOT_UPDATE_FW_DELAY_TIME 10000
+#endif
+
+/* Enable gesture function */
+//#define GESTURE_ENABLE
 
 /* Check battery's status in order to avoid some effects from charge. */
 //#define BATTERY_CHECK

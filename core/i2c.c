@@ -60,7 +60,7 @@ static int dma_alloc(struct core_i2c_data *i2c)
 
 int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-	int res = 0;
+	int ret = 0;
 	uint8_t check_sum = 0;
 	uint8_t *txbuf = NULL;
 
@@ -93,7 +93,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 			txbuf = (uint8_t*)kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(txbuf)) {
 				ipio_err("Failed to allocate txbuf mem\n");
-				res = -ENOMEM;
+				ret = -ENOMEM;
 				goto out;
 			}
 			memcpy(txbuf, pBuf, nSize);
@@ -106,23 +106,23 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 	if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0) {
 		if (core_config->do_ic_reset) {
 			/* ignore i2c error if doing ic reset */
-			res = 0;
+			ret = 0;
 		} else {
-			res = -EIO;
-			ipio_err("I2C Write Error, res = %d\n", res);
+			ret = -EIO;
+			ipio_err("I2C Write Error, ret = %d\n", ret);
 			goto out;
 		}
 	}
 
 out:
 	ipio_kfree((void **)&txbuf);
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_i2c_write);
 
 int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-	int res = 0;
+	int ret = 0;
 
 	struct i2c_msg msgs[] = {
 		{
@@ -145,8 +145,8 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 #endif /* I2C_DMA */
 
 	if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0) {
-		res = -EIO;
-		ipio_err("I2C Read Error, res = %d\n", res);
+		ret = -EIO;
+		ipio_err("I2C Read Error, ret = %d\n", ret);
 		goto out;
 	}
 #ifdef I2C_DMA
@@ -156,13 +156,13 @@ int core_i2c_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 #endif /* I2C_DMA */
 
 out:
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_i2c_read);
 
 int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-	int res = 0;
+	int ret = 0;
 	int offset = 0;
 
 	struct i2c_msg msgs[] = {
@@ -189,14 +189,14 @@ int core_i2c_segmental_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 		ipio_debug(DEBUG_I2C, "Length = %d\n", msgs[0].len);
 
 		if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0) {
-			res = -EIO;
-			ipio_err("I2C Read Error, res = %d\n", res);
+			ret = -EIO;
+			ipio_err("I2C Read Error, ret = %d\n", ret);
 			goto out;
 		}
 	}
 
 out:
-	return res;
+	return ret;
 }
 EXPORT_SYMBOL(core_i2c_segmental_read);
 

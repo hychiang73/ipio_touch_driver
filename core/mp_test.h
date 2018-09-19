@@ -42,7 +42,6 @@ struct mp_test_P540_open {
 	int32_t *charg_rate;
 	int32_t *full_Open;
 	int32_t *dac;
-	int32_t *cdc;
 };
 
 struct mp_test_items {
@@ -116,8 +115,6 @@ struct core_mp_test_data {
 	struct mp_nodp_calc nodp;
 	/* A flag shows a test run in particular */
 	bool retry;
-	bool oppo_run;
-	bool oppo_lcm;
 	bool m_signal;
 	bool m_dac;
 	bool s_signal;
@@ -138,6 +135,12 @@ struct core_mp_test_data {
 	int frame_len;
 	int mp_items;
 	int final_result;
+
+	uint32_t overlay_start_addr;
+	uint32_t overlay_end_addr;
+	uint32_t mp_flash_addr;
+	uint32_t mp_size;
+	uint8_t dma_trigger_enable;
 
 	/* Tx/Rx threshold & buffer */
 	int TxDeltaMax;
@@ -161,11 +164,7 @@ extern struct mp_test_items tItems[];
 
 extern void dump_data(void *data, int type, int len, int row_len, const char *name);
 extern void core_mp_copy_reseult(int *buf, int size);
-extern int core_mp_calc_timing_nodp(void);
-extern int core_mp_ctrl_lcm_status(bool on);
 extern void core_mp_test_free(void);
-extern void core_mp_show_result(void);
-extern void core_mp_run_test(char *item, bool ini);
 extern int core_mp_move_code(void);
-extern int core_mp_init(void);
+extern void core_mp_start_test(void);
 #endif

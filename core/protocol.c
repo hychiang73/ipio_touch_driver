@@ -48,21 +48,19 @@ struct protocol_cmd_list *protocol = NULL;
 
 int core_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-#if (INTERFACE == I2C_INTERFACE)
-	return core_i2c_write(nSlaveId, pBuf, nSize);
-#else
-	return core_spi_write(pBuf, nSize);
-#endif
+	if (INTERFACE == I2C_INTERFACE)
+		return core_i2c_write(nSlaveId, pBuf, nSize);
+	else
+		return core_spi_write(pBuf, nSize);
 }
 EXPORT_SYMBOL(core_write);
 
 int core_read(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 {
-#if (INTERFACE == I2C_INTERFACE)
-	return core_i2c_read(nSlaveId, pBuf, nSize);
-#else
-	return core_spi_read(pBuf, nSize);
-#endif
+	if (INTERFACE == I2C_INTERFACE)
+		return core_i2c_read(nSlaveId, pBuf, nSize);
+	else
+		return core_spi_read(pBuf, nSize);
 }
 EXPORT_SYMBOL(core_read);
 
@@ -257,6 +255,7 @@ static void config_protocol_v5_cmd(void)
 	protocol->cmd_get_core_ver = P5_0_GET_CORE_VERSION;
 	protocol->cmd_mode_ctrl = P5_0_MODE_CONTROL;
 	protocol->cmd_cdc_busy = P5_0_CDC_BUSY_STATE;
+	protocol->cmd_get_mp_info = P5_0_MP_TEST_MODE_INFO;
 	protocol->cmd_i2cuart = P5_0_I2C_UART;
 
 	/* The commands about the packets of finger report from FW */
@@ -285,6 +284,12 @@ static void config_protocol_v5_cmd(void)
 		protocol->cdc_len = 3;
 	} else {
 		protocol->cdc_len = 15;
+	}
+
+	if (protocol->mid < 5) {
+		protocol->mp_info_len = 8;
+	} else {
+		protocol->mp_info_len = 14;
 	}
 
 	protocol->mutual_dac = 0x1;
@@ -365,6 +370,7 @@ int core_protocol_update_ver(uint8_t major, uint8_t mid, uint8_t minor)
 		{0x5, 0x2, 0x0},
 		{0x5, 0x3, 0x0},
 		{0x5, 0x4, 0x0},
+		{0x5, 0x5, 0x0},
 	};
 
 	for (i = 0; i < ARRAY_SIZE(pver); i++) {

@@ -144,30 +144,30 @@ EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
 #ifdef REGULATOR_POWER_ON
 void ilitek_regulator_power_on(bool status)
 {
-	int res = 0;
+	int ret = 0;
 
 	ipio_info("%s\n", status ? "POWER ON" : "POWER OFF");
 
 	if (status) {
 		if (ipd->vdd) {
-			res = regulator_enable(ipd->vdd);
-			if (res < 0)
+			ret = regulator_enable(ipd->vdd);
+			if (ret < 0)
 				ipio_err("regulator_enable vdd fail\n");
 		}
 		if (ipd->vdd_i2c) {
-			res = regulator_enable(ipd->vdd_i2c);
-			if (res < 0)
+			ret = regulator_enable(ipd->vdd_i2c);
+			if (ret < 0)
 				ipio_err("regulator_enable vdd_i2c fail\n");
 		}
 	} else {
 		if (ipd->vdd) {
-			res = regulator_disable(ipd->vdd);
-			if (res < 0)
+			ret = regulator_disable(ipd->vdd);
+			if (ret < 0)
 				ipio_err("regulator_enable vdd fail\n");
 		}
 		if (ipd->vdd_i2c) {
-			res = regulator_disable(ipd->vdd_i2c);
-			if (res < 0)
+			ret = regulator_disable(ipd->vdd_i2c);
+			if (ret < 0)
 				ipio_err("regulator_enable vdd_i2c fail\n");
 		}
 	}
@@ -392,7 +392,7 @@ static void ilitek_platform_late_resume(struct early_suspend *h)
  */
 static int ilitek_platform_reg_power_check(void)
 {
-	int res = 0;
+	int ret = 0;
 
 #ifdef BATTERY_CHECK
 	INIT_DELAYED_WORK(&ipd->check_power_status_work, ilitek_platform_vpower_notify);
@@ -402,7 +402,7 @@ static int ilitek_platform_reg_power_check(void)
 	if (!ipd->check_power_status_queue) {
 		ipio_err("Failed to create a work thread to check power status\n");
 		ipd->vpower_reg_nb = false;
-		res = -1;
+		ret = -1;
 	} else {
 		ipio_info("Created a work thread to check power status at every %u jiffies\n",
 			 (unsigned)ipd->work_delay);
@@ -415,12 +415,12 @@ static int ilitek_platform_reg_power_check(void)
 	}
 #endif /* BATTERY_CHECK */
 
-	return res;
+	return ret;
 }
 
 static int ilitek_platform_reg_esd_check(void)
 {
-	int res = 0;
+	int ret = 0;
 
 #ifdef ESD_CHECK
 	INIT_DELAYED_WORK(&ipd->check_esd_status_work, ilitek_platform_esd_check);
@@ -430,7 +430,7 @@ static int ilitek_platform_reg_esd_check(void)
 	if (!ipd->check_esd_status_queue) {
 		ipio_err("Failed to create a work thread to check power status\n");
 		ipd->vesd_reg_nb = false;
-		res = -1;
+		ret = -1;
 	} else {
 		ipio_info("Created a work thread to check power status at every %u jiffies\n",
 			 (unsigned)ipd->esd_check_time);
@@ -445,7 +445,7 @@ static int ilitek_platform_reg_esd_check(void)
 	}
 #endif /* ESD_CHECK */
 
-	return res;
+	return ret;
 }
 /**
  * Register a callback function when the event of suspend and resume occurs.
@@ -456,7 +456,7 @@ static int ilitek_platform_reg_esd_check(void)
  */
 static int ilitek_platform_reg_suspend(void)
 {
-	int res = 0;
+	int ret = 0;
 
 #if (TP_PLATFORM == PT_MTK)
 	ipio_info("It does nothing if platform is MTK\n");
@@ -465,19 +465,19 @@ static int ilitek_platform_reg_suspend(void)
 #ifdef CONFIG_FB
 	ipd->notifier_fb.notifier_call = ilitek_platform_notifier_fb;
 #if (TP_PLATFORM == PT_SPRD)
-	res = adf_register_client(&ipd->notifier_fb);
+	ret = adf_register_client(&ipd->notifier_fb);
 #else
-	res = fb_register_client(&ipd->notifier_fb);
+	ret = fb_register_client(&ipd->notifier_fb);
 #endif /* PT_SPRD */
 #else
 	ipd->early_suspend->suspend = ilitek_platform_early_suspend;
 	ipd->early_suspend->esume = ilitek_platform_late_resume;
 	ipd->early_suspend->level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	res = register_early_suspend(ipd->early_suspend);
+	ret = register_early_suspend(ipd->early_suspend);
 #endif /* CONFIG_FB */
 #endif /* PT_MTK */
 
-	return res;
+	return ret;
 }
 
 #ifndef USE_KTHREAD
@@ -511,7 +511,7 @@ static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
 
 static int ilitek_platform_input_init(void)
 {
-	int res = 0;
+	int ret = 0;
 
 #if (TP_PLATFORM == PT_MTK)
 	int i;
@@ -524,13 +524,13 @@ static int ilitek_platform_input_init(void)
 		}
 	}
 	core_fr_input_set_param(ipd->input_device);
-	return res;
+	return ret;
 #else
 	ipd->input_device = input_allocate_device();
 
 	if (ERR_ALLOC_MEM(ipd->input_device)) {
 		ipio_err("Failed to allocate touch input device\n");
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto fail_alloc;
 	}
 
@@ -548,28 +548,28 @@ static int ilitek_platform_input_init(void)
 
 	core_fr_input_set_param(ipd->input_device);
 	/* register the input device to input sub-system */
-	res = input_register_device(ipd->input_device);
-	if (res < 0) {
-		ipio_err("Failed to register touch input device, res = %d\n", res);
+	ret = input_register_device(ipd->input_device);
+	if (ret < 0) {
+		ipio_err("Failed to register touch input device, ret = %d\n", ret);
 		goto out;
 	}
 
-	return res;
+	return ret;
 
 fail_alloc:
 	input_free_device(core_fr->input_device);
-	return res;
+	return ret;
 
 out:
 	input_unregister_device(ipd->input_device);
 	input_free_device(core_fr->input_device);
-	return res;
+	return ret;
 #endif /* PT_MTK */
 }
 
 static int kthread_handler(void *arg)
 {
-	int res = 0;
+	int ret = 0;
 	char *str = (char *)arg;
 
 	if (strcmp(str, "boot_fw") == 0) {
@@ -579,13 +579,13 @@ static int kthread_handler(void *arg)
 		ilitek_platform_disable_irq();
 
 #ifdef HOST_DOWNLOAD
-		res = core_firmware_boot_host_download();
+		ret = core_firmware_boot_host_download();
 #else
 #ifdef BOOT_FW_UPGRADE
-		res = core_firmware_boot_upgrade();
+		ret = core_firmware_boot_upgrade();
 #endif /* BOOT_FW_UPGRADE */
 #endif /* HOST_DOWNLOAD */
-		if (res < 0)
+		if (ret < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
 
 		ilitek_platform_enable_irq();
@@ -604,19 +604,21 @@ static int kthread_handler(void *arg)
 			wait_event_interruptible(waiter, ipd->irq_trigger);
 			ipd->irq_trigger = false;
 			set_current_state(TASK_RUNNING);
+			mutex_lock(&ipd->touch_mutex);
 			core_fr_handler();
 			ilitek_platform_enable_irq();
+			mutex_unlock(&ipd->touch_mutex);
 		}
 	} else {
 		ipio_err("Unknown EVENT\n");
 	}
 
-	return res;
+	return ret;
 }
 
 static int ilitek_platform_isr_register(void)
 {
-	int res = 0;
+	int ret = 0;
 #if (TP_PLATFORM == PT_MTK)
 	struct device_node *node;
 #endif /* PT_MTK */
@@ -626,7 +628,7 @@ static int ilitek_platform_isr_register(void)
 	if (ipd->irq_thread == (struct task_struct *)ERR_PTR) {
 		ipd->irq_thread = NULL;
 		ipio_err("Failed to create kthread\n");
-		res = -ENOMEM;
+		ret = -ENOMEM;
 		goto out;
 	}
 	ipd->irq_trigger = false;
@@ -646,24 +648,24 @@ static int ilitek_platform_isr_register(void)
 
 	ipio_info("ipd->isr_gpio = %d\n", ipd->isr_gpio);
 
-	res = request_threaded_irq(ipd->isr_gpio,
+	ret = request_threaded_irq(ipd->isr_gpio,
 				   NULL,
 				   ilitek_platform_irq_handler, IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "ilitek", NULL);
 
-	if (res != 0) {
-		ipio_err("Failed to register irq handler, irq = %d, res = %d\n", ipd->isr_gpio, res);
+	if (ret != 0) {
+		ipio_err("Failed to register irq handler, irq = %d, ret = %d\n", ipd->isr_gpio, ret);
 		goto out;
 	}
 
 	ipd->isEnableIRQ = true;
 
 out:
-	return res;
+	return ret;
 }
 
 static int ilitek_platform_gpio(void)
 {
-	int res = 0;
+	int ret = 0;
 #if (TP_PLATFORM == PT_MTK)
 	ipd->int_gpio = MTK_INT_GPIO;
 	ipd->reset_gpio = MTK_RST_GPIO;
@@ -694,24 +696,24 @@ static int ilitek_platform_gpio(void)
 		return -EBADR;
 	}
 
-	res = gpio_request(ipd->int_gpio, "ILITEK_TP_IRQ");
-	if (res < 0) {
-		ipio_err("Request IRQ GPIO failed, res = %d\n", res);
+	ret = gpio_request(ipd->int_gpio, "ILITEK_TP_IRQ");
+	if (ret < 0) {
+		ipio_err("Request IRQ GPIO failed, ret = %d\n", ret);
 		gpio_free(ipd->int_gpio);
-		res = gpio_request(ipd->int_gpio, "ILITEK_TP_IRQ");
-		if (res < 0) {
-			ipio_err("Retrying request INT GPIO still failed , res = %d\n", res);
+		ret = gpio_request(ipd->int_gpio, "ILITEK_TP_IRQ");
+		if (ret < 0) {
+			ipio_err("Retrying request INT GPIO still failed , ret = %d\n", ret);
 			goto out;
 		}
 	}
 
-	res = gpio_request(ipd->reset_gpio, "ILITEK_TP_RESET");
-	if (res < 0) {
-		ipio_err("Request RESET GPIO failed, res = %d\n", res);
+	ret = gpio_request(ipd->reset_gpio, "ILITEK_TP_RESET");
+	if (ret < 0) {
+		ipio_err("Request RESET GPIO failed, ret = %d\n", ret);
 		gpio_free(ipd->reset_gpio);
-		res = gpio_request(ipd->reset_gpio, "ILITEK_TP_RESET");
-		if (res < 0) {
-			ipio_err("Retrying request RESET GPIO still failed , res = %d\n", res);
+		ret = gpio_request(ipd->reset_gpio, "ILITEK_TP_RESET");
+		if (ret < 0) {
+			ipio_err("Retrying request RESET GPIO still failed , ret = %d\n", ret);
 			goto out;
 		}
 	}
@@ -719,7 +721,7 @@ static int ilitek_platform_gpio(void)
 	gpio_direction_input(ipd->int_gpio);
 
 out:
-	return res;
+	return ret;
 }
 
 void ilitek_platform_read_tp_info(void)
@@ -915,6 +917,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	}
 
 	mutex_init(&ipd->plat_mutex);
+	mutex_init(&ipd->touch_mutex);
 	spin_lock_init(&ipd->plat_spinlock);
 
 	/* Init members for debug */
@@ -1069,13 +1072,12 @@ static struct tpd_driver_t tpd_device_driver = {
 
 static int __init ilitek_platform_init(void)
 {
-	int res = 0;
-
 #if (TP_PLATFORM == PT_MTK)
+	int ret = 0;
 	ipio_info("TDDI TP driver add i2c interface for MTK\n");
 	tpd_get_dts_info();
-	res = tpd_driver_add(&tpd_device_driver);
-	if (res < 0) {
+	ret = tpd_driver_add(&tpd_device_driver);
+	if (ret < 0) {
 		ipio_err("TPD add TP driver failed\n");
 		tpd_driver_remove(&tpd_device_driver);
 		return -ENODEV;
@@ -1083,17 +1085,19 @@ static int __init ilitek_platform_init(void)
 #else
 #if (INTERFACE == I2C_INTERFACE)
 	ipio_info("TDDI TP driver add i2c interface\n");
-	return i2c_add_driver(&tp_i2c_driver);;
+	return i2c_add_driver(&tp_i2c_driver);
 #else
+	int ret = 0;
 	ipio_info("TDDI TP driver add spi interface\n");
-	res = spi_register_driver(&tp_spi_driver);
-	if (res < 0) {
+	ret = spi_register_driver(&tp_spi_driver);
+	if (ret < 0) {
 		ipio_err("Failed to add ilitek driver\n");
 		spi_unregister_driver(&tp_spi_driver);
 		return -ENODEV;
 	}
 #endif
 #endif /* PT_MTK */
+	return 0;
 }
 
 static void __exit ilitek_platform_exit(void)

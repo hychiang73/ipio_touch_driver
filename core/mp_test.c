@@ -40,21 +40,16 @@
 #include "protocol.h"
 #include "parser.h"
 #include "finger_report.h"
+#include "firmware.h"
 
-#define EXEC_READ  0
-#define EXEC_WRITE 1
-
+#define RETRY_COUNT 0
 #define INT_CHECK 0
 #define POLL_CHECK 1
 #define DELAY_CHECK 2
-#define RETRY_COUNT 3
+#define CHECK_BUSY_TYPE POLL_CHECK
 
 #define NORMAL_CSV_PASS_NAME		"mp_pass"
 #define NORMAL_CSV_FAIL_NAME		"mp_fail"
-#define OPPO_CSV_PASS_NAME			"oppo_mp_pass"
-#define OPPO_CSV_FAIL_NAME			"oppo_mp_fail"
-#define OPPO_CSV_LCM_PASS_NAME		"oppo_mp_lcm_pass"
-#define OPPO_CSV_LCM_FAIL_NAME		"oppo_mp_lcm_fail"
 
 #define CSV_FILE_SIZE   (500 * 1024)
 
@@ -100,62 +95,67 @@ enum open_test_node_type {
 
 /* You must declare a new test in this struct before running a new process of mp test */
 struct mp_test_items tItems[] = {
-	{.name = "mutual_dac", .desp = "Calibration Data(DAC)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_bg", .desp = "Baseline Data(BG)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_signal", .desp = "Untouch Signal Data(BG-Raw-4096) - Mutual", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_no_bk", .desp = "Raw Data(No BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_no_bk_lcm_off", .desp = "Raw Data(No BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_has_bk", .desp = "Raw Data(Have BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_has_bk_lcm_off", .desp = "Raw Data(Have BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "mutual_bk_dac", .desp = "Manual BK Data(Mutual)", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "mutual_dac", .desp = "Calibration Data(DAC)", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "mutual_bg", .desp = "Baseline Data(BG)", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "mutual_signal", .desp = "Untouch Signal Data(BG-Raw-4096) - Mutual", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "mutual_no_bk", .desp = "Raw Data(No BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "mutual_has_bk", .desp = "Raw Data(Have BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "mutual_bk_dac", .desp = "Manual BK Data(Mutual)", .result = "FAIL", .catalog = MUTUAL_TEST},
 
-	{.name = "self_dac", .desp = "Calibration Data(DAC) - Self", .result = "FAIL", .catalog = SELF_TEST},
-	{.name = "self_bg", .desp = "Baselin Data(BG,Self_Tx,Self_Rx)", .result = "FAIL", .catalog = SELF_TEST},
-	{.name = "self_signal", .desp = "Untouch Signal Data(BG–Raw-4096) - Self", .result = "FAIL", .catalog = SELF_TEST},
-	{.name = "self_no_bk", .desp = "Raw Data(No BK) - Self", .result = "FAIL", .catalog = SELF_TEST},
-	{.name = "self_has_bk", .desp = "Raw Data(Have BK) - Self", .result = "FAIL", .catalog = SELF_TEST},
-	{.name = "self_bk_dac", .desp = "Manual BK DAC Data(Self_Tx,Self_Rx)", .result = "FAIL", .catalog = SELF_TEST},
+    {.name = "self_dac", .desp = "Calibration Data(DAC) - Self", .result = "FAIL", .catalog = SELF_TEST},
+    {.name = "self_bg", .desp = "Baselin Data(BG,Self_Tx,Self_Rx)", .result = "FAIL", .catalog = SELF_TEST},
+    {.name = "self_signal", .desp = "Untouch Signal Data(BG–Raw-4096) - Self", .result = "FAIL", .catalog = SELF_TEST},
+    {.name = "self_no_bk", .desp = "Raw Data(No BK) - Self", .result = "FAIL", .catalog = SELF_TEST},
+    {.name = "self_has_bk", .desp = "Raw Data(Have BK) - Self", .result = "FAIL", .catalog = SELF_TEST},
+    {.name = "self_bk_dac", .desp = "Manual BK DAC Data(Self_Tx,Self_Rx)", .result = "FAIL", .catalog = SELF_TEST},
 
-	{.name = "key_dac", .desp = "Calibration Data(DAC/ICON)", .result = "FAIL", .catalog = KEY_TEST},
-	{.name = "key_bg", .desp = "Key Baseline Data", .result = "FAIL", .catalog = KEY_TEST},
-	{.name = "key_no_bk", .desp = "Key Raw Data", .result = "FAIL", .catalog = KEY_TEST},
-	{.name = "key_has_bk", .desp = "Key Raw BK DAC", .result = "FAIL", .catalog = KEY_TEST},
-	{.name = "key_open", .desp = "Key Raw Open Test", .result = "FAIL", .catalog = KEY_TEST},
-	{.name = "key_short", .desp = "Key Raw Short Test", .result = "FAIL", .catalog = KEY_TEST},
+    {.name = "key_dac", .desp = "Calibration Data(DAC/ICON)", .result = "FAIL", .catalog = KEY_TEST},
+    {.name = "key_bg", .desp = "Key Baseline Data", .result = "FAIL", .catalog = KEY_TEST},
+    {.name = "key_no_bk", .desp = "Key Raw Data", .result = "FAIL", .catalog = KEY_TEST},
+    {.name = "key_has_bk", .desp = "Key Raw BK DAC", .result = "FAIL", .catalog = KEY_TEST},
+    {.name = "key_open", .desp = "Key Raw Open Test", .result = "FAIL", .catalog = KEY_TEST},
+    {.name = "key_short", .desp = "Key Raw Short Test", .result = "FAIL", .catalog = KEY_TEST},
 
-	{.name = "st_dac", .desp = "ST Calibration Data(DAC)", .result = "FAIL", .catalog = ST_TEST},
-	{.name = "st_bg", .desp = "ST Baseline Data(BG)", .result = "FAIL", .catalog = ST_TEST},
-	{.name = "st_no_bk", .desp = "ST Raw Data(No BK)", .result = "FAIL", .catalog = ST_TEST},
-	{.name = "st_has_bk", .desp = "ST Raw(Have BK)", .result = "FAIL", .catalog = ST_TEST},
-	{.name = "st_open", .desp = "ST Open Data", .result = "FAIL", .catalog = ST_TEST},
+    {.name = "st_dac", .desp = "ST Calibration Data(DAC)", .result = "FAIL", .catalog = ST_TEST},
+    {.name = "st_bg", .desp = "ST Baseline Data(BG)", .result = "FAIL", .catalog = ST_TEST},
+    {.name = "st_no_bk", .desp = "ST Raw Data(No BK)", .result = "FAIL", .catalog = ST_TEST},
+    {.name = "st_has_bk", .desp = "ST Raw(Have BK)", .result = "FAIL", .catalog = ST_TEST},
+    {.name = "st_open", .desp = "ST Open Data", .result = "FAIL", .catalog = ST_TEST},
 
-	{.name = "tx_short", .desp = "Tx Short Test", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "rx_short", .desp = "Short Test -ILI9881", .result = "FAIL", .catalog = SHORT_TEST},
-	{.name = "rx_open", .desp = "RX Open", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "tx_short", .desp = "Tx Short Test", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "rx_short", .desp = "Short Test -ILI9881", .result = "FAIL", .catalog = SHORT_TEST},
+    {.name = "rx_open", .desp = "RX Open", .result = "FAIL", .catalog = MUTUAL_TEST},
 
-	{.name = "cm_data", .desp = "Untouch Cm Data", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "cs_data", .desp = "Untouch Cs Data", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "cm_data", .desp = "Untouch Cm Data", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "cs_data", .desp = "Untouch Cs Data", .result = "FAIL", .catalog = MUTUAL_TEST},
 
-	{.name = "tx_rx_delta", .desp = "Tx/Rx Delta", .result = "FAIL", .catalog = TX_RX_DELTA},
+    {.name = "tx_rx_delta", .desp = "Tx/Rx Delta", .result = "FAIL", .catalog = TX_RX_DELTA},
 
-	{.name = "p2p", .desp = "Untouch Peak to Peak", .result = "FAIL", .catalog = UNTOUCH_P2P},
+    {.name = "p2p", .desp = "Untouch Peak to Peak", .result = "FAIL", .catalog = UNTOUCH_P2P},
 
-	{.name = "pixel_no_bk", .desp = "Pixel Raw (No BK)", .result = "FAIL", .catalog = PIXEL},
-	{.name = "pixel_has_bk", .desp = "Pixel Raw (Have BK)", .result = "FAIL", .catalog = PIXEL},
+    {.name = "pixel_no_bk", .desp = "Pixel Raw (No BK)", .result = "FAIL", .catalog = PIXEL},
+    {.name = "pixel_has_bk", .desp = "Pixel Raw (Have BK)", .result = "FAIL", .catalog = PIXEL},
 
-	{.name = "open_integration", .desp = "Open Test(integration)", .result = "FAIL", .catalog = OPEN_TEST},
-	{.name = "open_integration_sp", .desp = "Open Test(integration)_SP", .result = "FAIL", .catalog = OPEN_TEST},
-	{.name = "open_cap", .desp = "Open Test(Cap)", .result = "FAIL", .catalog = OPEN_TEST},
+    {.name = "open_integration", .desp = "Open Test(integration)", .result = "FAIL", .catalog = OPEN_TEST},
+    {.name = "open_cap", .desp = "Open Test(Cap)", .result = "FAIL", .catalog = OPEN_TEST},
 
-	{.name = "noise_peak_to_peak_ic", .desp = "Noise Peak to Peak(IC Only)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-	{.name = "noise_peak_to_peak_panel", .desp = "Noise Peak To Peak(With Panel)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-	{.name = "noise_peak_to_peak_ic_lcm_off", .desp = "Noise Peak to Peak(IC Only) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-	{.name = "noise_peak_to_peak_panel_lcm_off", .desp = "Noise Peak to Peak(With Panel) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+    /* New test items for protocol 5.4.0 above */
+    {.name = "noise_peak_to_peak_ic", .desp = "Noise Peak to Peak(IC Only)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+    {.name = "noise_peak_to_peak_panel", .desp = "Noise Peak To Peak(With Panel)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 
-	{.name = "doze_raw", .desp = "Doze Raw Data", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "doze_p2p", .desp = "Doze Peak To Peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-	{.name = "doze_raw_td_lcm_off", .desp = "Raw Data_TD (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.name = "doze_p2p_td_lcm_off", .desp = "Peak To Peak_TD (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+    {.name = "noise_peak_to_peak_ic_lcm_off", .desp = "Noise Peak to Peak(IC Only) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+    {.name = "noise_peak_to_peak_panel_lcm_off", .desp = "Noise Peak to Peak(With Panel) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+
+    {.name = "mutual_no_bk_lcm_off", .desp = "Raw Data(No BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "mutual_has_bk_lcm_off", .desp = "Raw Data(Have BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+
+    {.name = "open_integration_sp", .desp = "Open Test(integration)_SP", .result = "FAIL", .catalog = OPEN_TEST},
+
+    {.name = "doze_raw", .desp = "Doze Raw Data", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "doze_p2p", .desp = "Doze Peak To Peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+    {.name = "doze_raw_td_lcm_off", .desp = "Raw Data_TD (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+    {.name = "doze_p2p_td_lcm_off", .desp = "Peak To Peak_TD (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+
 };
 
 int32_t *frame_buf = NULL;
@@ -517,7 +517,7 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 	return 0;
 }
 
-int core_mp_ctrl_lcm_status(bool on)
+static int mp_ctrl_lcm_status(bool on)
 {
 	int ret = 0, ctrl = 0, delay = 0;
 	uint8_t lcd[15] = {0};
@@ -546,7 +546,6 @@ int core_mp_ctrl_lcm_status(bool on)
 out:
 	return ret;
 }
-EXPORT_SYMBOL(core_mp_ctrl_lcm_status);
 
 static void mp_calc_nodp(bool long_v)
 {
@@ -628,7 +627,7 @@ static void mp_calc_nodp(bool long_v)
 
 static int allnode_key_cdc_data(int index)
 {
-	int i, res = 0, len = 0;
+	int i, ret = 0, len = 0;
 	int inDACp = 0, inDACn = 0;
 	uint8_t cmd[3] = { 0 };
 	uint8_t *ori = NULL;
@@ -640,7 +639,7 @@ static int allnode_key_cdc_data(int index)
 
 	if (len <= 0) {
 		ipio_err("Length is invalid\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
@@ -649,8 +648,8 @@ static int allnode_key_cdc_data(int index)
 	cmd[1] = tItems[index].cmd;
 	cmd[2] = 0;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 3);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, cmd, 3);
+	if (ret < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
@@ -660,7 +659,7 @@ static int allnode_key_cdc_data(int index)
 	/* Check busy */
 	if (core_config_check_cdc_busy(50, 50) < 0) {
 		ipio_err("Check busy is timout !\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
@@ -670,16 +669,16 @@ static int allnode_key_cdc_data(int index)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_cdc;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 2);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
 	}
@@ -694,8 +693,8 @@ static int allnode_key_cdc_data(int index)
 	mdelay(1);
 
 	/* Get original frame(cdc) data */
-	res = core_read(core_config->slave_i2c_addr, ori, len);
-	if (res < 0) {
+	ret = core_read(core_config->slave_i2c_addr, ori, len);
+	if (ret < 0) {
 		ipio_err("I2C Read Error while getting original cdc data\n");
 		goto out;
 	}
@@ -739,10 +738,10 @@ static int allnode_key_cdc_data(int index)
 
 out:
 	ipio_kfree((void **)&ori);
-	return res;
+	return ret;
 }
 
-int core_mp_calc_timing_nodp(void)
+static int mp_calc_timing_nodp(void)
 {
 	int ret = 0;
 	uint8_t test_type = 0x0;
@@ -836,7 +835,7 @@ int core_mp_calc_timing_nodp(void)
 out:
 	return ret;
 }
-EXPORT_SYMBOL(core_mp_calc_timing_nodp);
+
 
 static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 {
@@ -911,7 +910,7 @@ static int mp_cdc_init_cmd_common(uint8_t *cmd, int len, int index)
 
 static int allnode_mutual_cdc_data(int index)
 {
-	static int i = 0, res = 0, len = 0;
+	static int i = 0, ret = 0, len = 0;
 	int inDACp = 0, inDACn = 0;
 	static uint8_t cmd[15] = {0};
 	uint8_t *ori = NULL;
@@ -924,7 +923,7 @@ static int allnode_mutual_cdc_data(int index)
 
 	if (len <= 2) {
 		ipio_err("Length is invalid\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
@@ -935,8 +934,8 @@ static int allnode_mutual_cdc_data(int index)
 
 	dump_data(cmd, 8, protocol->cdc_len, 0, "Mutual CDC command");
 
-	res = core_write(core_config->slave_i2c_addr, cmd, protocol->cdc_len);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, cmd, protocol->cdc_len);
+	if (ret < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
@@ -944,16 +943,16 @@ static int allnode_mutual_cdc_data(int index)
 	/* Check busy */
 	ipio_info("Check busy method = %d\n", core_mp->busy_cdc);
 	if (core_mp->busy_cdc == POLL_CHECK) {
-		res = core_config_check_cdc_busy(50, 50);
+		ret = core_config_check_cdc_busy(50, 50);
 	} else if (core_mp->busy_cdc == INT_CHECK) {
-		res = core_config_check_int_status(false);
+		ret = core_config_check_int_status(true);
 	} else if (core_mp->busy_cdc == DELAY_CHECK) {
 		mdelay(600);
 	}
 
-	if (res < 0) {
+	if (ret < 0) {
 		ipio_err("Check busy timeout !\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
@@ -961,16 +960,16 @@ static int allnode_mutual_cdc_data(int index)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_cdc;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 2);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
 	}
@@ -985,8 +984,8 @@ static int allnode_mutual_cdc_data(int index)
 	}
 
 	/* Get original frame(cdc) data */
-	res = core_read(core_config->slave_i2c_addr, ori, len);
-	if (res < 0) {
+	ret = core_read(core_config->slave_i2c_addr, ori, len);
+	if (ret < 0) {
 		ipio_err("I2C Read Error while getting original cdc data\n");
 		goto out;
 	}
@@ -1048,7 +1047,7 @@ static int allnode_mutual_cdc_data(int index)
 
 out:
 	ipio_kfree((void **)&ori);
-	return res;
+	return ret;
 }
 
 static void run_pixel_test(int index)
@@ -1115,7 +1114,7 @@ static void run_pixel_test(int index)
 
 static int run_open_test(int index)
 {
-	int i, x, y, k, res = 0;
+	int i, x, y, k, ret = 0;
 	int border_x[] = {-1, 0, 1, 1, 1, 0, -1, -1};
 	int border_y[] = {-1, -1, -1, 0, 1, 1, 1, 0};
 	int32_t *p_comb = frame_buf;
@@ -1145,7 +1144,7 @@ static int run_open_test(int index)
 			}
 		}
 	}
-	return res;
+	return ret;
 }
 
 static void run_tx_rx_delta_test(int index)
@@ -1296,7 +1295,7 @@ int compare_charge(int32_t* charge_rate, int x, int y, int32_t* inNodeType, int 
 /* This will be merged to allnode_mutual_cdc_data in next version */
 int allnode_open_cdc_data(int mode, int *buf, int *dac)
 {
-	int i = 0, res = 0, len = 0;
+	int i = 0, ret = 0, len = 0;
 	int inDACp = 0, inDACn = 0;
 	uint8_t cmd[15] = {0};
 	uint8_t *ori = NULL;
@@ -1312,24 +1311,24 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 
 	if (len <= 2) {
 		ipio_err("Length is invalid\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
 	/* CDC init. Read command from ini file */
-	res = core_parser_get_int_data("PV5_4 Command", key[mode], str);
-	if (res < 0) {
-		ipio_err("Failed to parse PV54 command, res = %d\n", res);
+	ret = core_parser_get_int_data("PV5_4 Command", key[mode], str);
+	if (ret < 0) {
+		ipio_err("Failed to parse PV54 command, ret = %d\n", ret);
 		goto out;
 	}
 
-	strncpy(tmp, str, res);
+	strncpy(tmp, str, ret);
 	core_parser_get_u8_array(tmp, cmd);
 
 	dump_data(cmd, 8, sizeof(cmd), 0, "Open SP command");
 
-	res = core_write(core_config->slave_i2c_addr, cmd, protocol->cdc_len);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, cmd, protocol->cdc_len);
+	if (ret < 0) {
 		ipio_err("I2C Write Error while initialising cdc\n");
 		goto out;
 	}
@@ -1337,16 +1336,16 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	/* Check busy */
 	ipio_info("Check busy method = %d\n", core_mp->busy_cdc);
 	if (core_mp->busy_cdc == POLL_CHECK) {
-		res = core_config_check_cdc_busy(100, 50);
+		ret = core_config_check_cdc_busy(50, 50);
 	} else if (core_mp->busy_cdc == INT_CHECK) {
-		res = core_config_check_int_status(false);
+		ret = core_config_check_int_status(true);
 	} else if (core_mp->busy_cdc == DELAY_CHECK) {
 		mdelay(600);
 	}
 
-	if (res < 0) {
+	if (ret < 0) {
 		ipio_err("Check busy timeout !\n");
-		res = -1;
+		ret = -1;
 		goto out;
 	}
 
@@ -1354,16 +1353,16 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_cdc;
 
-	res = core_write(core_config->slave_i2c_addr, cmd, 2);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
 	}
 
 	mdelay(1);
 
-	res = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
-	if (res < 0) {
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
 		ipio_err("I2C Write Error\n");
 		goto out;
 	}
@@ -1378,8 +1377,8 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	}
 
 	/* Get original frame(cdc) data */
-	res = core_read(core_config->slave_i2c_addr, ori, len);
-	if (res < 0) {
+	ret = core_read(core_config->slave_i2c_addr, ori, len);
+	if (ret < 0) {
 		ipio_err("I2C Read Error while getting original cdc data\n");
 		goto out;
 	}
@@ -1420,13 +1419,13 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 out:
 	ipio_kfree((void **)&ori);
 
-	return res;
+	return ret;
 }
 
 static int open_test_sp(int index)
 {
 	struct mp_test_P540_open open[tItems[index].frame_count];
-	int i = 0, x = 0, y = 0, res = 0, addr = 0; /*get_frame_cont = tItems[index].frame_count*/
+	int i = 0, x = 0, y = 0, ret = 0, addr = 0; /*get_frame_cont = tItems[index].frame_count*/
 	int Charge_AA = 0, Charge_Border = 0, Charge_Notch = 0, full_open_rate = 0;
 	char str[512] = { 0 };
 
@@ -1442,8 +1441,8 @@ static int open_test_sp(int index)
 		tItems[index].frame_count = 1;
 	}
 
-	res = create_mp_test_frame_buffer(index, tItems[index].frame_count);
-	if (res < 0)
+	ret = create_mp_test_frame_buffer(index, tItems[index].frame_count);
+	if (ret < 0)
 		goto out;
 
 	if (frame1_cbk700 == NULL) {
@@ -1503,23 +1502,23 @@ static int open_test_sp(int index)
 	if (ipio_debug_level && DEBUG_PARSER > 0)
 		dump_node_type_buffer(tItems[index].node_type, "node type");
 
-	res = core_parser_get_int_data(tItems[index].desp, "Charge_AA", str);
-	if (res || res == 0)
+	ret = core_parser_get_int_data(tItems[index].desp, "Charge_AA", str);
+	if (ret || ret == 0)
 		Charge_AA = katoi(str);
 
-	res = core_parser_get_int_data(tItems[index].desp, "Charge_Border", str);
-	if (res || res == 0)
+	ret = core_parser_get_int_data(tItems[index].desp, "Charge_Border", str);
+	if (ret || ret == 0)
 		Charge_Border = katoi(str);
 
-	res = core_parser_get_int_data(tItems[index].desp, "Charge_Notch", str);
-	if (res || res == 0)
+	ret = core_parser_get_int_data(tItems[index].desp, "Charge_Notch", str);
+	if (ret || ret == 0)
 		Charge_Notch = katoi(str);
 
-	res = core_parser_get_int_data(tItems[index].desp, "Full Open", str);
-	if (res || res == 0)
+	ret = core_parser_get_int_data(tItems[index].desp, "Full Open", str);
+	if (ret || ret == 0)
 		full_open_rate = katoi(str);
 
-	if (res < 0) {
+	if (ret < 0) {
 		ipio_err("Failed to get parameters from ini file\n");
 		goto out;
 	}
@@ -1534,28 +1533,27 @@ static int open_test_sp(int index)
 		open[i].charg_rate = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		open[i].full_Open = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		open[i].dac = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
-		open[i].cdc = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 	}
 
 	for (i = 0; i < tItems[index].frame_count; i++) {
-		res = allnode_open_cdc_data(0, open[i].dac, open[i].dac);
-		if (res < 0) {
-			ipio_err("Failed to get Open SP DAC data, %d\n", res);
+		ret = allnode_open_cdc_data(0, open[i].dac, open[i].dac);
+		if (ret < 0) {
+			ipio_err("Failed to get Open SP DAC data, %d\n", ret);
 			goto out;
 		}
-		res = allnode_open_cdc_data(1, open[i].cbk_700, open[i].dac);
-		if (res < 0) {
-			ipio_err("Failed to get Open SP Raw1 data, %d\n", res);
+		ret = allnode_open_cdc_data(1, open[i].cbk_700, open[i].dac);
+		if (ret < 0) {
+			ipio_err("Failed to get Open SP Raw1 data, %d\n", ret);
 			goto out;
 		}
-		res = allnode_open_cdc_data(2, open[i].cbk_250, open[i].dac);
-		if (res < 0) {
-			ipio_err("Failed to get Open SP Raw2 data, %d\n", res);
+		ret = allnode_open_cdc_data(2, open[i].cbk_250, open[i].dac);
+		if (ret < 0) {
+			ipio_err("Failed to get Open SP Raw2 data, %d\n", ret);
 			goto out;
 		}
-		res = allnode_open_cdc_data(3, open[i].cbk_200, open[i].dac);
-		if (res < 0) {
-			ipio_err("Failed to get Open SP Raw3 data, %d\n", res);
+		ret = allnode_open_cdc_data(3, open[i].cbk_200, open[i].dac);
+		if (ret < 0) {
+			ipio_err("Failed to get Open SP Raw3 data, %d\n", ret);
 			goto out;
 		}
 
@@ -1625,7 +1623,7 @@ out:
 		ipio_kfree((void **)&open[i].dac);
 	}
 
-	return res;
+	return ret;
 }
 
 int codeToOhm(int32_t Code)
@@ -1659,7 +1657,7 @@ int codeToOhm(int32_t Code)
 
 static int short_test(int index, int frame_index)
 {
-	int j = 0, res = 0;
+	int j = 0, ret = 0;
 
 	if (protocol->major >= 5 && protocol->mid >= 4) {
 		/* Calculate code to ohm and save to tItems[index].buf */
@@ -1670,12 +1668,12 @@ static int short_test(int index, int frame_index)
 			tItems[index].buf[frame_index * core_mp->frame_len + j] = frame_buf[j];
 	}
 
-	return res;
+	return ret;
 }
 
 static int mutual_test(int index)
 {
-	int i = 0, j = 0, x = 0, y = 0, res = 0, get_frame_cont = 1;
+	int i = 0, j = 0, x = 0, y = 0, ret = 0, get_frame_cont = 1;
 
 	ipio_debug(DEBUG_MP_TEST, "index = %d, name = %s, CMD = 0x%x, Frame Count = %d\n",
 	    index, tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
@@ -1689,8 +1687,8 @@ static int mutual_test(int index)
 		tItems[index].frame_count = 1;
 	}
 
-	res = create_mp_test_frame_buffer(index, tItems[index].frame_count);
-	if (res < 0)
+	ret = create_mp_test_frame_buffer(index, tItems[index].frame_count);
+	if (ret < 0)
 		goto out;
 
 	/* Init Max/Min buffer */
@@ -1718,9 +1716,9 @@ static int mutual_test(int index)
 	}
 
 	for (i = 0; i < get_frame_cont; i++) {
-		res = allnode_mutual_cdc_data(index);
-		if (res < 0) {
-			ipio_err("Failed to initialise CDC data, %d\n", res);
+		ret = allnode_mutual_cdc_data(index);
+		if (ret < 0) {
+			ipio_err("Failed to initialise CDC data, %d\n", ret);
 			goto out;
 		}
 		switch (tItems[index].catalog) {
@@ -1748,30 +1746,30 @@ static int mutual_test(int index)
 	}
 
 out:
-	return res;
+	return ret;
 }
 
 static int key_test(int index)
 {
-	int i, j = 0, res = 0;
+	int i, j = 0, ret = 0;
 
 	ipio_debug(DEBUG_MP_TEST, "Item = %s, CMD = 0x%x, Frame Count = %d\n",
 	    tItems[index].name, tItems[index].cmd, tItems[index].frame_count);
 
 	if (tItems[index].frame_count == 0) {
 		ipio_err("Frame count is zero, which at least sets as 1\n");
-		res = -EINVAL;
+		ret = -EINVAL;
 		goto out;
 	}
 
-	res = create_mp_test_frame_buffer(index, tItems[index].frame_count);
-	if (res < 0)
+	ret = create_mp_test_frame_buffer(index, tItems[index].frame_count);
+	if (ret < 0)
 		goto out;
 
 	for (i = 0; i < tItems[index].frame_count; i++) {
-		res = allnode_key_cdc_data(index);
-		if (res < 0) {
-			ipio_err("Failed to initialise CDC data, %d\n", res);
+		ret = allnode_key_cdc_data(index);
+		if (ret < 0) {
+			ipio_err("Failed to initialise CDC data, %d\n", ret);
 			goto out;
 		}
 
@@ -1782,7 +1780,7 @@ static int key_test(int index)
 	compare_MaxMin_result(index, tItems[index].buf);
 
 out:
-	return res;
+	return ret;
 }
 
 static int self_test(int index)
@@ -1958,8 +1956,8 @@ static int mp_retry_comp_cdc_result(int index)
 			mp_test_data_sort_average(tItems[index].buf, index, tItems[index].result_buf);
 			mp_compare_cdc_result(tItems[index].result_buf, max_threshold, min_threshold, &test_result);
 		} else {
-			mp_compare_cdc_result(tItems[index].max_buf, max_threshold, min_threshold, &test_result);
-			mp_compare_cdc_result(tItems[index].min_buf, max_threshold, min_threshold, &test_result);
+			mp_compare_cdc_result(tItems[index].buf, max_threshold, min_threshold, &test_result);
+			mp_compare_cdc_result(tItems[index].buf, max_threshold, min_threshold, &test_result);
 		}
 	}
 
@@ -1992,19 +1990,13 @@ static void mp_do_retry(int index, int count)
 #else
 	core_config_ice_mode_enable();
 
-	if (core_config_set_watch_dog(false) < 0) {
-		ipio_err("Failed to disable watch dog\n");
-	}
-
 	core_config_ic_reset();
 
-	core_config_ice_mode_disable();
-
 	/* Switch to Demo mode */
-	core_fr_mode_control(&protocol->demo_mode);
+	core_config_switch_fw_mode(&protocol->demo_mode);
 
 	/* Switch to test mode */
-	core_fr_mode_control(&protocol->test_mode);
+	core_config_switch_fw_mode(&protocol->test_mode);
 
 	ipio_info("retry = %d, item = %s\n", count, tItems[index].desp);
 #endif
@@ -2013,12 +2005,11 @@ static void mp_do_retry(int index, int count)
 
 	tItems[index].do_test(index);
 
-	if (mp_retry_comp_cdc_result(index) == MP_FAIL) {
+	if (mp_retry_comp_cdc_result(index) == MP_FAIL)
 		return mp_do_retry(index, count - 1);
-	}
 }
 
-void core_mp_show_result(void)
+static void mp_show_result(void)
 {
 	int i, x, y, j, csv_len = 0, pass_item_count = 0 ,line_count = 0 ,get_frame_cont = 1;
 	int32_t *max_threshold = NULL, *min_threshold = NULL;
@@ -2147,8 +2138,8 @@ void core_mp_show_result(void)
 			if(tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST){
 				mp_compare_cdc_show_result(tItems[i].result_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Mean result");
 			} else {
-				mp_compare_cdc_show_result(tItems[i].max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Max Hold");
-				mp_compare_cdc_show_result(tItems[i].min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Min Hold");
+				mp_compare_cdc_show_result(tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Max Hold");
+				mp_compare_cdc_show_result(tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Min Hold");
 			}
 			if(tItems[i].catalog != PEAK_TO_PEAK_TEST)
 				get_frame_cont = tItems[i].frame_count;
@@ -2178,18 +2169,8 @@ void core_mp_show_result(void)
 	}
 
 	/* define csv file name */
-	if (core_mp->oppo_run) {
-		if (core_mp->oppo_lcm) {
-			ret_pass_name = OPPO_CSV_LCM_PASS_NAME;
-			ret_fail_name = OPPO_CSV_LCM_FAIL_NAME;
-		} else {
-			ret_pass_name = OPPO_CSV_PASS_NAME;
-			ret_fail_name = OPPO_CSV_FAIL_NAME;
-		}
-	} else {
-		ret_pass_name = NORMAL_CSV_PASS_NAME;
-		ret_fail_name = NORMAL_CSV_FAIL_NAME;
-	}
+	ret_pass_name = NORMAL_CSV_PASS_NAME;
+	ret_fail_name = NORMAL_CSV_FAIL_NAME;
 
 	if (pass_item_count == 0) {
 		core_mp->final_result = MP_FAIL;
@@ -2231,7 +2212,6 @@ fail_open:
 	ipio_kfree((void **)&max_threshold);
 	ipio_kfree((void **)&min_threshold);
 }
-EXPORT_SYMBOL(core_mp_show_result);
 
 /* The method to copy results to user depends on what APK needs */
 void core_mp_copy_reseult(int *buf, int size)
@@ -2258,7 +2238,7 @@ void core_mp_copy_reseult(int *buf, int size)
 }
 EXPORT_SYMBOL(core_mp_copy_reseult);
 
-void core_mp_run_test(char *item, bool ini)
+static void mp_run_test(char *item)
 {
 	int i = 0;
 	char str[512] = { 0 };
@@ -2289,55 +2269,51 @@ void core_mp_run_test(char *item, bool ini)
 
 	for (i = 0; i < core_mp->mp_items; i++) {
 		if (strncmp(item, tItems[i].desp, strlen(item)) == 0) {
-			if (ini) {
-				core_parser_get_int_data(item, "Enable", str);
-				tItems[i].run = katoi(str);
-				core_parser_get_int_data(item, "SPEC Option", str);
-				tItems[i].spec_option= katoi(str);
-				core_parser_get_int_data(item, "Type Option", str);
-				tItems[i].type_option= katoi(str);
- 				core_parser_get_int_data(item, "Frame Count", str);
-				tItems[i].frame_count= katoi(str);
-				core_parser_get_int_data(item, "Trimmed Mean", str);
-				tItems[i].trimmed_mean= katoi(str);
-				core_parser_get_int_data(item, "Lowest Percentage", str);
-				tItems[i].lowest_percentage= katoi(str);
- 				core_parser_get_int_data(item, "Highest Percentage", str);
-				tItems[i].highest_percentage= katoi(str);
+			core_parser_get_int_data(item, "Enable", str);
+			tItems[i].run = katoi(str);
+			core_parser_get_int_data(item, "SPEC Option", str);
+			tItems[i].spec_option= katoi(str);
+			core_parser_get_int_data(item, "Type Option", str);
+			tItems[i].type_option= katoi(str);
+			core_parser_get_int_data(item, "Frame Count", str);
+			tItems[i].frame_count= katoi(str);
+			core_parser_get_int_data(item, "Trimmed Mean", str);
+			tItems[i].trimmed_mean= katoi(str);
+			core_parser_get_int_data(item, "Lowest Percentage", str);
+			tItems[i].lowest_percentage= katoi(str);
+			core_parser_get_int_data(item, "Highest Percentage", str);
+			tItems[i].highest_percentage= katoi(str);
 
-				/* Get threshold from ini structure in parser */
-				if (strcmp(item, "Tx/Rx Delta") == 0) {
-					core_parser_get_int_data(item, "Tx Max", str);
-					core_mp->TxDeltaMax = katoi(str);
-					core_parser_get_int_data(item, "Tx Min", str);
-					core_mp->TxDeltaMin = katoi(str);
-					core_parser_get_int_data(item, "Rx Max", str);
-					core_mp->RxDeltaMax = katoi(str);
-					core_parser_get_int_data(item, "Rx Min", str);
-					core_mp->RxDeltaMin = katoi(str);
-					ipio_debug(DEBUG_MP_TEST, "%s: Tx Max = %d, Tx Min = %d, Rx Max = %d,  Rx Min = %d\n",
-							tItems[i].desp, core_mp->TxDeltaMax, core_mp->TxDeltaMin,
-							core_mp->RxDeltaMax, core_mp->RxDeltaMin);
-				} else {
-					core_parser_get_int_data(item, "Max", str);
-					tItems[i].max = katoi(str);
-					core_parser_get_int_data(item, "Min", str);
-					tItems[i].min = katoi(str);
-				}
-
-				core_parser_get_int_data(item, "Frame Count", str);
-				tItems[i].frame_count = katoi(str);
-
-				ipio_debug(DEBUG_MP_TEST, "%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp,
-						tItems[i].run, tItems[i].max, tItems[i].min, tItems[i].frame_count);
+			/* Get threshold from ini structure in parser */
+			if (strcmp(item, "Tx/Rx Delta") == 0) {
+				core_parser_get_int_data(item, "Tx Max", str);
+				core_mp->TxDeltaMax = katoi(str);
+				core_parser_get_int_data(item, "Tx Min", str);
+				core_mp->TxDeltaMin = katoi(str);
+				core_parser_get_int_data(item, "Rx Max", str);
+				core_mp->RxDeltaMax = katoi(str);
+				core_parser_get_int_data(item, "Rx Min", str);
+				core_mp->RxDeltaMin = katoi(str);
+				ipio_debug(DEBUG_MP_TEST, "%s: Tx Max = %d, Tx Min = %d, Rx Max = %d,  Rx Min = %d\n",
+						tItems[i].desp, core_mp->TxDeltaMax, core_mp->TxDeltaMin,
+						core_mp->RxDeltaMax, core_mp->RxDeltaMin);
+			} else {
+				core_parser_get_int_data(item, "Max", str);
+				tItems[i].max = katoi(str);
+				core_parser_get_int_data(item, "Min", str);
+				tItems[i].min = katoi(str);
 			}
+
+			core_parser_get_int_data(item, "Frame Count", str);
+			tItems[i].frame_count = katoi(str);
+
+			ipio_debug(DEBUG_MP_TEST, "%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp,
+					tItems[i].run, tItems[i].max, tItems[i].min, tItems[i].frame_count);
 
 			if (tItems[i].run) {
 				/* LCM off */
-				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL) {
-					if (!core_mp->oppo_run && !core_mp->oppo_lcm)
-						core_mp_ctrl_lcm_status(false);
-				}
+				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
+					mp_ctrl_lcm_status(false);
 
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
@@ -2351,61 +2327,191 @@ void core_mp_run_test(char *item, bool ini)
 				}
 
 				/* LCM on */
-				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL) {
-					if (!core_mp->oppo_run && !core_mp->oppo_lcm)
-						core_mp_ctrl_lcm_status(true);
-				}
+				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
+					mp_ctrl_lcm_status(true);
 			}
 			break;
 		}
 	}
 }
-EXPORT_SYMBOL(core_mp_run_test);
+
+static void dma_clear_register_setting(void)
+{
+	ipio_info("interrupt t0/t1 enable flag\n");
+	core_config_ice_mode_bit_mask(INTR32_ADDR, INTR32_reg_t0_int_en, (0 << 24));
+	core_config_ice_mode_bit_mask(INTR32_ADDR, INTR32_reg_t1_int_en, (0 << 25));
+
+	ipio_info("clear tdi_err_int_flag\n");
+	core_config_ice_mode_bit_mask(INTR2_ADDR, INTR2_tdi_err_int_flag_clear, (1 << 18));
+
+	ipio_info("clear dma channel 0 src1 info\n");
+	core_config_ice_mode_write(DMA49_reg_dma_ch0_src1_addr, 0x00000000, 4);
+	core_config_ice_mode_write(DMA50_reg_dma_ch0_src1_step_inc, 0x00, 1);
+	core_config_ice_mode_bit_mask(DMA50_ADDR, DMA50_reg_dma_ch0_src1_format, (0 << 24));
+	core_config_ice_mode_bit_mask(DMA50_ADDR, DMA50_reg_dma_ch0_src1_en, (1 << 31));
+
+	ipio_info("clear dma channel 0 src2 info\n");
+	core_config_ice_mode_bit_mask(DMA52_ADDR, DMA52_reg_dma_ch0_src2_en, (0 << 31));
+
+	ipio_info("clear dma channel 0 trafer info\n");
+	core_config_ice_mode_write(DMA55_reg_dma_ch0_trafer_counts, 0x00000000, 4);
+	core_config_ice_mode_bit_mask(DMA55_ADDR, DMA55_reg_dma_ch0_trafer_mode, (0 << 24));
+
+	ipio_info("clear dma channel 0 trigger select\n");
+	core_config_ice_mode_bit_mask(DMA48_ADDR, DMA48_reg_dma_ch0_trigger_sel, (0 << 16));
+
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
+
+	ipio_info("clear dma flash setting\n");
+	tddi_clear_dma_flash();
+}
+
+static void dma_trigger_register_setting(uint32_t nRegDestAddr, uint32_t nFlashStartAddr, uint32_t nCopySize)
+{
+	ipio_info("set dma channel 0 clear\n");
+	core_config_ice_mode_bit_mask(DMA48_ADDR, DMA48_reg_dma_ch0_start_clear, (1 << 25));
+
+	ipio_info("set dma channel 0 src1 info\n");
+	core_config_ice_mode_write(DMA49_reg_dma_ch0_src1_addr, 0x00041010, 4);
+	core_config_ice_mode_write(DMA50_reg_dma_ch0_src1_step_inc, 0x00, 1);
+	core_config_ice_mode_bit_mask(DMA50_ADDR, DMA50_reg_dma_ch0_src1_format, (0 << 24));
+	core_config_ice_mode_bit_mask(DMA50_ADDR, DMA50_reg_dma_ch0_src1_en, (1 << 31));
+
+	ipio_info("set dma channel 0 src2 info\n");
+	core_config_ice_mode_bit_mask(DMA52_ADDR, DMA52_reg_dma_ch0_src2_en, (0 << 31));
+
+	ipio_info("set dma channel 0 dest info\n");
+	core_config_ice_mode_write(DMA53_reg_dma_ch0_dest_addr, nRegDestAddr, 3);
+	core_config_ice_mode_write(DMA54_reg_dma_ch0_dest_step_inc, 0x01, 1);
+	core_config_ice_mode_bit_mask(DMA54_ADDR, DMA54_reg_dma_ch0_dest_format, (0 << 24));
+	core_config_ice_mode_bit_mask(DMA54_ADDR, DMA54_reg_dma_ch0_dest_en, (1 << 31));
+
+	ipio_info("set dma channel 0 trafer info\n");
+	core_config_ice_mode_write(DMA55_reg_dma_ch0_trafer_counts, nCopySize, 4);
+	core_config_ice_mode_bit_mask(DMA55_ADDR, DMA55_reg_dma_ch0_trafer_mode, (0 << 24));
+
+	ipio_info("set dma channel 0 int info\n");
+	core_config_ice_mode_bit_mask(INTR33_ADDR, INTR33_reg_dma_ch0_int_en, (1 << 17));
+
+	ipio_info("set dma channel 0 trigger select\n");
+	core_config_ice_mode_bit_mask(DMA48_ADDR, DMA48_reg_dma_ch0_trigger_sel, (1 << 16));
+
+	ipio_info("set dma flash setting, FlashAddr = 0x%x\n",nFlashStartAddr);
+	tddi_write_dma_flash(nFlashStartAddr,(nFlashStartAddr+nCopySize), nCopySize);
+
+	ipio_info("clear flash and dma ch0 int flag\n");
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_dma_ch0_int_flag, (1 << 17));
+	core_config_ice_mode_bit_mask(0x041013, BIT(0), 1); //patch
+
+	/* DMA Trigger */
+	core_config_ice_mode_write(FLASH4_reg_rcv_data, 0xFF, 1);
+	mdelay(30);
+
+	/* CS High */
+	core_config_ice_mode_write(FLASH0_reg_flash_csb, 0x1, 1);
+	mdelay(60);
+}
+
+void get_dma_overlay_info(void)
+{
+	int ret = 0;
+	uint8_t szOutBuf[16] = {0};
+
+	szOutBuf[0] = protocol->cmd_get_mp_info;
+
+	ipio_info("Get overlay info, cmd = 0x%x\n", szOutBuf[0]);
+
+	ret = core_write(core_config->slave_i2c_addr, szOutBuf, 1);
+	if (ret < 0) {
+		ipio_err("Failed to get overlay command\n");
+		return;
+	}
+
+	memset(szOutBuf, 0, sizeof(szOutBuf));
+
+	ret = core_read(core_config->slave_i2c_addr, szOutBuf, protocol->mp_info_len);
+	if (ret < 0) {
+		ipio_err("Failed to get overlay command\n");
+		return;
+	}
+
+	core_mp->dma_trigger_enable = 0;
+
+	core_mp->mp_flash_addr = szOutBuf[3] + (szOutBuf[2] << 8) + (szOutBuf[1] << 16);
+	core_mp->mp_size = szOutBuf[6] + (szOutBuf[5] << 8) + (szOutBuf[4] << 16);
+	core_mp->overlay_start_addr = szOutBuf[9] + (szOutBuf[8] << 8) + (szOutBuf[7] << 16);
+	core_mp->overlay_end_addr = szOutBuf[12] + (szOutBuf[11] << 8) + (szOutBuf[10] << 16);
+
+	if(core_mp->overlay_start_addr != 0x0 && core_mp->overlay_end_addr != 0x0 && szOutBuf[0] == protocol->cmd_get_mp_info)
+		core_mp->dma_trigger_enable = 1;
+
+	ipio_info("Overlay addr = 0x%x ~ 0x%x , flash addr = 0x%x , mp size = 0x%x\n",
+		core_mp->overlay_start_addr, core_mp->overlay_end_addr, core_mp->mp_flash_addr, core_mp->mp_size);
+}
 
 int core_mp_move_code(void)
 {
-	ipio_info("Prepaing to enter Test Mode\n");
+	uint32_t mp_text_size = 0, mp_andes_init_size = 0;
+
+	ipio_info("Start moving MP code\n");
+
 #ifdef HOST_DOWNLOAD
 	if(ilitek_platform_tp_hw_reset(true) < 0) {
 		ipio_info("host download failed!\n");
 		return -1;
 	}
 #else
+
+	/* Get Dma overlay info command only be used in I2C mode */
+	get_dma_overlay_info();
+
 	if (core_config_ice_mode_enable() < 0) {
 		ipio_err("Failed to enter ICE mode\n");
 		return -1;
 	}
 
-	if (core_config_set_watch_dog(false) < 0) {
-		ipio_err("Failed to disable watch dog\n");
-		return -1;
+	ipio_info("DMA trigger = %d\n", core_mp->dma_trigger_enable);
+
+	if(core_mp->dma_trigger_enable) {
+		mp_andes_init_size = core_mp->overlay_start_addr;
+		mp_text_size = (core_mp->mp_size - core_mp->overlay_end_addr) + 1;
+		ipio_info("Mp andes init size = %d , Mp text size = %d\n",mp_andes_init_size , mp_text_size);
+
+		ipio_info("[clear register setting]\n");
+		dma_clear_register_setting();
+
+		ipio_info("[Move ANDES.INIT to DRAM]\n");
+		dma_trigger_register_setting(0, core_mp->mp_flash_addr, mp_andes_init_size);   /* DMA ANDES.INIT */
+
+		ipio_info("[Clear register setting]\n");
+		dma_clear_register_setting();
+
+		ipio_info("[Move MP.TEXT to DRAM]\n");
+		//dma_trigger_register_setting(NUM_OF_4_MULTIPLE(core_mp->overlay_end_addr), (core_mp->mp_flash_addr + NUM_OF_4_MULTIPLE(core_mp->overlay_end_addr)), mp_text_size);  /* DMA MP.TEXT */
+		dma_trigger_register_setting(core_mp->overlay_end_addr, (core_mp->mp_flash_addr + core_mp->overlay_start_addr), mp_text_size);
+	} else {
+		/* DMA Trigger */
+		core_config_ice_mode_write(FLASH4_reg_rcv_data, 0xFF, 1);
+		mdelay(30);
+
+		/* CS High */
+		core_config_ice_mode_write(FLASH0_reg_flash_csb, 0x1, 1);
+		mdelay(60);
 	}
-
-	/* DMA Trigger */
-	core_config_ice_mode_write(0x41010, 0xFF, 1);
-
-	mdelay(30);
-
-	/* CS High */
-	core_config_ice_mode_write(0x041000, 0x1, 1);
-
-	mdelay(60);
 
 	/* Code reset */
 	core_config_ice_mode_write(0x40040, 0xAE, 1);
 
-	if (core_config_set_watch_dog(true) < 0) {
-		ipio_err("Failed to enable watch dog\n");
-	}
-
 	core_config_ice_mode_disable();
 
 	if (core_config_check_cdc_busy(300, 50) < 0) {
-		ipio_err("Check busy is timout ! Enter Test Mode failed\n");
+		ipio_err("Check busy is timout ! moving MP code failed\n");
 		return -1;
 	}
+
 #endif
-	ipio_info("FW Test Mode ready\n");
+	ipio_info("Moved MP code successfully\n");
 	return 0;
 }
 EXPORT_SYMBOL(core_mp_move_code);
@@ -2554,16 +2660,16 @@ static void mp_test_init_item(void)
 	tItems[34].cmd = protocol->peak_to_peak;
 }
 
-int core_mp_init(void)
+static int mp_initial(void)
 {
-	int res = 0;
+	int ret = 0;
 
 	if (!ERR_ALLOC_MEM(core_config->tp_info)) {
 		if (core_mp == NULL) {
 			core_mp = kzalloc(sizeof(*core_mp), GFP_KERNEL);
 			if (ERR_ALLOC_MEM(core_mp)) {
 				ipio_err("Failed to init core_mp, %ld\n", PTR_ERR(core_mp));
-				res = -ENOMEM;
+				ret = -ENOMEM;
 				goto out;
 			}
 
@@ -2577,21 +2683,115 @@ int core_mp_init(void)
 			core_mp->st_len = core_config->tp_info->side_touch_type;
 
 			core_mp->tdf = 240;
-			core_mp->busy_cdc = INT_CHECK;
+			core_mp->busy_cdc = CHECK_BUSY_TYPE;
 
-			core_mp->retry = true;
-			core_mp->oppo_run = false;
-			core_mp->oppo_lcm = false;
+			core_mp->retry = false;
 			core_mp->final_result = MP_FAIL;
 
 			mp_test_init_item();
 		}
 	} else {
 		ipio_err("Failed to allocate core_mp mem as did not find TP info\n");
-		res = -ENOMEM;
+		ret = -ENOMEM;
 	}
 
 out:
-	return res;
+	return ret;
 }
-EXPORT_SYMBOL(core_mp_init);
+
+void core_mp_start_test(void)
+{
+	uint32_t ret;
+
+	if (core_parser_path(INI_NAME_PATH) < 0) {
+		ipio_err("Failed to parsing INI file\n");
+		goto out;
+	}
+
+	/* Init MP structure */
+	if(mp_initial() < 0) {
+		ipio_err("Failed to init mp\n");
+		goto out;
+	}
+
+	/* Switch to Test mode nad move mp code */
+	ret = core_config_switch_fw_mode(&protocol->test_mode);
+	if (ret < 0) {
+		ipio_err("Switch to test mode failed\n");
+		goto out;
+	}
+
+	mutex_lock(&ipd->plat_mutex);
+
+	ilitek_platform_disable_irq();
+	core_fr->isEnableFR = false;
+
+	/*
+	 * Get timing parameters first.
+	 * Howerver, this can be ignored if read them from ini.
+	 */
+	if (protocol->major >= 5 && protocol->mid >= 4) {
+		if (mp_calc_timing_nodp() < 0) {
+			ipio_err("Can't get timing parameters\n");
+			goto out;
+		}
+	}
+
+	if (protocol->major >= 5 && protocol->mid >= 4) {
+		/* Do not chang the sequence of test */
+		mp_run_test("Noise Peak To Peak(With Panel)");
+		mp_run_test("Noise Peak to Peak(IC Only)");
+		mp_run_test("Short Test -ILI9881");
+		mp_run_test("Open Test(integration)_SP");
+		mp_run_test("Raw Data(Have BK)");
+		mp_run_test("Raw Data(Have BK) (LCM OFF)");
+		mp_run_test("Calibration Data(DAC)");
+		mp_run_test("Raw Data(No BK)");
+		mp_run_test("Raw Data(No BK) (LCM OFF)");
+		mp_run_test("Noise Peak to Peak(With Panel) (LCM OFF)");
+		mp_run_test("Noise Peak to Peak(IC Only) (LCM OFF)");
+		mp_run_test("Raw Data_TD (LCM OFF)");
+		mp_run_test("Peak To Peak_TD (LCM OFF)");
+		mp_run_test("Doze Raw Data");
+		mp_run_test("Doze Peak To Peak");
+
+	} else {
+		mp_run_test("Untouch Peak to Peak");
+		mp_run_test("Open Test(integration)");
+		mp_run_test("Open Test(Cap)");
+		mp_run_test("Short Test (Rx)");
+		mp_run_test("Untouch Calibration Data(DAC) - Mutual");
+		mp_run_test("Untouch Raw Data(Have BK) - Mutual");
+		mp_run_test("Untouch Raw Data(No BK) - Mutual");
+		mp_run_test("Untouch Cm Data");
+		mp_run_test("Pixel Raw (No BK)");
+		mp_run_test("Pixel Raw (Have BK)");
+
+	}
+
+	mp_show_result();
+
+#ifndef HOST_DOWNLOAD
+	core_config_ice_mode_enable();
+
+	core_config_ic_reset();
+#endif
+
+	/* Switch to Demo mode */
+	ret = core_config_switch_fw_mode(&protocol->demo_mode);
+	if (ret < 0) {
+		ipio_err("Switch to dmoe mode failed\n");
+		goto out;
+	}
+
+#ifdef HOST_DOWNLOAD
+	if(ilitek_platform_tp_hw_reset(true) < 0)
+		ipio_info("host download failed!\n");
+#endif
+
+out:
+	core_fr->isEnableFR = true;
+	ilitek_platform_enable_irq();
+	mutex_unlock(&ipd->plat_mutex);
+}
+EXPORT_SYMBOL(core_mp_start_test);
