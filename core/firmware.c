@@ -50,9 +50,10 @@
 #endif
 #endif /* BOOT_FW_UPGRADE || HOST_DOWNLOAD */
 
-#define CHECK_FW_FAIL -1
-#define NEED_UPDATE	   1
-#define NO_NEED_UPDATE 0
+#define CHECK_FW_FAIL	-1
+#define UPDATE_FAIL		-1
+#define NEED_UPDATE		 1
+#define NO_NEED_UPDATE 	 0
 #define FW_VER_ADDR	   0xFFE0
 #define CRC_ONESET(X, Y)	({Y = (*(X+0) << 24) | (*(X+1) << 16) | (*(X+2) << 8) | (*(X+3));})
 
@@ -100,7 +101,7 @@ struct flash_block_info {
 };
 
 struct flash_sector *g_flash_sector = NULL;
-struct flash_block_info g_flash_block_info[FW_BLOCK_INFO_NUM];
+struct flash_block_info g_flash_block_info[6];
 struct core_firmware_data *core_firmware = NULL;
 
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM);
@@ -1476,6 +1477,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
 	core_firmware->hasBlockInfo = false;
+
 	memset(g_flash_block_info, 0x0, sizeof(g_flash_block_info));
 
 #ifdef HOST_DOWNLOAD
@@ -1607,8 +1609,13 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	core_firmware->new_fw_cb = (flash_fw[FW_VER_ADDR] << 24) | (flash_fw[FW_VER_ADDR + 1] << 16) |
 			(flash_fw[FW_VER_ADDR + 2] << 8) | (flash_fw[FW_VER_ADDR + 3]);
 
+	ipio_info("new_fw_cb = 0x%x\n", core_firmware->new_fw_cb);
+
 	/* Update the length of section */
 	g_section_len = index;
+
+	ipio_info("g_section_len = %d\n", g_section_len);
+	ipio_info("ARRAY_SIZE(g_flash_block_info) = %d\n", (int)ARRAY_SIZE(g_flash_block_info));
 
 	if (g_flash_sector[g_section_len - 1].se_addr > flashtab->mem_size) {
 		ipio_err("The size written to flash is larger than it required (%x) (%x)\n",
@@ -1745,7 +1752,9 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		goto out;
 	}
 
-	g_flash_sector = kcalloc(g_total_sector, sizeof(*g_flash_sector), GFP_KERNEL);
+	ipio_info("g_total_sector = %d\n", g_total_sector);
+
+	g_flash_sector = kcalloc(g_total_sector, sizeof(struct flash_sector), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(g_flash_sector)) {
 		ipio_err("Failed to allocate g_flash_sector memory, %ld\n", PTR_ERR(g_flash_sector));
 		ret = -ENOMEM;
@@ -1825,7 +1834,7 @@ int core_firmware_init(void)
 {
 	int i = 0, j = 0;
 
-	core_firmware = devm_kzalloc(ipd->dev, sizeof(*core_firmware), GFP_KERNEL);
+	core_firmware = devm_kzalloc(ipd->dev, sizeof(struct core_firmware_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_firmware)) {
 		ipio_err("Failed to allocate core_firmware mem, %ld\n", PTR_ERR(core_firmware));
 		return -ENOMEM;

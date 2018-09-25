@@ -121,7 +121,7 @@ static void i2cuart_recv_packet(void)
 	need_read_len = need_read_len * one_data_bytes + 1;
 
 	if (need_read_len > actual_len) {
-		g_fr_uart = kmalloc(sizeof(*g_fr_uart), GFP_ATOMIC);
+		g_fr_uart = kmalloc(sizeof(struct fr_data_node), GFP_ATOMIC);
 		if (ERR_ALLOC_MEM(g_fr_uart)) {
 			ipio_err("Failed to allocate g_fr_uart memory %ld\n", PTR_ERR(g_fr_uart));
 			return;
@@ -558,7 +558,7 @@ void core_fr_handler(void)
 		goto out;;
 	}
 
-	g_fr_node = kmalloc(sizeof(*g_fr_node), GFP_ATOMIC);
+	g_fr_node = kmalloc(sizeof(struct fr_data_node), GFP_ATOMIC);
 	if (ERR_ALLOC_MEM(g_fr_node)) {
 		ipio_err("Failed to allocate g_fr_node memory %ld\n", PTR_ERR(g_fr_node));
 		goto out;
@@ -719,7 +719,7 @@ int core_fr_init(void)
 {
 	int i = 0;
 
-	core_fr = devm_kzalloc(ipd->dev, sizeof(*core_fr), GFP_KERNEL);
+	core_fr = devm_kzalloc(ipd->dev, sizeof(struct core_fr_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_fr)) {
 		ipio_err("Failed to allocate core_fr mem, %ld\n", PTR_ERR(core_fr));
 		return -ENOMEM;

@@ -35,6 +35,7 @@
 /* the list of support chip */
 uint32_t ipio_chip_list[] = {
 	CHIP_TYPE_ILI9881,
+	CHIP_TYPE_ILI7807,
 };
 
 uint8_t g_read_buf[128] = { 0 };
@@ -83,6 +84,9 @@ static uint32_t check_chip_id(uint32_t pid_data)
 				return id;
 			}
 		}
+	} else if(id == CHIP_TYPE_ILI7807) {
+		ipio_info("Find 7807G chip, return id\n");
+		return id;
 	}
 
 	return 0;
@@ -346,8 +350,11 @@ void core_config_ic_reset(void)
 {
 	uint32_t key = 0;
 
-	if (core_config->chip_id == CHIP_TYPE_ILI9881)
+	if (core_config->chip_id == CHIP_TYPE_ILI9881) {
 		key = 0x00019881;
+	} else if (core_config->chip_id == CHIP_TYPE_ILI7807) {
+		key = 0x00019878;
+	}
 
 	ipio_debug(DEBUG_CONFIG, "key = 0x%x\n", key);
 	if (key != 0) {
@@ -643,6 +650,9 @@ int core_config_set_watch_dog(bool enable)
 	/* Config register and values by IC */
 	 if (core_config->chip_id == CHIP_TYPE_ILI9881 ) {
 		value_low = 0x81;
+		value_high = 0x98;
+	} else if(core_config->chip_id == CHIP_TYPE_ILI7807) {
+		value_low = 0x78;
 		value_high = 0x98;
 	} else {
 		ipio_err("Unknown CHIP type (0x%x)\n",core_config->chip_id);
@@ -1136,13 +1146,13 @@ int core_config_init(void)
 {
 	int i = 0;
 
-	core_config = devm_kzalloc(ipd->dev, sizeof(*core_config) * sizeof(uint8_t) * 6, GFP_KERNEL);
+	core_config = devm_kzalloc(ipd->dev, sizeof(struct core_config_data) * sizeof(uint8_t) * 6, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_config)) {
 		ipio_err("Failed to allocate core_config mem, %ld\n", PTR_ERR(core_config));
 		return -ENOMEM;
 	}
 
-	core_config->tp_info = devm_kzalloc(ipd->dev, sizeof(*core_config->tp_info), GFP_KERNEL);
+	core_config->tp_info = devm_kzalloc(ipd->dev, sizeof(TP_INFO), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_config->tp_info)) {
 		ipio_err("Failed to allocate core_config->tp_info mem, %ld\n", PTR_ERR(core_config->tp_info));
 		return -ENOMEM;
@@ -1160,12 +1170,19 @@ int core_config_init(void)
 			core_config->isEnableGesture = false;
 #endif
 			 if (core_config->chip_id == CHIP_TYPE_ILI9881) {
-				core_config->slave_i2c_addr = ILI9881_SLAVE_ADDR;
+				core_config->slave_i2c_addr = ILITEK_I2C_ADDR;
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI9881_PID_ADDR;
 				core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
 				core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
 				core_config->wdt_addr = ILI9881_WDT_ADDR;
+			} else if (core_config->chip_id == CHIP_TYPE_ILI7807) {
+				core_config->slave_i2c_addr = ILITEK_I2C_ADDR;
+				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
+				core_config->pid_addr = ILI7807_PID_ADDR;
+				core_config->otp_id_addr = ILI7807_OTP_ID_ADDR;
+				core_config->ana_id_addr = ILI7807_ANA_ID_ADDR;
+				core_config->wdt_addr = ILI7807_WDT_ADDR;
 			}
 			return 0;
 		}

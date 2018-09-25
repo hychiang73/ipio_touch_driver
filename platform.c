@@ -304,20 +304,21 @@ static void ilitek_platform_esd_check(struct work_struct *pWork)
 #if (TP_PLATFORM == PT_MTK)
 static void tpd_resume(struct device *h)
 {
-	ipio_info("TP Resuem\n");
+	ipio_info("TP Resuem, MTK doing reset\n");
+	ilitek_platform_tp_hw_reset(true);
 
-	if (!core_firmware->isUpgrading) {
-		core_config_ic_resume();
-	}
+	// if (!core_firmware->isUpgrading) {
+	// 	core_config_ic_resume();
+	// }
 }
 
 static void tpd_suspend(struct device *h)
 {
-	ipio_info("TP Suspend\n");
+	ipio_info("TP Suspend, MTK do nothing\n");
 
-	if (!core_firmware->isUpgrading) {
-		core_config_ic_suspend();
-	}
+	// if (!core_firmware->isUpgrading) {
+	// 	core_config_ic_suspend();
+	// }
 }
 #elif defined CONFIG_FB
 static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned long event, void *data)
@@ -852,8 +853,8 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 	/* Set i2c slave addr if it's not configured */
 	ipio_info("I2C Slave address = 0x%x\n", client->addr);
-	if (client->addr != ILI9881_SLAVE_ADDR) {
-		client->addr = ILI9881_SLAVE_ADDR;
+	if (client->addr != ILITEK_I2C_ADDR) {
+		client->addr = ILITEK_I2C_ADDR;
 		ipio_err("I2C Slave addr doesn't be set up, use default : 0x%x\n", client->addr);
 	}
 
@@ -870,7 +871,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 	/* initialise the struct of touch ic memebers. */
 #if (INTERFACE == I2C_INTERFACE)
-	ipd = devm_kzalloc(&client->dev, sizeof(*ipd), GFP_KERNEL);
+	ipd = devm_kzalloc(&client->dev, sizeof(struct ilitek_platform_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ipd)) {
 		ipio_err("Failed to allocate ipd memory, %ld\n", PTR_ERR(ipd));
 		return -ENOMEM;
@@ -880,7 +881,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ipd->i2c_id = id;
 	ipd->dev = &client->dev;
 #else
-	ipd = devm_kzalloc(&spi->dev, sizeof(*ipd), GFP_KERNEL);
+	ipd = devm_kzalloc(&spi->dev, sizeof(struct ilitek_platform_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(ipd)) {
 		ipio_err("Failed to allocate ipd memory, %ld\n", PTR_ERR(ipd));
 		return -ENOMEM;
@@ -902,19 +903,13 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ipio_info("Driver on platform :  %x\n", TP_PLATFORM);
 	ipio_info("Driver interface :  %s\n", (INTERFACE == I2C_INTERFACE) ? "I2C" : "SPI");
 
-	/*
-	 * Different ICs may require different delay time for the reset.
-	 * They may also depend on what your platform need to.
-	 */
-	 if (ipd->chip_id == CHIP_TYPE_ILI9881) {
-		 ipd->delay_time_high = 10;
-		 ipd->delay_time_low = 5;
+	ipd->delay_time_high = 10;
+	ipd->delay_time_low = 5;
 #if (INTERFACE == I2C_INTERFACE)
-		 ipd->edge_delay = 100;
+	ipd->edge_delay = 100;
 #else
-		 ipd->edge_delay = 1;
+	ipd->edge_delay = 1;
 #endif
-	}
 
 	mutex_init(&ipd->plat_mutex);
 	mutex_init(&ipd->touch_mutex);
@@ -934,12 +929,16 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	if (ilitek_platform_gpio() < 0)
 		ipio_err("Failed to request gpios\n ");
 
+	if (ilitek_platform_isr_register() < 0)
+		ipio_err("Failed to register ISR\n");
+
 	/* If kernel failes to allocate memory to the core components, driver will be unloaded. */
 	if (ilitek_platform_core_init() < 0) {
 		ipio_err("Failed to allocate cores' mem\n");
 		return -ENOMEM;
 	}
 
+	/* Prepare our IC for the ready by doing a reset */
 #ifdef HOST_DOWNLOAD
 	core_firmware_boot_host_download();
 #else
@@ -955,9 +954,6 @@ static int ilitek_platform_probe(struct spi_device *spi)
 		ipio_err("Failed to init input device in kernel\n");
 #endif /* BOOT_FW_UPGRADE */
 
-	if (ilitek_platform_isr_register() < 0)
-		ipio_err("Failed to register ISR\n");
-
 	if (ilitek_platform_reg_suspend() < 0)
 		ipio_err("Failed to register suspend/resume function\n");
 
@@ -966,8 +962,9 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 	if (ilitek_platform_reg_esd_check() < 0)
 		ipio_err("Failed to register esd check function\n");
-	/* Create nodes for users */
-	ilitek_proc_init();
+
+	if (ilitek_proc_init() < 0)
+		ipio_err("Failed to create ilitek device nodes\n");
 
 #if (TP_PLATFORM == PT_MTK)
 	tpd_load_status = 1;

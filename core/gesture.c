@@ -273,7 +273,7 @@ EXPORT_SYMBOL(core_gesture_set_key);
 
 int core_gesture_init(void)
 {
-	core_gesture = devm_kzalloc(ipd->dev, sizeof(*core_gesture), GFP_KERNEL);
+	core_gesture = devm_kzalloc(ipd->dev, sizeof(struct core_gesture_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_gesture)) {
 		ipio_err("Failed to allocate core_gesture mem, %ld\n", PTR_ERR(core_gesture));
 		return -ENOMEM;

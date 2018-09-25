@@ -89,10 +89,10 @@
 /*
  * Relative Driver with Touch IC
  */
-
 /* An Touch IC currently supported by driver */
 #define CHIP_TYPE_ILI9881	0x9881
-#define TP_TOUCH_IC		CHIP_TYPE_ILI9881
+#define CHIP_TYPE_ILI7807	0x7807
+#define TP_TOUCH_IC		CHIP_TYPE_ILI7807
 
 #define CHIP_ID_ERR	(-100)
 
@@ -181,24 +181,37 @@ extern uint32_t ipio_chip_list[2];
 #define FW_BLOCK_INFO_NUM			6
 #define UPDATE_RETRY_COUNT			3
 
-/* ILI9881 Series */
+#define ILITEK_I2C_ADDR			0x41
+
+/*
+ * ILI9881 Series
+ */
 enum ili9881_types {
 	ILI9881_TYPE_F = 0x0F,
 	ILI9881_TYPE_H = 0x11
 };
 
-/*Error code*/
-#define SUCCESS 				0
-#define UPDATE_FAIL 			-1
-#define CHECK_RECOVER 			-2
-
-#define ILI9881_SLAVE_ADDR		0x41
 #define ILI9881_ICE_MODE_ADDR	0x181062
 #define ILI9881_PID_ADDR		0x4009C
 #define ILI9881_OTP_ID_ADDR		0x400A0
 #define ILI9881_ANA_ID_ADDR		0x400A4
 #define ILI9881_PC_COUNTER_ADDR 0x44008
 #define ILI9881_WDT_ADDR		0x5100C
+
+/*
+ * ILI7807 Series
+ */
+// enum ili9881_types {
+// 	ILI9881_TYPE_F = 0x0F,
+// 	ILI9881_TYPE_H = 0x11
+// };
+
+#define ILI7807_ICE_MODE_ADDR	0x181062
+#define ILI7807_PID_ADDR		0x4009C
+#define ILI7807_OTP_ID_ADDR		0x400A0
+#define ILI7807_ANA_ID_ADDR		0x400A4
+#define ILI7807_PC_COUNTER_ADDR 0x44008
+#define ILI7807_WDT_ADDR		0x5100C
 
 /*
  * Other settings
@@ -215,8 +228,8 @@ enum ili9881_types {
  /* define the width and heigth of a screen. */
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
-#define TOUCH_SCREEN_X_MAX 720
-#define TOUCH_SCREEN_Y_MAX 1280
+#define TOUCH_SCREEN_X_MAX 1080
+#define TOUCH_SCREEN_Y_MAX 2246
 
 /* define the range on panel */
 #define TPD_HEIGHT 2048

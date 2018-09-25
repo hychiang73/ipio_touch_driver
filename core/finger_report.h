@@ -25,6 +25,8 @@
 #ifndef __FINGER_REPORT_H
 #define __FINGER_REPORT_H
 
+#define CHECK_RECOVER 			-2
+
 struct core_fr_data {
 	struct input_dev *input_device;
 
