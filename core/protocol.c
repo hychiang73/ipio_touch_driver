@@ -397,7 +397,7 @@ EXPORT_SYMBOL(core_protocol_update_ver);
 
 int core_protocol_init(void)
 {
-	protocol = devm_kzalloc(ipd->dev, sizeof(*protocol), GFP_KERNEL);
+	protocol = devm_kzalloc(ipd->dev, sizeof(struct protocol_cmd_list), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(protocol)) {
 		ipio_err("Failed to allocate protocol mem, %ld\n", PTR_ERR(protocol));
 		return -ENOMEM;

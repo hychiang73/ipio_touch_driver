@@ -134,7 +134,7 @@ static int get_ini_phy_data(char *data, int fsize)
 
 	temp = strnstr(data, TYPE_MARK, fsize);
 	if(temp != NULL) {
-		ipio_debug(DEBUG_PARSER, "Find Type mark, locat = %d",temp-data);
+		ipio_debug(DEBUG_PARSER, "Find Type mark, locat = %d",(int)(temp - data));
 		if(core_config->core_type == CORE_TYPE_B)
 			offset = temp-data;
 		else

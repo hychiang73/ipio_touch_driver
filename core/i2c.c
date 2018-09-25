@@ -204,7 +204,7 @@ int core_i2c_init(struct i2c_client *client)
 {
 	int i;
 
-	core_i2c = devm_kmalloc(ipd->dev, sizeof(*core_i2c), GFP_KERNEL);
+	core_i2c = devm_kmalloc(ipd->dev, sizeof(struct core_i2c_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_i2c)) {
 		ipio_err("Failed to alllocate core_i2c mem %ld\n", PTR_ERR(core_i2c));
 		return -ENOMEM;
