@@ -100,7 +100,7 @@
 #define PT_QCOM	1
 #define PT_MTK	2
 #define PT_SPRD	3
-#define TP_PLATFORM PT_QCOM
+#define TP_PLATFORM PT_MTK
 
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
