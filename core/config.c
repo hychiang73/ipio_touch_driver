@@ -65,33 +65,6 @@ static void read_flash_info(uint8_t cmd, int len)
 	core_flash_init(flash_mid, flash_id);
 }
 
-static uint32_t check_chip_id(uint32_t pid_data)
-{
-	int i;
-	uint32_t id = 0;
-	uint32_t type = 0;
-
-	id = pid_data >> 16;
-	type = (pid_data & 0x0000FF00) >> 8;
-
-	ipio_info("id = 0x%x, type = 0x%x\n", id, type);
-
-	if(id == CHIP_TYPE_ILI9881) {
-		for(i = ILI9881_TYPE_F; i <= ILI9881_TYPE_H; i++) {
-			if (i == type) {
-				core_config->chip_type = i;
-				core_config->ic_reset_addr = 0x040050;
-				return id;
-			}
-		}
-	} else if(id == CHIP_TYPE_ILI7807) {
-		ipio_info("Find 7807G chip, return id\n");
-		return id;
-	}
-
-	return 0;
-}
-
 void core_config_read_pc_counter(void)
 {
 	uint32_t pc_cnt = 0x0;
@@ -1095,7 +1068,7 @@ int core_config_get_chip_id(void)
 {
 	int ret = 0;
 	static int do_once = 0;
-	uint32_t RealID = 0, PIDData = 0, OTPIDData = 0, ANAIDData = 0;
+	uint32_t pid = 0, OTPIDData = 0, ANAIDData = 0;
 
 	ret = core_config_ice_mode_enable();
 	if (ret < 0) {
@@ -1105,30 +1078,29 @@ int core_config_get_chip_id(void)
 
 	mdelay(20);
 
-	PIDData = core_config_ice_mode_read(core_config->pid_addr);
+	pid = core_config_ice_mode_read(core_config->pid_addr);
 	OTPIDData = core_config_ice_mode_read(core_config->otp_id_addr);
 	ANAIDData = core_config_ice_mode_read(core_config->ana_id_addr);
 
-	core_config->chip_pid = PIDData;
-	core_config->core_type = PIDData & 0xFF;
-	core_config->chip_otp_id = OTPIDData & 0xFF;
-	core_config->chip_ana_id = ANAIDData & 0xFF;
-
-	ipio_info("PID = 0x%x, Core type = 0x%x, OTP ID = 0x%x, ANA ID = 0x%x\n",
-		core_config->chip_pid, core_config->core_type, core_config->chip_otp_id, core_config->chip_ana_id);
-
-	if (PIDData) {
-		RealID = check_chip_id(PIDData);
-		if (RealID != core_config->chip_id) {
-			ipio_err("CHIP ID ERROR: 0x%x, TP_TOUCH_IC = 0x%x\n", RealID, TP_TOUCH_IC);
-			ret = -ENODEV;
-			goto out;
-		}
-	} else {
-		ipio_err("PID DATA error : 0x%x\n", PIDData);
-		ret = -EINVAL;
+	if ((pid >> 16) != TP_TOUCH_IC) {
+		ipio_err("Get CHIP ID Error, pid = 0x%x\n");
+		ret = -ENODEV;
 		goto out;
 	}
+
+	core_config->chip_pid = pid;
+	core_config->chip_id = pid >> 16;
+	core_config->chip_type = (pid & 0x0000FF00) >> 8;
+	core_config->core_type = pid & 0xFF;
+	core_config->chip_otp_id = pid & 0xFF;
+	core_config->chip_ana_id = ANAIDData & 0xFF;
+
+	ipio_info("Chip PID = 0x%x\n", core_config->chip_pid);
+	ipio_info("Chip ID = 0x%x\n", core_config->chip_id);
+	ipio_info("Chip Type = 0x%x\n", core_config->chip_type);
+	ipio_info("Chip Core id = 0x%x\n", core_config->core_type);
+	ipio_info("OTP ID = 0x%x\n", core_config->chip_otp_id);
+	ipio_info("ANA ID = 0x%x\n", core_config->chip_ana_id);
 
 	if (do_once == 0) {
 		/* reading flash id needs to let ic entry to ICE mode */
@@ -1158,37 +1130,39 @@ int core_config_init(void)
 		return -ENOMEM;
 	}
 
-	for (; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		if (ipio_chip_list[i] == TP_TOUCH_IC) {
-			core_config->chip_id = ipio_chip_list[i];
-			core_config->chip_type = 0x0000;
-
-			core_config->do_ic_reset = false;
+	core_config->slave_i2c_addr = ILITEK_I2C_ADDR;
+	core_config->chip_type = 0x0000;
+	core_config->do_ic_reset = false;
 #ifdef GESTURE_ENABLE
-			core_config->isEnableGesture = true;
+	core_config->isEnableGesture = true;
 #else
-			core_config->isEnableGesture = false;
+	core_config->isEnableGesture = false;
 #endif
-			 if (core_config->chip_id == CHIP_TYPE_ILI9881) {
-				core_config->slave_i2c_addr = ILITEK_I2C_ADDR;
-				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI9881_PID_ADDR;
-				core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
-				core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
-				core_config->wdt_addr = ILI9881_WDT_ADDR;
-			} else if (core_config->chip_id == CHIP_TYPE_ILI7807) {
-				core_config->slave_i2c_addr = ILITEK_I2C_ADDR;
+
+	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
+		switch (ipio_chip_list[i]) {
+			case CHIP_TYPE_ILI7807:
+				core_config->chip_id = ipio_chip_list[i];
 				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
 				core_config->pid_addr = ILI7807_PID_ADDR;
 				core_config->otp_id_addr = ILI7807_OTP_ID_ADDR;
 				core_config->ana_id_addr = ILI7807_ANA_ID_ADDR;
 				core_config->wdt_addr = ILI7807_WDT_ADDR;
-			}
-			return 0;
+				core_config->ic_reset_addr = ILI7807_CHIP_RESET_ADDR;
+				return 0;
+			case CHIP_TYPE_ILI9881:
+				core_config->chip_id = ipio_chip_list[i];
+				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
+				core_config->pid_addr = ILI9881_PID_ADDR;
+				core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
+				core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
+				core_config->wdt_addr = ILI9881_WDT_ADDR;
+				core_config->ic_reset_addr = ILI9881_CHIP_RESET_ADDR;
+				return 0;
+			default:
+				ipio_err("Can't find this chip in support list\n");
+				return -ENODEV;
 		}
 	}
-
-	ipio_err("Can't find this chip in support list\n");
-	return 0;
 }
 EXPORT_SYMBOL(core_config_init);

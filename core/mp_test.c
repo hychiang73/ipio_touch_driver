@@ -1034,9 +1034,9 @@ static int allnode_mutual_cdc_data(int index)
 			if (strncmp(tItems[index].name, "mutual_no_bk", strlen("mutual_no_bk")) == 0 ||
 				strncmp(tItems[index].name, "mutual_no_bk_lcm_off", strlen("mutual_no_bk_lcm_off")) == 0) {
 				if (core_config->chip_id == CHIP_TYPE_ILI9881) {
-					if (core_config->chip_type == ILI9881_TYPE_H)
+					if (core_config->chip_type == TYPE_H)
 						frame_buf[i] -= RAWDATA_NO_BK_DATA_SHIFT_9881H;
-					if (core_config->chip_type == ILI9881_TYPE_F)
+					if (core_config->chip_type == TYPE_F)
 						frame_buf[i] -= RAWDATA_NO_BK_DATA_SHIFT_9881F;
 				}
 			}

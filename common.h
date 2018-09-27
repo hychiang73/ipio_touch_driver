@@ -187,8 +187,8 @@ extern uint32_t ipio_chip_list[2];
  * ILI9881 Series
  */
 enum ili9881_types {
-	ILI9881_TYPE_F = 0x0F,
-	ILI9881_TYPE_H = 0x11
+	TYPE_F = 0x0F,
+	TYPE_H = 0x11
 };
 
 #define ILI9881_ICE_MODE_ADDR	0x181062
@@ -197,14 +197,14 @@ enum ili9881_types {
 #define ILI9881_ANA_ID_ADDR		0x400A4
 #define ILI9881_PC_COUNTER_ADDR 0x44008
 #define ILI9881_WDT_ADDR		0x5100C
+#define ILI9881_CHIP_RESET_ADDR 0x40050
 
 /*
  * ILI7807 Series
  */
-// enum ili9881_types {
-// 	ILI9881_TYPE_F = 0x0F,
-// 	ILI9881_TYPE_H = 0x11
-// };
+enum ili7807_types {
+	TYPE_G = 0x0,
+};
 
 #define ILI7807_ICE_MODE_ADDR	0x181062
 #define ILI7807_PID_ADDR		0x4009C
@@ -212,6 +212,7 @@ enum ili9881_types {
 #define ILI7807_ANA_ID_ADDR		0x400A4
 #define ILI7807_PC_COUNTER_ADDR 0x44008
 #define ILI7807_WDT_ADDR		0x5100C
+#define ILI7807_CHIP_RESET_ADDR 0x40050
 
 /*
  * Other settings

@@ -187,16 +187,28 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 	else if (core_firmware->max_count == 0x1FFFF)
 		core_config_ice_mode_write(0x04100C, write_len, 3);
 
-	if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_F) {
-		/* Checksum_En */
-		core_config_ice_mode_write(0x041014, 0x10000, 3);
-	} else if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_H) {
-		/* Clear Int Flag */
-		core_config_ice_mode_write(0x048007, 0x02, 1);
+	if (id == CHIP_TYPE_ILI9881) {
+		if (type == TYPE_F) {
+			/* Checksum_En */
+			core_config_ice_mode_write(0x041014, 0x10000, 3);
+		} else {
+			/* Clear Int Flag */
+			core_config_ice_mode_write(0x048007, 0x02, 1);
 
-		/* Checksum_En */
-		core_config_ice_mode_write(0x041016, 0x00, 1);
-		core_config_ice_mode_write(0x041016, 0x01, 1);
+			/* Checksum_En */
+			core_config_ice_mode_write(0x041016, 0x00, 1);
+			core_config_ice_mode_write(0x041016, 0x01, 1);
+		}
+	} else if (id == CHIP_TYPE_ILI7807) {
+			/* Clear Int Flag */
+			core_config_ice_mode_write(0x048007, 0x02, 1);
+
+			/* Checksum_En */
+			core_config_ice_mode_write(0x041016, 0x00, 1);
+			core_config_ice_mode_write(0x041016, 0x01, 1);
+	} else {
+		ipio_err("Unknown CHIP\n");
+		return -ENODEV;
 	}
 
 	/* Start to receive */
@@ -206,9 +218,14 @@ static uint32_t tddi_check_data(uint32_t start_addr, uint32_t end_addr)
 
 		mdelay(1);
 
-		if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_F)
-			busy = core_config_read_write_onebyte(0x041014);
-		else if (id == CHIP_TYPE_ILI9881 && type == ILI9881_TYPE_H) {
+		if (id == CHIP_TYPE_ILI9881) {
+			if (type == TYPE_F) {
+				busy = core_config_read_write_onebyte(0x041014);
+			} else {
+				busy = core_config_read_write_onebyte(0x048007);
+				busy = busy >> 1;
+			}
+		} else if (id == CHIP_TYPE_ILI7807) {
 			busy = core_config_read_write_onebyte(0x048007);
 			busy = busy >> 1;
 		} else {
@@ -1614,9 +1631,6 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	/* Update the length of section */
 	g_section_len = index;
 
-	ipio_info("g_section_len = %d\n", g_section_len);
-	ipio_info("ARRAY_SIZE(g_flash_block_info) = %d\n", (int)ARRAY_SIZE(g_flash_block_info));
-
 	if (g_flash_sector[g_section_len - 1].se_addr > flashtab->mem_size) {
 		ipio_err("The size written to flash is larger than it required (%x) (%x)\n",
 			g_flash_sector[g_section_len - 1].se_addr, flashtab->mem_size);
@@ -1752,8 +1766,6 @@ int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
 		goto out;
 	}
 
-	ipio_info("g_total_sector = %d\n", g_total_sector);
-
 	g_flash_sector = kcalloc(g_total_sector, sizeof(struct flash_sector), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(g_flash_sector)) {
 		ipio_err("Failed to allocate g_flash_sector memory, %ld\n", PTR_ERR(g_flash_sector));
@@ -1843,14 +1855,15 @@ int core_firmware_init(void)
 	core_firmware->hasBlockInfo = false;
 	core_firmware->isboot = false;
 
-	for (; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		if (ipio_chip_list[i] == TP_TOUCH_IC) {
-			for (j = 0; j < 4; j++) {
-				core_firmware->old_fw_ver[i] = core_config->firmware_ver[i];
-				core_firmware->new_fw_ver[i] = 0x0;
-			}
+	for (j = 0; j < 4; j++) {
+		core_firmware->old_fw_ver[i] = core_config->firmware_ver[i];
+		core_firmware->new_fw_ver[i] = 0x0;
+	}
 
-			if (ipio_chip_list[i] == CHIP_TYPE_ILI9881) {
+	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
+		switch (ipio_chip_list[i]) {
+			case CHIP_TYPE_ILI7807:
+			case CHIP_TYPE_ILI9881:
 				core_firmware->max_count = 0x1FFFF;
 				core_firmware->isCRC = true;
 #ifdef HOST_DOWNLOAD
@@ -1859,11 +1872,11 @@ int core_firmware_init(void)
 				core_firmware->upgrade_func = tddi_fw_upgrade;
 #endif
 				core_firmware->delay_after_upgrade = 200;
-			}
-			return 0;
+				break;
+			default:
+				ipio_err("Can't find this chip (%x) in support list\n", ipio_chip_list[i]);
+				return -ENODEV;
 		}
+		return 0;
 	}
-
-	ipio_err("Can't find this chip in support list\n");
-	return 0;
 }
