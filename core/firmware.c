@@ -1877,6 +1877,6 @@ int core_firmware_init(void)
 				ipio_err("Can't find this chip (%x) in support list\n", ipio_chip_list[i]);
 				return -ENODEV;
 		}
-		return 0;
 	}
+	return 0;
 }
