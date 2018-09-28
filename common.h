@@ -203,7 +203,7 @@ enum ili9881_types {
  * ILI7807 Series
  */
 enum ili7807_types {
-	TYPE_G = 0x0,
+	TYPE_G = 0x10,
 };
 
 #define ILI7807_ICE_MODE_ADDR	0x181062

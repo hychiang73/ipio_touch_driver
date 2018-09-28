@@ -1083,7 +1083,7 @@ int core_config_get_chip_id(void)
 	ANAIDData = core_config_ice_mode_read(core_config->ana_id_addr);
 
 	if ((pid >> 16) != TP_TOUCH_IC) {
-		ipio_err("Get CHIP ID Error, pid = 0x%x\n");
+		ipio_err("Get CHIP ID Error, pid = 0x%x\n", pid);
 		ret = -ENODEV;
 		goto out;
 	}
@@ -1149,7 +1149,7 @@ int core_config_init(void)
 				core_config->ana_id_addr = ILI7807_ANA_ID_ADDR;
 				core_config->wdt_addr = ILI7807_WDT_ADDR;
 				core_config->ic_reset_addr = ILI7807_CHIP_RESET_ADDR;
-				return 0;
+				break;
 			case CHIP_TYPE_ILI9881:
 				core_config->chip_id = ipio_chip_list[i];
 				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
@@ -1158,11 +1158,12 @@ int core_config_init(void)
 				core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
 				core_config->wdt_addr = ILI9881_WDT_ADDR;
 				core_config->ic_reset_addr = ILI9881_CHIP_RESET_ADDR;
-				return 0;
+				break;
 			default:
 				ipio_err("Can't find this chip in support list\n");
 				return -ENODEV;
 		}
 	}
+	return 0;
 }
 EXPORT_SYMBOL(core_config_init);
