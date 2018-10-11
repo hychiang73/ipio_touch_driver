@@ -229,8 +229,8 @@ enum ili7807_types {
  /* define the width and heigth of a screen. */
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
-#define TOUCH_SCREEN_X_MAX 1080
-#define TOUCH_SCREEN_Y_MAX 2246
+#define TOUCH_SCREEN_X_MAX 720
+#define TOUCH_SCREEN_Y_MAX 1280
 
 /* define the range on panel */
 #define TPD_HEIGHT 2048
