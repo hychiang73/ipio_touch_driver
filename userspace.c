@@ -797,6 +797,9 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	} else if (strcmp(cmd, "getchip") == 0) {
 		ipio_info("Get Chip id\n");
 		core_config_get_chip_id();
+	} else if (strcmp(cmd, "gettpinfo") == 0) {
+		ipio_info("Get tp info\n");
+		ilitek_platform_read_tp_info();
 	} else if (strcmp(cmd, "dispcc") == 0) {
 		ipio_info("disable phone cover\n");
 		core_config_phone_cover_ctrl(false);
