@@ -1990,7 +1990,7 @@ static void mp_do_retry(int index, int count)
 #else
 	core_config_ice_mode_enable();
 
-	core_config_ic_reset();
+	ipio_reset_mode(true, RST_MODE);
 
 	/* Switch to Demo mode */
 	core_config_switch_fw_mode(&protocol->demo_mode);
@@ -2772,9 +2772,7 @@ void core_mp_start_test(void)
 	mp_show_result();
 
 #ifndef HOST_DOWNLOAD
-	core_config_ice_mode_enable();
-
-	core_config_ic_reset();
+	ipio_reset_mode(true, RST_MODE);
 #endif
 
 	/* Switch to Demo mode */

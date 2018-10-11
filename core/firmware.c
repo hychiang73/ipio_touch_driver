@@ -1136,7 +1136,7 @@ int tddi_fw_upgrade(bool isIRAM)
 	}
 #endif
 
-	ilitek_platform_tp_hw_reset(true);
+	ipio_reset_mode(true, RST_MODE);
 
 	ilitek_platform_disable_irq();
 
@@ -1186,8 +1186,7 @@ int tddi_fw_upgrade(bool isIRAM)
 	}
 
 	/* We do have to reset chip in order to move new code from flash to iram. */
-	ipio_info("Doing Soft Reset ..\n");
-	core_config_ic_reset();
+	ipio_reset_mode(true, RST_MODE);
 
 	/* the delay time moving code depends on what the touch IC you're using. */
 	mdelay(core_firmware->delay_after_upgrade);

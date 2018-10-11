@@ -352,7 +352,7 @@ static int finger_report_ver_5_0(void)
 
 	if (ret < 0) {
 		ipio_err("Failed to read finger report packet\n");
-		if (INTERFACE == SPI_INTERFACE) {
+#ifdef HOST_DOWNLOAD
 			if(ret == CHECK_RECOVER) {
 				ipio_err("Doing host download recovery !\n");
 				ret = ilitek_platform_tp_hw_reset(true);
@@ -360,6 +360,7 @@ static int finger_report_ver_5_0(void)
 					ipio_info("host download failed!\n");
 			}
 		}
+#endif
 		goto out;
 	}
 
@@ -537,6 +538,11 @@ void core_fr_handler(void)
 
 	if (!core_fr->isEnableFR) {
 		ipio_err("Figner report was disabled, do nothing\n");
+		return;
+	}
+
+	if (atomic_read(&ipd->do_reset)) {
+		ipio_err("IC is resetting, do nothing\n");
 		return;
 	}
 

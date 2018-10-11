@@ -103,7 +103,7 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 	int ret = 0;
 	ipio_info("HW Reset: %d\n", isEnable);
 
-	ilitek_platform_disable_irq();
+	atomic_set(&ipd->do_reset, true);
 
 	if (isEnable) {
 #if (TP_PLATFORM == PT_MTK)
@@ -135,8 +135,8 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 	if(ret < 0)
 		ipio_err("host download failed!\n");
 #endif
-	mdelay(10);
-	ilitek_platform_enable_irq();
+
+	atomic_set(&ipd->do_reset, false);
 	return ret;
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
@@ -780,6 +780,26 @@ static int ilitek_platform_core_init(void)
 	return 0;
 }
 
+int ipio_reset_mode(bool rst, bool mode)
+{
+	int ret = 0;
+
+	switch (mode) {
+		case SOFT_RST:
+			ret = core_config_ic_reset();
+			break;
+		case HW_RST:
+			ret = ilitek_platform_tp_hw_reset(rst);
+			break;
+		default:
+			ipio_err("Unknown RST mode (%d)\n", mode);
+			ret = -1;
+			break;
+	}
+
+	return ret;
+}
+
 #if (INTERFACE == I2C_INTERFACE)
 static int ilitek_platform_remove(struct i2c_client *client)
 #else
@@ -942,7 +962,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 #ifdef HOST_DOWNLOAD
 	core_firmware_boot_host_download();
 #else
-	ilitek_platform_tp_hw_reset(true);
+	ipio_reset_mode(true, RST_MODE);
 #endif
 
 	/* get our tp ic information */

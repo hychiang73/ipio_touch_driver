@@ -107,6 +107,11 @@
 #define SPI_INTERFACE 2
 #define INTERFACE I2C_INTERFACE
 
+/* Determin which of methods used to reset IC */
+#define SOFT_RST 0
+#define HW_RST 1
+#define RST_MODE SOFT_RST
+
 /* Driver version */
 #define DRIVER_VERSION	"1.0.3.8"
 

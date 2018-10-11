@@ -319,9 +319,15 @@ int core_config_ice_mode_bit_mask(uint32_t addr, uint32_t nMask, uint32_t value)
 }
 EXPORT_SYMBOL(core_config_ice_mode_bit_mask);
 
-void core_config_ic_reset(void)
+int core_config_ic_reset(void)
 {
+	int ret = 0;
 	uint32_t key = 0;
+
+	atomic_set(&ipd->do_reset, true);
+
+	if (!core_config->icemodeenable)
+		core_config_ice_mode_enable();
 
 	if (core_config->chip_id == CHIP_TYPE_ILI9881) {
 		key = 0x00019881;
@@ -331,12 +337,14 @@ void core_config_ic_reset(void)
 
 	ipio_debug(DEBUG_CONFIG, "key = 0x%x\n", key);
 	if (key != 0) {
-		core_config->do_ic_reset = true;
-		core_config_ice_mode_write(core_config->ic_reset_addr, key, 4);
-		core_config->do_ic_reset = false;
+		ret = core_config_ice_mode_write(core_config->ic_reset_addr, key, 4);
+		if (ret < 0)
+			ipio_err("ic reset failed, ret = %d\n", ret);
 	}
 
 	msleep(100);
+	atomic_set(&ipd->do_reset, false);
+	return ret;
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
@@ -559,8 +567,7 @@ void core_config_ic_resume(void)
 	}
 
 #ifndef HOST_DOWNLOAD
-	core_config_ice_mode_enable();
-	core_config_ic_reset();
+	ipio_reset_mode(true, RST_MODE);
 #endif
 
 	core_config_switch_fw_mode(&protocol->demo_mode);

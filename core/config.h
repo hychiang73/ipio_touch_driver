@@ -111,7 +111,7 @@ extern int core_config_check_cdc_busy(int count, int delay);
 extern int core_config_check_int_status(bool high);
 extern void core_config_ic_suspend(void);
 extern void core_config_ic_resume(void);
-extern void core_config_ic_reset(void);
+extern int core_config_ic_reset(void);
 
 /* control features of Touch IC */
 extern void core_config_sense_ctrl(bool start);
