@@ -326,7 +326,7 @@ static void mp_compare_cdc_result(int32_t *tmp, int32_t *max_ts, int32_t *min_ts
 	}
 }
 
-static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len,
+static void mp_compare_cdc_show_result(int index, int32_t *tmp, char *csv, int *csv_len,
 		int type, int32_t *max_ts, int32_t *min_ts, const char *desp)
 {
 	int x, y, tmp_len = *csv_len;
@@ -359,13 +359,27 @@ static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len,
 		for (x = 0; x < core_mp->xch_len; x++) {
 			int shift = y * core_mp->xch_len + x;
 
-			if ((tmp[shift] <= max_ts[shift] && tmp[shift] >= min_ts[shift]) || (type != TYPE_JUGE)){
+			/* In Short teset, we only identify if its value is low than min threshold. */
+			if (tItems[index].catalog == SHORT_TEST) {
+				if (tmp[shift] < min_ts[shift]) {
+					DUMP(DEBUG_MP_TEST, " #%7d ", tmp[shift]);
+					tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
+					mp_result = MP_FAIL;
+				} else {
+					DUMP(DEBUG_MP_TEST, " %7d ", tmp[shift]);
+					tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);
+				}
+				DUMP(DEBUG_MP_TEST, "\n");
+				tmp_len += sprintf(csv + tmp_len, "\n");
+				continue;
+			}
 
-				if((tmp[shift] == INT_MAX || tmp[shift] == INT_MIN) && (type == TYPE_BENCHMARK)){
+			if ((tmp[shift] <= max_ts[shift] && tmp[shift] >= min_ts[shift]) || (type != TYPE_JUGE)) {
+
+				if((tmp[shift] == INT_MAX || tmp[shift] == INT_MIN) && (type == TYPE_BENCHMARK)) {
 					DUMP(DEBUG_MP_TEST, "%s", "BYPASS,");
 					tmp_len += sprintf(csv + tmp_len,"BYPASS,");
-				}
-				else{
+				} else {
 					DUMP(DEBUG_MP_TEST, " %7d ", tmp[shift]);
 					tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);
 				}
@@ -2065,8 +2079,8 @@ static void mp_show_result(void)
 				min_threshold[j] = tItems[i].bench_mark_min[j];
 			}
 
-			mp_compare_cdc_show_result(tItems[i].bench_mark_max, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Max_Bench");
-			mp_compare_cdc_show_result(tItems[i].bench_mark_min, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Min_Bench");
+			mp_compare_cdc_show_result(i, tItems[i].bench_mark_max, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Max_Bench");
+			mp_compare_cdc_show_result(i, tItems[i].bench_mark_min, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Min_Bench");
 		} else {
 
 			for(j = 0 ;j < core_mp->frame_len ; j++) {
@@ -2082,9 +2096,9 @@ static void mp_show_result(void)
 		}
 
 		if (strcmp(tItems[i].name, "open_integration_sp") == 0) {
-			mp_compare_cdc_show_result(frame1_cbk700, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk700");
-			mp_compare_cdc_show_result(frame1_cbk250, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk250");
-			mp_compare_cdc_show_result(frame1_cbk200, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk200");
+			mp_compare_cdc_show_result(i, frame1_cbk700, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk700");
+			mp_compare_cdc_show_result(i, frame1_cbk250, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk250");
+			mp_compare_cdc_show_result(i, frame1_cbk200, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk200");
 		}
 
 		if (tItems[i].catalog == TX_RX_DELTA) {
@@ -2123,23 +2137,22 @@ static void mp_show_result(void)
 				max_threshold[j] = core_mp->TxDeltaMax;
 				min_threshold[j] = core_mp->TxDeltaMin;
 			}
-			mp_compare_cdc_show_result(core_mp->tx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Max Hold");
-			mp_compare_cdc_show_result(core_mp->tx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Min Hold");
+			mp_compare_cdc_show_result(i, core_mp->tx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Max Hold");
+			mp_compare_cdc_show_result(i, core_mp->tx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Min Hold");
 
 			for(j = 0 ;j < core_mp->frame_len ; j++) {
 				max_threshold[j] = core_mp->RxDeltaMax;
 				min_threshold[j] = core_mp->RxDeltaMin;
 			}
-			mp_compare_cdc_show_result(core_mp->rx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Max Hold");
-			mp_compare_cdc_show_result(core_mp->rx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Min Hold");
-
+			mp_compare_cdc_show_result(i, core_mp->rx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Max Hold");
+			mp_compare_cdc_show_result(i, core_mp->rx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Min Hold");
 		} else {
 			/* general result */
 			if(tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST){
-				mp_compare_cdc_show_result(tItems[i].result_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Mean result");
+				mp_compare_cdc_show_result(i, tItems[i].result_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Mean result");
 			} else {
-				mp_compare_cdc_show_result(tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Max Hold");
-				mp_compare_cdc_show_result(tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Min Hold");
+				mp_compare_cdc_show_result(i, tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Max Hold");
+				mp_compare_cdc_show_result(i, tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Min Hold");
 			}
 			if(tItems[i].catalog != PEAK_TO_PEAK_TEST)
 				get_frame_cont = tItems[i].frame_count;
@@ -2148,9 +2161,8 @@ static void mp_show_result(void)
 			for(j = 0; j < get_frame_cont; j++) {
 				char frame_name[128] ={ 0 };
 				sprintf(frame_name, "Frame %d", (j+1));
-				mp_compare_cdc_show_result(&tItems[i].buf[(j*core_mp->frame_len)], csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, frame_name);
+				mp_compare_cdc_show_result(i, &tItems[i].buf[(j*core_mp->frame_len)], csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, frame_name);
 			}
-
 		}
 	}
 
@@ -2754,7 +2766,6 @@ void core_mp_start_test(void)
 		mp_run_test("Peak To Peak_TD (LCM OFF)");
 		mp_run_test("Doze Raw Data");
 		mp_run_test("Doze Peak To Peak");
-
 	} else {
 		mp_run_test("Untouch Peak to Peak");
 		mp_run_test("Open Test(integration)");
@@ -2766,7 +2777,6 @@ void core_mp_start_test(void)
 		mp_run_test("Untouch Cm Data");
 		mp_run_test("Pixel Raw (No BK)");
 		mp_run_test("Pixel Raw (Have BK)");
-
 	}
 
 	mp_show_result();
