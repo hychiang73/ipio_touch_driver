@@ -506,20 +506,23 @@ void core_config_ic_suspend(void)
 	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
 
 	if (core_config->isEnableGesture) {
-		core_fr->isEnableFR = true;
 #ifdef HOST_DOWNLOAD
 		if(core_gesture_load_code() < 0)
 			ipio_err("load gesture code fail\n");
 #else
 		core_config_switch_fw_mode(&protocol->gesture_mode);
 #endif
+		enable_irq_wake(ipd->isr_gpio);
+		core_fr->isEnableFR = true;
 		ilitek_platform_enable_irq();
-	} else {
-		/* sleep in */
-		core_config_sleep_ctrl(false);
+		goto end;
 	}
 
-	/* release all touch points */
+	/* sleep in if gesture is disabled. */
+	core_config_sleep_ctrl(false);
+
+end:
+	/* release all touch points to get rid of locked points on screen. */
 #ifdef MT_B_TYPE
 	for (i = 0 ; i < MAX_TOUCH_NUM; i++)
 		core_fr_touch_release(0, 0, i);
@@ -529,8 +532,8 @@ void core_config_ic_suspend(void)
 #else
 	core_fr_touch_release(0, 0, 0);
 #endif
-
 	input_sync(core_fr->input_device);
+
 	ipio_info("Suspend done\n");
 }
 EXPORT_SYMBOL(core_config_ic_suspend);
@@ -539,20 +542,23 @@ void core_config_ic_resume(void)
 {
 	ipio_info("Starting to resume ...\n");
 
+	/* we hope there's no any reports during resume */
 	core_fr->isEnableFR = false;
+	ilitek_platform_disable_irq();
 
-#ifdef HOST_DOWNLOAD
 	if (core_config->isEnableGesture) {
-		ilitek_platform_disable_irq();
+		disable_irq_wake(ipd->isr_gpio);
+#ifdef HOST_DOWNLOAD
 		if(core_gesture_load_ap_code() < 0) {
 			ipio_err("load ap code fail\n");
 			ilitek_platform_tp_hw_reset(true);
 		}
 	} else {
 		ilitek_platform_tp_hw_reset(true);
+#endif
 	}
-#else
-	/* chip reset */
+
+#ifndef HOST_DOWNLOAD
 	core_config_ice_mode_enable();
 	core_config_ic_reset();
 #endif
