@@ -108,7 +108,7 @@
 #define INTERFACE I2C_INTERFACE
 
 /* Determin which of methods used to reset IC */
-#define SOFT_RST 0
+#define SW_RST 0
 #define HW_RST 1
 #define RST_MODE HW_RST
 

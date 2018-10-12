@@ -101,9 +101,6 @@ EXPORT_SYMBOL(ilitek_platform_enable_irq);
 int ilitek_platform_tp_hw_reset(bool isEnable)
 {
 	int ret = 0;
-	ipio_info("HW Reset: %d\n", isEnable);
-
-	atomic_set(&ipd->do_reset, true);
 
 	if (isEnable) {
 #if (TP_PLATFORM == PT_MTK)
@@ -136,7 +133,6 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 		ipio_err("host download failed!\n");
 #endif
 
-	atomic_set(&ipd->do_reset, false);
 	return ret;
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
@@ -272,7 +268,7 @@ static void ilitek_platform_esd_recovery(struct work_struct *work)
 	int ret = 0;
 
 	mutex_lock(&ipd->plat_mutex);
-	ret = ilitek_platform_tp_hw_reset(true);
+	ret = ilitek_platform_reset_ctrl(true, HW_RST);;
 	if(ret < 0)
 		ipio_err("host download failed!\n");
 	mutex_unlock(&ipd->plat_mutex);
@@ -305,7 +301,7 @@ static void ilitek_platform_esd_check(struct work_struct *pWork)
 static void tpd_resume(struct device *h)
 {
 	ipio_info("TP Resuem, MTK doing reset\n");
-	ilitek_platform_tp_hw_reset(true);
+	ilitek_platform_reset_ctrl(true, HW_RST);
 
 	// if (!core_firmware->isUpgrading) {
 	// 	core_config_ic_resume();
@@ -780,15 +776,19 @@ static int ilitek_platform_core_init(void)
 	return 0;
 }
 
-int ipio_reset_mode(bool rst, bool mode)
+int ilitek_platform_reset_ctrl(bool rst, bool mode)
 {
 	int ret = 0;
 
+	atomic_set(&ipd->do_reset, true);
+
 	switch (mode) {
-		case SOFT_RST:
+		case SW_RST:
+			ipio_info("SW RESET\n");
 			ret = core_config_ic_reset();
 			break;
 		case HW_RST:
+			ipio_info("HW RESET\n");
 			ret = ilitek_platform_tp_hw_reset(rst);
 			break;
 		default:
@@ -796,6 +796,8 @@ int ipio_reset_mode(bool rst, bool mode)
 			ret = -1;
 			break;
 	}
+
+	atomic_set(&ipd->do_reset, false);
 
 	return ret;
 }
@@ -962,7 +964,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 #ifdef HOST_DOWNLOAD
 	core_firmware_boot_host_download();
 #else
-	ipio_reset_mode(true, RST_MODE);
+	ilitek_platform_reset_ctrl(true, RST_MODE);
 #endif
 
 	/* get our tp ic information */

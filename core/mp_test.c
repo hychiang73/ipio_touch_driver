@@ -1995,7 +1995,7 @@ static void mp_do_retry(int index, int count)
 	/* Makre sure that fw mode is in test mode and reload MP code */
 	core_fr->actual_fw_mode = protocol->test_mode;
 
-	if(ilitek_platform_tp_hw_reset(true) < 0)
+	if(ilitek_platform_reset_ctrl(true, HW_RST); < 0)
 		ipio_info("host download failed!\n");
 
 	/* Check ready to switch test mode */
@@ -2004,7 +2004,7 @@ static void mp_do_retry(int index, int count)
 #else
 	core_config_ice_mode_enable();
 
-	ipio_reset_mode(true, RST_MODE);
+	ilitek_platform_reset_ctrl(true, RST_MODE);
 
 	/* Switch to Demo mode */
 	core_config_switch_fw_mode(&protocol->demo_mode);
@@ -2469,7 +2469,7 @@ int core_mp_move_code(void)
 	ipio_info("Start moving MP code\n");
 
 #ifdef HOST_DOWNLOAD
-	if(ilitek_platform_tp_hw_reset(true) < 0) {
+	if(ilitek_platform_reset_ctrl(true, HW_RST); < 0) {
 		ipio_info("host download failed!\n");
 		return -1;
 	}
@@ -2782,7 +2782,7 @@ void core_mp_start_test(void)
 	mp_show_result();
 
 #ifndef HOST_DOWNLOAD
-	ipio_reset_mode(true, RST_MODE);
+	ilitek_platform_reset_ctrl(true, RST_MODE);
 #endif
 
 	/* Switch to Demo mode */
@@ -2793,7 +2793,7 @@ void core_mp_start_test(void)
 	}
 
 #ifdef HOST_DOWNLOAD
-	if(ilitek_platform_tp_hw_reset(true) < 0)
+	if(ilitek_platform_reset_ctrl(true, HW_RST); < 0)
 		ipio_info("host download failed!\n");
 #endif
 

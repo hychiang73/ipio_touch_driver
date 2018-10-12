@@ -324,8 +324,6 @@ int core_config_ic_reset(void)
 	int ret = 0;
 	uint32_t key = 0;
 
-	atomic_set(&ipd->do_reset, true);
-
 	if (!core_config->icemodeenable)
 		core_config_ice_mode_enable();
 
@@ -343,7 +341,6 @@ int core_config_ic_reset(void)
 	}
 
 	msleep(100);
-	atomic_set(&ipd->do_reset, false);
 	return ret;
 }
 EXPORT_SYMBOL(core_config_ic_reset);
@@ -559,15 +556,15 @@ void core_config_ic_resume(void)
 #ifdef HOST_DOWNLOAD
 		if(core_gesture_load_ap_code() < 0) {
 			ipio_err("load ap code fail\n");
-			ilitek_platform_tp_hw_reset(true);
+			ilitek_platform_reset_ctrl(true, HW_RST);
 		}
 	} else {
-		ilitek_platform_tp_hw_reset(true);
+		ilitek_platform_reset_ctrl(true, HW_RST);
 #endif
 	}
 
 #ifndef HOST_DOWNLOAD
-	ipio_reset_mode(true, RST_MODE);
+	ilitek_platform_reset_ctrl(true, RST_MODE);
 #endif
 
 	core_config_switch_fw_mode(&protocol->demo_mode);
@@ -1145,7 +1142,6 @@ int core_config_init(void)
 
 	core_config->slave_i2c_addr = ILITEK_I2C_ADDR;
 	core_config->chip_type = 0x0000;
-	core_config->do_ic_reset = false;
 #ifdef GESTURE_ENABLE
 	core_config->isEnableGesture = true;
 #else

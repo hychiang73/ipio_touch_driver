@@ -653,7 +653,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 	ilitek_platform_disable_irq();
 
 #ifdef HOST_DOWNLOAD
-	ret = ilitek_platform_tp_hw_reset(true);
+	ret = ilitek_platform_reset_ctrl(true, HW_RST);;
 	if(ret < 0)
 		ipio_info("host download failed!\n");
 #else
@@ -727,7 +727,7 @@ static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size
 	/* test */
 	if (cmd[0] == 0x1) {
 		ipio_info("HW Reset\n");
-		ilitek_platform_tp_hw_reset(true);
+		ilitek_platform_reset_ctrl(true, HW_RST);;
 	} else if (cmd[0] == 0x02) {
 		ipio_info("Disable IRQ\n");
 		ilitek_platform_disable_irq();
@@ -778,7 +778,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 
 	if (strcmp(cmd, "reset") == 0) {
 		ipio_info("HW Reset\n");
-		ilitek_platform_tp_hw_reset(true);
+		ilitek_platform_reset_ctrl(true, HW_RST);
 	} else if (strcmp(cmd, "softreset") == 0) {
 		ipio_info("software Reset\n");
 		core_config_ic_reset();
@@ -996,7 +996,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 
 	case ILITEK_IOCTL_TP_HW_RESET:
 		ipio_info("ioctl: hw reset\n");
-		ilitek_platform_tp_hw_reset(true);
+		ilitek_platform_reset_ctrl(true, HW_RST);;
 		break;
 
 	case ILITEK_IOCTL_TP_POWER_SWITCH:

@@ -79,7 +79,6 @@ struct core_config_data {
 	uint8_t firmware_ver[9];
 	uint8_t core_ver[5];
 
-	bool do_ic_reset;
 	bool isEnableGesture;
 	bool icemodeenable;
 	bool spi_pro_9881h11;
