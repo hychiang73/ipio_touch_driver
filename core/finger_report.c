@@ -353,12 +353,11 @@ static int finger_report_ver_5_0(void)
 	if (ret < 0) {
 		ipio_err("Failed to read finger report packet\n");
 #ifdef HOST_DOWNLOAD
-			if(ret == CHECK_RECOVER) {
-				ipio_err("Doing host download recovery !\n");
-				ret = ilitek_platform_reset_ctrl(true, HW_RST);
-				if(ret < 0)
-					ipio_info("host download failed!\n");
-			}
+		if(ret == CHECK_RECOVER) {
+			ipio_err("Doing host download recovery !\n");
+			ret = ilitek_platform_reset_ctrl(true, HW_RST);
+			if(ret < 0)
+				ipio_info("host download failed!\n");
 		}
 #endif
 		goto out;

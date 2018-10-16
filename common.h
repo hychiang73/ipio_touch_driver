@@ -105,7 +105,7 @@
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
-#define INTERFACE I2C_INTERFACE
+#define INTERFACE SPI_INTERFACE
 
 /* Determin which of methods used to reset IC */
 #define SW_RST 0
@@ -113,7 +113,7 @@
 #define RST_MODE HW_RST
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.8"
+#define DRIVER_VERSION	"1.0.3.9"
 
 /* Driver core type */
 #define CORE_TYPE_B		0x00
@@ -179,12 +179,22 @@ extern uint32_t ipio_chip_list[2];
 #define MAX_DLM_FIRMWARE_SIZE		(8*1024)
 #define MAX_MP_FIRMWARE_SIZE		(64*1024)
 #define MAX_GESTURE_FIRMWARE_SIZE	(8*1024)
+#define MAX_TUNING_FIRMWARE_SIZE	(4*1024)
+#define MAX_DDI_FIRMWARE_SIZE		(4*1024)
+
 #define DLM_START_ADDRESS           0x20610
 #define DLM_HEX_ADDRESS             0x10000
 #define MP_HEX_ADDRESS              0x13000
 #define SPI_UPGRADE_LEN				2048
 #define FW_BLOCK_INFO_NUM			6
 #define UPDATE_RETRY_COUNT			3
+
+#define AP_BLOCK_NUM					1
+#define DATA_BLOCK_NUM					2
+#define TUNING_BLOCK_NUM				3
+#define GESTURE_BLOCK_NUM				4
+#define MP_BLOCK_NUM					5
+#define DDI_BLOCK_NUM					6
 
 #define ILITEK_I2C_ADDR			0x41
 

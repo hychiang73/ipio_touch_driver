@@ -1995,7 +1995,7 @@ static void mp_do_retry(int index, int count)
 	/* Makre sure that fw mode is in test mode and reload MP code */
 	core_fr->actual_fw_mode = protocol->test_mode;
 
-	if(ilitek_platform_reset_ctrl(true, HW_RST); < 0)
+	if(ilitek_platform_reset_ctrl(true, HW_RST) < 0)
 		ipio_info("host download failed!\n");
 
 	/* Check ready to switch test mode */
@@ -2347,6 +2347,7 @@ static void mp_run_test(char *item)
 	}
 }
 
+#ifndef HOST_DOWNLOAD
 static void dma_clear_register_setting(void)
 {
 	ipio_info("interrupt t0/t1 enable flag\n");
@@ -2461,15 +2462,18 @@ void get_dma_overlay_info(void)
 	ipio_info("Overlay addr = 0x%x ~ 0x%x , flash addr = 0x%x , mp size = 0x%x\n",
 		core_mp->overlay_start_addr, core_mp->overlay_end_addr, core_mp->mp_flash_addr, core_mp->mp_size);
 }
+#endif
 
 int core_mp_move_code(void)
 {
+#ifndef HOST_DOWNLOAD
 	uint32_t mp_text_size = 0, mp_andes_init_size = 0;
+#endif
 
 	ipio_info("Start moving MP code\n");
 
 #ifdef HOST_DOWNLOAD
-	if(ilitek_platform_reset_ctrl(true, HW_RST); < 0) {
+	if(ilitek_platform_reset_ctrl(true, HW_RST) < 0) {
 		ipio_info("host download failed!\n");
 		return -1;
 	}
@@ -2793,7 +2797,7 @@ void core_mp_start_test(void)
 	}
 
 #ifdef HOST_DOWNLOAD
-	if(ilitek_platform_reset_ctrl(true, HW_RST); < 0)
+	if(ilitek_platform_reset_ctrl(true, HW_RST) < 0)
 		ipio_info("host download failed!\n");
 #endif
 

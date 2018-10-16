@@ -575,13 +575,14 @@ static int kthread_handler(void *arg)
 
 		ilitek_platform_disable_irq();
 
+#ifdef BOOT_FW_UPGRADE
 #ifdef HOST_DOWNLOAD
 		ret = core_firmware_boot_host_download();
 #else
-#ifdef BOOT_FW_UPGRADE
 		ret = core_firmware_boot_upgrade();
-#endif /* BOOT_FW_UPGRADE */
-#endif /* HOST_DOWNLOAD */
+#endif
+#endif
+
 		if (ret < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
 
@@ -962,7 +963,13 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 	/* Prepare our IC for the ready by doing a reset */
 #ifdef HOST_DOWNLOAD
-	core_firmware_boot_host_download();
+	gpio_direction_output(ipd->reset_gpio, 1);
+	mdelay(ipd->delay_time_high);
+	gpio_set_value(ipd->reset_gpio, 0);
+	mdelay(ipd->delay_time_low);
+	gpio_set_value(ipd->reset_gpio, 1);
+	if(core_firmware_upgrade(UPDATE_FW_PATH, true) < 0)
+		ipio_err("host download failed!\n");
 #else
 	ilitek_platform_reset_ctrl(true, RST_MODE);
 #endif
