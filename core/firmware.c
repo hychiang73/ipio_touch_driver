@@ -54,6 +54,7 @@
 #define UPDATE_FAIL		-1
 #define NEED_UPDATE		 1
 #define NO_NEED_UPDATE 	 0
+#define UPDATE_OK		 0
 #define FW_VER_ADDR	   0xFFE0
 #define CRC_ONESET(X, Y)	({Y = (*(X+0) << 24) | (*(X+1) << 16) | (*(X+2) << 8) | (*(X+3));})
 
@@ -101,7 +102,7 @@ struct flash_block_info {
 };
 
 struct flash_sector *g_flash_sector = NULL;
-struct flash_block_info g_flash_block_info[6];
+struct flash_block_info fbi[FW_BLOCK_INFO_NUM];
 struct core_firmware_data *core_firmware = NULL;
 
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM);
@@ -367,23 +368,23 @@ static int tddi_check_fw_upgrade(void)
 
 check_hw_crc:
 	/* Check HW and Hex CRC */
-	for(i = 0; i < ARRAY_SIZE(g_flash_block_info); i++) {
-		start_addr = g_flash_block_info[i].start_addr;
-		end_addr = g_flash_block_info[i].end_addr;
+	for(i = 0; i < ARRAY_SIZE(fbi); i++) {
+		start_addr = fbi[i].start_addr;
+		end_addr = fbi[i].end_addr;
 
 		/* Invaild end address */
 		if (end_addr == 0)
 			continue;
 
-		g_flash_block_info[i].hex_crc = (flash_fw[end_addr - 3] << 24) + (flash_fw[end_addr - 2] << 16) + (flash_fw[end_addr - 1] << 8) + flash_fw[end_addr];
+		fbi[i].hex_crc = (flash_fw[end_addr - 3] << 24) + (flash_fw[end_addr - 2] << 16) + (flash_fw[end_addr - 1] << 8) + flash_fw[end_addr];
 
 		/* Get HW CRC for each block */
-		g_flash_block_info[i].block_crc = tddi_check_data(start_addr, end_addr - start_addr - crc_byte_len + 1);
+		fbi[i].block_crc = tddi_check_data(start_addr, end_addr - start_addr - crc_byte_len + 1);
 
-		ipio_info("HW CRC = 0x%06x, HEX CRC = 0x%06x\n", g_flash_block_info[i].hex_crc, g_flash_block_info[i].block_crc);
+		ipio_info("HW CRC = 0x%06x, HEX CRC = 0x%06x\n", fbi[i].hex_crc, fbi[i].block_crc);
 
 		/* Compare HW CRC with HEX CRC */
-		if(g_flash_block_info[i].hex_crc != g_flash_block_info[i].block_crc)
+		if(fbi[i].hex_crc != fbi[i].block_crc)
 			ret = NEED_UPDATE;
 	}
 
@@ -391,9 +392,9 @@ check_hw_crc:
 
 check_flash_crc:
 	/* Check Flash CRC and HW CRC */
-	for(i = 0; i < ARRAY_SIZE(g_flash_block_info); i++) {
-		start_addr = g_flash_block_info[i].start_addr;
-		end_addr = g_flash_block_info[i].end_addr;
+	for(i = 0; i < ARRAY_SIZE(fbi); i++) {
+		start_addr = fbi[i].start_addr;
+		end_addr = fbi[i].end_addr;
 
 		/* Invaild end address */
 		if (end_addr == 0)
@@ -405,14 +406,14 @@ check_flash_crc:
 			return CHECK_FW_FAIL;
 		}
 
-		g_flash_block_info[i].block_crc = tddi_check_data(start_addr, end_addr - start_addr - crc_byte_len + 1);
+		fbi[i].block_crc = tddi_check_data(start_addr, end_addr - start_addr - crc_byte_len + 1);
 
 		CRC_ONESET(flash_crc, flash_crc_cb);
 
-		ipio_info("HW CRC = 0x%06x, Flash CRC = 0x%06x\n", g_flash_block_info[i].block_crc, flash_crc_cb);
+		ipio_info("HW CRC = 0x%06x, Flash CRC = 0x%06x\n", fbi[i].block_crc, flash_crc_cb);
 
 		/* Compare Flash CRC with HW CRC */
-		if(flash_crc_cb != g_flash_block_info[i].block_crc)
+		if(flash_crc_cb != fbi[i].block_crc)
 			ret = NEED_UPDATE;
 
 		memset(flash_crc, 0, sizeof(flash_crc));
@@ -845,27 +846,34 @@ static int host_download_dma_check(int block)
 	uint32_t busy = 0;
 	uint32_t data_firmware_size = 8 * 1024;
 
-	if (block == AP_BLOCK_NUM) {
-		start_addr = 0;
-		//block_size = MAX_AP_FIRMWARE_SIZE - 0x4;
-	} else if (block == DATA_BLOCK_NUM) {
-		start_addr = DLM_START_ADDRESS;
-		//block_size = MAX_DLM_FIRMWARE_SIZE;
-	} else if (block == TUNING_BLOCK_NUM) {
+	if (core_firmware->hex_tag == 0xAE) {
+		if (block == ap_block) {
+			start_addr = 0;
+			block_size = MAX_AP_FIRMWARE_SIZE - 0x4;
+		} else if (block == dlm_block) {
+			start_addr = DLM_START_ADDRESS;
+			block_size = MAX_DLM_FIRMWARE_SIZE;
+		}
+	} else {
+		if (block == AP_BLOCK_NUM) {
+			start_addr = 0;
+		} else if (block == DATA_BLOCK_NUM) {
+			start_addr = DLM_START_ADDRESS;
+		} else if (block == TUNING_BLOCK_NUM) {
+			for (i = 0; i < core_firmware->block_number; i++) {
+				if (fbi[i].number == DATA_BLOCK_NUM) {
+					data_firmware_size = (fbi[i].end_addr - fbi[i].start_addr + 1);
+					break;
+				}
+			}
+			start_addr = DLM_START_ADDRESS + data_firmware_size;
+		}
+
 		for (i = 0; i < core_firmware->block_number; i++) {
-			if (g_flash_block_info[i].number == DATA_BLOCK_NUM) {
-				data_firmware_size = (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1);
+			if (fbi[i].number == block) {
+				block_size = (fbi[i].end_addr - fbi[i].start_addr + 1) - 0x4;
 				break;
 			}
-		}
-		start_addr = DLM_START_ADDRESS + data_firmware_size;
-		//block_size = MAX_DLM_FIRMWARE_SIZE;
-	}
-
-	for (i = 0; i < core_firmware->block_number; i++) {
-		if (g_flash_block_info[i].number == block) {
-			block_size = (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1) - 0x4;
-			break;
 		}
 	}
 
@@ -880,23 +888,20 @@ static int host_download_dma_check(int block)
 	/* Block size*/
 	core_config_ice_mode_write(0x07211C, block_size, 4);
 
-	/* crc off */
-	// core_config_ice_mode_write(0x041016, 0x00000000, 4);
+	if (core_config->chip_id == CHIP_TYPE_ILI7807) {
+		/* crc off */
+		core_config_ice_mode_write(0x041016, 0x00, 1);
+		/* dma crc */
+		 core_config_ice_mode_write(0x041017, 0x03, 1);
+	} else if (core_config->chip_id == CHIP_TYPE_ILI9881) {
+		/* crc off */
+		core_config_ice_mode_write(0x041014, 0x00000000, 4);
+		/* dma crc */
+		core_config_ice_mode_write(0x041048, 0x00000001, 4);
+	}
 
-	// if (core_config->chip_id == CHIP_TYPE_ILI7807 && core_config->chip_type == TYPE_G) {
-	// 	/* dma crc */
-	// 	 core_config_ice_mode_write(0x041017, 0x03, 4);
-	// } else {
-	// 	/* dma crc */
-	// 	core_config_ice_mode_write(0x041048, 0x00000001, 4);
-	// }
-
-	/* crc off */
-	core_config_ice_mode_write(0x041014, 0x00000000, 4);
-	/* dma crc */
-	core_config_ice_mode_write(0x041048, 0x00000001, 4);
 	/* crc on */
-	core_config_ice_mode_write(0x041014, 0x00010000, 4);
+	core_config_ice_mode_write(0x041016, 0x01, 1);
 	/* Dma1 stop */
 	core_config_ice_mode_write(0x072100, 0x00000000, 4);
 	/* clr int */
@@ -978,47 +983,44 @@ int tddi_host_download(bool mode)
 	}
 
 	if (core_fr->actual_fw_mode == protocol->test_mode) {
-		/* write hex to the addr of MP code */
-#if 1
-		for (i = 0; i < core_firmware->block_number; i++) {
-			if (g_flash_block_info[i].number == MP_BLOCK_NUM) {
-				/* write hex to the addr of MP code */
-				ipio_info("Writing data into MP code ... len = 0x%X\n", (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1));
-				if (write_download(0, (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1), mp_fw, SPI_UPGRADE_LEN) < 0) {
-					ipio_err("SPI Write MP code data error\n");
+		if (core_firmware->hex_tag == 0xAE) {
+			if (write_download(0, MAX_MP_FIRMWARE_SIZE, mp_fw, SPI_UPGRADE_LEN) < 0) {
+				ipio_err("SPI Write MP code data error\n");
+			}
+
+			if (read_download(0, MAX_MP_FIRMWARE_SIZE, read_mp_buf, SPI_UPGRADE_LEN)) {
+				ipio_err("SPI Read MP code data error\n");
+			}
+
+			if (memcmp(mp_fw, read_mp_buf, MAX_MP_FIRMWARE_SIZE) == 0) {
+				ipio_info("Check MP Mode upgrade: PASS\n");
+			} else {
+				ipio_info("Check MP Mode upgrade: FAIL\n");
+				ret = UPDATE_FAIL;
+				goto out;
+			}
+		} else {
+			for (i = 0; i < core_firmware->block_number; i++) {
+				if (fbi[i].number == MP_BLOCK_NUM) {
+					/* write hex to the addr of MP code */
+					ipio_info("Writing data into MP code ... len = 0x%X\n", (fbi[i].end_addr - fbi[i].start_addr + 1));
+					if (write_download(0, (fbi[i].end_addr - fbi[i].start_addr + 1), mp_fw, SPI_UPGRADE_LEN) < 0) {
+						ipio_err("SPI Write MP code data error\n");
+					}
+					if (read_download(0, (fbi[i].end_addr - fbi[i].start_addr + 1), read_mp_buf, SPI_UPGRADE_LEN)) {
+						ipio_err("SPI Read MP code data error\n");
+					}
+					if (memcmp(mp_fw, read_mp_buf, (fbi[i].end_addr - fbi[i].start_addr + 1)) == 0) {
+						ipio_info("Check MP Mode upgrade: PASS\n");
+					} else {
+						ipio_info("Check MP Mode upgrade: FAIL\n");
+						ret = UPDATE_FAIL;
+						goto out;
+					}
+					break;
 				}
-				if (read_download(0, (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1), read_mp_buf, SPI_UPGRADE_LEN)) {
-					ipio_err("SPI Read MP code data error\n");
-				}
-				if (memcmp(mp_fw, read_mp_buf, (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1)) == 0) {
-					ipio_info("Check MP Mode upgrade: PASS\n");
-				} else {
-					ipio_info("Check MP Mode upgrade: FAIL\n");
-					ret = UPDATE_FAIL;
-					goto out;
-				}
-				break;
 			}
 		}
-#else
-		ipio_info("Writing data into MP code ...\n");
-
-		if (write_download(0, MAX_MP_FIRMWARE_SIZE, mp_fw, SPI_UPGRADE_LEN) < 0) {
-			ipio_err("SPI Write MP code data error\n");
-		}
-
-		if (read_download(0, MAX_MP_FIRMWARE_SIZE, read_mp_buf, SPI_UPGRADE_LEN)) {
-			ipio_err("SPI Read MP code data error\n");
-		}
-
-		if (memcmp(mp_fw, read_mp_buf, MAX_MP_FIRMWARE_SIZE) == 0) {
-			ipio_info("Check MP Mode upgrade: PASS\n");
-		} else {
-			ipio_info("Check MP Mode upgrade: FAIL\n");
-			ret = UPDATE_FAIL;
-			goto out;
-		}
-#endif
 	} else if (core_gesture->entry) {
 		if (mode) {
 			/* write hex to the addr of Gesture code */
@@ -1058,64 +1060,58 @@ int tddi_host_download(bool mode)
 			}
 		}
 	} else {
-#if 1
-		for (i = 0; i < core_firmware->block_number; i++) {
-			if (g_flash_block_info[i].number == AP_BLOCK_NUM) {
-				/* write hex to the addr of AP code */
-				ipio_info("Writing data into AP code ... len = 0x%X\n", (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1));
-				if (write_download(0, (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1), ap_fw, SPI_UPGRADE_LEN) < 0) {
-					ipio_err("SPI Write AP code data error\n");
-				}
-			} else if (g_flash_block_info[i].number == DATA_BLOCK_NUM) {
-				data_firmware_size = (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1);
-				/* write hex to the addr of DLM code */
-				ipio_info("Writing data into DLM code ...len = 0x%X\n", data_firmware_size);
-				if (write_download(DLM_START_ADDRESS, data_firmware_size, dlm_fw, SPI_UPGRADE_LEN) < 0) {
-					ipio_err("SPI Write DLM code data error\n");
-				}
-			} else if (g_flash_block_info[i].number == TUNING_BLOCK_NUM) {
-				/* write hex to the addr of TUNING code */
-				ipio_info("Writing data into Tuning code ...len = 0x%X\n", (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1));
-				if (write_download(DLM_START_ADDRESS + data_firmware_size, (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1), tuning_fw, SPI_UPGRADE_LEN) < 0) {
-					ipio_err("SPI Write TUNING code data error\n");
-				}
-			}
-		}
-#else
-		/* write hex to the addr of AP code */
-		ipio_info("Writing data into AP code ...\n");
-		if (write_download(0, MAX_AP_FIRMWARE_SIZE, ap_fw, SPI_UPGRADE_LEN) < 0) {
-			ipio_err("SPI Write AP code data error\n");
-		}
+		if (core_firmware->hex_tag == 0xAE) {
+			ipio_info("Writing data into AP code ...\n");
+			if (write_download(0, MAX_AP_FIRMWARE_SIZE, ap_fw, SPI_UPGRADE_LEN) < 0)
+				ipio_err("SPI Write AP code data error\n");
 
-		/* write hex to the addr of DLM code */
-		ipio_info("Writing data into DLM code ...\n");
-		if (write_download(DLM_START_ADDRESS, MAX_DLM_FIRMWARE_SIZE, dlm_fw, SPI_UPGRADE_LEN) < 0) {
-			ipio_err("SPI Write DLM code data error\n");
-		}
-#endif
-		/* Check AP/DLM mode Buffer data */
-		if (((core_config->core_type >= CORE_TYPE_E) && ((core_config->chip_pid >> 8) == 0x988111)) || ((core_config->chip_pid >> 8) == 0x780710)) {
-#if 1
+			ipio_info("Writing data into DLM code ...\n");
+			if (write_download(DLM_START_ADDRESS, MAX_DLM_FIRMWARE_SIZE, dlm_fw, SPI_UPGRADE_LEN) < 0)
+				ipio_err("SPI Write DLM code data error\n");
+		} else {
 			for (i = 0; i < core_firmware->block_number; i++) {
-				if (g_flash_block_info[i].number == AP_BLOCK_NUM) {
-					ap_crc = calc_crc32(0, (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1) - 4, ap_fw);
-					ap_dma = host_download_dma_check(AP_BLOCK_NUM);
-				} else if (g_flash_block_info[i].number == DATA_BLOCK_NUM) {
-					dlm_crc = calc_crc32(0, (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1) - 4, dlm_fw);
-					dlm_dma = host_download_dma_check(DATA_BLOCK_NUM);
-				} else if (g_flash_block_info[i].number == TUNING_BLOCK_NUM) {
-					tuning_crc = calc_crc32(0, (g_flash_block_info[i].end_addr - g_flash_block_info[i].start_addr + 1) - 4, tuning_fw);
-					tuning_dma = host_download_dma_check(TUNING_BLOCK_NUM);
+				if (fbi[i].number == AP_BLOCK_NUM) {
+					ipio_info("Writing data into AP code ... len = 0x%X\n", (fbi[i].end_addr - fbi[i].start_addr + 1));
+					if (write_download(0, (fbi[i].end_addr - fbi[i].start_addr + 1), ap_fw, SPI_UPGRADE_LEN) < 0)
+						ipio_err("SPI Write AP code data error\n");
+				} else if (fbi[i].number == DATA_BLOCK_NUM) {
+					data_firmware_size = (fbi[i].end_addr - fbi[i].start_addr + 1);
+					ipio_info("Writing data into DLM code ...len = 0x%X\n", data_firmware_size);
+					if (write_download(DLM_START_ADDRESS, data_firmware_size, dlm_fw, SPI_UPGRADE_LEN) < 0) {
+						ipio_err("SPI Write DLM code data error\n");
+					}
+				} else if (fbi[i].number == TUNING_BLOCK_NUM) {
+					ipio_info("Writing data into Tuning code ...len = 0x%X\n", (fbi[i].end_addr - fbi[i].start_addr + 1));
+					if (write_download(DLM_START_ADDRESS + data_firmware_size, (fbi[i].end_addr - fbi[i].start_addr + 1), tuning_fw, SPI_UPGRADE_LEN) < 0) {
+						ipio_err("SPI Write TUNING code data error\n");
+					}
 				}
 			}
-#else
-			ap_crc = calc_crc32(0, MAX_AP_FIRMWARE_SIZE - 4, ap_fw);
-			ap_dma = host_download_dma_check(0);
+		}
 
-			dlm_crc = calc_crc32(0, MAX_DLM_FIRMWARE_SIZE, dlm_fw);
-			dlm_dma = host_download_dma_check(1);
-#endif
+		/* Check AP/DLM/Tunning mode Buffer data */
+		if (((core_config->core_type >= CORE_TYPE_E) && (core_config->chip_id == CHIP_TYPE_ILI9881)) || ((core_config->chip_id == CHIP_TYPE_ILI7807))) {
+			if (core_firmware->hex_tag == 0xAE) {
+				ap_crc = calc_crc32(0, MAX_AP_FIRMWARE_SIZE - 4, ap_fw);
+				ap_dma = host_download_dma_check(0);
+
+				dlm_crc = calc_crc32(0, MAX_DLM_FIRMWARE_SIZE, dlm_fw);
+				dlm_dma = host_download_dma_check(1);
+			} else {
+				for (i = 0; i < core_firmware->block_number; i++) {
+					if (fbi[i].number == AP_BLOCK_NUM) {
+						ap_crc = calc_crc32(0, (fbi[i].end_addr - fbi[i].start_addr + 1) - 4, ap_fw);
+						ap_dma = host_download_dma_check(AP_BLOCK_NUM);
+					} else if (fbi[i].number == DATA_BLOCK_NUM) {
+						dlm_crc = calc_crc32(0, (fbi[i].end_addr - fbi[i].start_addr + 1) - 4, dlm_fw);
+						dlm_dma = host_download_dma_check(DATA_BLOCK_NUM);
+					} else if (fbi[i].number == TUNING_BLOCK_NUM) {
+						tuning_crc = calc_crc32(0, (fbi[i].end_addr - fbi[i].start_addr + 1) - 4, tuning_fw);
+						tuning_dma = host_download_dma_check(TUNING_BLOCK_NUM);
+					}
+				}
+			}
+
 			ipio_info("AP CRC %s (%x) : (%x)\n",
 				(ap_crc != ap_dma ? "Invalid !" : "Correct !"), ap_crc, ap_dma);
 
@@ -1137,7 +1133,7 @@ int tddi_host_download(bool mode)
 			read_download(DLM_START_ADDRESS, MAX_DLM_FIRMWARE_SIZE, read_dlm_buf, SPI_UPGRADE_LEN);
 
 			if (memcmp(ap_fw, read_ap_buf, MAX_AP_FIRMWARE_SIZE) != 0 ||
-					memcmp(dlm_fw, read_dlm_buf, MAX_DLM_FIRMWARE_SIZE) != 0) {
+				memcmp(dlm_fw, read_dlm_buf, MAX_DLM_FIRMWARE_SIZE) != 0) {
 				ipio_info("Check AP/DLM Mode upgrade: FAIL\n");
 				ret = UPDATE_FAIL;
 				goto out;
@@ -1169,9 +1165,84 @@ EXPORT_SYMBOL(tddi_host_download);
 
 #ifdef BOOT_FW_UPGRADE
 #ifdef HOST_DOWNLOAD
+
+static convert_host_download_ili_file(int type)
+{
+	int i = 0, block = 0, ges_info;
+
+	if (tyep == 0) {
+		/* It's equal to the tag as 0xAE */
+		memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER, MAX_AP_FIRMWARE_SIZE);
+		memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
+
+		core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
+		core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
+		core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
+		core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
+		core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
+
+		ipio_info("gesture_start_addr = 0x%x, length = 0x%x\n", core_gesture->start_addr, core_gesture->length);
+		ipio_info("area = %d, ap_start_addr = 0x%x, ap_length = 0x%x\n",
+					core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
+
+		memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + MP_HEX_ADDRESS, MAX_MP_FIRMWARE_SIZE);
+		memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + core_gesture->start_addr, core_gesture->length);
+	} else {
+		for (i = 0; i < FW_BLOCK_INFO_NUM; i++) {
+			if (((type >> i) & 0x01) == 0x01) {
+				fbi[block].number = i + 1;
+				if (fbi[block].number == 6) {
+					fbi[block].start_addr = (CTPM_FW[0] << 16) + (CTPM_FW[1] << 8) + (CTPM_FW[2]);
+					fbi[block].end_addr = (CTPM_FW[3] << 16) + (CTPM_FW[4] << 8) + (CTPM_FW[5]);
+				} else {
+					fbi[block].start_addr = (CTPM_FW[34 + i * 6] << 16) + (CTPM_FW[35 + i * 6] << 8) + (CTPM_FW[36 + i * 6]);
+					fbi[block].end_addr = (CTPM_FW[37 + i * 6] << 16) + (CTPM_FW[38 + i * 6] << 8) + (CTPM_FW[39 + i * 6]);
+				}
+
+				ipio_info("Block[%d]: start_addr = %x, end = %x number = 0x%X\n",
+						block, fbi[block].start_addr, fbi[block].end_addr, fbi[block].number);
+
+				switch (fbi[block].number) {
+					case AP_BLOCK_NUM:
+						ges_info = (fbi[block].end_addr + 1 - 60);
+						ipio_info("ges_info = 0x%X\n", ges_info);
+
+						/* Parsing gesture info inside AP code */
+						memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						core_gesture->area_section = (ap_fw[ges_info + 3] << 24) + (ap_fw[ges_info + 2] << 16) + (ap_fw[ges_info + 1] << 8) + ap_fw[ges_info];
+						core_gesture->ap_start_addr = (ap_fw[ges_info + 7] << 24) + (ap_fw[ges_info + 6] << 16) + (ap_fw[ges_info + 5] << 8) + ap_fw[ges_info + 4];
+						core_gesture->start_addr = (ap_fw[ges_info + 15] << 24) + (ap_fw[ges_info + 14] << 16) + (ap_fw[ges_info + 13] << 8) + ap_fw[ges_info + 12];
+						core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
+						core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
+						break;
+					case DATA_BLOCK_NUM:
+						memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						break;
+					case MP_BLOCK_NUM:
+						memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						break;
+					case GESTURE_BLOCK_NUM:
+						memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						break;
+					case TUNING_BLOCK_NUM:
+						memcpy(tuning_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						break;
+					case DDI_BLOCK_NUM:
+						memcpy(ddi_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						break;
+					default:
+						break;
+				}
+				block++;
+			}
+		}
+	}
+}
+
 int core_firmware_boot_host_download(void)
 {
 	int ret = 0;
+	int type = 0;
 	bool power = false, esd = false;
 
 	ipio_info("BOOT: Starting to upgrade firmware ...\n");
@@ -1189,21 +1260,11 @@ int core_firmware_boot_host_download(void)
 		cancel_delayed_work_sync(&ipd->check_esd_status_work);
 		esd = true;
 	}
-	memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER, MAX_AP_FIRMWARE_SIZE);
-	memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
 
-	core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
-	core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
-	core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
-	core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
-	core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
+	type = CTPM_FW[32];
+	ipio_info("type = %d\n", type);
 
-	ipio_info("gesture_start_addr = 0x%x, length = 0x%x\n", core_gesture->start_addr, core_gesture->length);
-	ipio_info("area = %d, ap_start_addr = 0x%x, ap_length = 0x%x\n",
-				core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
-
-	memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + MP_HEX_ADDRESS, MAX_MP_FIRMWARE_SIZE);
-	memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + core_gesture->start_addr, core_gesture->length);
+	convert_host_download_ili_file(type)
 
 	gpio_direction_output(ipd->reset_gpio, 1);
 	mdelay(ipd->delay_time_high);
@@ -1249,7 +1310,7 @@ static int convert_hex_array(void)
 	core_firmware->end_addr = 0;
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
-	core_firmware->hasBlockInfo = false;
+	core_firmware->hex_tag = false;
 
 	ipio_info("CTPM_FW = %d\n", (int)ARRAY_SIZE(CTPM_FW));
 
@@ -1262,7 +1323,7 @@ static int convert_hex_array(void)
 	block = CTPM_FW[33];
 
 	if (block > 0) {
-		core_firmware->hasBlockInfo = true;
+		core_firmware->hex_tag = true;
 
 		/* Initialize block's index and length */
 		blen = 6;
@@ -1271,11 +1332,11 @@ static int convert_hex_array(void)
 		for (i = 0; i < block; i++) {
 			for (j = 0; j < blen; j++) {
 				if (j < 3)
-					g_flash_block_info[i].start_addr =
-					    (g_flash_block_info[i].start_addr << 8) | CTPM_FW[bindex + j];
+					fbi[i].start_addr =
+					    (fbi[i].start_addr << 8) | CTPM_FW[bindex + j];
 				else
-					g_flash_block_info[i].end_addr =
-					    (g_flash_block_info[i].end_addr << 8) | CTPM_FW[bindex + j];
+					fbi[i].end_addr =
+					    (fbi[i].end_addr << 8) | CTPM_FW[bindex + j];
 			}
 			bindex += blen;
 		}
@@ -1316,10 +1377,10 @@ static int convert_hex_array(void)
 		tmp_addr += flashtab->sector;
 
 		/* set erase flag in the block if the addr of sectors is between them. */
-		if (core_firmware->hasBlockInfo) {
-			for (j = 0; j < ARRAY_SIZE(g_flash_block_info); j++) {
-				if (g_flash_sector[i].ss_addr >= g_flash_block_info[j].start_addr
-				    && g_flash_sector[i].se_addr <= g_flash_block_info[j].end_addr) {
+		if (core_firmware->hex_tag) {
+			for (j = 0; j < ARRAY_SIZE(fbi); j++) {
+				if (g_flash_sector[i].ss_addr >= fbi[j].start_addr
+				    && g_flash_sector[i].se_addr <= fbi[j].end_addr) {
 					g_flash_sector[i].inside_block = true;
 					break;
 				}
@@ -1500,7 +1561,77 @@ out:
 #endif /* HOST_DOWNLOAD */
 #endif /* BOOT_FW_UPGRADE */
 
-static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
+static void convert_hex_tag(uint32_t addr, int addr_offset, int hex_index, int hex_offset, int block)
+{
+	int i = 0;
+	static int do_once = 0;
+	uint32_t ges_info_addr = 0x0;
+
+	if (core_firmware->hex_tag == 0xAF) {
+		for (i = 0; i < block; i++) {
+			if (addr >= fbi[i].start_addr && addr < fbi[i].end_addr) {
+				switch (fbi[i].number) {
+					case AP_BLOCK_NUM:
+						ap_fw[addr + addr_offset] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+						ges_info_addr = (fbi[i].end_addr + 1 - 60);
+
+						/* Parsing gesture info inside AP code */
+						ipio_info("ges_info_addr = 0x%X\n", ges_info_addr);
+						core_gesture->area_section = (ap_fw[ges_info_addr + 3] << 24) + (ap_fw[ges_info_addr + 2] << 16) + (ap_fw[ges_info_addr + 1] << 8) + ap_fw[ges_info_addr];
+						core_gesture->ap_start_addr = (ap_fw[ges_info_addr + 7] << 24) + (ap_fw[ges_info_addr + 6] << 16) + (ap_fw[ges_info_addr + 5] << 8) + ap_fw[ges_info_addr + 4];
+						core_gesture->start_addr = (ap_fw[ges_info_addr + 15] << 24) + (ap_fw[ges_info_addr + 14] << 16) + (ap_fw[ges_info_addr + 13] << 8) + ap_fw[ges_info_addr + 12];
+						core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
+						core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
+						break;
+					case DATA_BLOCK_NUM:
+						dlm_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+						break;
+					case MP_BLOCK_NUM:
+						mp_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+						break;
+					case GESTURE_BLOCK_NUM:
+						gesture_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offsetj], 2);
+						break;
+					case TUNING_BLOCK_NUM:
+						tuning_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+						break;
+					case DDI_BLOCK_NUM:
+						ddi_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+					default:
+						break;
+				}
+			}
+		}
+	} else if (core_firmware->hex_tag == 0xAE) {
+		if (addr < 0x10000) {
+			ap_fw[addr + addr_offset] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+		} else if ((addr >= DLM_HEX_ADDRESS) && (addr < MP_HEX_ADDRESS)) {
+			if (addr < DLM_HEX_ADDRESS + MAX_DLM_FIRMWARE_SIZE)
+				dlm_fw[addr - DLM_HEX_ADDRESS + addr_offset] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+		} else if (addr >= MP_HEX_ADDRESS) {
+			mp_fw[addr - MP_HEX_ADDRESS + addr_offset] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+		}
+		if (addr > MAX_AP_FIRMWARE_SIZE && do_once == 0) {
+			do_once = 1;
+			core_gesture->ap_start_addr = (ap_fw[0xFFD3] << 24) + (ap_fw[0xFFD2] << 16) + (ap_fw[0xFFD1] << 8) + ap_fw[0xFFD0];
+			core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
+			core_gesture->start_addr = (ap_fw[0xFFDB] << 24) + (ap_fw[0xFFDA] << 16) + (ap_fw[0xFFD9] << 8) + ap_fw[0xFFD8];
+			core_gesture->end_addr = (ap_fw[0xFFDF] << 24) + (ap_fw[0xFFDE] << 16) + (ap_fw[0xFFDD] << 8) + ap_fw[0xFFDC];
+			core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
+			core_gesture->area_section = (ap_fw[0xFFCF] << 24) + (ap_fw[0xFFCE] << 16) + (ap_fw[0xFFCD] << 8) + ap_fw[0xFFCC];
+			ipio_info("gesture_start_addr = 0x%x, gesture_end_addr = 0x%x, gesture_length = 0x%x\n",
+						core_gesture->start_addr, core_gesture->end_addr, core_gesture->length);
+			ipio_info("area = %d, ap_start_addr = 0x%x, ap_end_addr = 0x%x\n",
+						core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
+		}
+		if (addr >= core_gesture->start_addr && addr < core_gesture->start_addr + MAX_GESTURE_FIRMWARE_SIZE)
+			gesture_fw[addr - core_gesture->start_addr + addr_offset] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
+	} else {
+		ipio_err("Warning ! Tag (0x%x) is invalid !\n", core_firmware->hex_tag);
+	}
+}
+
+static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 {
 	int index = 0, block = 0;
 	uint32_t i = 0, j = 0, k = 0;
@@ -1508,20 +1639,22 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 	uint32_t nStartAddr = 0x0, nEndAddr = 0x0, nChecksum = 0x0, nExAddr = 0;
 	uint32_t tmp_addr = 0x0;
 
+	ipio_info("host_download = %d\n", host_download);
+
 	core_firmware->start_addr = 0;
 	core_firmware->end_addr = 0;
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
-	core_firmware->hasBlockInfo = false;
+	core_firmware->hex_tag = 0;
 
-	memset(g_flash_block_info, 0x0, sizeof(g_flash_block_info));
+	memset(fbi, 0x0, sizeof(fbi));
 
-#ifdef HOST_DOWNLOAD
-	memset(ap_fw, 0xFF, sizeof(ap_fw));
-	memset(dlm_fw, 0xFF, sizeof(dlm_fw));
-	memset(mp_fw, 0xFF, sizeof(mp_fw));
-	memset(gesture_fw, 0xFF, sizeof(gesture_fw));
-#endif
+	if (host_download) {
+		memset(ap_fw, 0xFF, sizeof(ap_fw));
+		memset(dlm_fw, 0xFF, sizeof(dlm_fw));
+		memset(mp_fw, 0xFF, sizeof(mp_fw));
+		memset(gesture_fw, 0xFF, sizeof(gesture_fw));
+	}
 
 	/* Parsing HEX file */
 	for (; i < nSize;) {
@@ -1549,19 +1682,17 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		}
 
 		if (nType == 0xAE || nType == 0xAF) {
-			core_firmware->hasBlockInfo = true;
+			core_firmware->hex_tag = nType;
 			/* insert block info extracted from hex */
 			if (block < FW_BLOCK_INFO_NUM) {
-				g_flash_block_info[block].start_addr = HexToDec(&pBuf[i + 9], 6);
-				g_flash_block_info[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
-				ipio_debug(DEBUG_FIRMWARE, "Block[%d]: start_addr = %x, end = %x\n",
-				    block, g_flash_block_info[block].start_addr, g_flash_block_info[block].end_addr);
-				if(nType == 0xAF) {
-				    g_flash_block_info[block].number = HexToDec(&pBuf[i + 9 + 6 + 6], 2);
-					ipio_debug(DEBUG_FIRMWARE, "Block[%d]: number = %x\n",
-						block, g_flash_block_info[block].number);
-				}
+				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
+				fbi[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
+
+				if(nType == 0xAF)
+				    fbi[block].number = HexToDec(&pBuf[i + 9 + 6 + 6], 2);
 			}
+			ipio_info("Block[%d]: start_addr = %x, end = %x, number = %d\n",
+				block, fbi[block].start_addr, fbi[block].end_addr, fbi[block].number);
 			block++;
 		}
 
@@ -1586,37 +1717,8 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 			}
 			/* fill data */
 			for (j = 0, k = 0; j < (nLength * 2); j += 2, k++) {
-				if (isIRAM) {
-#ifdef HOST_DOWNLOAD
-					int l = 0;
-					for (l = 0; l < block; l++) {
-						if (nAddr >= g_flash_block_info[l].start_addr && nAddr < g_flash_block_info[l].end_addr) {
-							if (g_flash_block_info[l].number == AP_BLOCK_NUM) {
-								ap_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
-								if ((nAddr + k) == g_flash_block_info[l].end_addr) {
-									uint32_t hd_start_addr = (g_flash_block_info[l].end_addr + 1 - 60);
-									ipio_info("hd_start_addr = 0x%X\n", hd_start_addr);
-									core_gesture->area_section = (ap_fw[hd_start_addr + 3] << 24) + (ap_fw[hd_start_addr + 2] << 16) + (ap_fw[hd_start_addr + 1] << 8) + ap_fw[hd_start_addr];
-									core_gesture->ap_start_addr = (ap_fw[hd_start_addr + 7] << 24) + (ap_fw[hd_start_addr + 6] << 16) + (ap_fw[hd_start_addr + 5] << 8) + ap_fw[hd_start_addr + 4];
-									core_gesture->start_addr = (ap_fw[hd_start_addr + 15] << 24) + (ap_fw[hd_start_addr + 14] << 16) + (ap_fw[hd_start_addr + 13] << 8) + ap_fw[hd_start_addr + 12];
-									core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
-									core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
-								}
-							} else if (g_flash_block_info[l].number == DATA_BLOCK_NUM) {
-								dlm_fw[nAddr + k - g_flash_block_info[l].start_addr] = HexToDec(&pBuf[i + 9 + j], 2);
-							} else if (g_flash_block_info[l].number == MP_BLOCK_NUM) {
-								mp_fw[nAddr + k - g_flash_block_info[l].start_addr] = HexToDec(&pBuf[i + 9 + j], 2);
-							} else if (g_flash_block_info[l].number == GESTURE_BLOCK_NUM) {
-								gesture_fw[nAddr + k - g_flash_block_info[l].start_addr] = HexToDec(&pBuf[i + 9 + j], 2);
-							} else if (g_flash_block_info[l].number == TUNING_BLOCK_NUM) {
-								tuning_fw[nAddr + k - g_flash_block_info[l].start_addr] = HexToDec(&pBuf[i + 9 + j], 2);
-							} else if (g_flash_block_info[l].number == DDI_BLOCK_NUM) {
-								ddi_fw[nAddr + k - g_flash_block_info[l].start_addr] = HexToDec(&pBuf[i + 9 + j], 2);
-							}
-							break;
-						}
-					}
-#endif
+				if (host_download) {
+					convert_hex_tag(nAddr, k, i, j, block);
 				} else {
 					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 
@@ -1638,11 +1740,10 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		i += 1 + 2 + 4 + 2 + (nLength * 2) + 2 + nOffset;
 	}
 
-#ifdef HOST_DOWNLOAD
-	core_firmware->block_number = block;
-	ipio_info("nStartAddr = 0x%06X, nEndAddr = 0x%06X block = %d\n", nStartAddr, nEndAddr, block);
-	return 0;
-#endif
+	ipio_info("Hex Tag = 0x%x\n", core_firmware->hex_tag);
+
+	if (host_download)
+		goto hd_out;
 
 	/* Get hex fw vers */
 	core_firmware->new_fw_cb = (flash_fw[FW_VER_ADDR] << 24) | (flash_fw[FW_VER_ADDR + 1] << 16) |
@@ -1669,10 +1770,10 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		tmp_addr += flashtab->sector;
 
 		/* set erase flag in the block if the addr of sectors is between them. */
-		if (core_firmware->hasBlockInfo) {
-			for (j = 0; j < ARRAY_SIZE(g_flash_block_info); j++) {
-				if (g_flash_sector[i].ss_addr >= g_flash_block_info[j].start_addr
-				    && g_flash_sector[i].se_addr <= g_flash_block_info[j].end_addr) {
+		if (core_firmware->hex_tag) {
+			for (j = 0; j < ARRAY_SIZE(fbi); j++) {
+				if (g_flash_sector[i].ss_addr >= fbi[j].start_addr
+				    && g_flash_sector[i].se_addr <= fbi[j].end_addr) {
 					g_flash_sector[i].inside_block = true;
 					break;
 				}
@@ -1688,9 +1789,11 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool isIRAM)
 		    g_flash_sector[i].data_flag, g_flash_sector[i].inside_block);
 	}
 
+hd_out:
 	core_firmware->start_addr = nStartAddr;
 	core_firmware->end_addr = nEndAddr;
-	ipio_info("nStartAddr = 0x%06X, nEndAddr = 0x%06X\n", nStartAddr, nEndAddr);
+	core_firmware->block_number = block;
+	ipio_info("nStartAddr = 0x%06X, nEndAddr = 0x%06X, block_number(AF) = %d\n", nStartAddr, nEndAddr, block);
 	return 0;
 
 out:
@@ -1704,7 +1807,7 @@ out:
  * @pFilePath: pass a path where locates user's firmware file.
  *
  */
-int core_firmware_upgrade(const char *pFilePath, bool isIRAM)
+int core_firmware_upgrade(const char *pFilePath, bool host_download)
 {
 	int ret = 0, fsize;
 	uint8_t *hex_buffer = NULL;
@@ -1887,7 +1990,7 @@ int core_firmware_init(void)
 		return -ENOMEM;
 	}
 
-	core_firmware->hasBlockInfo = false;
+	core_firmware->hex_tag = 0;
 	core_firmware->isboot = false;
 
 	for (j = 0; j < 4; j++) {

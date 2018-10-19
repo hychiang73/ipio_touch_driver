@@ -203,7 +203,7 @@ struct core_firmware_data {
 	bool isUpgrading;
 	bool isCRC;
 	bool isboot;
-	bool hasBlockInfo;
+	int hex_tag;
 
 	int (*upgrade_func)(bool isIRAM);
 };
