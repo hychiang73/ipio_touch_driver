@@ -137,6 +137,17 @@ int str2hex(char *str)
 }
 EXPORT_SYMBOL(str2hex);
 
+static ssize_t ilitek_proc_fw_pc_counter_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
+{
+	if (*pPos != 0)
+		return 0;
+
+	ipio_info("Ready to get FW PC Counter\n");
+	core_config_read_pc_counter();
+
+	return nCount;
+}
+
 static ssize_t ilitek_proc_debug_switch_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
 {
 	int ret = 0;
@@ -1196,6 +1207,7 @@ struct proc_dir_entry *proc_debug_level;
 struct proc_dir_entry *proc_mp_test;
 struct proc_dir_entry *proc_debug_message;
 struct proc_dir_entry *proc_debug_message_switch;
+struct proc_dir_entry *proc_fw_pc_counter;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
@@ -1249,6 +1261,10 @@ struct file_operations proc_debug_message_switch_fops = {
 	.read = ilitek_proc_debug_switch_read,
 };
 
+struct file_operations proc_fw_pc_counter_fops = {
+	.read = ilitek_proc_fw_pc_counter_read,
+};
+
 /**
  * This struct lists all file nodes will be created under /proc filesystem.
  *
@@ -1277,6 +1293,7 @@ proc_node_t proc_table[] = {
 	{"mp_test", NULL, &proc_mp_test_fops, false},
 	{"debug_message", NULL, &proc_debug_message_fops, false},
 	{"debug_message_switch", NULL, &proc_debug_message_switch_fops, false},
+	{"fw_pc_counter", NULL, &proc_fw_pc_counter_fops, false},
 };
 
 #define NETLINK_USER 21

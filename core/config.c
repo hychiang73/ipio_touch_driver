@@ -679,7 +679,8 @@ int core_config_set_watch_dog(bool enable)
 			ipio_info("WDT turn off succeed\n");
 		}
 	} else {
-		ipio_err("WDT turn on/off timeout !\n");
+		ipio_err("WDT turn on/off timeout !, ret = %x\n", ret);
+		core_config_read_pc_counter();
 		return -EINVAL;
 	}
 
@@ -756,8 +757,10 @@ int core_config_check_int_status(bool high)
 		timer--;
 	}
 
-	if (ret < -1)
-		ipio_info("Check busy timeout !!\n");
+	if (ret < -1) {
+		ipio_err("Check INT timeout\n");
+		core_config_read_pc_counter();
+	}
 
 	return ret;
 }
