@@ -137,6 +137,196 @@ int str2hex(char *str)
 }
 EXPORT_SYMBOL(str2hex);
 
+static ssize_t ilitek_proc_get_delta_data_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pPos)
+{
+	int16_t *delta = NULL;
+	int row = 0, col = 0,  index = 0;
+	int ret, i, x, y, log_ret = 0;
+	int read_length = 0;
+	uint8_t cmd[2] = {0};
+	uint8_t *data = NULL;
+
+	if (*pPos != 0)
+		return 0;
+
+	// core_fr->isEnableFR = false;
+	// ilitek_platform_disable_irq();
+	// ipio_info("disable irq\n");
+
+	mutex_lock(&ipd->touch_mutex);
+
+	row = core_config->tp_info->nYChannelNum;
+	col = core_config->tp_info->nXChannelNum;
+	read_length = 4 + 2 * row * col + 1 ;
+
+	ipio_info("read length = %d\n", read_length);
+
+	data = kcalloc(read_length + 1, sizeof(uint8_t), GFP_KERNEL);
+	if(ERR_ALLOC_MEM(data)) {
+			ipio_err("Failed to allocate data mem\n");
+			return 0;
+	}
+
+	delta = kcalloc(P5_0_DEBUG_MODE_PACKET_LENGTH, sizeof(int32_t), GFP_KERNEL);
+	if(ERR_ALLOC_MEM(delta)) {
+			ipio_err("Failed to allocate delta mem\n");
+			return 0;
+	}
+
+	cmd[0] = 0xB7;
+	cmd[1] = 0x1; //get delta
+
+	ret = core_write(core_config->slave_i2c_addr, &cmd[0], sizeof(cmd));
+	if (ret < 0) {
+		ipio_err("Failed to write 0xB7,0x1 command, %d\n", ret);
+		goto out;
+	}
+
+	msleep(20);
+
+	/* read debug packet header */
+	ret = core_read(core_config->slave_i2c_addr, data, read_length);
+
+	cmd[1] = 0x03; //switch to normal mode
+	ret = core_write(core_config->slave_i2c_addr, &cmd[0], sizeof(cmd));
+	if (ret < 0) {
+		ipio_err("Failed to write 0xB7,0x3 command, %d\n", ret);
+		goto out;
+	}
+
+	for (i = 4, index = 0; index < row * col * 2; i += 2, index++) {
+		delta[index] = (data[i] << 8) + data[i + 1];
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "======== Deltadata ========\n");
+
+	ret += snprintf(buf, PAGE_SIZE, "Header 0x%x ,Type %d, Length %d\n",data[0], data[1],
+																	(data[2]<<8) | data[3]);
+
+	ipio_info("Header 0x%x ,Type %d, Length %d\n",data[0], data[1],(data[2]<<8) | data[3]);
+
+	// print delta data
+	for (y = 0; y < row; y++) {
+		char log_buf[256]= {0,};
+		log_ret = 0;
+
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "[%2d] ", (y+1));
+		log_ret += snprintf(log_buf + log_ret, sizeof(log_buf) - log_ret, "[%2d] ", (y+1));
+
+		for (x = 0; x < col; x++) {
+			int shift = y * col + x;
+			ret += snprintf(buf + ret, PAGE_SIZE - ret, "%5d", delta[shift]);
+			log_ret += snprintf(log_buf + log_ret, sizeof(log_buf) - log_ret, "%5d", delta[shift]);
+		}
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "\n");
+		ipio_info("%s\n", log_buf);
+	}
+
+out:
+	// ipio_info("Enable irq\n");
+	// core_fr->isEnableFR = true;
+	// ilitek_platform_enable_irq();
+	mutex_unlock(&ipd->touch_mutex);
+	ipio_kfree((void **)&data);
+	ipio_kfree((void **)&delta);
+	return 0;
+}
+
+static ssize_t ilitek_proc_fw_get_raw_data_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pPos)
+{
+	int16_t *rawdata = NULL;
+	int row = 0, col = 0,  index = 0;
+	int ret, i, x, y, log_ret = 0;
+	int read_length = 0;
+	uint8_t cmd[2] = {0};
+	uint8_t *data = NULL;
+
+	if (*pPos != 0)
+		return 0;
+
+	// core_fr->isEnableFR = false;
+	// ilitek_platform_disable_irq();
+	// ipio_info("disable irq\n");
+
+	mutex_lock(&ipd->touch_mutex);
+
+	row = core_config->tp_info->nYChannelNum;
+	col = core_config->tp_info->nXChannelNum;
+	read_length = 4 + 2 * row * col + 1 ;
+
+	ipio_info("read length = %d\n", read_length);
+
+	data = kcalloc(read_length + 1, sizeof(uint8_t), GFP_KERNEL);
+	if(ERR_ALLOC_MEM(data)) {
+			ipio_err("Failed to allocate data mem\n");
+			return 0;
+	}
+
+	rawdata = kcalloc(P5_0_DEBUG_MODE_PACKET_LENGTH, sizeof(int32_t), GFP_KERNEL);
+	if(ERR_ALLOC_MEM(rawdata)) {
+			ipio_err("Failed to allocate rawdata mem\n");
+			return 0;
+	}
+
+	cmd[0] = 0xB7;
+	cmd[1] = 0x2; //get rawdata
+
+	ret = core_write(core_config->slave_i2c_addr, &cmd[0], sizeof(cmd));
+	if (ret < 0) {
+		ipio_err("Failed to write 0xB7,0x2 command, %d\n", ret);
+		goto out;
+	}
+
+	msleep(20);
+
+	/* read debug packet header */
+	ret = core_read(core_config->slave_i2c_addr, data, read_length);
+
+	cmd[1] = 0x03; //switch to normal mode
+	ret = core_write(core_config->slave_i2c_addr, &cmd[0], sizeof(cmd));
+	if (ret < 0) {
+		ipio_err("Failed to write 0xB7,0x3 command, %d\n", ret);
+		goto out;
+	}
+
+	for (i = 4, index = 0; index < row * col * 2; i += 2, index++) {
+		rawdata[index] = (data[i] << 8) + data[i + 1];
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "======== RawData ========\n");
+
+	ret += snprintf(buf, PAGE_SIZE, "Header 0x%x ,Type %d, Length %d\n",data[0], data[1],
+																	(data[2]<<8) | data[3]);
+
+	ipio_info("Header 0x%x ,Type %d, Length %d\n",data[0], data[1],(data[2]<<8) | data[3]);
+
+	// print raw data
+	for (y = 0; y < row; y++) {
+		char log_buf[256]= {0,};
+		log_ret = 0;
+
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "[%2d] ", (y+1));
+		log_ret += snprintf(log_buf + log_ret, sizeof(log_buf) - log_ret, "[%2d] ", (y+1));
+
+		for (x = 0; x < col; x++) {
+			int shift = y * col + x;
+			ret += snprintf(buf + ret, PAGE_SIZE - ret, "%5d", rawdata[shift]);
+			log_ret += snprintf(log_buf + log_ret, sizeof(log_buf) - log_ret, "%5d", rawdata[shift]);
+		}
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "\n");
+		ipio_info("%s\n", log_buf);
+	}
+
+out:
+	// ipio_info("Enable irq\n");
+	// core_fr->isEnableFR = true;
+	// ilitek_platform_enable_irq();
+	mutex_unlock(&ipd->touch_mutex);
+	ipio_kfree((void **)&data);
+	ipio_kfree((void **)&rawdata);
+	return 0;
+}
+
 static ssize_t ilitek_proc_fw_pc_counter_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
 {
 	if (*pPos != 0)
@@ -1265,6 +1455,14 @@ struct file_operations proc_fw_pc_counter_fops = {
 	.read = ilitek_proc_fw_pc_counter_read,
 };
 
+struct file_operations proc_get_delta_data_fops = {
+	.read = ilitek_proc_get_delta_data_read,
+};
+
+struct file_operations proc_get_raw_data_fops = {
+	.read = ilitek_proc_fw_get_raw_data_read,
+};
+
 /**
  * This struct lists all file nodes will be created under /proc filesystem.
  *
@@ -1294,6 +1492,8 @@ proc_node_t proc_table[] = {
 	{"debug_message", NULL, &proc_debug_message_fops, false},
 	{"debug_message_switch", NULL, &proc_debug_message_switch_fops, false},
 	{"fw_pc_counter", NULL, &proc_fw_pc_counter_fops, false},
+	{"show_delta_data", NULL, &proc_get_delta_data_fops, false},
+	{"show_raw_data", NULL, &proc_get_raw_data_fops, false},
 };
 
 #define NETLINK_USER 21
