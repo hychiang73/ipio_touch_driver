@@ -756,6 +756,7 @@ out:
 static int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t r_len)
 {
 	int ret = 0, addr = 0, i = 0;
+	int safe_len = r_len;
 	uint32_t end = start + size;
 	uint8_t *buf = NULL;
 
@@ -789,7 +790,7 @@ static int read_download(uint32_t start, uint32_t size, uint8_t *r_buf, uint32_t
 			goto out;
 		}
 
-		memcpy(r_buf + i, buf, r_len);
+		ipio_memcpy(r_buf + i, buf, r_len, safe_len);
 	}
 
 out:
@@ -1042,7 +1043,7 @@ int tddi_host_download(bool mode)
 			}
 		} else {
 			/* write hex to the addr of AP code */
-			memcpy(gesture_ap_buf, ap_fw + core_gesture->ap_start_addr, core_gesture->ap_length);
+			ipio_memcpy(gesture_ap_buf, ap_fw + core_gesture->ap_start_addr, core_gesture->ap_length, MAX_GESTURE_FIRMWARE_SIZE);
 			ipio_info("Writing data into AP code ...\n");
 			if (write_download(core_gesture->ap_start_addr, core_gesture->ap_length, gesture_ap_buf, core_gesture->ap_length) < 0) {
 				ipio_err("SPI Write AP code data error\n");
@@ -1186,7 +1187,7 @@ static convert_host_download_ili_file(int type)
 					core_gesture->area_section, core_gesture->ap_start_addr, core_gesture->ap_length);
 
 		memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + MP_HEX_ADDRESS, MAX_MP_FIRMWARE_SIZE);
-		memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + core_gesture->start_addr, core_gesture->length);
+		ipio_memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + core_gesture->start_addr, core_gesture->length, MAX_GESTURE_FIRMWARE_SIZE);
 	} else {
 		for (i = 0; i < FW_BLOCK_INFO_NUM; i++) {
 			if (((type >> i) & 0x01) == 0x01) {
@@ -1208,7 +1209,7 @@ static convert_host_download_ili_file(int type)
 						ipio_info("ges_info = 0x%X\n", ges_info);
 
 						/* Parsing gesture info inside AP code */
-						memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						ipio_memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1, sizeof(ap_fw));
 						core_gesture->area_section = (ap_fw[ges_info + 3] << 24) + (ap_fw[ges_info + 2] << 16) + (ap_fw[ges_info + 1] << 8) + ap_fw[ges_info];
 						core_gesture->ap_start_addr = (ap_fw[ges_info + 7] << 24) + (ap_fw[ges_info + 6] << 16) + (ap_fw[ges_info + 5] << 8) + ap_fw[ges_info + 4];
 						core_gesture->start_addr = (ap_fw[ges_info + 15] << 24) + (ap_fw[ges_info + 14] << 16) + (ap_fw[ges_info + 13] << 8) + ap_fw[ges_info + 12];
@@ -1216,19 +1217,19 @@ static convert_host_download_ili_file(int type)
 						core_gesture->length = MAX_GESTURE_FIRMWARE_SIZE;
 						break;
 					case DATA_BLOCK_NUM:
-						memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						ipio_memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1, sizeof(dlm_fw));
 						break;
 					case MP_BLOCK_NUM:
-						memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						ipio_memcpy(mp_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1, sizeof(mp_fw));
 						break;
 					case GESTURE_BLOCK_NUM:
-						memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						ipio_memcpy(gesture_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1, sizeof(gesture_fw));
 						break;
 					case TUNING_BLOCK_NUM:
-						memcpy(tuning_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						ipio_memcpy(tuning_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1, sizeof(tuning_fw));
 						break;
 					case DDI_BLOCK_NUM:
-						memcpy(ddi_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1);
+						ipio_memcpy(ddi_fw, CTPM_FW + ILI_FILE_HEADER + fbi[block].start_addr, fbi[block].end_addr - fbi[block].start_addr + 1, sizeof(ddi_fw));
 						break;
 					default:
 						break;
@@ -1513,7 +1514,7 @@ int core_firmware_boot_upgrade(void)
 		goto out;
 	}
 
-	memcpy(hex_buffer, fw->data, fsize * sizeof(*fw->data));
+	ipio_memcpy(hex_buffer, fw->data, fsize * sizeof(*fw->data), fsize);
 
 	ret = convert_hex_file(hex_buffer, fsize, false);
 #else

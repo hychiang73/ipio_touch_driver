@@ -96,7 +96,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 				ret = -ENOMEM;
 				goto out;
 			}
-			memcpy(txbuf, pBuf, nSize);
+			ipio_memcpy(txbuf, pBuf, nSize, msgs[0].len);
 			txbuf[nSize] = check_sum;
 			msgs[0].buf = txbuf;
 			msgs[0].len = nSize + 1;

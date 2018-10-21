@@ -1307,7 +1307,7 @@ void netlink_reply_msg(void *raw, int size)
 		NETLINK_CB(_gSkbOut).dst_group = 0;	/* not in mcast group */
 
 		/* strncpy(NLMSG_DATA(_gNetLinkHead), data, msg_size); */
-		memcpy(nlmsg_data(_gNetLinkHead), data, msg_size);
+		ipio_memcpy(nlmsg_data(_gNetLinkHead), data, msg_size, size);
 
 		ret = nlmsg_unicast(_gNetLinkSkb, _gSkbOut, _gPID);
 		if (ret < 0)

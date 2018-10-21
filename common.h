@@ -294,12 +294,25 @@ enum ili7807_types {
 /* Check whether the IC is damaged by ESD */
 //#define ESD_CHECK
 
-static inline void ipio_kfree(void **mem)
-{
+static inline void ipio_kfree(void **mem) {
 	if(*mem != NULL) {
 		kfree(*mem);
 		*mem = NULL;
 	}
+}
+
+static inline void ipio_vfree(void **mem) {
+	if(*mem != NULL) {
+		vfree(*mem);
+		*mem = NULL;
+	}
+}
+
+static inline void *ipio_memcpy(void *dest, const void *src, size_t n, size_t dest_size) {
+    if(n > dest_size)
+         n = dest_size;
+
+    return memcpy(dest, src, n);
 }
 
 extern int katoi(char *string);

@@ -151,6 +151,7 @@ int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 {
 	int ret = 0;
+	int safe_size = size;
 	uint8_t check_sum = 0,wsize = 0;
 	uint8_t *txbuf = NULL;
 
@@ -170,7 +171,7 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 
 	/* Calcuate checsum and fill it in the last byte */
 	check_sum = core_fr_calc_checksum(data, size);
-	memcpy(txbuf + 5, data, size);
+	ipio_memcpy(txbuf + 5, data, size, safe_size + 9);
 	txbuf[5 + size] = check_sum;
 	size++;
 	wsize = size;
@@ -314,6 +315,7 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 {
 	int ret = 0;
 	uint8_t *txbuf = NULL;
+	uint16_t safe_size = nSize;
 
     txbuf = kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(txbuf)) {
@@ -330,7 +332,7 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 	}
 
 	txbuf[0] = SPI_WRITE;
-    memcpy(txbuf+1, pBuf, nSize);
+	ipio_memcpy(txbuf+1, pBuf, nSize, safe_size + 1);
 
 	if (spi_write_then_read(core_spi->spi, txbuf, nSize+1, txbuf, 0) < 0) {
 		if (atomic_read(&ipd->do_reset)) {

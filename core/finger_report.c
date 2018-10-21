@@ -593,10 +593,10 @@ void core_fr_handler(void)
 					goto out;
 				}
 
-				memcpy(tdata, g_fr_node->data, g_fr_node->len);
+				ipio_memcpy(tdata, g_fr_node->data, g_fr_node->len, g_total_len);
 				/* merge uart data if it's at i2cuart mode */
 				if (g_fr_uart != NULL)
-					memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len);
+					ipio_memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len, g_total_len);
 			} else {
 				ipio_err("total length (%d) is too long than user can handle\n",
 					g_total_len);
@@ -610,7 +610,7 @@ void core_fr_handler(void)
 				mutex_lock(&ipd->ilitek_debug_mutex);
 				memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
 						(uint8_t) sizeof(uint8_t) * 2048);
-				memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len);
+				ipio_memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len, 2048);
 				ipd->debug_data_frame++;
 				if (ipd->debug_data_frame > 1) {
 					ipio_info("ipd->debug_data_frame = %d\n", ipd->debug_data_frame);

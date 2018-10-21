@@ -1507,12 +1507,13 @@ static int open_test_sp(int index)
 	}
 
 	if (tItems[index].spec_option == BENCHMARK) {
-		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option, tItems[index].desp);
+		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min,
+							tItems[index].type_option, tItems[index].desp, core_mp->frame_len);
 		if (ipio_debug_level && DEBUG_PARSER > 0)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
 
-	core_parser_nodetype(tItems[index].node_type, "Node Type");
+	core_parser_nodetype(tItems[index].node_type, "Node Type", core_mp->frame_len);
 	if (ipio_debug_level && DEBUG_PARSER > 0)
 		dump_node_type_buffer(tItems[index].node_type, "node type");
 
@@ -1575,9 +1576,9 @@ static int open_test_sp(int index)
 
 		/* record fist frame for debug */
 		if(i == 0) {
-			memcpy(frame1_cbk700, open[i].cbk_700, core_mp->frame_len * sizeof(int32_t));
-			memcpy(frame1_cbk250, open[i].cbk_250, core_mp->frame_len * sizeof(int32_t));
-			memcpy(frame1_cbk200, open[i].cbk_200, core_mp->frame_len * sizeof(int32_t));
+			ipio_memcpy(frame1_cbk700, open[i].cbk_700, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len);
+			ipio_memcpy(frame1_cbk250, open[i].cbk_250, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len);
+			ipio_memcpy(frame1_cbk200, open[i].cbk_200, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len);
 		}
 
 		dump_data(open[i].cbk_700, 10, core_mp->frame_len, core_mp->xch_len, "cbk 700");
@@ -1724,7 +1725,8 @@ static int mutual_test(int index)
 		get_frame_cont = tItems[index].frame_count;
 
 	if (tItems[index].spec_option == BENCHMARK) {
-		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option, tItems[index].desp);
+		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min,
+								tItems[index].type_option, tItems[index].desp, core_mp->frame_len);
 		if (ipio_debug_level && DEBUG_PARSER > 0)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}

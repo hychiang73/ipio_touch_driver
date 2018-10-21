@@ -244,8 +244,8 @@ static int get_ini_phy_data(char *data, int fsize)
 				goto out;
 			}
 
-			memcpy(ilitek_ini_file_data[g_ini_items].pKeyName,
-			ini_buf, ilitek_ini_file_data[g_ini_items].iKeyNameLen);
+			ipio_memcpy(ilitek_ini_file_data[g_ini_items].pKeyName, ini_buf,
+						ilitek_ini_file_data[g_ini_items].iKeyNameLen, PARSER_MAX_KEY_NAME_LEN);
 			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n - isEqualSign - 1;
 		}
 
@@ -257,8 +257,8 @@ static int get_ini_phy_data(char *data, int fsize)
 			goto out;
 		}
 
-		memcpy(ilitek_ini_file_data[g_ini_items].pKeyValue,
-		       ini_buf + isEqualSign + 1, ilitek_ini_file_data[g_ini_items].iKeyValueLen);
+		ipio_memcpy(ilitek_ini_file_data[g_ini_items].pKeyValue,
+		       ini_buf + isEqualSign + 1, ilitek_ini_file_data[g_ini_items].iKeyValueLen, PARSER_MAX_KEY_VALUE_LEN);
 
 		ipio_debug(DEBUG_PARSER, "%s = %s\n", ilitek_ini_file_data[g_ini_items].pKeyName,
 		    ilitek_ini_file_data[g_ini_items].pKeyValue);
@@ -307,7 +307,7 @@ static int get_ini_key_value(char *section, char *key, char *value)
 			continue;
 
 		if (strcmp(key, ilitek_ini_file_data[i].pKeyName) == 0) {
-			memcpy(value, ilitek_ini_file_data[i].pKeyValue, ilitek_ini_file_data[i].iKeyValueLen);
+			ipio_memcpy(value, ilitek_ini_file_data[i].pKeyValue, ilitek_ini_file_data[i].iKeyValueLen, PARSER_MAX_KEY_VALUE_LEN);
 			ipio_debug(DEBUG_PARSER, " value:%s , pKeyValue: %s\n", value, ilitek_ini_file_data[i].pKeyValue);
 			ret = 0;
 			break;
@@ -316,9 +316,7 @@ static int get_ini_key_value(char *section, char *key, char *value)
 	return ret;
 }
 
-
-
-void core_parser_nodetype(int32_t* type_ptr, char *desp)
+void core_parser_nodetype(int32_t* type_ptr, char *desp, size_t frame_len)
 {
 
 	int i = 0, j = 0, index1 =0, temp, count = 0;
@@ -332,15 +330,20 @@ void core_parser_nodetype(int32_t* type_ptr, char *desp)
 			}
 
 		record = ',';
-		for(j=0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++){
+		for(j = 0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++) {
+			if(ilitek_ini_file_data[i].pKeyValue[j] == ';' || j == ilitek_ini_file_data[i].iKeyValueLen) {
 
-			if(ilitek_ini_file_data[i].pKeyValue[j] == ';' || j == ilitek_ini_file_data[i].iKeyValueLen){
-
-				if(record != '.')
-				{
+				if(record != '.') {
 					memset(str,0 ,sizeof(str));
-					memcpy(str,&ilitek_ini_file_data[i].pKeyValue[index1], (j -index1));
-					temp=katoi(str);
+					ipio_memcpy(str, &ilitek_ini_file_data[i].pKeyValue[index1], (j -index1), sizeof(str));
+					temp = katoi(str);
+
+					/* Over boundary, end to calculate. */
+					if ((count / 4 ) >= frame_len) {
+						ipio_err("count (%d) is larger than frame length, break\n", (count/4));
+						break;
+					}
+
 					type_ptr[count] = temp;
 					printk("%04d,",temp);
 					count++;
@@ -350,18 +353,21 @@ void core_parser_nodetype(int32_t* type_ptr, char *desp)
 			}
 		}
 		printk("\n");
-
 	}
 }
 
-void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char *desp)
+void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char *desp, size_t frame_len)
 {
 	int i = 0, j = 0, index1 =0, temp, count = 0;
 	char str[512] = { 0 }, record = ',';
 	int32_t data[4];
+	char benchmark_str[256] ={0};
+
+	/* format complete string from the name of section "_Benchmark_Data". */
+	sprintf(benchmark_str, "%s%s", desp, "_Benchmark_Data");
 
 	for (i = 0; i < g_ini_items; i++) {
-		if ((strstr(ilitek_ini_file_data[i].pSectionName, desp) <= 0) ||
+		if ((strcmp(ilitek_ini_file_data[i].pSectionName, benchmark_str) != 0) ||
 			strcmp(ilitek_ini_file_data[i].pKeyName, BENCHMARK_KEY_NAME) != 0) {
 				continue;
 		}
@@ -373,9 +379,16 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 
 				if(record != '.') {
 					memset(str, 0, sizeof(str));
-					memcpy(str, &ilitek_ini_file_data[i].pKeyValue[index1], (j - index1));
+					ipio_memcpy(str, &ilitek_ini_file_data[i].pKeyValue[index1], (j - index1), sizeof(str));
 					temp = katoi(str);
 					data[(count % 4)] = temp;
+
+					/* Over boundary, end to calculate. */
+					if ((count / 4 ) >= frame_len) {
+						ipio_err("count (%d) is larger than frame length, break\n", (count/4));
+						break;
+					}
+
 					if ((count % 4) == 3) {
 						if (data[0] == 1) {
 							if (type == VALUE) {
