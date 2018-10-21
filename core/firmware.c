@@ -847,10 +847,10 @@ static int host_download_dma_check(int block)
 	uint32_t data_firmware_size = 8 * 1024;
 
 	if (core_firmware->hex_tag == 0xAE) {
-		if (block == ap_block) {
+		if (block == AP_BLOCK_NUM) {
 			start_addr = 0;
 			block_size = MAX_AP_FIRMWARE_SIZE - 0x4;
-		} else if (block == dlm_block) {
+		} else if (block == DATA_BLOCK_NUM) {
 			start_addr = DLM_START_ADDRESS;
 			block_size = MAX_DLM_FIRMWARE_SIZE;
 		}
@@ -1093,10 +1093,10 @@ int tddi_host_download(bool mode)
 		if (((core_config->core_type >= CORE_TYPE_E) && (core_config->chip_id == CHIP_TYPE_ILI9881)) || ((core_config->chip_id == CHIP_TYPE_ILI7807))) {
 			if (core_firmware->hex_tag == 0xAE) {
 				ap_crc = calc_crc32(0, MAX_AP_FIRMWARE_SIZE - 4, ap_fw);
-				ap_dma = host_download_dma_check(0);
+				ap_dma = host_download_dma_check(AP_BLOCK_NUM);
 
 				dlm_crc = calc_crc32(0, MAX_DLM_FIRMWARE_SIZE, dlm_fw);
-				dlm_dma = host_download_dma_check(1);
+				dlm_dma = host_download_dma_check(DATA_BLOCK_NUM);
 			} else {
 				for (i = 0; i < core_firmware->block_number; i++) {
 					if (fbi[i].number == AP_BLOCK_NUM) {
@@ -1561,9 +1561,10 @@ out:
 #endif /* HOST_DOWNLOAD */
 #endif /* BOOT_FW_UPGRADE */
 
-static void convert_hex_tag(uint32_t addr, int addr_offset, int hex_index, int hex_offset, int block)
+static void convert_hex_tag(void *hex_data, uint32_t addr, int addr_offset, int hex_index, int hex_offset, int block)
 {
 	int i = 0;
+	uint8_t *pBuf = (uint8_t *)hex_data;
 	static int do_once = 0;
 	uint32_t ges_info_addr = 0x0;
 
@@ -1590,7 +1591,7 @@ static void convert_hex_tag(uint32_t addr, int addr_offset, int hex_index, int h
 						mp_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
 						break;
 					case GESTURE_BLOCK_NUM:
-						gesture_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offsetj], 2);
+						gesture_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
 						break;
 					case TUNING_BLOCK_NUM:
 						tuning_fw[addr + addr_offset - fbi[i].start_addr] = HexToDec(&pBuf[hex_index + 9 + hex_offset], 2);
@@ -1718,7 +1719,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 			/* fill data */
 			for (j = 0, k = 0; j < (nLength * 2); j += 2, k++) {
 				if (host_download) {
-					convert_hex_tag(nAddr, k, i, j, block);
+					convert_hex_tag(pBuf, nAddr, k, i, j, block);
 				} else {
 					flash_fw[nAddr + k] = HexToDec(&pBuf[i + 9 + j], 2);
 
@@ -1850,7 +1851,7 @@ int core_firmware_upgrade(const char *pFilePath, bool host_download)
 		ipio_err("Failed to open the file at %s.\n", pFilePath);
 #ifdef HOST_DOWNLOAD
 		ipio_info("Feed ili file to host download instead of hex\n");
-		ret = core_firmware->upgrade_func(isIRAM);
+		ret = core_firmware->upgrade_func(host_download);
 		if (ret < 0)
 			ipio_err("host download failed, ret = %d\n", ret);
 		goto out_hd;
@@ -1930,14 +1931,14 @@ host_load:
 	/* restore userspace mem segment after read. */
 	set_fs(old_fs);
 
-	ret = convert_hex_file(hex_buffer, fsize, isIRAM);
+	ret = convert_hex_file(hex_buffer, fsize, host_download);
 	if (ret < 0) {
 		ipio_err("Failed to covert firmware data, ret = %d\n", ret);
 		goto out;
 	}
 
 	/* calling that function defined at init depends on chips. */
-	ret = core_firmware->upgrade_func(isIRAM);
+	ret = core_firmware->upgrade_func(host_download);
 	if (ret < 0) {
 		ipio_err("Failed to upgrade firmware, ret = %d\n", ret);
 		goto out;
