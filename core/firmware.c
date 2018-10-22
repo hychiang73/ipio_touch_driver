@@ -2001,21 +2001,22 @@ int core_firmware_init(void)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		switch (ipio_chip_list[i]) {
-			case CHIP_TYPE_ILI7807:
-			case CHIP_TYPE_ILI9881:
-				core_firmware->max_count = 0x1FFFF;
-				core_firmware->isCRC = true;
+		if (ipio_chip_list[i] == TP_TOUCH_IC) {
+			switch (ipio_chip_list[i]) {
+				case CHIP_TYPE_ILI7807:
+				case CHIP_TYPE_ILI9881:
+					core_firmware->max_count = 0x1FFFF;
+					core_firmware->isCRC = true;
 #ifdef HOST_DOWNLOAD
-				core_firmware->upgrade_func = tddi_host_download;
+					core_firmware->upgrade_func = tddi_host_download;
 #else
-				core_firmware->upgrade_func = tddi_fw_upgrade;
+					core_firmware->upgrade_func = tddi_fw_upgrade;
 #endif
-				core_firmware->delay_after_upgrade = 200;
-				break;
-			default:
-				ipio_err("Can't find this chip (%x) in support list\n", ipio_chip_list[i]);
-				return -ENODEV;
+					core_firmware->delay_after_upgrade = 200;
+					break;
+				default:
+					break;
+			}
 		}
 	}
 	return 0;

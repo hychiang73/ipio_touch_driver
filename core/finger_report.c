@@ -732,12 +732,18 @@ int core_fr_init(void)
 
 	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
 		if (ipio_chip_list[i] == TP_TOUCH_IC) {
-			core_fr->isEnableFR = true;
-			core_fr->isEnableNetlink = false;
-			core_fr->isEnablePressure = false;
-			core_fr->isSetResolution = false;
-			core_fr->actual_fw_mode = protocol->demo_mode;
-			return 0;
+			switch (ipio_chip_list[i]) {
+				case CHIP_TYPE_ILI7807:
+				case CHIP_TYPE_ILI9881:
+					core_fr->isEnableFR = true;
+					core_fr->isEnableNetlink = false;
+					core_fr->isEnablePressure = false;
+					core_fr->isSetResolution = false;
+					core_fr->actual_fw_mode = protocol->demo_mode;
+					break;;
+				default:
+					break;
+			}
 		}
 	}
 

@@ -1152,28 +1152,29 @@ int core_config_init(void)
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		switch (ipio_chip_list[i]) {
-			case CHIP_TYPE_ILI7807:
-				core_config->chip_id = ipio_chip_list[i];
-				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI7807_PID_ADDR;
-				core_config->otp_id_addr = ILI7807_OTP_ID_ADDR;
-				core_config->ana_id_addr = ILI7807_ANA_ID_ADDR;
-				core_config->wdt_addr = ILI7807_WDT_ADDR;
-				core_config->ic_reset_addr = ILI7807_CHIP_RESET_ADDR;
-				break;
-			case CHIP_TYPE_ILI9881:
-				core_config->chip_id = ipio_chip_list[i];
-				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI9881_PID_ADDR;
-				core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
-				core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
-				core_config->wdt_addr = ILI9881_WDT_ADDR;
-				core_config->ic_reset_addr = ILI9881_CHIP_RESET_ADDR;
-				break;
-			default:
-				ipio_err("Can't find this chip in support list\n");
-				return -ENODEV;
+		if (ipio_chip_list[i] == TP_TOUCH_IC) {
+			switch (ipio_chip_list[i]) {
+				case CHIP_TYPE_ILI7807:
+					core_config->chip_id = ipio_chip_list[i];
+					core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
+					core_config->pid_addr = ILI7807_PID_ADDR;
+					core_config->otp_id_addr = ILI7807_OTP_ID_ADDR;
+					core_config->ana_id_addr = ILI7807_ANA_ID_ADDR;
+					core_config->wdt_addr = ILI7807_WDT_ADDR;
+					core_config->ic_reset_addr = ILI7807_CHIP_RESET_ADDR;
+					break;
+				case CHIP_TYPE_ILI9881:
+					core_config->chip_id = ipio_chip_list[i];
+					core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
+					core_config->pid_addr = ILI9881_PID_ADDR;
+					core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
+					core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
+					core_config->wdt_addr = ILI9881_WDT_ADDR;
+					core_config->ic_reset_addr = ILI9881_CHIP_RESET_ADDR;
+					break;
+				default:
+					break;
+			}
 		}
 	}
 	return 0;

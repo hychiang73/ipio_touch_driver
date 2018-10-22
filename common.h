@@ -94,8 +94,6 @@
 #define CHIP_TYPE_ILI7807	0x7807
 #define TP_TOUCH_IC		CHIP_TYPE_ILI7807
 
-#define CHIP_ID_ERR	(-100)
-
 /* A platform currently supported by driver */
 #define PT_QCOM	1
 #define PT_MTK	2
