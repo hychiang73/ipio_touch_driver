@@ -35,8 +35,8 @@
 #include "core/gesture.h"
 #include "core/mp_test.h"
 
-#define USER_STR_BUFF	128
-#define IOCTL_I2C_BUFF	2048
+#define USER_STR_BUFF	PAGE_SIZE
+#define IOCTL_I2C_BUFF	PAGE_SIZE
 #define ILITEK_IOCTL_MAGIC	100
 #define ILITEK_IOCTL_MAXNR	19
 
@@ -137,21 +137,17 @@ int str2hex(char *str)
 }
 EXPORT_SYMBOL(str2hex);
 
-static ssize_t ilitek_proc_get_delta_data_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pPos)
+static ssize_t ilitek_proc_get_delta_data_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pos)
 {
 	int16_t *delta = NULL;
 	int row = 0, col = 0,  index = 0;
-	int ret, i, x, y, log_ret = 0;
+	int ret, i, x, y;
 	int read_length = 0;
 	uint8_t cmd[2] = {0};
 	uint8_t *data = NULL;
 
-	if (*pPos != 0)
+	if (*pos != 0)
 		return 0;
-
-	// core_fr->isEnableFR = false;
-	// ilitek_platform_disable_irq();
-	// ipio_info("disable irq\n");
 
 	mutex_lock(&ipd->touch_mutex);
 
@@ -163,14 +159,14 @@ static ssize_t ilitek_proc_get_delta_data_read(struct file *pFile, char __user *
 
 	data = kcalloc(read_length + 1, sizeof(uint8_t), GFP_KERNEL);
 	if(ERR_ALLOC_MEM(data)) {
-			ipio_err("Failed to allocate data mem\n");
-			return 0;
+		ipio_err("Failed to allocate data mem\n");
+		return 0;
 	}
 
 	delta = kcalloc(P5_0_DEBUG_MODE_PACKET_LENGTH, sizeof(int32_t), GFP_KERNEL);
 	if(ERR_ALLOC_MEM(delta)) {
-			ipio_err("Failed to allocate delta mem\n");
-			return 0;
+		ipio_err("Failed to allocate delta mem\n");
+		return 0;
 	}
 
 	cmd[0] = 0xB7;
@@ -198,55 +194,49 @@ static ssize_t ilitek_proc_get_delta_data_read(struct file *pFile, char __user *
 		delta[index] = (data[i] << 8) + data[i + 1];
 	}
 
-	ret = snprintf(buf, PAGE_SIZE, "======== Deltadata ========\n");
+	nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount, "======== Deltadata ========\n");
 
-	ret += snprintf(buf, PAGE_SIZE, "Header 0x%x ,Type %d, Length %d\n",data[0], data[1],
-																	(data[2]<<8) | data[3]);
-
-	ipio_info("Header 0x%x ,Type %d, Length %d\n",data[0], data[1],(data[2]<<8) | data[3]);
+	nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount,
+		"Header 0x%x ,Type %d, Length %d\n",data[0], data[1], (data[2]<<8) | data[3]);
 
 	// print delta data
 	for (y = 0; y < row; y++) {
-		char log_buf[256]= {0,};
-		log_ret = 0;
-
-		ret += snprintf(buf + ret, PAGE_SIZE - ret, "[%2d] ", (y+1));
-		log_ret += snprintf(log_buf + log_ret, sizeof(log_buf) - log_ret, "[%2d] ", (y+1));
+		nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount, "[%2d] ", (y+1));
 
 		for (x = 0; x < col; x++) {
 			int shift = y * col + x;
-			ret += snprintf(buf + ret, PAGE_SIZE - ret, "%5d", delta[shift]);
-			log_ret += snprintf(log_buf + log_ret, sizeof(log_buf) - log_ret, "%5d", delta[shift]);
+			nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount, "%5d", delta[shift]);
 		}
-		ret += snprintf(buf + ret, PAGE_SIZE - ret, "\n");
-		ipio_info("%s\n", log_buf);
+		nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount, "\n");
 	}
 
+	ret = copy_to_user(buf, g_user_buf, nCount);
+	if (ret < 0) {
+		ipio_err("Failed to copy data to user space");
+	}
+
+	*pos += nCount;
+
 out:
-	// ipio_info("Enable irq\n");
-	// core_fr->isEnableFR = true;
-	// ilitek_platform_enable_irq();
 	mutex_unlock(&ipd->touch_mutex);
 	ipio_kfree((void **)&data);
 	ipio_kfree((void **)&delta);
-	return 0;
+	return nCount;
 }
 
-static ssize_t ilitek_proc_fw_get_raw_data_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pPos)
+static ssize_t ilitek_proc_fw_get_raw_data_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pos)
 {
 	int16_t *rawdata = NULL;
 	int row = 0, col = 0,  index = 0;
-	int ret, i, x, y, log_ret = 0;
+	int ret, i, x, y;
 	int read_length = 0;
 	uint8_t cmd[2] = {0};
 	uint8_t *data = NULL;
 
-	if (*pPos != 0)
+	if (*pos != 0)
 		return 0;
 
-	// core_fr->isEnableFR = false;
-	// ilitek_platform_disable_irq();
-	// ipio_info("disable irq\n");
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
 	mutex_lock(&ipd->touch_mutex);
 
@@ -293,47 +283,59 @@ static ssize_t ilitek_proc_fw_get_raw_data_read(struct file *pFile, char __user 
 		rawdata[index] = (data[i] << 8) + data[i + 1];
 	}
 
-	ret = snprintf(buf, PAGE_SIZE, "======== RawData ========\n");
+	nCount = snprintf(g_user_buf, PAGE_SIZE, "======== RawData ========\n");
 
-	ret += snprintf(buf, PAGE_SIZE, "Header 0x%x ,Type %d, Length %d\n",data[0], data[1],
-																	(data[2]<<8) | data[3]);
-
-	ipio_info("Header 0x%x ,Type %d, Length %d\n",data[0], data[1],(data[2]<<8) | data[3]);
+	nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount,
+			"Header 0x%x ,Type %d, Length %d\n",data[0], data[1], (data[2]<<8) | data[3]);
 
 	// print raw data
 	for (y = 0; y < row; y++) {
-		char log_buf[256]= {0,};
-		log_ret = 0;
-
-		ret += snprintf(buf + ret, PAGE_SIZE - ret, "[%2d] ", (y+1));
-		log_ret += snprintf(log_buf + log_ret, sizeof(log_buf) - log_ret, "[%2d] ", (y+1));
+		nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount, "[%2d] ", (y+1));
 
 		for (x = 0; x < col; x++) {
 			int shift = y * col + x;
-			ret += snprintf(buf + ret, PAGE_SIZE - ret, "%5d", rawdata[shift]);
-			log_ret += snprintf(log_buf + log_ret, sizeof(log_buf) - log_ret, "%5d", rawdata[shift]);
+			nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount, "%5d", rawdata[shift]);
 		}
-		ret += snprintf(buf + ret, PAGE_SIZE - ret, "\n");
-		ipio_info("%s\n", log_buf);
+		nCount += snprintf(g_user_buf + nCount, PAGE_SIZE - nCount, "\n");
 	}
 
+	ret = copy_to_user(buf, g_user_buf, nCount);
+	if (ret < 0) {
+		ipio_err("Failed to copy data to user space");
+	}
+
+	*pos += nCount;
+
 out:
-	// ipio_info("Enable irq\n");
-	// core_fr->isEnableFR = true;
-	// ilitek_platform_enable_irq();
 	mutex_unlock(&ipd->touch_mutex);
 	ipio_kfree((void **)&data);
 	ipio_kfree((void **)&rawdata);
-	return 0;
+	return nCount;
 }
 
-static ssize_t ilitek_proc_fw_pc_counter_read(struct file *pFile, char __user *buff, size_t nCount, loff_t *pPos)
+static ssize_t ilitek_proc_fw_pc_counter_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pos)
 {
-	if (*pPos != 0)
+	uint32_t pc;
+
+	if (*pos != 0)
 		return 0;
 
-	ipio_info("Ready to get FW PC Counter\n");
-	core_config_read_pc_counter();
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
+
+	mutex_lock(&ipd->plat_mutex);
+
+	pc = core_config_read_pc_counter();
+
+	mutex_unlock(&ipd->plat_mutex);
+
+	nCount = snprintf(g_user_buf, PAGE_SIZE, "pc counter = 0x%x\n", pc);
+
+	pc = copy_to_user(buf, g_user_buf, nCount);
+	if (pc < 0) {
+		ipio_err("Failed to copy data to user space");
+	}
+
+	*pos += nCount;
 
 	return nCount;
 }
@@ -504,7 +506,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int apk[100] = {0};
-	uint32_t ret;
+	int ret;
 
 	if (*pPos != 0)
 		return 0;
@@ -515,7 +517,9 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	}
 
 	/* Running MP Test */
-	core_mp_start_test();
+	ret = core_mp_start_test();
+	if(ret < 0)
+		goto out;
 
 	/* copy MP result to user */
 	memset(apk, 2, sizeof(apk));
@@ -524,6 +528,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	if (ret < 0)
 		ipio_err("Failed to copy data to user space\n");
 
+out:
 	core_mp_test_free();
 	return 0;
 }

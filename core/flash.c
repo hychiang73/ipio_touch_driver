@@ -128,7 +128,7 @@ void core_flash_enable_protect(bool enable)
 		}
 		break;
 	default:
-		ipio_err("Can't find flash id, ignore protection\n");
+		ipio_err("Can't find flash id(0x%x), ignore protection\n", flashtab->mid);
 		break;
 	}
 

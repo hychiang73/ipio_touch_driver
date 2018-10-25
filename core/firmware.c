@@ -46,7 +46,7 @@
 
 #if defined(BOOT_FW_UPGRADE) || defined(HOST_DOWNLOAD)
 #ifndef BOOT_FW_UPGRADE_READ_HEX
-//#include "ilitek_fw.h"
+#include "ilitek_fw.h"
 #endif
 #endif /* BOOT_FW_UPGRADE */
 
@@ -64,14 +64,13 @@
  */
 uint8_t *flash_fw = NULL;
 
-#ifdef HOST_DOWNLOAD
+/* TODO: may use a better way to declair them for upgrade fw */
 uint8_t ap_fw[MAX_AP_FIRMWARE_SIZE] = { 0 };
 uint8_t dlm_fw[MAX_DLM_FIRMWARE_SIZE] = { 0 };
 uint8_t mp_fw[MAX_MP_FIRMWARE_SIZE] = { 0 };
 uint8_t gesture_fw[MAX_GESTURE_FIRMWARE_SIZE] = { 0 };
 uint8_t tuning_fw[MAX_TUNING_FIRMWARE_SIZE] = { 0 };
 uint8_t ddi_fw[MAX_DDI_FIRMWARE_SIZE] = { 0 };
-#endif
 
 /* the length of array in each sector */
 int g_section_len = 0;
@@ -673,7 +672,7 @@ int tddi_fw_upgrade(bool isIRAM)
 {
 	int ret = 0;
 
-	ilitek_platform_reset_ctrl(true, RST_MODE);
+	ilitek_platform_reset_ctrl(true, HW_RST);
 
 	ilitek_platform_disable_irq();
 
@@ -723,7 +722,7 @@ int tddi_fw_upgrade(bool isIRAM)
 	}
 
 	/* We do have to reset chip in order to move new code from flash to iram. */
-	ilitek_platform_reset_ctrl(true, RST_MODE);
+	ilitek_platform_reset_ctrl(true, HW_RST);
 
 	/* the delay time moving code depends on what the touch IC you're using. */
 	mdelay(core_firmware->delay_after_upgrade);
@@ -1164,14 +1163,13 @@ out:
 EXPORT_SYMBOL(tddi_host_download);
 #endif /* HOST_DOWNLOAD */
 
-#ifdef BOOT_FW_UPGRADE
-#ifdef HOST_DOWNLOAD
 
-static convert_host_download_ili_file(int type)
+#ifdef HOST_DOWNLOAD
+static void convert_host_download_ili_file(int type)
 {
 	int i = 0, block = 0, ges_info;
 
-	if (tyep == 0) {
+	if (type == 0) {
 		/* It's equal to the tag as 0xAE */
 		memcpy(ap_fw, CTPM_FW + ILI_FILE_HEADER, MAX_AP_FIRMWARE_SIZE);
 		memcpy(dlm_fw, CTPM_FW + ILI_FILE_HEADER + DLM_HEX_ADDRESS, MAX_DLM_FIRMWARE_SIZE);
@@ -1265,14 +1263,7 @@ int core_firmware_boot_host_download(void)
 	type = CTPM_FW[32];
 	ipio_info("type = %d\n", type);
 
-	convert_host_download_ili_file(type)
-
-	gpio_direction_output(ipd->reset_gpio, 1);
-	mdelay(ipd->delay_time_high);
-	gpio_set_value(ipd->reset_gpio, 0);
-	mdelay(ipd->delay_time_low);
-	gpio_set_value(ipd->reset_gpio, 1);
-	mdelay(ipd->edge_delay);
+	convert_host_download_ili_file(type);
 
 	ret = core_firmware->upgrade_func(true);
 	if (ret < 0) {
@@ -1299,7 +1290,9 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(core_firmware_boot_host_download);
-#else
+#endif
+
+#ifdef BOOT_FW_UPGRADE
 #ifndef BOOT_FW_UPGRADE_READ_HEX
 static int convert_hex_array(void)
 {
@@ -1559,7 +1552,6 @@ out:
 	core_firmware->isUpgrading = false;
 	return ret;
 }
-#endif /* HOST_DOWNLOAD */
 #endif /* BOOT_FW_UPGRADE */
 
 static void convert_hex_tag(void *hex_data, uint32_t addr, int addr_offset, int hex_index, int hex_offset, int block)

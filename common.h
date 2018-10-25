@@ -103,12 +103,7 @@
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
-#define INTERFACE SPI_INTERFACE
-
-/* Determin which of methods used to reset IC */
-#define SW_RST 0
-#define HW_RST 1
-#define RST_MODE HW_RST
+#define INTERFACE I2C_INTERFACE
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.3.9"
@@ -155,6 +150,14 @@ enum {
 		if (level & ipio_debug_level)									\
 		pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 	} while (0)
+
+/* Reset methods */
+enum {
+	SW_RST = 0,
+	HW_RST,
+	HOST_DOWNLOAD_RST,
+	HOST_DOWNLOAD_BOOT_RST
+};
 
 /* Distributed to all core functions */
 extern uint32_t ipio_debug_level;

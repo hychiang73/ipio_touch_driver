@@ -65,7 +65,7 @@ static void read_flash_info(uint8_t cmd, int len)
 	core_flash_init(flash_mid, flash_id);
 }
 
-void core_config_read_pc_counter(void)
+uint32_t core_config_read_pc_counter(void)
 {
 	uint32_t pc_cnt = 0x0;
 
@@ -82,6 +82,7 @@ void core_config_read_pc_counter(void)
 		if (core_config_ice_mode_disable() < 0)
 			ipio_err("Failed to disable ice mode\n");
 	}
+	return pc_cnt;
 }
 EXPORT_SYMBOL(core_config_read_pc_counter);
 
@@ -239,16 +240,16 @@ int core_config_switch_fw_mode(uint8_t *data)
 					ret = -1;
 					break;
 				}
-			}
 
-			/* After command to test mode, fw stays at demo mode until busy free. */
-			core_fr->actual_fw_mode = protocol->demo_mode;
+				/* After command to test mode, fw stays at demo mode until busy free. */
+				core_fr->actual_fw_mode = protocol->demo_mode;
 
-			/* Check ready to switch test mode from demo mode */
-			if (core_config_check_cdc_busy(50, 50) < 0) {
-				ipio_err("Mode(%d) Check busy is timout\n", core_fr->actual_fw_mode);
-				ret = -1;
-				break;
+				/* Check ready to switch test mode from demo mode */
+				if (core_config_check_cdc_busy(50, 50) < 0) {
+					ipio_err("Mode(%d) Check busy is timout\n", core_fr->actual_fw_mode);
+					ret = -1;
+					break;
+				}
 			}
 
 			/* Now set up fw as test mode */
@@ -271,7 +272,10 @@ int core_config_switch_fw_mode(uint8_t *data)
 	}
 
 	ipio_info("Actual FW mode = %d\n", core_fr->actual_fw_mode);
-	ilitek_platform_enable_irq();
+
+	if (core_fr->actual_fw_mode != protocol->test_mode)
+		ilitek_platform_enable_irq();
+
 	return ret;
 }
 EXPORT_SYMBOL(core_config_switch_fw_mode);
@@ -564,7 +568,7 @@ void core_config_ic_resume(void)
 	}
 
 #ifndef HOST_DOWNLOAD
-	ilitek_platform_reset_ctrl(true, RST_MODE);
+	ilitek_platform_reset_ctrl(true, HW_RST);
 #endif
 
 	core_config_switch_fw_mode(&protocol->demo_mode);
@@ -584,7 +588,7 @@ EXPORT_SYMBOL(core_config_ic_resume);
 
 int core_config_ice_mode_disable(void)
 {
-	uint32_t ret = 0;
+	int ret = 0;
 	uint8_t cmd[4] = {0};
 
 	cmd[0] = 0x1b;

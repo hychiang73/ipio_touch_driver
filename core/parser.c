@@ -339,20 +339,18 @@ void core_parser_nodetype(int32_t* type_ptr, char *desp, size_t frame_len)
 					temp = katoi(str);
 
 					/* Over boundary, end to calculate. */
-					if ((count / 4 ) >= frame_len) {
-						ipio_err("count (%d) is larger than frame length, break\n", (count/4));
+					if (count >= frame_len) {
+						ipio_err("count(%d) is larger than frame length, break\n", count);
 						break;
 					}
 
 					type_ptr[count] = temp;
-					printk("%04d,",temp);
 					count++;
 				}
 				record = ilitek_ini_file_data[i].pKeyValue[j];
 				index1 = j+1;
 			}
 		}
-		printk("\n");
 	}
 }
 

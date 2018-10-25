@@ -102,6 +102,7 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 {
 	int ret = 0;
 
+	ilitek_platform_disable_irq();
 	if (isEnable) {
 #if (TP_PLATFORM == PT_MTK)
 		tpd_gpio_output(ipd->reset_gpio, 1);
@@ -132,6 +133,9 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 	if(ret < 0)
 		ipio_err("host download failed!\n");
 #endif
+
+	if (core_fr->actual_fw_mode != protocol->test_mode)
+		ilitek_platform_enable_irq();
 
 	return ret;
 }
@@ -777,7 +781,7 @@ static int ilitek_platform_core_init(void)
 	return 0;
 }
 
-int ilitek_platform_reset_ctrl(bool rst, bool mode)
+int ilitek_platform_reset_ctrl(bool rst, int mode)
 {
 	int ret = 0;
 
@@ -789,8 +793,21 @@ int ilitek_platform_reset_ctrl(bool rst, bool mode)
 			ret = core_config_ic_reset();
 			break;
 		case HW_RST:
+		case HOST_DOWNLOAD_RST:
 			ipio_info("HW RESET\n");
 			ret = ilitek_platform_tp_hw_reset(rst);
+			break;
+		case HOST_DOWNLOAD_BOOT_RST:
+#ifdef HOST_DOWNLOAD
+			ipio_info("Reset for host download in boot stage\n");
+			gpio_direction_output(ipd->reset_gpio, 1);
+			mdelay(ipd->delay_time_high);
+			gpio_set_value(ipd->reset_gpio, 0);
+			mdelay(ipd->delay_time_low);
+			gpio_set_value(ipd->reset_gpio, 1);
+			mdelay(ipd->edge_delay);
+			ret = core_firmware_boot_host_download();
+#endif
 			break;
 		default:
 			ipio_err("Unknown RST mode (%d)\n", mode);
@@ -949,39 +966,34 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ilitek_regulator_power_reg(ipd);
 #endif
 
-	if (ilitek_platform_gpio() < 0)
-		ipio_err("Failed to request gpios\n ");
-
-	if (ilitek_platform_isr_register() < 0)
-		ipio_err("Failed to register ISR\n");
-
 	/* If kernel failes to allocate memory to the core components, driver will be unloaded. */
 	if (ilitek_platform_core_init() < 0) {
 		ipio_err("Failed to allocate cores' mem\n");
 		return -ENOMEM;
 	}
 
-	/* Prepare our IC for the ready by doing a reset */
-#ifdef HOST_DOWNLOAD
-	gpio_direction_output(ipd->reset_gpio, 1);
-	mdelay(ipd->delay_time_high);
-	gpio_set_value(ipd->reset_gpio, 0);
-	mdelay(ipd->delay_time_low);
-	gpio_set_value(ipd->reset_gpio, 1);
-	if(core_firmware_upgrade(UPDATE_FW_PATH, true) < 0)
-		ipio_err("host download failed!\n");
-#else
-	ilitek_platform_reset_ctrl(true, RST_MODE);
+	if (ilitek_platform_gpio() < 0)
+		ipio_err("Failed to request gpios\n ");
+
+	if (core_config_get_chip_id() < 0) {
+		ipio_err("Failed to get chip id\n");
+	}
+
+	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0) {
+		ipio_err("Failed to do reset\n");
+	}
+
+#ifndef HOST_DOWNLOAD
+	ilitek_platform_read_tp_info();
 #endif
 
-	/* get our tp ic information */
-	ilitek_platform_read_tp_info();
+	if (ilitek_platform_isr_register() < 0)
+		ipio_err("Failed to register ISR\n");
 
-	/* If it defines boot upgrade, input register will be done inside boot function. */
 #ifndef BOOT_FW_UPGRADE
 	if (ilitek_platform_input_init() < 0)
 		ipio_err("Failed to init input device in kernel\n");
-#endif /* BOOT_FW_UPGRADE */
+#endif
 
 	if (ilitek_platform_reg_suspend() < 0)
 		ipio_err("Failed to register suspend/resume function\n");
@@ -1005,7 +1017,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 		ipd->update_thread = NULL;
 		ipio_err("Failed to create fw upgrade thread\n");
 	}
-#endif /* BOOT_FW_UPGRADE */
+#endif
 
 	return 0;
 }
