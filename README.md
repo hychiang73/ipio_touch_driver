@@ -8,6 +8,7 @@ The following lists which of TDDI IC types supported by the driver.
 
 * ILI9881F
 * ILI9881H
+* ILI7807G
 
 # Support platform
 
@@ -273,6 +274,20 @@ In this case the driver now supports the type of ILI9881.
 In this case the slave address is 0x41, and the name of table calls **tchip,ilitek**. **touch,irq-gpio** and **touch,reset-gpio** represent INT pin and RESET pin separately.
 
 # Release Note
+* V1.0.3.9
+  * Fully support 7807G (I2C/PSI).
+  * Add enable_irq_wake & disable_irq to solve deep sleep.
+  * Remove the judge of max threshold in short test.
+  * Support 0xAF tag with Hex file.
+  * Fix the bug when parsing benchmark and notetype.
+  * Add a note to dump PC counter.
+  * Add a note to dump real-time delta and raw data.
+  * Add printk with KERN_CONT.
+  * Update formulation in open test sp.
+  * Fix wrong result that showed up pass when retry didn't enable.
+  * Fix crash when apk called the node to run mp.
+  * Add spi speed up for 7807G.
+
 * V1.0.3.8
   * expaned block info from 4 to 6 and add new type 0xAF.
   * Add reading OTP & ANA ID.
@@ -287,6 +302,7 @@ In this case the slave address is 0x41, and the name of table calls **tchip,ilit
   * Fix crash when running open test.
   * Modify the method to check cdc status from INT to POLLING.
   * Add the method of DMA moving MP code to the driver.
+
 * V1.0.3.7
   * Usiing devm (resource-managed) to allocate memory for the core structures.
   * Patch open test.
