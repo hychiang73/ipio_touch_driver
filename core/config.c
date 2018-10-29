@@ -68,8 +68,11 @@ static void read_flash_info(uint8_t cmd, int len)
 uint32_t core_config_read_pc_counter(void)
 {
 	uint32_t pc_cnt = 0x0;
+	bool ic_mode_flag = 0;
 
-	if (!core_config->icemodeenable) {
+	ic_mode_flag = core_config->icemodeenable;
+
+	if (ic_mode_flag == false) {
 		if (core_config_ice_mode_enable() < 0)
 			ipio_err("Failed to enter ice mode\n");
 	}
@@ -78,7 +81,7 @@ uint32_t core_config_read_pc_counter(void)
 	pc_cnt = core_config_ice_mode_read(ILI9881_PC_COUNTER_ADDR);
 	ipio_err("pc counter = 0x%x\n", pc_cnt);
 
-	if (core_config->icemodeenable) {
+	if (ic_mode_flag == false) {
 		if (core_config_ice_mode_disable() < 0)
 			ipio_err("Failed to disable ice mode\n");
 	}
