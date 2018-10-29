@@ -1,0 +1,14 @@
+V1.0.3.9
+-------------------
+Fully support 7807G (I2C/PSI).
+Add enable_irq_wake & disable_irq to solve deep sleep.
+Remove the judge of max threshold in short test.
+Support 0xAF tag with Hex file.
+Fix the bug when parsing benchmark and notetype.
+Add a note to dump PC counter.
+Add a note to dump real-time delta and raw data.
+Add printk with KERN_CONT.
+Update formulation in open test sp.
+Fix wrong result that showed up pass when retry didn't enable.
+Fix crash when apk called the node to run mp.
+Add spi speed up for 7807G.
