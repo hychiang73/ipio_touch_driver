@@ -186,6 +186,7 @@
 struct core_firmware_data {
 	uint8_t new_fw_ver[4];
 	uint8_t old_fw_ver[4];
+	uint8_t  block_number;
 
 	uint32_t start_addr;
 	uint32_t end_addr;
@@ -202,7 +203,7 @@ struct core_firmware_data {
 	bool isUpgrading;
 	bool isCRC;
 	bool isboot;
-	bool hasBlockInfo;
+	int hex_tag;
 
 	int (*upgrade_func)(bool isIRAM);
 };

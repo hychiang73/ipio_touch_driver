@@ -56,6 +56,8 @@ struct ilitek_platform_data {
 	bool isEnablePollCheckPower;
 	bool isEnablePollCheckEsd;
 
+	atomic_t do_reset;
+
 #ifdef USE_KTHREAD
 	struct task_struct *irq_thread;
 	bool irq_trigger;
@@ -97,6 +99,7 @@ struct ilitek_platform_data {
 extern struct ilitek_platform_data *ipd;
 
 /* exported from platform.c */
+extern int ilitek_platform_reset_ctrl(bool rst, int mode);
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
 extern void ilitek_platform_read_tp_info(void);

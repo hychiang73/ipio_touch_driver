@@ -45,6 +45,7 @@ struct mp_test_P540_open {
 };
 
 struct mp_test_items {
+	int id;
 	char *name;
 	/* The description must be the same as ini's section name */
 	char *desp;
@@ -166,5 +167,5 @@ extern void dump_data(void *data, int type, int len, int row_len, const char *na
 extern void core_mp_copy_reseult(int *buf, int size);
 extern void core_mp_test_free(void);
 extern int core_mp_move_code(void);
-extern void core_mp_start_test(void);
+extern int core_mp_start_test(void);
 #endif

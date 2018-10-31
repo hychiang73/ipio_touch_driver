@@ -68,7 +68,7 @@
 #define DUMP(level, fmt, arg...)		\
 	do {								\
 		if(level & ipio_debug_level)	\
-		printk(fmt, ##arg);				\
+		printk(KERN_CONT fmt, ##arg);	\
 	} while (0)
 
 enum mp_test_catalog {
@@ -95,67 +95,53 @@ enum open_test_node_type {
 
 /* You must declare a new test in this struct before running a new process of mp test */
 struct mp_test_items tItems[] = {
-    {.name = "mutual_dac", .desp = "Calibration Data(DAC)", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "mutual_bg", .desp = "Baseline Data(BG)", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "mutual_signal", .desp = "Untouch Signal Data(BG-Raw-4096) - Mutual", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "mutual_no_bk", .desp = "Raw Data(No BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "mutual_has_bk", .desp = "Raw Data(Have BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "mutual_bk_dac", .desp = "Manual BK Data(Mutual)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 0, .name = "mutual_dac", .desp = "Calibration Data(DAC)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 1, .name = "mutual_bg", .desp = "Baseline Data(BG)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 2, .name = "mutual_signal", .desp = "Untouch Signal Data(BG-Raw-4096) - Mutual", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 3, .name = "mutual_no_bk", .desp = "Raw Data(No BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 4, .name = "mutual_has_bk", .desp = "Raw Data(Have BK)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 5, .name = "mutual_bk_dac", .desp = "Manual BK Data(Mutual)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 6, .name = "self_dac", .desp = "Calibration Data(DAC) - Self", .result = "FAIL", .catalog = SELF_TEST},
+	{.id = 7, .name = "self_bg", .desp = "Baselin Data(BG,Self_Tx,Self_Rx)", .result = "FAIL", .catalog = SELF_TEST},
+	{.id = 8, .name = "self_signal", .desp = "Untouch Signal Data(BG–Raw-4096) - Self", .result = "FAIL", .catalog = SELF_TEST},
+	{.id = 9, .name = "self_no_bk", .desp = "Raw Data(No BK) - Self", .result = "FAIL", .catalog = SELF_TEST},
+	{.id = 10, .name = "self_has_bk", .desp = "Raw Data(Have BK) - Self", .result = "FAIL", .catalog = SELF_TEST},
+	{.id = 11, .name = "self_bk_dac", .desp = "Manual BK DAC Data(Self_Tx,Self_Rx)", .result = "FAIL", .catalog = SELF_TEST},
+	{.id = 12, .name = "key_dac", .desp = "Calibration Data(DAC/ICON)", .result = "FAIL", .catalog = KEY_TEST},
+	{.id = 13, .name = "key_bg", .desp = "Key Baseline Data", .result = "FAIL", .catalog = KEY_TEST},
+	{.id = 14, .name = "key_no_bk", .desp = "Key Raw Data", .result = "FAIL", .catalog = KEY_TEST},
+	{.id = 15, .name = "key_has_bk", .desp = "Key Raw BK DAC", .result = "FAIL", .catalog = KEY_TEST},
+	{.id = 16, .name = "key_open", .desp = "Key Raw Open Test", .result = "FAIL", .catalog = KEY_TEST},
+	{.id = 17, .name = "key_short", .desp = "Key Raw Short Test", .result = "FAIL", .catalog = KEY_TEST},
+	{.id = 18, .name = "st_dac", .desp = "ST Calibration Data(DAC)", .result = "FAIL", .catalog = ST_TEST},
+	{.id = 19, .name = "st_bg", .desp = "ST Baseline Data(BG)", .result = "FAIL", .catalog = ST_TEST},
+	{.id = 20, .name = "st_no_bk", .desp = "ST Raw Data(No BK)", .result = "FAIL", .catalog = ST_TEST},
+	{.id = 21, .name = "st_has_bk", .desp = "ST Raw(Have BK)", .result = "FAIL", .catalog = ST_TEST},
+	{.id = 22, .name = "st_open", .desp = "ST Open Data", .result = "FAIL", .catalog = ST_TEST},
+	{.id = 23, .name = "tx_short", .desp = "Tx Short Test", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 24, .name = "rx_short", .desp = "Short Test -ILI9881", .result = "FAIL", .catalog = SHORT_TEST},
+	{.id = 25, .name = "rx_open", .desp = "RX Open", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 26, .name = "cm_data", .desp = "Untouch Cm Data", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 27, .name = "cs_data", .desp = "Untouch Cs Data", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 28, .name = "tx_rx_delta", .desp = "Tx/Rx Delta", .result = "FAIL", .catalog = TX_RX_DELTA},
+	{.id = 29, .name = "p2p", .desp = "Untouch Peak to Peak", .result = "FAIL", .catalog = UNTOUCH_P2P},
+	{.id = 30, .name = "pixel_no_bk", .desp = "Pixel Raw (No BK)", .result = "FAIL", .catalog = PIXEL},
+	{.id = 31, .name = "pixel_has_bk", .desp = "Pixel Raw (Have BK)", .result = "FAIL", .catalog = PIXEL},
+	{.id = 32, .name = "open_integration", .desp = "Open Test(integration)", .result = "FAIL", .catalog = OPEN_TEST},
+	{.id = 33, .name = "open_cap", .desp = "Open Test(Cap)", .result = "FAIL", .catalog = OPEN_TEST},
 
-    {.name = "self_dac", .desp = "Calibration Data(DAC) - Self", .result = "FAIL", .catalog = SELF_TEST},
-    {.name = "self_bg", .desp = "Baselin Data(BG,Self_Tx,Self_Rx)", .result = "FAIL", .catalog = SELF_TEST},
-    {.name = "self_signal", .desp = "Untouch Signal Data(BG–Raw-4096) - Self", .result = "FAIL", .catalog = SELF_TEST},
-    {.name = "self_no_bk", .desp = "Raw Data(No BK) - Self", .result = "FAIL", .catalog = SELF_TEST},
-    {.name = "self_has_bk", .desp = "Raw Data(Have BK) - Self", .result = "FAIL", .catalog = SELF_TEST},
-    {.name = "self_bk_dac", .desp = "Manual BK DAC Data(Self_Tx,Self_Rx)", .result = "FAIL", .catalog = SELF_TEST},
-
-    {.name = "key_dac", .desp = "Calibration Data(DAC/ICON)", .result = "FAIL", .catalog = KEY_TEST},
-    {.name = "key_bg", .desp = "Key Baseline Data", .result = "FAIL", .catalog = KEY_TEST},
-    {.name = "key_no_bk", .desp = "Key Raw Data", .result = "FAIL", .catalog = KEY_TEST},
-    {.name = "key_has_bk", .desp = "Key Raw BK DAC", .result = "FAIL", .catalog = KEY_TEST},
-    {.name = "key_open", .desp = "Key Raw Open Test", .result = "FAIL", .catalog = KEY_TEST},
-    {.name = "key_short", .desp = "Key Raw Short Test", .result = "FAIL", .catalog = KEY_TEST},
-
-    {.name = "st_dac", .desp = "ST Calibration Data(DAC)", .result = "FAIL", .catalog = ST_TEST},
-    {.name = "st_bg", .desp = "ST Baseline Data(BG)", .result = "FAIL", .catalog = ST_TEST},
-    {.name = "st_no_bk", .desp = "ST Raw Data(No BK)", .result = "FAIL", .catalog = ST_TEST},
-    {.name = "st_has_bk", .desp = "ST Raw(Have BK)", .result = "FAIL", .catalog = ST_TEST},
-    {.name = "st_open", .desp = "ST Open Data", .result = "FAIL", .catalog = ST_TEST},
-
-    {.name = "tx_short", .desp = "Tx Short Test", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "rx_short", .desp = "Short Test -ILI9881", .result = "FAIL", .catalog = SHORT_TEST},
-    {.name = "rx_open", .desp = "RX Open", .result = "FAIL", .catalog = MUTUAL_TEST},
-
-    {.name = "cm_data", .desp = "Untouch Cm Data", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "cs_data", .desp = "Untouch Cs Data", .result = "FAIL", .catalog = MUTUAL_TEST},
-
-    {.name = "tx_rx_delta", .desp = "Tx/Rx Delta", .result = "FAIL", .catalog = TX_RX_DELTA},
-
-    {.name = "p2p", .desp = "Untouch Peak to Peak", .result = "FAIL", .catalog = UNTOUCH_P2P},
-
-    {.name = "pixel_no_bk", .desp = "Pixel Raw (No BK)", .result = "FAIL", .catalog = PIXEL},
-    {.name = "pixel_has_bk", .desp = "Pixel Raw (Have BK)", .result = "FAIL", .catalog = PIXEL},
-
-    {.name = "open_integration", .desp = "Open Test(integration)", .result = "FAIL", .catalog = OPEN_TEST},
-    {.name = "open_cap", .desp = "Open Test(Cap)", .result = "FAIL", .catalog = OPEN_TEST},
-
-    /* New test items for protocol 5.4.0 above */
-    {.name = "noise_peak_to_peak_ic", .desp = "Noise Peak to Peak(IC Only)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-    {.name = "noise_peak_to_peak_panel", .desp = "Noise Peak To Peak(With Panel)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-
-    {.name = "noise_peak_to_peak_ic_lcm_off", .desp = "Noise Peak to Peak(IC Only) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-    {.name = "noise_peak_to_peak_panel_lcm_off", .desp = "Noise Peak to Peak(With Panel) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-
-    {.name = "mutual_no_bk_lcm_off", .desp = "Raw Data(No BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "mutual_has_bk_lcm_off", .desp = "Raw Data(Have BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
-
-    {.name = "open_integration_sp", .desp = "Open Test(integration)_SP", .result = "FAIL", .catalog = OPEN_TEST},
-
-    {.name = "doze_raw", .desp = "Doze Raw Data", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "doze_p2p", .desp = "Doze Peak To Peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-    {.name = "doze_raw_td_lcm_off", .desp = "Raw Data_TD (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
-    {.name = "doze_p2p_td_lcm_off", .desp = "Peak To Peak_TD (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
-
+	/* New test items for protocol 5.4.0 as below */
+	{.id = 34, .name = "noise_peak_to_peak_ic", .desp = "Noise Peak to Peak(IC Only)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.id = 35, .name = "noise_peak_to_peak_panel", .desp = "Noise Peak To Peak(With Panel)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.id = 36, .name = "noise_peak_to_peak_ic_lcm_off", .desp = "Noise Peak to Peak(IC Only) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.id = 37, .name = "noise_peak_to_peak_panel_lcm_off", .desp = "Noise Peak to Peak(With Panel) (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.id = 38, .name = "mutual_no_bk_lcm_off", .desp = "Raw Data(No BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 39, .name = "mutual_has_bk_lcm_off", .desp = "Raw Data(Have BK) (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 40, .name = "open_integration_sp", .desp = "Open Test(integration)_SP", .result = "FAIL", .catalog = OPEN_TEST},
+	{.id = 41, .name = "doze_raw", .desp = "Doze Raw Data", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 42, .name = "doze_p2p", .desp = "Doze Peak To Peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.id = 43, .name = "doze_raw_td_lcm_off", .desp = "Raw Data_TD (LCM OFF)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 44, .name = "doze_p2p_td_lcm_off", .desp = "Peak To Peak_TD (LCM OFF)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 };
 
 int32_t *frame_buf = NULL;
@@ -179,8 +165,8 @@ void dump_data(void *data, int type, int len, int row_len, const char *name)
 			return;
 		}
 
-		printk("\n\n");
-		printk("Dump %s data\n", name);
+		printk(KERN_CONT "\n\n");
+		printk(KERN_CONT "Dump %s data\n", name);
 
 		if (type == 8)
 			p8 = (uint8_t *) data;
@@ -189,15 +175,15 @@ void dump_data(void *data, int type, int len, int row_len, const char *name)
 
 		for (i = 0; i < len; i++) {
 			if (type == 8)
-				printk(" %4x ", p8[i]);
+				printk(KERN_CONT " %4x ", p8[i]);
 			else if (type == 32)
-				printk(" %4x ", p32[i]);
+				printk(KERN_CONT " %4x ", p32[i]);
 			else if (type == 10)
-				printk(" %4d ", p32[i]);
+				printk(KERN_CONT " %4d ", p32[i]);
 			if ((i % row) == row-1)
-				printk("\n");
+				printk(KERN_CONT "\n");
 		}
-		printk("\n\n");
+		printk(KERN_CONT "\n\n");
 	}
 }
 EXPORT_SYMBOL(dump_data);
@@ -275,20 +261,20 @@ static void dump_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
 	int i;
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		ipio_info("benchmark max\n");
+		ipio_info("Dump Benchmark Max\n");
 
 		for(i = 0; i < core_mp->frame_len; i++) {
-			printk("%d, ", max_ptr[i]);
+			printk(KERN_CONT "%d, ", max_ptr[i]);
 			if(i % core_mp->xch_len == core_mp->xch_len - 1)
-				printk("\n");
+				printk(KERN_CONT "\n");
 		}
 
-		ipio_info("benchmark min\n");
+		ipio_info(KERN_CONT "Dump Denchmark Min\n");
 
 		for(i = 0; i < core_mp->frame_len; i++) {
-			printk("%d, ", min_ptr[i]);
+			printk(KERN_CONT "%d, ", min_ptr[i]);
 			if(i % core_mp->xch_len == core_mp->xch_len - 1)
-				printk("\n");
+				printk(KERN_CONT "\n");
 		}
 	}
 }
@@ -298,10 +284,11 @@ void dump_node_type_buffer(int32_t *node_ptr, uint8_t *name)
 	int i;
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
+		ipio_info("Dump NodeType\n");
 		for (i = 0; i < core_mp->frame_len; i++) {
-			printk("%d, ",node_ptr[i]);
+			printk(KERN_CONT "%d, ",node_ptr[i]);
 			if(i % core_mp->xch_len == core_mp->xch_len-1)
-				printk("\n");
+				printk(KERN_CONT "\n");
 		}
 	}
 }
@@ -326,7 +313,7 @@ static void mp_compare_cdc_result(int32_t *tmp, int32_t *max_ts, int32_t *min_ts
 	}
 }
 
-static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len,
+static void mp_compare_cdc_show_result(int index, int32_t *tmp, char *csv, int *csv_len,
 		int type, int32_t *max_ts, int32_t *min_ts, const char *desp)
 {
 	int x, y, tmp_len = *csv_len;
@@ -359,13 +346,25 @@ static void mp_compare_cdc_show_result(int32_t *tmp, char *csv, int *csv_len,
 		for (x = 0; x < core_mp->xch_len; x++) {
 			int shift = y * core_mp->xch_len + x;
 
-			if ((tmp[shift] <= max_ts[shift] && tmp[shift] >= min_ts[shift]) || (type != TYPE_JUGE)){
+			/* In Short teset, we only identify if its value is low than min threshold. */
+			if (tItems[index].catalog == SHORT_TEST) {
+				if (tmp[shift] < min_ts[shift]) {
+					DUMP(DEBUG_MP_TEST, " #%7d ", tmp[shift]);
+					tmp_len += sprintf(csv + tmp_len, "#%7d,", tmp[shift]);
+					mp_result = MP_FAIL;
+				} else {
+					DUMP(DEBUG_MP_TEST, " %7d ", tmp[shift]);
+					tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);
+				}
+				continue;
+			}
 
-				if((tmp[shift] == INT_MAX || tmp[shift] == INT_MIN) && (type == TYPE_BENCHMARK)){
+			if ((tmp[shift] <= max_ts[shift] && tmp[shift] >= min_ts[shift]) || (type != TYPE_JUGE)) {
+
+				if((tmp[shift] == INT_MAX || tmp[shift] == INT_MIN) && (type == TYPE_BENCHMARK)) {
 					DUMP(DEBUG_MP_TEST, "%s", "BYPASS,");
 					tmp_len += sprintf(csv + tmp_len,"BYPASS,");
-				}
-				else{
+				} else {
 					DUMP(DEBUG_MP_TEST, " %7d ", tmp[shift]);
 					tmp_len += sprintf(csv + tmp_len, " %7d, ", tmp[shift]);
 				}
@@ -1033,11 +1032,11 @@ static int allnode_mutual_cdc_data(int index)
 
 			if (strncmp(tItems[index].name, "mutual_no_bk", strlen("mutual_no_bk")) == 0 ||
 				strncmp(tItems[index].name, "mutual_no_bk_lcm_off", strlen("mutual_no_bk_lcm_off")) == 0) {
-				if (core_config->chip_id == CHIP_TYPE_ILI9881) {
-					if (core_config->chip_type == TYPE_H)
-						frame_buf[i] -= RAWDATA_NO_BK_DATA_SHIFT_9881H;
-					if (core_config->chip_type == TYPE_F)
-						frame_buf[i] -= RAWDATA_NO_BK_DATA_SHIFT_9881F;
+				if ((core_config->chip_id == CHIP_TYPE_ILI9881 && core_config->chip_type == TYPE_H)||
+				(core_config->chip_id == CHIP_TYPE_ILI7807 && core_config->chip_type == TYPE_G)) {
+					frame_buf[i] -= RAWDATA_NO_BK_DATA_SHIFT_9881H;
+				} else {
+					frame_buf[i] -= RAWDATA_NO_BK_DATA_SHIFT_9881F;
 				}
 			}
 		}
@@ -1412,7 +1411,13 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 				buf[i] = tmp - 65536;
 			else
 				buf[i] = tmp;
-			buf[i] = (int)((int)(dac[i] * 2 * 10000 * 161 / 100) - (int)(16384 / 2 - (int)buf[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
+
+			if (core_config->chip_id == CHIP_TYPE_ILI9881) {
+				buf[i] = (int)((int)(dac[i] * 2 * 10000 * 161 / 100) - (int)(16384 / 2 - (int)buf[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
+			} else if (core_config->chip_id == CHIP_TYPE_ILI7807) {
+				buf[i] = (int)((int)(dac[i] * 2 * 10000 * 131 / 100) - (int)(16384 / 2 - (int)buf[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
+			}
+
 		}
 	}
 	dump_data(buf, 10, core_mp->frame_len,  core_mp->xch_len, "Open SP CDC combined");
@@ -1493,12 +1498,13 @@ static int open_test_sp(int index)
 	}
 
 	if (tItems[index].spec_option == BENCHMARK) {
-		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option, tItems[index].desp);
+		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min,
+							tItems[index].type_option, tItems[index].desp, core_mp->frame_len);
 		if (ipio_debug_level && DEBUG_PARSER > 0)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
 
-	core_parser_nodetype(tItems[index].node_type, "Node Type");
+	core_parser_nodetype(tItems[index].node_type, "Node Type", core_mp->frame_len);
 	if (ipio_debug_level && DEBUG_PARSER > 0)
 		dump_node_type_buffer(tItems[index].node_type, "node type");
 
@@ -1561,9 +1567,9 @@ static int open_test_sp(int index)
 
 		/* record fist frame for debug */
 		if(i == 0) {
-			memcpy(frame1_cbk700, open[i].cbk_700, core_mp->frame_len * sizeof(int32_t));
-			memcpy(frame1_cbk250, open[i].cbk_250, core_mp->frame_len * sizeof(int32_t));
-			memcpy(frame1_cbk200, open[i].cbk_200, core_mp->frame_len * sizeof(int32_t));
+			ipio_memcpy(frame1_cbk700, open[i].cbk_700, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len * sizeof(int32_t));
+			ipio_memcpy(frame1_cbk250, open[i].cbk_250, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len * sizeof(int32_t));
+			ipio_memcpy(frame1_cbk200, open[i].cbk_200, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len * sizeof(int32_t));
 		}
 
 		dump_data(open[i].cbk_700, 10, core_mp->frame_len, core_mp->xch_len, "cbk 700");
@@ -1710,7 +1716,8 @@ static int mutual_test(int index)
 		get_frame_cont = tItems[index].frame_count;
 
 	if (tItems[index].spec_option == BENCHMARK) {
-		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min, tItems[index].type_option, tItems[index].desp);
+		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min,
+								tItems[index].type_option, tItems[index].desp, core_mp->frame_len);
 		if (ipio_debug_level && DEBUG_PARSER > 0)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
@@ -1828,14 +1835,14 @@ int mp_test_data_sort_average(int32_t *oringin_data, int index, int32_t *avg_res
 	ipio_debug(DEBUG_MP_TEST, "Up=%d,Down=%d -%s\n", u32up_frame, u32down_frame, tItems[index].desp);
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		printk("\n[Show Original frist%d and last%d node data]\n", len, len);
+		printk(KERN_CONT "\n[Show Original frist%d and last%d node data]\n", len, len);
 		for (i = 0; i < core_mp->frame_len; i++) {
 			for (j = 0 ; j < tItems[index].frame_count ; j++) {
 				if ((i < len) || (i >= (core_mp->frame_len-len)))
-					printk("%d,", u32data_buff[j * core_mp->frame_len + i]);
+					printk(KERN_CONT "%d,", u32data_buff[j * core_mp->frame_len + i]);
 			}
 			if ((i < len) || (i >= (core_mp->frame_len-len)))
-				printk("\n");
+				printk(KERN_CONT "\n");
 		}
 	}
 
@@ -1854,14 +1861,14 @@ int mp_test_data_sort_average(int32_t *oringin_data, int index, int32_t *avg_res
 	}
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		printk("\n[After sorting frist%d and last%d node data]\n", len, len);
+		printk(KERN_CONT "\n[After sorting frist%d and last%d node data]\n", len, len);
 		for (i = 0; i < core_mp->frame_len; i++) {
 			for (j = u32down_frame; j < tItems[index].frame_count - u32up_frame; j++) {
 				if ((i < len) || (i >= (core_mp->frame_len - len)))
-					printk("%d,", u32data_buff[i + j * core_mp->frame_len]);
+					printk(KERN_CONT "%d,", u32data_buff[i + j * core_mp->frame_len]);
 			}
 			if ((i < len) || (i >= (core_mp->frame_len-len)))
-				printk("\n");
+				printk(KERN_CONT "\n");
 		}
 	}
 
@@ -1874,13 +1881,13 @@ int mp_test_data_sort_average(int32_t *oringin_data, int index, int32_t *avg_res
 	}
 
 	if (ipio_debug_level & DEBUG_MP_TEST) {
-		printk("\n[Average result frist%d and last%d node data]\n", len, len);
+		printk(KERN_CONT "\n[Average result frist%d and last%d node data]\n", len, len);
 		for (i = 0; i < core_mp->frame_len; i++) {
 			if ((i < len) || (i >= (core_mp->frame_len-len)))
-				printk("%d,", avg_result[i]);
+				printk(KERN_CONT "%d,", avg_result[i]);
 		}
 		if ((i < len) || (i >= (core_mp->frame_len-len)))
-			printk("\n");
+			printk(KERN_CONT "\n");
 	}
 
 	ipio_kfree((void **)&u32data_buff);
@@ -1888,7 +1895,7 @@ int mp_test_data_sort_average(int32_t *oringin_data, int index, int32_t *avg_res
 	return 0;
 }
 
-static int mp_retry_comp_cdc_result(int index)
+static int mp_comp_result_before_retry(int index)
 {
 	int i, test_result = MP_PASS;
 	int32_t *max_threshold = NULL, *min_threshold = NULL;
@@ -1981,7 +1988,7 @@ static void mp_do_retry(int index, int count)
 	/* Makre sure that fw mode is in test mode and reload MP code */
 	core_fr->actual_fw_mode = protocol->test_mode;
 
-	if(ilitek_platform_tp_hw_reset(true) < 0)
+	if(ilitek_platform_reset_ctrl(true, HW_RST) < 0)
 		ipio_info("host download failed!\n");
 
 	/* Check ready to switch test mode */
@@ -1990,7 +1997,7 @@ static void mp_do_retry(int index, int count)
 #else
 	core_config_ice_mode_enable();
 
-	core_config_ic_reset();
+	ilitek_platform_reset_ctrl(true, HW_RST);
 
 	/* Switch to Demo mode */
 	core_config_switch_fw_mode(&protocol->demo_mode);
@@ -2005,7 +2012,7 @@ static void mp_do_retry(int index, int count)
 
 	tItems[index].do_test(index);
 
-	if (mp_retry_comp_cdc_result(index) == MP_FAIL)
+	if (mp_comp_result_before_retry(index) == MP_FAIL)
 		return mp_do_retry(index, count - 1);
 }
 
@@ -2065,8 +2072,8 @@ static void mp_show_result(void)
 				min_threshold[j] = tItems[i].bench_mark_min[j];
 			}
 
-			mp_compare_cdc_show_result(tItems[i].bench_mark_max, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Max_Bench");
-			mp_compare_cdc_show_result(tItems[i].bench_mark_min, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Min_Bench");
+			mp_compare_cdc_show_result(i, tItems[i].bench_mark_max, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Max_Bench");
+			mp_compare_cdc_show_result(i, tItems[i].bench_mark_min, csv, &csv_len, TYPE_BENCHMARK, max_threshold, min_threshold,"Min_Bench");
 		} else {
 
 			for(j = 0 ;j < core_mp->frame_len ; j++) {
@@ -2082,9 +2089,9 @@ static void mp_show_result(void)
 		}
 
 		if (strcmp(tItems[i].name, "open_integration_sp") == 0) {
-			mp_compare_cdc_show_result(frame1_cbk700, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk700");
-			mp_compare_cdc_show_result(frame1_cbk250, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk250");
-			mp_compare_cdc_show_result(frame1_cbk200, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk200");
+			mp_compare_cdc_show_result(i, frame1_cbk700, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk700");
+			mp_compare_cdc_show_result(i, frame1_cbk250, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk250");
+			mp_compare_cdc_show_result(i, frame1_cbk200, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk200");
 		}
 
 		if (tItems[i].catalog == TX_RX_DELTA) {
@@ -2123,23 +2130,22 @@ static void mp_show_result(void)
 				max_threshold[j] = core_mp->TxDeltaMax;
 				min_threshold[j] = core_mp->TxDeltaMin;
 			}
-			mp_compare_cdc_show_result(core_mp->tx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Max Hold");
-			mp_compare_cdc_show_result(core_mp->tx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Min Hold");
+			mp_compare_cdc_show_result(i, core_mp->tx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Max Hold");
+			mp_compare_cdc_show_result(i, core_mp->tx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"TX Min Hold");
 
 			for(j = 0 ;j < core_mp->frame_len ; j++) {
 				max_threshold[j] = core_mp->RxDeltaMax;
 				min_threshold[j] = core_mp->RxDeltaMin;
 			}
-			mp_compare_cdc_show_result(core_mp->rx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Max Hold");
-			mp_compare_cdc_show_result(core_mp->rx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Min Hold");
-
+			mp_compare_cdc_show_result(i, core_mp->rx_max_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Max Hold");
+			mp_compare_cdc_show_result(i, core_mp->rx_min_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"RX Min Hold");
 		} else {
 			/* general result */
 			if(tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST){
-				mp_compare_cdc_show_result(tItems[i].result_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Mean result");
+				mp_compare_cdc_show_result(i, tItems[i].result_buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Mean result");
 			} else {
-				mp_compare_cdc_show_result(tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Max Hold");
-				mp_compare_cdc_show_result(tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Min Hold");
+				mp_compare_cdc_show_result(i, tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Max Hold");
+				mp_compare_cdc_show_result(i, tItems[i].buf, csv, &csv_len, TYPE_JUGE, max_threshold, min_threshold,"Min Hold");
 			}
 			if(tItems[i].catalog != PEAK_TO_PEAK_TEST)
 				get_frame_cont = tItems[i].frame_count;
@@ -2148,9 +2154,8 @@ static void mp_show_result(void)
 			for(j = 0; j < get_frame_cont; j++) {
 				char frame_name[128] ={ 0 };
 				sprintf(frame_name, "Frame %d", (j+1));
-				mp_compare_cdc_show_result(&tItems[i].buf[(j*core_mp->frame_len)], csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, frame_name);
+				mp_compare_cdc_show_result(i, &tItems[i].buf[(j*core_mp->frame_len)], csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, frame_name);
 			}
-
 		}
 	}
 
@@ -2318,9 +2323,9 @@ static void mp_run_test(char *item)
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
 
-				if (core_mp->retry) {
-					/* To see if this item needs to do retry  */
-					if (mp_retry_comp_cdc_result(i) == MP_FAIL) {
+				/* Check result before do retry (if enabled)  */
+				if (mp_comp_result_before_retry(i) == MP_FAIL) {
+					if (core_mp->retry) {
 						ipio_info("MP failed, doing retry\n");
 						mp_do_retry(i, RETRY_COUNT);
 					}
@@ -2335,6 +2340,7 @@ static void mp_run_test(char *item)
 	}
 }
 
+#ifndef HOST_DOWNLOAD
 static void dma_clear_register_setting(void)
 {
 	ipio_info("interrupt t0/t1 enable flag\n");
@@ -2449,17 +2455,22 @@ void get_dma_overlay_info(void)
 	ipio_info("Overlay addr = 0x%x ~ 0x%x , flash addr = 0x%x , mp size = 0x%x\n",
 		core_mp->overlay_start_addr, core_mp->overlay_end_addr, core_mp->mp_flash_addr, core_mp->mp_size);
 }
+#endif
 
 int core_mp_move_code(void)
 {
+	int ret = 0;
+#ifndef HOST_DOWNLOAD
 	uint32_t mp_text_size = 0, mp_andes_init_size = 0;
+#endif
 
 	ipio_info("Start moving MP code\n");
 
 #ifdef HOST_DOWNLOAD
-	if(ilitek_platform_tp_hw_reset(true) < 0) {
+	if(ilitek_platform_reset_ctrl(true, HW_RST) < 0) {
 		ipio_info("host download failed!\n");
-		return -1;
+		ret = -1;
+		goto out;
 	}
 #else
 
@@ -2468,7 +2479,8 @@ int core_mp_move_code(void)
 
 	if (core_config_ice_mode_enable() < 0) {
 		ipio_err("Failed to enter ICE mode\n");
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	ipio_info("DMA trigger = %d\n", core_mp->dma_trigger_enable);
@@ -2507,12 +2519,14 @@ int core_mp_move_code(void)
 
 	if (core_config_check_cdc_busy(300, 50) < 0) {
 		ipio_err("Check busy is timout ! moving MP code failed\n");
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 #endif
-	ipio_info("Moved MP code successfully\n");
-	return 0;
+
+out:
+	return ret;
 }
 EXPORT_SYMBOL(core_mp_move_code);
 
@@ -2532,12 +2546,14 @@ void core_mp_test_free(void)
 		sprintf(tItems[i].result, "%s", "FAIL");
 
 		if (tItems[i].catalog == TX_RX_DELTA) {
-			ipio_kfree((void **)&core_mp->rx_delta_buf);
-			ipio_kfree((void **)&core_mp->tx_delta_buf);
-			ipio_kfree((void **)&core_mp->tx_max_buf);
-			ipio_kfree((void **)&core_mp->tx_min_buf);
-			ipio_kfree((void **)&core_mp->rx_max_buf);
-			ipio_kfree((void **)&core_mp->rx_min_buf);
+			if(core_mp != NULL) {
+				ipio_kfree((void **)&core_mp->rx_delta_buf);
+				ipio_kfree((void **)&core_mp->tx_delta_buf);
+				ipio_kfree((void **)&core_mp->tx_max_buf);
+				ipio_kfree((void **)&core_mp->tx_min_buf);
+				ipio_kfree((void **)&core_mp->rx_max_buf);
+				ipio_kfree((void **)&core_mp->rx_min_buf);
+			}
 		} else {
 			if (tItems[i].spec_option == BENCHMARK) {
 				ipio_kfree((void **)&tItems[i].bench_mark_max);
@@ -2699,26 +2715,14 @@ out:
 	return ret;
 }
 
-void core_mp_start_test(void)
+int core_mp_start_test(void)
 {
-	uint32_t ret;
+	int ret = 0;
 
-	if (core_parser_path(INI_NAME_PATH) < 0) {
-		ipio_err("Failed to parsing INI file\n");
-		goto out;
-	}
-
-	/* Init MP structure */
-	if(mp_initial() < 0) {
-		ipio_err("Failed to init mp\n");
-		goto out;
-	}
-
-	/* Switch to Test mode nad move mp code */
-	ret = core_config_switch_fw_mode(&protocol->test_mode);
+	ret = core_parser_path(INI_NAME_PATH);
 	if (ret < 0) {
-		ipio_err("Switch to test mode failed\n");
-		goto out;
+		ipio_err("Failed to parsing INI file\n");
+		return ret;
 	}
 
 	mutex_lock(&ipd->plat_mutex);
@@ -2726,13 +2730,28 @@ void core_mp_start_test(void)
 	ilitek_platform_disable_irq();
 	core_fr->isEnableFR = false;
 
+	/* Init MP structure */
+	if(mp_initial() < 0) {
+		ipio_err("Failed to init mp\n");
+		ret = -1;
+		goto out;
+	}
+
+	/* Switch to Test mode nad move mp code */
+	if (core_config_switch_fw_mode(&protocol->test_mode) < 0) {
+		ipio_err("Switch to test mode failed\n");
+		ret = -1;
+		goto out;
+	}
+
 	/*
 	 * Get timing parameters first.
-	 * Howerver, this can be ignored if read them from ini.
+	 * Howerver, it can be ignored if commands read from ini.
 	 */
 	if (protocol->major >= 5 && protocol->mid >= 4) {
 		if (mp_calc_timing_nodp() < 0) {
 			ipio_err("Can't get timing parameters\n");
+			ret = -1;
 			goto out;
 		}
 	}
@@ -2754,7 +2773,6 @@ void core_mp_start_test(void)
 		mp_run_test("Peak To Peak_TD (LCM OFF)");
 		mp_run_test("Doze Raw Data");
 		mp_run_test("Doze Peak To Peak");
-
 	} else {
 		mp_run_test("Untouch Peak to Peak");
 		mp_run_test("Open Test(integration)");
@@ -2766,26 +2784,19 @@ void core_mp_start_test(void)
 		mp_run_test("Untouch Cm Data");
 		mp_run_test("Pixel Raw (No BK)");
 		mp_run_test("Pixel Raw (Have BK)");
-
 	}
 
 	mp_show_result();
 
 #ifndef HOST_DOWNLOAD
-	core_config_ice_mode_enable();
-
-	core_config_ic_reset();
+	ilitek_platform_reset_ctrl(true, HW_RST);
 #endif
 
-	/* Switch to Demo mode */
-	ret = core_config_switch_fw_mode(&protocol->demo_mode);
-	if (ret < 0) {
-		ipio_err("Switch to dmoe mode failed\n");
-		goto out;
-	}
+	if (core_config_switch_fw_mode(&protocol->demo_mode) < 0)
+		ipio_err("Switch to demo mode failed\n");
 
 #ifdef HOST_DOWNLOAD
-	if(ilitek_platform_tp_hw_reset(true) < 0)
+	if(ilitek_platform_reset_ctrl(true, HW_RST) < 0)
 		ipio_info("host download failed!\n");
 #endif
 
@@ -2793,5 +2804,6 @@ out:
 	core_fr->isEnableFR = true;
 	ilitek_platform_enable_irq();
 	mutex_unlock(&ipd->plat_mutex);
+	return ret;
 }
 EXPORT_SYMBOL(core_mp_start_test);

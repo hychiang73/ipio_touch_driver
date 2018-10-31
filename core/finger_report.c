@@ -352,14 +352,14 @@ static int finger_report_ver_5_0(void)
 
 	if (ret < 0) {
 		ipio_err("Failed to read finger report packet\n");
-		if (INTERFACE == SPI_INTERFACE) {
-			if(ret == CHECK_RECOVER) {
-				ipio_err("Doing host download recovery !\n");
-				ret = ilitek_platform_tp_hw_reset(true);
-				if(ret < 0)
-					ipio_info("host download failed!\n");
-			}
+#ifdef HOST_DOWNLOAD
+		if(ret == CHECK_RECOVER) {
+			ipio_err("Doing host download recovery !\n");
+			ret = ilitek_platform_reset_ctrl(true, HW_RST);
+			if(ret < 0)
+				ipio_info("host download failed!\n");
 		}
+#endif
 		goto out;
 	}
 
@@ -540,6 +540,11 @@ void core_fr_handler(void)
 		return;
 	}
 
+	if (atomic_read(&ipd->do_reset)) {
+		ipio_err("IC is resetting, do nothing\n");
+		return;
+	}
+
 	if (ipd->isEnablePollCheckPower) {
 		mutex_lock(&ipd->plat_mutex);
 		cancel_delayed_work_sync(&ipd->check_power_status_work);
@@ -588,10 +593,10 @@ void core_fr_handler(void)
 					goto out;
 				}
 
-				memcpy(tdata, g_fr_node->data, g_fr_node->len);
+				ipio_memcpy(tdata, g_fr_node->data, g_fr_node->len, g_total_len);
 				/* merge uart data if it's at i2cuart mode */
 				if (g_fr_uart != NULL)
-					memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len);
+					ipio_memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len, g_total_len);
 			} else {
 				ipio_err("total length (%d) is too long than user can handle\n",
 					g_total_len);
@@ -605,7 +610,7 @@ void core_fr_handler(void)
 				mutex_lock(&ipd->ilitek_debug_mutex);
 				memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
 						(uint8_t) sizeof(uint8_t) * 2048);
-				memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len);
+				ipio_memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len, 2048);
 				ipd->debug_data_frame++;
 				if (ipd->debug_data_frame > 1) {
 					ipio_info("ipd->debug_data_frame = %d\n", ipd->debug_data_frame);
@@ -727,12 +732,18 @@ int core_fr_init(void)
 
 	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
 		if (ipio_chip_list[i] == TP_TOUCH_IC) {
-			core_fr->isEnableFR = true;
-			core_fr->isEnableNetlink = false;
-			core_fr->isEnablePressure = false;
-			core_fr->isSetResolution = false;
-			core_fr->actual_fw_mode = protocol->demo_mode;
-			return 0;
+			switch (ipio_chip_list[i]) {
+				case CHIP_TYPE_ILI7807:
+				case CHIP_TYPE_ILI9881:
+					core_fr->isEnableFR = true;
+					core_fr->isEnableNetlink = false;
+					core_fr->isEnablePressure = false;
+					core_fr->isSetResolution = false;
+					core_fr->actual_fw_mode = protocol->demo_mode;
+					break;;
+				default:
+					break;
+			}
 		}
 	}
 

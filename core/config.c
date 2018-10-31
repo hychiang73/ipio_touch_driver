@@ -65,11 +65,14 @@ static void read_flash_info(uint8_t cmd, int len)
 	core_flash_init(flash_mid, flash_id);
 }
 
-void core_config_read_pc_counter(void)
+uint32_t core_config_read_pc_counter(void)
 {
 	uint32_t pc_cnt = 0x0;
+	bool ic_mode_flag = 0;
 
-	if (!core_config->icemodeenable) {
+	ic_mode_flag = core_config->icemodeenable;
+
+	if (ic_mode_flag == false) {
 		if (core_config_ice_mode_enable() < 0)
 			ipio_err("Failed to enter ice mode\n");
 	}
@@ -78,10 +81,11 @@ void core_config_read_pc_counter(void)
 	pc_cnt = core_config_ice_mode_read(ILI9881_PC_COUNTER_ADDR);
 	ipio_err("pc counter = 0x%x\n", pc_cnt);
 
-	if (core_config->icemodeenable) {
+	if (ic_mode_flag == false) {
 		if (core_config_ice_mode_disable() < 0)
 			ipio_err("Failed to disable ice mode\n");
 	}
+	return pc_cnt;
 }
 EXPORT_SYMBOL(core_config_read_pc_counter);
 
@@ -239,16 +243,16 @@ int core_config_switch_fw_mode(uint8_t *data)
 					ret = -1;
 					break;
 				}
-			}
 
-			/* After command to test mode, fw stays at demo mode until busy free. */
-			core_fr->actual_fw_mode = protocol->demo_mode;
+				/* After command to test mode, fw stays at demo mode until busy free. */
+				core_fr->actual_fw_mode = protocol->demo_mode;
 
-			/* Check ready to switch test mode from demo mode */
-			if (core_config_check_cdc_busy(50, 50) < 0) {
-				ipio_err("Mode(%d) Check busy is timout\n", core_fr->actual_fw_mode);
-				ret = -1;
-				break;
+				/* Check ready to switch test mode from demo mode */
+				if (core_config_check_cdc_busy(50, 50) < 0) {
+					ipio_err("Mode(%d) Check busy is timout\n", core_fr->actual_fw_mode);
+					ret = -1;
+					break;
+				}
 			}
 
 			/* Now set up fw as test mode */
@@ -271,7 +275,10 @@ int core_config_switch_fw_mode(uint8_t *data)
 	}
 
 	ipio_info("Actual FW mode = %d\n", core_fr->actual_fw_mode);
-	ilitek_platform_enable_irq();
+
+	if (core_fr->actual_fw_mode != protocol->test_mode)
+		ilitek_platform_enable_irq();
+
 	return ret;
 }
 EXPORT_SYMBOL(core_config_switch_fw_mode);
@@ -319,9 +326,13 @@ int core_config_ice_mode_bit_mask(uint32_t addr, uint32_t nMask, uint32_t value)
 }
 EXPORT_SYMBOL(core_config_ice_mode_bit_mask);
 
-void core_config_ic_reset(void)
+int core_config_ic_reset(void)
 {
+	int ret = 0;
 	uint32_t key = 0;
+
+	if (!core_config->icemodeenable)
+		core_config_ice_mode_enable();
 
 	if (core_config->chip_id == CHIP_TYPE_ILI9881) {
 		key = 0x00019881;
@@ -331,12 +342,13 @@ void core_config_ic_reset(void)
 
 	ipio_debug(DEBUG_CONFIG, "key = 0x%x\n", key);
 	if (key != 0) {
-		core_config->do_ic_reset = true;
-		core_config_ice_mode_write(core_config->ic_reset_addr, key, 4);
-		core_config->do_ic_reset = false;
+		ret = core_config_ice_mode_write(core_config->ic_reset_addr, key, 4);
+		if (ret < 0)
+			ipio_err("ic reset failed, ret = %d\n", ret);
 	}
 
 	msleep(100);
+	return ret;
 }
 EXPORT_SYMBOL(core_config_ic_reset);
 
@@ -506,20 +518,23 @@ void core_config_ic_suspend(void)
 	ipio_info("Enabled Gesture = %d\n", core_config->isEnableGesture);
 
 	if (core_config->isEnableGesture) {
-		core_fr->isEnableFR = true;
 #ifdef HOST_DOWNLOAD
 		if(core_gesture_load_code() < 0)
 			ipio_err("load gesture code fail\n");
 #else
 		core_config_switch_fw_mode(&protocol->gesture_mode);
 #endif
+		enable_irq_wake(ipd->isr_gpio);
+		core_fr->isEnableFR = true;
 		ilitek_platform_enable_irq();
-	} else {
-		/* sleep in */
-		core_config_sleep_ctrl(false);
+		goto end;
 	}
 
-	/* release all touch points */
+	/* sleep in if gesture is disabled. */
+	core_config_sleep_ctrl(false);
+
+end:
+	/* release all touch points to get rid of locked points on screen. */
 #ifdef MT_B_TYPE
 	for (i = 0 ; i < MAX_TOUCH_NUM; i++)
 		core_fr_touch_release(0, 0, i);
@@ -529,8 +544,8 @@ void core_config_ic_suspend(void)
 #else
 	core_fr_touch_release(0, 0, 0);
 #endif
-
 	input_sync(core_fr->input_device);
+
 	ipio_info("Suspend done\n");
 }
 EXPORT_SYMBOL(core_config_ic_suspend);
@@ -539,22 +554,24 @@ void core_config_ic_resume(void)
 {
 	ipio_info("Starting to resume ...\n");
 
+	/* we hope there's no any reports during resume */
 	core_fr->isEnableFR = false;
+	ilitek_platform_disable_irq();
 
-#ifdef HOST_DOWNLOAD
 	if (core_config->isEnableGesture) {
-		ilitek_platform_disable_irq();
+		disable_irq_wake(ipd->isr_gpio);
+#ifdef HOST_DOWNLOAD
 		if(core_gesture_load_ap_code() < 0) {
 			ipio_err("load ap code fail\n");
-			ilitek_platform_tp_hw_reset(true);
+			ilitek_platform_reset_ctrl(true, HW_RST);
 		}
 	} else {
-		ilitek_platform_tp_hw_reset(true);
+		ilitek_platform_reset_ctrl(true, HW_RST);
+#endif
 	}
-#else
-	/* chip reset */
-	core_config_ice_mode_enable();
-	core_config_ic_reset();
+
+#ifndef HOST_DOWNLOAD
+	ilitek_platform_reset_ctrl(true, HW_RST);
 #endif
 
 	core_config_switch_fw_mode(&protocol->demo_mode);
@@ -574,7 +591,7 @@ EXPORT_SYMBOL(core_config_ic_resume);
 
 int core_config_ice_mode_disable(void)
 {
-	uint32_t ret = 0;
+	int ret = 0;
 	uint8_t cmd[4] = {0};
 
 	cmd[0] = 0x1b;
@@ -604,7 +621,7 @@ EXPORT_SYMBOL(core_config_ice_mode_enable);
 
 int core_config_set_watch_dog(bool enable)
 {
-	int timeout = 10, ret = 0;
+	int timeout = 100, ret = 0;
 	uint8_t off_bit = 0x5A, on_bit = 0xA5;
 	uint8_t value_low = 0x0, value_high = 0x0;
 	uint32_t wdt_addr = core_config->wdt_addr;
@@ -669,7 +686,8 @@ int core_config_set_watch_dog(bool enable)
 			ipio_info("WDT turn off succeed\n");
 		}
 	} else {
-		ipio_err("WDT turn on/off timeout !\n");
+		ipio_err("WDT turn on/off timeout !, ret = %x\n", ret);
+		core_config_read_pc_counter();
 		return -EINVAL;
 	}
 
@@ -746,8 +764,10 @@ int core_config_check_int_status(bool high)
 		timer--;
 	}
 
-	if (ret < -1)
-		ipio_info("Check busy timeout !!\n");
+	if (ret < -1) {
+		ipio_err("Check INT timeout\n");
+		core_config_read_pc_counter();
+	}
 
 	return ret;
 }
@@ -1092,6 +1112,20 @@ int core_config_get_chip_id(void)
 	core_config->chip_id = pid >> 16;
 	core_config->chip_type = (pid & 0x0000FF00) >> 8;
 	core_config->core_type = pid & 0xFF;
+	core_config->chip_otp_id = OTPIDData & 0xFF;
+	core_config->chip_ana_id = ANAIDData & 0xFF;
+
+	ipio_info("Chip PID = 0x%x\n", core_config->chip_pid);
+	ipio_info("Chip ID = 0x%x\n", core_config->chip_id);
+	ipio_info("Chip Type = 0x%x\n", core_config->chip_type);
+	ipio_info("Chip Core id = 0x%x\n", core_config->core_type);
+	ipio_info("OTP ID = 0x%x\n", core_config->chip_otp_id);
+	ipio_info("ANA ID = 0x%x\n", core_config->chip_ana_id);
+
+	core_config->chip_pid = pid;
+	core_config->chip_id = pid >> 16;
+	core_config->chip_type = (pid & 0x0000FF00) >> 8;
+	core_config->core_type = pid & 0xFF;
 	core_config->chip_otp_id = pid & 0xFF;
 	core_config->chip_ana_id = ANAIDData & 0xFF;
 
@@ -1132,7 +1166,6 @@ int core_config_init(void)
 
 	core_config->slave_i2c_addr = ILITEK_I2C_ADDR;
 	core_config->chip_type = 0x0000;
-	core_config->do_ic_reset = false;
 #ifdef GESTURE_ENABLE
 	core_config->isEnableGesture = true;
 #else
@@ -1140,28 +1173,29 @@ int core_config_init(void)
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		switch (ipio_chip_list[i]) {
-			case CHIP_TYPE_ILI7807:
-				core_config->chip_id = ipio_chip_list[i];
-				core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI7807_PID_ADDR;
-				core_config->otp_id_addr = ILI7807_OTP_ID_ADDR;
-				core_config->ana_id_addr = ILI7807_ANA_ID_ADDR;
-				core_config->wdt_addr = ILI7807_WDT_ADDR;
-				core_config->ic_reset_addr = ILI7807_CHIP_RESET_ADDR;
-				break;
-			case CHIP_TYPE_ILI9881:
-				core_config->chip_id = ipio_chip_list[i];
-				core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
-				core_config->pid_addr = ILI9881_PID_ADDR;
-				core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
-				core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
-				core_config->wdt_addr = ILI9881_WDT_ADDR;
-				core_config->ic_reset_addr = ILI9881_CHIP_RESET_ADDR;
-				break;
-			default:
-				ipio_err("Can't find this chip in support list\n");
-				return -ENODEV;
+		if (ipio_chip_list[i] == TP_TOUCH_IC) {
+			switch (ipio_chip_list[i]) {
+				case CHIP_TYPE_ILI7807:
+					core_config->chip_id = ipio_chip_list[i];
+					core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
+					core_config->pid_addr = ILI7807_PID_ADDR;
+					core_config->otp_id_addr = ILI7807_OTP_ID_ADDR;
+					core_config->ana_id_addr = ILI7807_ANA_ID_ADDR;
+					core_config->wdt_addr = ILI7807_WDT_ADDR;
+					core_config->ic_reset_addr = ILI7807_CHIP_RESET_ADDR;
+					break;
+				case CHIP_TYPE_ILI9881:
+					core_config->chip_id = ipio_chip_list[i];
+					core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
+					core_config->pid_addr = ILI9881_PID_ADDR;
+					core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
+					core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
+					core_config->wdt_addr = ILI9881_WDT_ADDR;
+					core_config->ic_reset_addr = ILI9881_CHIP_RESET_ADDR;
+					break;
+				default:
+					break;
+			}
 		}
 	}
 	return 0;

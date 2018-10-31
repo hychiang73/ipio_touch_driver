@@ -94,8 +94,6 @@
 #define CHIP_TYPE_ILI7807	0x7807
 #define TP_TOUCH_IC		CHIP_TYPE_ILI7807
 
-#define CHIP_ID_ERR	(-100)
-
 /* A platform currently supported by driver */
 #define PT_QCOM	1
 #define PT_MTK	2
@@ -108,7 +106,7 @@
 #define INTERFACE I2C_INTERFACE
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.8"
+#define DRIVER_VERSION	"1.0.3.9"
 
 /* Driver core type */
 #define CORE_TYPE_B		0x00
@@ -153,6 +151,14 @@ enum {
 		pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 	} while (0)
 
+/* Reset methods */
+enum {
+	SW_RST = 0,
+	HW_RST,
+	HOST_DOWNLOAD_RST,
+	HOST_DOWNLOAD_BOOT_RST
+};
+
 /* Distributed to all core functions */
 extern uint32_t ipio_debug_level;
 extern uint32_t ipio_chip_list[2];
@@ -174,12 +180,22 @@ extern uint32_t ipio_chip_list[2];
 #define MAX_DLM_FIRMWARE_SIZE		(8*1024)
 #define MAX_MP_FIRMWARE_SIZE		(64*1024)
 #define MAX_GESTURE_FIRMWARE_SIZE	(8*1024)
+#define MAX_TUNING_FIRMWARE_SIZE	(4*1024)
+#define MAX_DDI_FIRMWARE_SIZE		(4*1024)
+
 #define DLM_START_ADDRESS           0x20610
 #define DLM_HEX_ADDRESS             0x10000
 #define MP_HEX_ADDRESS              0x13000
 #define SPI_UPGRADE_LEN				2048
 #define FW_BLOCK_INFO_NUM			6
 #define UPDATE_RETRY_COUNT			3
+
+#define AP_BLOCK_NUM					1
+#define DATA_BLOCK_NUM					2
+#define TUNING_BLOCK_NUM				3
+#define GESTURE_BLOCK_NUM				4
+#define MP_BLOCK_NUM					5
+#define DDI_BLOCK_NUM					6
 
 #define ILITEK_I2C_ADDR			0x41
 
@@ -279,12 +295,25 @@ enum ili7807_types {
 /* Check whether the IC is damaged by ESD */
 //#define ESD_CHECK
 
-static inline void ipio_kfree(void **mem)
-{
+static inline void ipio_kfree(void **mem) {
 	if(*mem != NULL) {
 		kfree(*mem);
 		*mem = NULL;
 	}
+}
+
+static inline void ipio_vfree(void **mem) {
+	if(*mem != NULL) {
+		vfree(*mem);
+		*mem = NULL;
+	}
+}
+
+static inline void *ipio_memcpy(void *dest, const void *src, size_t n, size_t dest_size) {
+    if(n > dest_size)
+         n = dest_size;
+
+    return memcpy(dest, src, n);
 }
 
 extern int katoi(char *string);

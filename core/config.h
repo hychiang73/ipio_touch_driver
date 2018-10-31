@@ -79,7 +79,6 @@ struct core_config_data {
 	uint8_t firmware_ver[9];
 	uint8_t core_ver[5];
 
-	bool do_ic_reset;
 	bool isEnableGesture;
 	bool icemodeenable;
 	bool spi_pro_9881h11;
@@ -104,14 +103,14 @@ extern int core_config_ice_mode_enable(void);
 
 /* Touch IC status */
 
-extern void core_config_read_pc_counter(void);
+extern uint32_t core_config_read_pc_counter(void);
 extern int core_config_switch_fw_mode(uint8_t *data);
 extern int core_config_set_watch_dog(bool enable);
 extern int core_config_check_cdc_busy(int count, int delay);
 extern int core_config_check_int_status(bool high);
 extern void core_config_ic_suspend(void);
 extern void core_config_ic_resume(void);
-extern void core_config_ic_reset(void);
+extern int core_config_ic_reset(void);
 
 /* control features of Touch IC */
 extern void core_config_sense_ctrl(bool start);

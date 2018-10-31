@@ -96,7 +96,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 				ret = -ENOMEM;
 				goto out;
 			}
-			memcpy(txbuf, pBuf, nSize);
+			ipio_memcpy(txbuf, pBuf, nSize, msgs[0].len);
 			txbuf[nSize] = check_sum;
 			msgs[0].buf = txbuf;
 			msgs[0].len = nSize + 1;
@@ -104,7 +104,7 @@ int core_i2c_write(uint8_t nSlaveId, uint8_t *pBuf, uint16_t nSize)
 	}
 
 	if (i2c_transfer(core_i2c->client->adapter, msgs, 1) < 0) {
-		if (core_config->do_ic_reset) {
+		if (atomic_read(&ipd->do_reset)) {
 			/* ignore i2c error if doing ic reset */
 			ret = 0;
 		} else {

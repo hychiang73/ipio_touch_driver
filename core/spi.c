@@ -151,6 +151,7 @@ int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 {
 	int ret = 0;
+	int safe_size = size;
 	uint8_t check_sum = 0,wsize = 0;
 	uint8_t *txbuf = NULL;
 
@@ -170,7 +171,7 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 
 	/* Calcuate checsum and fill it in the last byte */
 	check_sum = core_fr_calc_checksum(data, size);
-	memcpy(txbuf + 5, data, size);
+	ipio_memcpy(txbuf + 5, data, size, safe_size + 9);
 	txbuf[5 + size] = check_sum;
 	size++;
 	wsize = size;
@@ -314,6 +315,7 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 {
 	int ret = 0;
 	uint8_t *txbuf = NULL;
+	uint16_t safe_size = nSize;
 
     txbuf = kcalloc(nSize + 1, sizeof(uint8_t), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(txbuf)) {
@@ -330,10 +332,10 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 	}
 
 	txbuf[0] = SPI_WRITE;
-    memcpy(txbuf+1, pBuf, nSize);
+	ipio_memcpy(txbuf+1, pBuf, nSize, safe_size + 1);
 
 	if (spi_write_then_read(core_spi->spi, txbuf, nSize+1, txbuf, 0) < 0) {
-		if (core_config->do_ic_reset) {
+		if (atomic_read(&ipd->do_reset)) {
 			/* ignore spi error if doing ic reset */
 			ret = 0;
 		} else {
@@ -360,7 +362,7 @@ int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 		return core_spi_read_9881H11(pBuf, nSize);
 
 	if (spi_write_then_read(core_spi->spi, txbuf, 1, pBuf, nSize) < 0) {
-		if (core_config->do_ic_reset) {
+		if (atomic_read(&ipd->do_reset)) {
 			/* ignore spi error if doing ic reset */
 			ret = 0;
 		} else {
@@ -375,17 +377,31 @@ out:
 }
 EXPORT_SYMBOL(core_spi_read);
 
+static void core_spi_speed_up(struct spi_device *spi, uint32_t chip_id)
+{
+	if(!spi)
+		return;
+
+	if (spi->max_speed_hz > 8600000) {
+		if (chip_id == CHIP_TYPE_ILI7807) {
+			ipio_info("set reg_tp_top_dummy_p1v 0x08\n");
+			core_config_ice_mode_write(0x063820, 0x00000101, 4);
+			core_config_ice_mode_write(0x042c34, 0x00000008, 4);
+			core_config_ice_mode_write(0x063820, 0x00000000, 4);
+		}
+	}
+}
+
 int core_spi_init(struct spi_device *spi)
 {
 	int ret;
 
-	core_spi = devm_kmalloc(ipd->dev, sizeof(*core_spi), GFP_KERNEL);
+	core_spi = devm_kmalloc(ipd->dev, sizeof(struct core_spi_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_spi)) {
 		ipio_err("Failed to alllocate core_i2c mem %ld\n", PTR_ERR(core_spi));
 		return -ENOMEM;
 	}
 
-	core_spi->spi = spi;
 	spi->mode = SPI_MODE_0;
 	spi->bits_per_word = 8;
 
@@ -398,6 +414,9 @@ int core_spi_init(struct spi_device *spi)
 	ipio_info("name = %s, bus_num = %d,cs = %d, mode = %d, speed = %d\n",spi->modalias,
 	 spi->master->bus_num, spi->chip_select, spi->mode, spi->max_speed_hz);
 
+	core_spi->spi = spi;
+
+	core_spi_speed_up(core_spi->spi, ipd->chip_id);
 	return 0;
 }
 EXPORT_SYMBOL(core_spi_init);

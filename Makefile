@@ -7,7 +7,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 ccflags-y += -Wall
 
 # Build method
-BUILD_MODULE := n
+BUILD_MODULE := y
 
 ifeq ($(BUILD_MODULE),n)
 	obj-y += core/
