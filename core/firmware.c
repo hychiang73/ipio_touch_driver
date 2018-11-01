@@ -1639,13 +1639,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 	core_firmware->end_addr = 0;
 	core_firmware->checksum = 0;
 	core_firmware->crc32 = 0;
-<<<<<<< HEAD
-	core_firmware->hasBlockInfo = false;
-
-	memset(g_flash_block_info, 0x0, sizeof(g_flash_block_info));
-=======
 	core_firmware->hex_tag = 0;
->>>>>>> master
 
 	memset(fbi, 0x0, sizeof(fbi));
 
@@ -1999,38 +1993,22 @@ int core_firmware_init(void)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
-<<<<<<< HEAD
-		switch (ipio_chip_list[i]) {
-			case CHIP_TYPE_ILI7807:
-			case CHIP_TYPE_ILI9881:
-				core_firmware->max_count = 0x1FFFF;
-				core_firmware->isCRC = true;
-=======
 		if (ipio_chip_list[i] == TP_TOUCH_IC) {
 			switch (ipio_chip_list[i]) {
 				case CHIP_TYPE_ILI7807:
 				case CHIP_TYPE_ILI9881:
 					core_firmware->max_count = 0x1FFFF;
 					core_firmware->isCRC = true;
->>>>>>> master
 #ifdef HOST_DOWNLOAD
 					core_firmware->upgrade_func = tddi_host_download;
 #else
 					core_firmware->upgrade_func = tddi_fw_upgrade;
 #endif
-<<<<<<< HEAD
-				core_firmware->delay_after_upgrade = 200;
-				break;
-			default:
-				ipio_err("Can't find this chip (%x) in support list\n", ipio_chip_list[i]);
-				return -ENODEV;
-=======
 					core_firmware->delay_after_upgrade = 200;
 					break;
 				default:
 					break;
 			}
->>>>>>> master
 		}
 	}
 	return 0;
