@@ -961,6 +961,10 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	init_waitqueue_head(&(ipd->inq));
 	ipd->debug_data_frame = 0;
 	ipd->debug_node_open = false;
+	ipd->raw_count = 1;
+	ipd->delta_count = 10;
+	ipd->bg_count = 0;
+	ipd->debug_data_start_flag = false;
 
 #ifdef REGULATOR_POWER_ON
 	ilitek_regulator_power_reg(ipd);

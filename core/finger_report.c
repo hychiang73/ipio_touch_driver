@@ -530,6 +530,7 @@ fr_hashtable fr_t[] = {
  * Here will allocate the size of packet depending on what the current protocol
  * is used on its firmware.
  */
+
 void core_fr_handler(void)
 {
 	int i = 0;
@@ -620,6 +621,19 @@ void core_fr_handler(void)
 						ipd->debug_data_frame);
 					ipd->debug_data_frame = 1023;
 				}
+				mutex_unlock(&ipd->ilitek_debug_mutex);
+				wake_up(&(ipd->inq));
+			}
+
+			if(ipd->debug_data_start_flag && (ipd->debug_data_frame < 1024)) {
+				mutex_lock(&ipd->ilitek_debug_mutex);
+				memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
+						(uint8_t) sizeof(uint8_t) * 2048);
+				ipio_memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len, 2048);
+
+				ipd->debug_data_frame ++;
+
+
 				mutex_unlock(&ipd->ilitek_debug_mutex);
 				wake_up(&(ipd->inq));
 			}
