@@ -130,7 +130,7 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 #ifdef HOST_DOWNLOAD
 	core_config_ice_mode_enable();
 	ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
-	if(ret < 0)
+	if (ret < 0)
 		ipio_err("host download failed!\n");
 #endif
 
@@ -273,7 +273,7 @@ static void ilitek_platform_esd_recovery(struct work_struct *work)
 
 	mutex_lock(&ipd->plat_mutex);
 	ret = ilitek_platform_reset_ctrl(true, HW_RST);;
-	if(ret < 0)
+	if (ret < 0)
 		ipio_err("host download failed!\n");
 	mutex_unlock(&ipd->plat_mutex);
 }
@@ -289,7 +289,7 @@ static void ilitek_platform_esd_check(struct work_struct *pWork)
 		ipio_err("spi Write Error\n");
 	}
 
-	if(rx_data == 0x82) {
+	if (rx_data == 0x82) {
 		ipio_info("Doing ESD recovery (0x%x)\n", rx_data);
 		schedule_work(&ipd->esd_recovery);
 	} else {
@@ -673,7 +673,7 @@ static int ilitek_platform_gpio(void)
 	ipd->reset_gpio = MTK_RST_GPIO;
 #else
 #ifdef CONFIG_OF
-#if(INTERFACE == I2C_INTERFACE)
+#if (INTERFACE == I2C_INTERFACE)
 	struct device_node *dev_node = ipd->client->dev.of_node;
 #else
 	struct device_node *dev_node = ipd->spi->dev.of_node;

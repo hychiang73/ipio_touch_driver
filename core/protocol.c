@@ -90,7 +90,7 @@ static void insert_func(int key, int len, uint8_t *cmd, char *name)
 	struct DataItem *tmp = NULL;
 
 	tmp = kmalloc(sizeof(struct DataItem), GFP_KERNEL);
-	if(ERR_ALLOC_MEM(tmp)) {
+	if (ERR_ALLOC_MEM(tmp)) {
 		ipio_err("Failed to allocate memory\n");
 		return;
 	}

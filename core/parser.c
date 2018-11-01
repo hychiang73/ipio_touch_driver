@@ -46,7 +46,7 @@ int g_ini_items = 0;
 
 static int isspace_t(int x)
 {
-    if(x==' '||x=='\t'||x=='\n'||x=='\f'||x=='\b'||x=='\r')
+    if (x==' '||x=='\t'||x=='\n'||x=='\f'||x=='\b'||x=='\r')
         return 1;
     else
         return 0;
@@ -101,6 +101,16 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 	return iRetNum;
 }
 
+static void file_capital_to_lower_case(char *data, int size)
+{
+	uint16_t i;
+
+	for (i = 0; i < size; i++) {
+		data[i] = tolower(data[i]);
+		printk("%c",data[i]);
+	}
+}
+
 static int get_ini_phy_data(char *data, int fsize)
 {
 	int i, n = 0, ret = 0 , banchmark_flag = 0, empty_section, nodetype_flag = 0;
@@ -133,9 +143,9 @@ static int get_ini_phy_data(char *data, int fsize)
 	}
 
 	temp = strnstr(data, TYPE_MARK, fsize);
-	if(temp != NULL) {
+	if (temp != NULL) {
 		ipio_debug(DEBUG_PARSER, "Find Type mark, locat = %d",(int)(temp - data));
-		if(core_config->core_type == CORE_TYPE_B)
+		if (core_config->core_type == CORE_TYPE_B)
 			offset = temp-data;
 		else
 			fsize = temp-data;
@@ -150,7 +160,7 @@ static int get_ini_phy_data(char *data, int fsize)
 			goto out;
 		}
 
-		if(offset >= fsize)
+		if (offset >= fsize)
 			goto out;/*over size*/
 		n = get_ini_phy_line(data + offset, ini_buf, PARSER_MAX_CFG_BUF);
 
@@ -199,7 +209,7 @@ static int get_ini_phy_data(char *data, int fsize)
 				isEqualSign = i;
 				break;
 			}
-			if(ini_buf[i] == M_CFG_SSL || ini_buf[i] == M_CFG_SSR){
+			if (ini_buf[i] == M_CFG_SSL || ini_buf[i] == M_CFG_SSR) {
 				empty_section = 1;
 				break;
 			}
@@ -207,14 +217,14 @@ static int get_ini_phy_data(char *data, int fsize)
 
 		if (isEqualSign == 0)
 		{
-			if(empty_section)
+			if (empty_section)
 				continue;
 
-			if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Benchmark_Data") > 0){
+			if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Benchmark_Data") > 0) {
 				banchmark_flag = 1;
 				isEqualSign =-1;
 			}
-			else if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Node Type") > 0){
+			else if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Node Type") > 0) {
 				nodetype_flag = 1;
 				isEqualSign =-1;
 			}
@@ -222,13 +232,13 @@ static int get_ini_phy_data(char *data, int fsize)
 				continue;
 			}
 		}
-		if(banchmark_flag){
+		if (banchmark_flag) {
 		/* Get Key names */
 			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(BENCHMARK_KEY_NAME);
 			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, BENCHMARK_KEY_NAME);
 			ilitek_ini_file_data[g_ini_items].iKeyValueLen = n;
 		}
-		else if(nodetype_flag){
+		else if (nodetype_flag) {
 		/* Get Key names */
 			ilitek_ini_file_data[g_ini_items].iKeyNameLen = strlen(NODE_TYPE_KEY_NAME);
 			strcpy(ilitek_ini_file_data[g_ini_items].pKeyName, NODE_TYPE_KEY_NAME);
@@ -330,10 +340,10 @@ void core_parser_nodetype(int32_t* type_ptr, char *desp, size_t frame_len)
 			}
 
 		record = ',';
-		for(j = 0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++) {
-			if(ilitek_ini_file_data[i].pKeyValue[j] == ';' || j == ilitek_ini_file_data[i].iKeyValueLen) {
+		for (j = 0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++) {
+			if (ilitek_ini_file_data[i].pKeyValue[j] == ';' || j == ilitek_ini_file_data[i].iKeyValueLen) {
 
-				if(record != '.') {
+				if (record != '.') {
 					memset(str,0 ,sizeof(str));
 					ipio_memcpy(str, &ilitek_ini_file_data[i].pKeyValue[index1], (j -index1), sizeof(str));
 					temp = katoi(str);
@@ -371,11 +381,11 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 		}
 
 		record = ',';
-		for(j = 0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++) {
-			if(ilitek_ini_file_data[i].pKeyValue[j] == ',' || ilitek_ini_file_data[i].pKeyValue[j] == ';' ||
+		for (j = 0, index1 = 0; j <= ilitek_ini_file_data[i].iKeyValueLen; j++) {
+			if (ilitek_ini_file_data[i].pKeyValue[j] == ',' || ilitek_ini_file_data[i].pKeyValue[j] == ';' ||
 				ilitek_ini_file_data[i].pKeyValue[j] == '.'|| j == ilitek_ini_file_data[i].iKeyValueLen) {
 
-				if(record != '.') {
+				if (record != '.') {
 					memset(str, 0, sizeof(str));
 					ipio_memcpy(str, &ilitek_ini_file_data[i].pKeyValue[index1], (j - index1), sizeof(str));
 					temp = katoi(str);
@@ -418,11 +428,11 @@ int core_parser_get_u8_array(char *key, uint8_t *buf)
 	int ret, conut = 0;
     long s_to_long = 0;
 
-	if(isspace_t((int)(unsigned char)*s) == 0)
+	if (isspace_t((int)(unsigned char)*s) == 0)
 	{
-		while((pToken = strsep(&s, ",")) != NULL){
+		while((pToken = strsep(&s, ",")) != NULL) {
 			ret = kstrtol(pToken, 0, &s_to_long);
-			if(ret == 0)
+			if (ret == 0)
 				buf[conut] = s_to_long;
 			else
 				ipio_info("convert string too long, ret = %d\n", ret);
@@ -501,6 +511,8 @@ int core_parser_path(char *path)
 	tmp[fsize] = 0x00;
 
 	init_ilitek_ini_data();
+
+	file_capital_to_lower_case(tmp,strlen(tmp));
 
 	ret = get_ini_phy_data(tmp,fsize);
 	if (ret < 0) {

@@ -169,13 +169,13 @@ static ssize_t ilitek_proc_get_delta_data_read(struct file *pFile, char __user *
 	ipio_info("read length = %d\n", read_length);
 
 	data = kcalloc(read_length + 1, sizeof(uint8_t), GFP_KERNEL);
-	if(ERR_ALLOC_MEM(data)) {
+	if (ERR_ALLOC_MEM(data)) {
 		ipio_err("Failed to allocate data mem\n");
 		return 0;
 	}
 
 	delta = kcalloc(P5_0_DEBUG_MODE_PACKET_LENGTH, sizeof(int32_t), GFP_KERNEL);
-	if(ERR_ALLOC_MEM(delta)) {
+	if (ERR_ALLOC_MEM(delta)) {
 		ipio_err("Failed to allocate delta mem\n");
 		return 0;
 	}
@@ -258,13 +258,13 @@ static ssize_t ilitek_proc_fw_get_raw_data_read(struct file *pFile, char __user 
 	ipio_info("read length = %d\n", read_length);
 
 	data = kcalloc(read_length + 1, sizeof(uint8_t), GFP_KERNEL);
-	if(ERR_ALLOC_MEM(data)) {
+	if (ERR_ALLOC_MEM(data)) {
 			ipio_err("Failed to allocate data mem\n");
 			return 0;
 	}
 
 	rawdata = kcalloc(P5_0_DEBUG_MODE_PACKET_LENGTH, sizeof(int32_t), GFP_KERNEL);
-	if(ERR_ALLOC_MEM(rawdata)) {
+	if (ERR_ALLOC_MEM(rawdata)) {
 			ipio_err("Failed to allocate rawdata mem\n");
 			return 0;
 	}
@@ -347,13 +347,13 @@ static ssize_t ilitek_proc_fw_get_bg_data_read(struct file *pFile, char __user *
 // 	ipio_info("read length = %d\n", read_length);
 
 // 	data = kcalloc(read_length + 1, sizeof(uint8_t), GFP_KERNEL);
-// 	if(ERR_ALLOC_MEM(data)) {
+// 	if (ERR_ALLOC_MEM(data)) {
 // 			ipio_err("Failed to allocate data mem\n");
 // 			return 0;
 // 	}
 
 // 	rawdata = kcalloc(P5_0_DEBUG_MODE_PACKET_LENGTH, sizeof(int32_t), GFP_KERNEL);
-// 	if(ERR_ALLOC_MEM(rawdata)) {
+// 	if (ERR_ALLOC_MEM(rawdata)) {
 // 			ipio_err("Failed to allocate rawdata mem\n");
 // 			return 0;
 // 	}
@@ -618,7 +618,7 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 
 	/* Running MP Test */
 	ret = core_mp_start_test();
-	if(ret < 0)
+	if (ret < 0)
 		goto out;
 
 	/* copy MP result to user */
@@ -690,7 +690,7 @@ static int file_write(struct file_buffer *file, bool new_open)
 		return -1;
 	}
 
-	if(new_open)
+	if (new_open)
 		f = filp_open(file->file_name, O_WRONLY | O_CREAT | O_TRUNC, 644);
 	else
 		f = filp_open(file->file_name, O_WRONLY | O_CREAT | O_APPEND, 644);
@@ -731,7 +731,7 @@ static int debug_mode_get_data(struct file_buffer *file, uint8_t type, uint32_t 
 	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
 	ipd->debug_data_start_flag = true;
 	mutex_unlock(&ipd->touch_mutex);
-	if(ret < 0)
+	if (ret < 0)
 		return ret;
 
 	while((write_index < frame_count) && (timeout > 0)) {
@@ -769,7 +769,7 @@ static int debug_mode_get_data(struct file_buffer *file, uint8_t type, uint32_t 
 
 		mdelay(100);/*get one frame data take around 130ms*/
 		timeout -- ;
-		if(timeout == 0)
+		if (timeout == 0)
 			ipio_err("debug mode get data timeout!\n");
 	}
 	ipd->debug_data_start_flag = false;
@@ -816,7 +816,7 @@ static ssize_t ilitek_proc_get_debug_mode_data_read(struct file *filp, char __us
 	/*change to debug mode*/
 	cmd[0] = protocol->debug_mode;
 	ret = core_config_switch_fw_mode(cmd);
-	if(ret < 0)
+	if (ret < 0)
 		goto out;
 
 	/*get raw data*/
@@ -825,7 +825,7 @@ static ssize_t ilitek_proc_get_debug_mode_data_read(struct file *filp, char __us
 	csv.file_len += sprintf(csv.ptr + csv.file_len, "\n\n=======Raw data=======");
 	file_write(&csv, false);
 	ret = debug_mode_get_data(&csv, protocol->raw_data, ipd->raw_count);
-	if(ret < 0)
+	if (ret < 0)
 		goto out;
 
 	/*get delta data*/
@@ -834,7 +834,7 @@ static ssize_t ilitek_proc_get_debug_mode_data_read(struct file *filp, char __us
 	csv.file_len += sprintf(csv.ptr + csv.file_len, "\n\n=======Delta data=======");
 	file_write(&csv, false);
 	ret = debug_mode_get_data(&csv, protocol->delta_data, ipd->delta_count);
-	if(ret < 0)
+	if (ret < 0)
 		goto out;
 
 	/*change to demo mode*/
@@ -1173,7 +1173,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 #ifdef HOST_DOWNLOAD
 	ret = ilitek_platform_reset_ctrl(true, HW_RST);;
-	if(ret < 0)
+	if (ret < 0)
 		ipio_info("host download failed!\n");
 #else
 	ret = core_firmware_upgrade(UPDATE_FW_PATH, false);
@@ -1478,7 +1478,7 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	}
 
 	szBuf = kcalloc(IOCTL_I2C_BUFF, sizeof(uint8_t), GFP_KERNEL);
-	if(ERR_ALLOC_MEM(szBuf)) {
+	if (ERR_ALLOC_MEM(szBuf)) {
 		ipio_err("Failed to allocate mem\n");
 		return -ENOMEM;
 	}
