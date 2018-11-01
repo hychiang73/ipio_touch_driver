@@ -1973,31 +1973,7 @@ static void mp_do_retry(int index, int count)
 		return;
 	}
 
-#ifdef HOST_DOWNLOAD
-	/* Makre sure that fw mode is in test mode and reload MP code */
-	core_fr->actual_fw_mode = protocol->test_mode;
-
-	if(ilitek_platform_reset_ctrl(true, HW_RST) < 0)
-		ipio_info("host download failed!\n");
-
-	/* Check ready to switch test mode */
-	if (core_config_check_cdc_busy(50, 50) < 0)
-		ipio_err("Check busy is timout\n");
-#else
-	core_config_ice_mode_enable();
-
-	ilitek_platform_reset_ctrl(true, HW_RST);
-
-	/* Switch to Demo mode */
-	core_config_switch_fw_mode(&protocol->demo_mode);
-
-	/* Switch to test mode */
-	core_config_switch_fw_mode(&protocol->test_mode);
-
 	ipio_info("retry = %d, item = %s\n", count, tItems[index].desp);
-#endif
-
-	ilitek_platform_disable_irq();
 
 	tItems[index].do_test(index);
 
