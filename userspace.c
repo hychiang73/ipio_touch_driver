@@ -68,7 +68,7 @@
 
 unsigned char g_user_buf[USER_STR_BUFF] = { 0 };
 #define DEBUG_DATA_FILE_SIZE   (10 * 1024)
-#define DEBUG_DATA_FILE_PATH	"/data/ILITEK_log.csv"
+#define DEBUG_DATA_FILE_PATH	"/sdcard/ILITEK_log.csv"
 
 struct file_buffer {
 	char *ptr;

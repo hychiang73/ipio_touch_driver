@@ -843,17 +843,6 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 	char tmp[128] = {0};
 	char *key = tItems[index].desp;
 
-	if (strncmp(key, "Raw Data_TD (LCM OFF)", strlen(key)) == 0)
-		key = "Doze Raw Data";
-	else if (strncmp(key, "Peak To Peak_TD (LCM OFF)", strlen(key)) == 0)
-		key = "Doze Peak To Peak";
-	else if (strncmp(key, "Raw Data(No BK) (LCM OFF)", strlen(key)) == 0)
-		key = "Raw Data(No BK)";
-	else if (strncmp(key, "Raw Data(Have BK) (LCM OFF)", strlen(key)) == 0)
-		key = "Raw Data(Have BK)";
-	else if (strncmp(key, "Noise Peak to Peak(With Panel) (LCM OFF)", strlen(key)) == 0)
-		key = "Noise Peak To Peak(With Panel)";
-
 	ipio_info("%s gets %s command from INI.\n", tItems[index].desp, key);
 
 	ret = core_parser_get_int_data("PV5_4 Command", key, str);
@@ -2719,28 +2708,28 @@ int core_mp_start_test(void)
 {
 	int ret = 0;
 
-	ret = core_parser_path(INI_NAME_PATH);
-	if (ret < 0) {
-		ipio_err("Failed to parsing INI file\n");
-		return ret;
-	}
-
 	mutex_lock(&ipd->plat_mutex);
 
 	ilitek_platform_disable_irq();
 	core_fr->isEnableFR = false;
 
 	/* Init MP structure */
-	if(mp_initial() < 0) {
+	ret = mp_initial();
+	if(ret < 0) {
 		ipio_err("Failed to init mp\n");
-		ret = -1;
+		goto out;
+	}
+
+	ret = core_parser_path(INI_NAME_PATH);
+	if (ret < 0) {
+		ipio_err("Failed to parsing INI file\n");
 		goto out;
 	}
 
 	/* Switch to Test mode nad move mp code */
-	if (core_config_switch_fw_mode(&protocol->test_mode) < 0) {
+	ret = core_config_switch_fw_mode(&protocol->test_mode);
+	if (ret < 0) {
 		ipio_err("Switch to test mode failed\n");
-		ret = -1;
 		goto out;
 	}
 
@@ -2749,9 +2738,9 @@ int core_mp_start_test(void)
 	 * Howerver, it can be ignored if commands read from ini.
 	 */
 	if (protocol->major >= 5 && protocol->mid >= 4) {
-		if (mp_calc_timing_nodp() < 0) {
+		ret = mp_calc_timing_nodp();
+		if (ret < 0) {
 			ipio_err("Can't get timing parameters\n");
-			ret = -1;
 			goto out;
 		}
 	}
