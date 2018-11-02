@@ -1694,10 +1694,6 @@ struct file_operations proc_get_raw_data_fops = {
 	.read = ilitek_proc_fw_get_raw_data_read,
 };
 
-struct file_operations proc_get_bg_data_fops = {
-	.read = ilitek_proc_fw_get_bg_data_read,
-};
-
 struct file_operations proc_get_debug_mode_data_fops = {
 	.read = ilitek_proc_get_debug_mode_data_read,
 	.write = ilitek_proc_get_debug_mode_data_write,
@@ -1735,9 +1731,7 @@ proc_node_t proc_table[] = {
 	{"fw_pc_counter", NULL, &proc_fw_pc_counter_fops, false},
 	{"show_delta_data", NULL, &proc_get_delta_data_fops, false},
 	{"show_raw_data", NULL, &proc_get_raw_data_fops, false},
-	{"show_bg_data", NULL, &proc_get_bg_data_fops, false},
 	{"get_debug_mode_data", NULL, &proc_get_debug_mode_data_fops, false},
-
 };
 
 #define NETLINK_USER 21
