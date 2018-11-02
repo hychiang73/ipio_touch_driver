@@ -107,7 +107,7 @@ static void file_capital_to_lower_case(char *data, int size)
 
 	for (i = 0; i < size; i++) {
 		data[i] = tolower(data[i]);
-		printk("%c",data[i]);
+		ipio_debug(DEBUG_PARSER, "%c", data[i]);
 	}
 }
 
