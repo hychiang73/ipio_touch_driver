@@ -106,7 +106,7 @@
 #define INTERFACE I2C_INTERFACE
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.9"
+#define DRIVER_VERSION	"1.0.3.10"
 
 /* Driver core type */
 #define CORE_TYPE_B		0x00
