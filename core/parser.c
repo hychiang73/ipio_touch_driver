@@ -220,11 +220,11 @@ static int get_ini_phy_data(char *data, int fsize)
 			if (empty_section)
 				continue;
 
-			if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Benchmark_Data") > 0) {
+			if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,BENCHMARK_KEY_NAME) > 0) {
 				banchmark_flag = 1;
 				isEqualSign =-1;
 			}
-			else if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,"Node Type") > 0) {
+			else if (strstr(ilitek_ini_file_data[g_ini_items].pSectionName,NODE_TYPE_KEY_NAME) > 0) {
 				nodetype_flag = 1;
 				isEqualSign =-1;
 			}
@@ -372,7 +372,7 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 	char benchmark_str[256] ={0};
 
 	/* format complete string from the name of section "_Benchmark_Data". */
-	sprintf(benchmark_str, "%s%s", desp, "_Benchmark_Data");
+	sprintf(benchmark_str, "%s%s%s", desp, "_", BENCHMARK_KEY_NAME);
 
 	for (i = 0; i < g_ini_items; i++) {
 		if ((strcmp(ilitek_ini_file_data[i].pSectionName, benchmark_str) != 0) ||

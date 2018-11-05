@@ -1289,7 +1289,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	uint8_t *ori = NULL;
 	char str[128] = {0};
 	char tmp[128] = {0};
-	char *key[] = {"OPEN DAC", "OPEN Raw1", "OPEN Raw2", "OPEN Raw3"};
+	char *key[] = {"open dac", "open raw1", "open raw2", "open raw3"};
 
 	/* Multipling by 2 is due to the 16 bit in each node */
 	len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
@@ -1493,7 +1493,7 @@ static int open_test_sp(int index)
 			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
 	}
 
-	core_parser_nodetype(tItems[index].node_type, "Node Type", core_mp->frame_len);
+	core_parser_nodetype(tItems[index].node_type, NODE_TYPE_KEY_NAME, core_mp->frame_len);
 	if (ipio_debug_level && DEBUG_PARSER > 0)
 		dump_node_type_buffer(tItems[index].node_type, "node type");
 
@@ -2023,11 +2023,11 @@ static void mp_show_result(void)
 		csv_len += sprintf(csv + csv_len, "Frame count = %d\n", tItems[i].frame_count);
 
 		if (tItems[i].trimmed_mean && tItems[i].catalog != PEAK_TO_PEAK_TEST) {
-			pr_info("Lowest Percentage = %d\n",tItems[i].lowest_percentage);
-			csv_len += sprintf(csv + csv_len, "Lowest Percentage = %d\n", tItems[i].lowest_percentage);
+			pr_info("lowest percentage = %d\n",tItems[i].lowest_percentage);
+			csv_len += sprintf(csv + csv_len, "lowest percentage = %d\n", tItems[i].lowest_percentage);
 
-			pr_info("Highest Percentage = %d\n",tItems[i].highest_percentage);
-			csv_len += sprintf(csv + csv_len, "Highest Percentage = %d\n", tItems[i].highest_percentage);
+			pr_info("highest percentage = %d\n",tItems[i].highest_percentage);
+			csv_len += sprintf(csv + csv_len, "highest percentage = %d\n", tItems[i].highest_percentage);
 		}
 
 		/* Show result of benchmark max and min */
@@ -2282,7 +2282,7 @@ static void mp_run_test(char *item)
 
 			if (tItems[i].run) {
 				/* LCM off */
-				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
+				if (strnstr(tItems[i].desp, "lcm", strlen(tItems[i].desp)) != NULL)
 					mp_ctrl_lcm_status(false);
 
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);

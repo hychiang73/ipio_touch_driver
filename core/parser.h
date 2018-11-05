@@ -27,7 +27,7 @@
 #include "config.h"
 
 #define BENCHMARK_KEY_NAME "benchmark_data"
-#define NODE_TYPE_KEY_NAME "node_type_data"
+#define NODE_TYPE_KEY_NAME "node type"
 #define TYPE_MARK "[driver type mark]"
 #define VALUE 0
 
