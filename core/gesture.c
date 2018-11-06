@@ -59,7 +59,7 @@ int core_gesture_load_code(void)
 	if (ret < 0)
 		ipio_err("Failed to switch gesture mode\n");
 
-	for(i = 0; i < 20; i++) {
+	for (i = 0; i < 20; i++) {
 		temp[0] = 0xF6;
 		temp[1] = 0x0A;
 		temp[2] = 0x05;
@@ -78,13 +78,13 @@ int core_gesture_load_code(void)
 		if ((core_read(core_config->slave_i2c_addr, temp, 1)) < 0) {
 			ipio_err("Read command error\n");
 		}
-		if(temp[0] == 0x91) {
+		if (temp[0] == 0x91) {
 			ipio_info("check fw ready\n");
 			break;
 		}
 	}
 
-	if(temp[0] != 0x91)
+	if (temp[0] != 0x91)
 		ipio_err("FW is busy, error\n");
 
 	/* load gesture code */
@@ -132,7 +132,7 @@ int core_gesture_load_ap_code(void)
 		ipio_err("write command  LPWG Stop error\n");
 	}
 
-	for(i = 0; i < 20; i++) {
+	for (i = 0; i < 20; i++) {
 
 		mdelay(i * 100 + 100);
 
@@ -145,13 +145,13 @@ int core_gesture_load_ap_code(void)
 		if ((core_read(core_config->slave_i2c_addr, temp, 1)) < 0) {
 			ipio_err("Read command error\n");
 		}
-		if(temp[0] == 0x91) {
+		if (temp[0] == 0x91) {
 			ipio_info("check fw ready\n");
 			break;
 		}
 	}
 
-	if(i == 3 && temp[0] != 0x01)
+	if (i == 3 && temp[0] != 0x01)
 		ipio_err("FW is busy, error\n");
 
 	/* load AP code */

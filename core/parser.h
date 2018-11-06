@@ -26,9 +26,9 @@
 #define __PARSER_H
 #include "config.h"
 
-#define BENCHMARK_KEY_NAME "Benchmark_Data"
-#define NODE_TYPE_KEY_NAME "node_type_Data"
-#define TYPE_MARK "[Driver Type Mark]"
+#define BENCHMARK_KEY_NAME "benchmark_data"
+#define NODE_TYPE_KEY_NAME "node type"
+#define TYPE_MARK "[driver type mark]"
 #define VALUE 0
 
 extern void core_parser_nodetype(int32_t* type_ptr, char *desp, size_t frame_len);
