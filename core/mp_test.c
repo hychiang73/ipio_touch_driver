@@ -42,7 +42,8 @@
 #include "finger_report.h"
 #include "firmware.h"
 
-#define RETRY_COUNT 0
+#define RETRY_COUNT 3
+
 #define INT_CHECK 0
 #define POLL_CHECK 1
 #define DELAY_CHECK 2
@@ -293,9 +294,9 @@ void dump_node_type_buffer(int32_t *node_ptr, uint8_t *name)
 	}
 }
 
-static void mp_compare_cdc_result(int32_t *tmp, int32_t *max_ts, int32_t *min_ts, int* result)
+static void mp_compare_cdc_result(int index, int32_t *tmp, int32_t *max_ts, int32_t *min_ts, int* result)
 {
-	int x, y;
+	int i;
 
 	if (ERR_ALLOC_MEM(tmp)) {
 		ipio_err("The data of test item is null (%p)\n", tmp);
@@ -303,11 +304,18 @@ static void mp_compare_cdc_result(int32_t *tmp, int32_t *max_ts, int32_t *min_ts
 		return;
 	}
 
-	for (y = 0; y < core_mp->ych_len; y++) {
-		for (x = 0; x < core_mp->xch_len; x++) {
-			int shift = y * core_mp->xch_len + x;
-			if (tmp[shift] > max_ts[shift] || tmp[shift] < min_ts[shift]) {
+	if (tItems[index].catalog == SHORT_TEST) {
+		for (i = 0; i < core_mp->frame_len; i++) {
+			if (tmp[i] < min_ts[i]){
 				*result = MP_FAIL;
+				return;
+			}
+		}
+	} else {
+		for (i = 0; i < core_mp->frame_len; i++) {
+			if (tmp[i] > max_ts[i] || tmp[i] < min_ts[i]) {
+				*result = MP_FAIL;
+				return;
 			}
 		}
 	}
@@ -1917,16 +1925,16 @@ static int mp_comp_result_before_retry(int index)
 			max_threshold[i] = core_mp->TxDeltaMax;
 			min_threshold[i] = core_mp->TxDeltaMin;
 		}
-		mp_compare_cdc_result(core_mp->tx_max_buf, max_threshold, min_threshold, &test_result);
-		mp_compare_cdc_result(core_mp->tx_min_buf, max_threshold, min_threshold, &test_result);
+		mp_compare_cdc_result(index, core_mp->tx_max_buf, max_threshold, min_threshold, &test_result);
+		mp_compare_cdc_result(index, core_mp->tx_min_buf, max_threshold, min_threshold, &test_result);
 
 		for (i = 0; i < core_mp->frame_len; i++) {
 			max_threshold[i] = core_mp->RxDeltaMax;
 			min_threshold[i] = core_mp->RxDeltaMin;
 		}
 
-		mp_compare_cdc_result(core_mp->rx_max_buf, max_threshold, min_threshold, &test_result);
-		mp_compare_cdc_result(core_mp->rx_min_buf, max_threshold, min_threshold, &test_result);
+		mp_compare_cdc_result(index, core_mp->rx_max_buf, max_threshold, min_threshold, &test_result);
+		mp_compare_cdc_result(index, core_mp->rx_min_buf, max_threshold, min_threshold, &test_result);
 	} else {
 		if (ERR_ALLOC_MEM(tItems[index].buf) || ERR_ALLOC_MEM(tItems[index].max_buf) ||
 				ERR_ALLOC_MEM(tItems[index].min_buf) || ERR_ALLOC_MEM(tItems[index].result_buf)) {
@@ -1950,10 +1958,10 @@ static int mp_comp_result_before_retry(int index)
 		/* general result */
 		if (tItems[index].trimmed_mean && tItems[index].catalog != PEAK_TO_PEAK_TEST) {
 			mp_test_data_sort_average(tItems[index].buf, index, tItems[index].result_buf);
-			mp_compare_cdc_result(tItems[index].result_buf, max_threshold, min_threshold, &test_result);
+			mp_compare_cdc_result(index, tItems[index].result_buf, max_threshold, min_threshold, &test_result);
 		} else {
-			mp_compare_cdc_result(tItems[index].buf, max_threshold, min_threshold, &test_result);
-			mp_compare_cdc_result(tItems[index].buf, max_threshold, min_threshold, &test_result);
+			mp_compare_cdc_result(index, tItems[index].buf, max_threshold, min_threshold, &test_result);
+			mp_compare_cdc_result(index, tItems[index].buf, max_threshold, min_threshold, &test_result);
 		}
 	}
 
