@@ -496,7 +496,7 @@ int core_parser_path(char *path)
 		goto out;
 	}
 
-	tmp = kmalloc(fsize+1, GFP_KERNEL);
+	tmp = vmalloc(fsize+1);
 	if (ERR_ALLOC_MEM(tmp)) {
 		ipio_err("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
 		ret = -ENOMEM;
@@ -523,7 +523,7 @@ int core_parser_path(char *path)
 	ipio_info("Parsing INI file doen\n");
 
 out:
-	ipio_kfree((void **)&tmp);
+	ipio_vfree((void **)&tmp);
 	filp_close(f, NULL);
 	return ret;
 }
