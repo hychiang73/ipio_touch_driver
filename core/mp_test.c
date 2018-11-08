@@ -860,7 +860,7 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 	}
 
 	strncpy(tmp, str, ret);
-	core_parser_get_u8_array(tmp, cmd);
+	core_parser_get_u8_array(tmp, cmd, len);
 
 out:
 	return ret;
@@ -908,7 +908,7 @@ static int allnode_mutual_cdc_data(int index)
 {
 	static int i = 0, ret = 0, len = 0;
 	int inDACp = 0, inDACn = 0;
-	static uint8_t cmd[15] = {0};
+	uint8_t cmd[15] = {0};
 	uint8_t *ori = NULL;
 
 	/* Multipling by 2 is due to the 16 bit in each node */
@@ -923,10 +923,10 @@ static int allnode_mutual_cdc_data(int index)
 		goto out;
 	}
 
-	memset(cmd, 0xFF, protocol->cdc_len);
+	memset(cmd, 0xFF, sizeof(cmd));
 
 	/* CDC init */
-	mp_cdc_init_cmd_common(cmd, protocol->cdc_len, index);
+	mp_cdc_init_cmd_common(cmd, sizeof(cmd), index);
 
 	dump_data(cmd, 8, protocol->cdc_len, 0, "Mutual CDC command");
 
@@ -1319,7 +1319,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	}
 
 	strncpy(tmp, str, ret);
-	core_parser_get_u8_array(tmp, cmd);
+	core_parser_get_u8_array(tmp, cmd, sizeof(cmd));
 
 	dump_data(cmd, 8, sizeof(cmd), 0, "Open SP command");
 
@@ -2446,7 +2446,6 @@ int core_mp_move_code(void)
 		goto out;
 	}
 #else
-
 	/* Get Dma overlay info command only be used in I2C mode */
 	get_dma_overlay_info();
 
@@ -2495,7 +2494,6 @@ int core_mp_move_code(void)
 		ret = -1;
 		goto out;
 	}
-
 #endif
 
 out:
