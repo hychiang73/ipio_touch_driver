@@ -30,6 +30,7 @@
 #include <linux/fd.h>
 #include <linux/file.h>
 #include <linux/version.h>
+#include <linux/rtc.h>
 #include <asm/uaccess.h>
 
 #include "../common.h"
@@ -1999,7 +2000,10 @@ static void mp_show_result(void)
 	struct file *f = NULL;
 	mm_segment_t fs;
 	loff_t pos;
-
+	struct timespec now_time;
+	struct rtc_time rtc_now_time;
+	char time_data_buf[128] = { 0 };
+	
 	csv = vmalloc(CSV_FILE_SIZE);
 	if (ERR_ALLOC_MEM(csv)) {
 		ipio_err("Failed to allocate CSV mem\n");
@@ -2150,19 +2154,28 @@ static void mp_show_result(void)
 	ret_pass_name = NORMAL_CSV_PASS_NAME;
 	ret_fail_name = NORMAL_CSV_FAIL_NAME;
 
+	getnstimeofday(&now_time);
+    rtc_time_to_tm(now_time.tv_sec, &rtc_now_time);
+    sprintf(time_data_buf, "%04d%02d%02d-%02d%02d%02d",
+            (rtc_now_time.tm_year + 1900), rtc_now_time.tm_mon + 1, 
+			rtc_now_time.tm_mday, rtc_now_time.tm_hour, rtc_now_time.tm_min, 
+			rtc_now_time.tm_sec);
+	
 	if (pass_item_count == 0) {
 		core_mp->final_result = MP_FAIL;
-		sprintf(csv_name, "%s/%s.csv", CSV_PATH, ret_fail_name);
+		sprintf(csv_name, "%s/%s_%s.csv", CSV_PATH, time_data_buf, ret_fail_name);
 	} else {
 		core_mp->final_result = MP_PASS;
-		sprintf(csv_name, "%s/%s.csv", CSV_PATH, ret_pass_name);
+		sprintf(csv_name, "%s/%s_%s.csv", CSV_PATH, time_data_buf, ret_pass_name);
 	}
 
 	ipio_info("Open CSV : %s\n", csv_name);
 
-	if (f == NULL)
+	if (f == NULL){
+		mkdir(CSV_PATH, S_IRUGO | S_IWUSR);
 		f = filp_open(csv_name, O_WRONLY | O_CREAT | O_TRUNC, 644);
-
+	}
+	
 	if (ERR_ALLOC_MEM(f)) {
 		ipio_err("Failed to open CSV file");
 		goto fail_open;

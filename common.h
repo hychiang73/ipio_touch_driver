@@ -70,6 +70,8 @@
 
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
+#include <linux/syscalls.h>
+#include <linux/security.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_address.h>
@@ -233,7 +235,7 @@ enum ili7807_types {
 /*
  * Other settings
  */
-#define CSV_PATH			"/sdcard"
+#define CSV_PATH			"/sdcard/ilitek_mp_log"
 #define INI_NAME_PATH		"/sdcard/mp.ini"
 #define UPDATE_FW_PATH		"/sdcard/ILITEK_FW"
 #define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
@@ -316,6 +318,7 @@ static inline void *ipio_memcpy(void *dest, const void *src, size_t n, size_t de
     return memcpy(dest, src, n);
 }
 
+extern int mkdir(char *name, umode_t mode);
 extern int katoi(char *string);
 extern int str2hex(char *str);
 
