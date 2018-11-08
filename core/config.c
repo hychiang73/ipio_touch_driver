@@ -1122,20 +1122,6 @@ int core_config_get_chip_id(void)
 	ipio_info("OTP ID = 0x%x\n", core_config->chip_otp_id);
 	ipio_info("ANA ID = 0x%x\n", core_config->chip_ana_id);
 
-	core_config->chip_pid = pid;
-	core_config->chip_id = pid >> 16;
-	core_config->chip_type = (pid & 0x0000FF00) >> 8;
-	core_config->core_type = pid & 0xFF;
-	core_config->chip_otp_id = pid & 0xFF;
-	core_config->chip_ana_id = ANAIDData & 0xFF;
-
-	ipio_info("Chip PID = 0x%x\n", core_config->chip_pid);
-	ipio_info("Chip ID = 0x%x\n", core_config->chip_id);
-	ipio_info("Chip Type = 0x%x\n", core_config->chip_type);
-	ipio_info("Chip Core id = 0x%x\n", core_config->core_type);
-	ipio_info("OTP ID = 0x%x\n", core_config->chip_otp_id);
-	ipio_info("ANA ID = 0x%x\n", core_config->chip_ana_id);
-
 	if (do_once == 0) {
 		/* reading flash id needs to let ic entry to ICE mode */
 		read_flash_info(0x9F, 4);
