@@ -377,20 +377,23 @@ out:
 }
 EXPORT_SYMBOL(core_spi_read);
 
-static void core_spi_speed_up(struct spi_device *spi, uint32_t chip_id)
+void core_spi_speed_up(struct spi_device *spi, uint32_t chip_id)
 {
 	if (!spi)
 		return;
 
 	if (spi->max_speed_hz > 8600000) {
 		if (chip_id == CHIP_TYPE_ILI7807) {
-			ipio_info("set reg_tp_top_dummy_p1v 0x08\n");
+			ipio_info("Set register for SPI seepd up \n");
+			core_config_ice_mode_enable();
 			core_config_ice_mode_write(0x063820, 0x00000101, 4);
 			core_config_ice_mode_write(0x042c34, 0x00000008, 4);
 			core_config_ice_mode_write(0x063820, 0x00000000, 4);
+			core_config_ice_mode_disable();
 		}
 	}
 }
+EXPORT_SYMBOL(core_spi_speed_up);
 
 int core_spi_init(struct spi_device *spi)
 {
@@ -415,8 +418,6 @@ int core_spi_init(struct spi_device *spi)
 	 spi->master->bus_num, spi->chip_select, spi->mode, spi->max_speed_hz);
 
 	core_spi->spi = spi;
-
-	core_spi_speed_up(core_spi->spi, ipd->chip_id);
 	return 0;
 }
 EXPORT_SYMBOL(core_spi_init);

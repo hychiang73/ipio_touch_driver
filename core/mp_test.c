@@ -2305,7 +2305,7 @@ static void mp_run_test(char *item)
 				}
 
 				/* LCM on */
-				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
+				if (strnstr(tItems[i].desp, "lcm", strlen(tItems[i].desp)) != NULL)
 					mp_ctrl_lcm_status(true);
 			}
 			break;
@@ -2440,7 +2440,7 @@ int core_mp_move_code(void)
 	ipio_info("Start moving MP code\n");
 
 #ifdef HOST_DOWNLOAD
-	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0) {
+	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0) {
 		ipio_info("host download failed!\n");
 		ret = -1;
 		goto out;
@@ -2769,7 +2769,7 @@ int core_mp_start_test(void)
 		ipio_err("Switch to demo mode failed\n");
 
 #ifdef HOST_DOWNLOAD
-	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0)
+	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0)
 		ipio_info("host download failed!\n");
 #endif
 

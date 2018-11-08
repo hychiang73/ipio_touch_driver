@@ -563,10 +563,10 @@ void core_config_ic_resume(void)
 #ifdef HOST_DOWNLOAD
 		if (core_gesture_load_ap_code() < 0) {
 			ipio_err("load ap code fail\n");
-			ilitek_platform_reset_ctrl(true, HW_RST);
+			ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
 		}
 	} else {
-		ilitek_platform_reset_ctrl(true, HW_RST);
+		ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
 #endif
 	}
 
