@@ -2172,8 +2172,11 @@ static void mp_show_result(void)
 	ipio_info("Open CSV : %s\n", csv_name);
 
 	if (f == NULL){
-		mkdir(CSV_PATH, S_IRUGO | S_IWUSR);
 		f = filp_open(csv_name, O_WRONLY | O_CREAT | O_TRUNC, 644);
+		if(IS_ERR(f)){
+			mkdir(CSV_PATH, S_IRWXU);
+			f = filp_open(csv_name, O_WRONLY | O_CREAT | O_TRUNC, 644);
+		}
 	}
 	
 	if (ERR_ALLOC_MEM(f)) {
@@ -2795,3 +2798,29 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(core_mp_start_test);
+
+int mkdir(char *name, umode_t mode)
+{
+	struct dentry *dentry;
+	struct path path;
+	int error;
+	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+
+retry:
+	dentry = kern_path_create(AT_FDCWD, name, &path, lookup_flags);
+	if (!IS_POSIXACL(path.dentry->d_inode))
+		mode &= ~current_umask();
+
+	error = security_path_mkdir(&path, dentry, mode);
+	if (!error)
+		error = vfs_mkdir(path.dentry->d_inode, dentry, mode);
+
+	done_path_create(&path, dentry);
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+
+	return error;
+}
+
