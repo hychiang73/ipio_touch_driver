@@ -103,6 +103,7 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 	int ret = 0;
 
 	ilitek_platform_disable_irq();
+
 	if (isEnable) {
 #if (TP_PLATFORM == PT_MTK)
 		tpd_gpio_output(ipd->reset_gpio, 1);
@@ -126,13 +127,6 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 		gpio_set_value(ipd->reset_gpio, 0);
 #endif /* PT_MTK */
 	}
-
-#ifdef HOST_DOWNLOAD
-	core_config_ice_mode_enable();
-	ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
-	if (ret < 0)
-		ipio_err("host download failed!\n");
-#endif
 
 	if (core_fr->actual_fw_mode != protocol->test_mode)
 		ilitek_platform_enable_irq();
@@ -726,31 +720,41 @@ out:
 	return ret;
 }
 
-void ilitek_platform_read_tp_info(void)
+int ilitek_platform_read_tp_info(void)
 {
-	if (core_config_get_chip_id() < 0) {
-		ipio_err("Failed to get chip id\n");
-	}
+	int ret = -1;
 
 	if (core_config_get_protocol_ver() < 0) {
 		ipio_err("Failed to get protocol version\n");
+		goto out;
 	}
 
 	if (core_config_get_fw_ver() < 0) {
 		ipio_err("Failed to get firmware version\n");
+		goto out;
 	}
 
 	if (core_config_get_core_ver() < 0) {
 		ipio_err("Failed to get core version\n");
+		goto out;
 	}
 
 	if (core_config_get_tp_info() < 0) {
 		ipio_err("Failed to get TP information\n");
+		goto out;
 	}
 
+#ifndef HOST_DOWNLOAD
 	if (core_config_get_key_info() < 0) {
 		ipio_err("Failed to get key information\n");
+		goto out;
 	}
+#endif
+
+	ret = 0;
+
+out:
+	return ret;
 }
 EXPORT_SYMBOL(ilitek_platform_read_tp_info);
 
@@ -793,20 +797,25 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			ret = core_config_ic_reset();
 			break;
 		case HW_RST:
-		case HOST_DOWNLOAD_RST:
 			ipio_info("HW RESET\n");
-			ret = ilitek_platform_tp_hw_reset(rst);
+			ilitek_platform_tp_hw_reset(rst);
+			break;
+		case HOST_DOWNLOAD_RST:
+			ipio_info("Howst Download RST\n");
+			ilitek_platform_tp_hw_reset(rst);
+			/* To write data into iram must enter to ICE mode */
+			core_config_ice_mode_enable();
+			ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
+			if (ret < 0)
+				ipio_err("host download failed!\n");
 			break;
 		case HOST_DOWNLOAD_BOOT_RST:
 #ifdef HOST_DOWNLOAD
 			ipio_info("Reset for host download in boot stage\n");
-			gpio_direction_output(ipd->reset_gpio, 1);
-			mdelay(ipd->delay_time_high);
-			gpio_set_value(ipd->reset_gpio, 0);
-			mdelay(ipd->delay_time_low);
-			gpio_set_value(ipd->reset_gpio, 1);
-			mdelay(ipd->edge_delay);
+			ilitek_platform_tp_hw_reset(rst);
 			ret = core_firmware_boot_host_download();
+			if (ret < 0)
+				ipio_err("host download boot reset failed\n");
 #endif
 			break;
 		default:
@@ -970,7 +979,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ilitek_regulator_power_reg(ipd);
 #endif
 
-	/* If kernel failes to allocate memory to the core components, driver will be unloaded. */
+	/* If kernel failes to allocate memory for the core components, driver will be unloaded. */
 	if (ilitek_platform_core_init() < 0) {
 		ipio_err("Failed to allocate cores' mem\n");
 		return -ENOMEM;
@@ -979,17 +988,25 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	if (ilitek_platform_gpio() < 0)
 		ipio_err("Failed to request gpios\n ");
 
-	if (core_config_get_chip_id() < 0) {
-		ipio_err("Failed to get chip id\n");
-	}
-
-	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0) {
-		ipio_err("Failed to do reset\n");
-	}
-
+	/* Pull TP RST low to high after request GPIO succeed for normal work. */
 #ifndef HOST_DOWNLOAD
-	ilitek_platform_read_tp_info();
+	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0)
+		ipio_err("Failed to do hw reset\n");
 #endif
+
+	if (core_config_get_chip_id() < 0)
+		ipio_err("Failed to get chip id\n");
+
+#ifdef HOST_DOWNLOAD
+	core_spi_speed_up(ipd->spi, core_config->chip_id);
+
+	/* Start to download AP code to iram with HW reset. */
+	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_BOOT_RST) < 0)
+		ipio_err("Failed to do host download boot rest\n");
+#endif
+
+	if (ilitek_platform_read_tp_info() < 0)
+		ipio_err("Failed to read TP info\n");
 
 	if (ilitek_platform_isr_register() < 0)
 		ipio_err("Failed to register ISR\n");

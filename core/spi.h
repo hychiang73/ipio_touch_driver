@@ -34,6 +34,7 @@ struct core_spi_data {
 
 extern struct core_spi_data *core_spi;
 
+extern void core_spi_speed_up(struct spi_device *spi, uint32_t chip_id);
 extern int core_spi_write(uint8_t *pBuf, uint16_t nSize);
 extern int core_spi_read(uint8_t *pBuf, uint16_t nSize);
 extern int core_spi_init(struct spi_device *spi);
