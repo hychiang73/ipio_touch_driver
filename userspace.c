@@ -67,8 +67,11 @@
 #define ILITEK_IOCTL_ICE_MODE_SWITCH		_IOWR(ILITEK_IOCTL_MAGIC, 19, int)
 
 unsigned char g_user_buf[USER_STR_BUFF] = { 0 };
-#define DEBUG_DATA_FILE_SIZE   (10 * 1024)
+#define DEBUG_DATA_FILE_SIZE	(10 * 1024)
 #define DEBUG_DATA_FILE_PATH	"/sdcard/ILITEK_log.csv"
+#define REGISTER_READ	0
+#define REGISTER_WRITE	1
+uint32_t temp[5] = {0};
 
 struct file_buffer {
 	char *ptr;
@@ -757,6 +760,78 @@ out:
 
 
 	return 0;
+}
+
+static ssize_t ilitek_proc_read_write_register_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pos)
+{
+	int ret = 0;
+	uint32_t type, addr, read_data, write_data, write_len;
+
+	if (*pos != 0)
+		return 0;
+
+	type = temp[0];
+	addr = temp[1];
+	write_data = temp[2];
+	write_len = temp[3];
+
+	mutex_lock(&ipd->plat_mutex);
+
+	ret = core_config_ice_mode_enable();
+	if (ret < 0) {
+		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
+		return -1;
+	}
+
+	if (type == REGISTER_READ) {
+		read_data = core_config_ice_mode_read(addr);
+		ipio_info("READ:addr = 0x%06x, read = 0x%08x\n", addr, read_data);
+		nCount = snprintf(g_user_buf, PAGE_SIZE, "READ:addr = 0x%06x, read = 0x%08x\n", addr, read_data);
+
+	} else {
+		core_config_ice_mode_write(addr, write_data, write_len);
+		ipio_info("WRITE:addr = 0x%06x, write = 0x%08x, len =%d byte\n", addr, write_data, write_len);
+		nCount = snprintf(g_user_buf, PAGE_SIZE, "WRITE:addr = 0x%06x, write = 0x%08x, len =%d byte\n", addr, write_data, write_len);
+	}
+	core_config_ice_mode_disable();
+
+	mutex_unlock(&ipd->plat_mutex);
+
+	ret = copy_to_user(buf, g_user_buf, nCount);
+	if (ret < 0) {
+		ipio_err("Failed to copy data to user space");
+	}
+
+	*pos += nCount;
+
+	return nCount;
+
+}
+
+static ssize_t ilitek_proc_read_write_register_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
+{
+	int ret = 0;
+	char *token = NULL, *cur = NULL;
+	char cmd[256] = { 0 };
+	uint32_t count = 0;
+
+	if (buff != NULL) {
+		ret = copy_from_user(cmd, buff, size - 1);
+		if (ret < 0) {
+			ipio_info("copy data from user space, failed\n");
+			return -1;
+		}
+	}
+
+	token = cur = cmd;
+
+	while ((token = strsep(&cur, ",")) != NULL) {
+		temp[count] = str2hex(token);
+		ipio_info("data[%d] = 0x%x\n", count, temp[count]);
+		count++;
+	}
+
+	return size;
 }
 
 static ssize_t ilitek_proc_get_debug_mode_data_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
@@ -1699,6 +1774,10 @@ struct file_operations proc_get_debug_mode_data_fops = {
 	.write = ilitek_proc_get_debug_mode_data_write,
 };
 
+struct file_operations proc_read_write_register_fops = {
+	.read = ilitek_proc_read_write_register_read,
+	.write = ilitek_proc_read_write_register_write,
+};
 
 /**
  * This struct lists all file nodes will be created under /proc filesystem.
@@ -1732,6 +1811,8 @@ proc_node_t proc_table[] = {
 	{"show_delta_data", NULL, &proc_get_delta_data_fops, false},
 	{"show_raw_data", NULL, &proc_get_raw_data_fops, false},
 	{"get_debug_mode_data", NULL, &proc_get_debug_mode_data_fops, false},
+	{"read_write_register", NULL, &proc_read_write_register_fops, false},
+
 };
 
 #define NETLINK_USER 21
