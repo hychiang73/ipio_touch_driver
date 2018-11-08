@@ -421,7 +421,7 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 }
 EXPORT_SYMBOL(core_parser_benchmark);
 
-int core_parser_get_u8_array(char *key, uint8_t *buf)
+int core_parser_get_u8_array(char *key, uint8_t *buf, size_t len)
 {
 	char *s = key;
 	char *pToken;
@@ -437,6 +437,9 @@ int core_parser_get_u8_array(char *key, uint8_t *buf)
 			else
 				ipio_info("convert string too long, ret = %d\n", ret);
 			conut++;
+
+			if (conut >= len)
+				break;
 		}
 	}
 
