@@ -998,7 +998,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 		ipio_err("Failed to get chip id\n");
 
 #ifdef HOST_DOWNLOAD
-	core_spi_speed_up(ipd->spi, core_config->chip_id);
+	core_spi_speed_up(ipd->spi, ipd->chip_id);
 
 	/* Start to download AP code to iram with HW reset. */
 	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_BOOT_RST) < 0)
