@@ -70,6 +70,7 @@
 
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
+#include <linux/rtc.h>
 #include <linux/syscalls.h>
 #include <linux/security.h>
 
@@ -316,6 +317,22 @@ static inline void *ipio_memcpy(void *dest, const void *src, size_t n, size_t de
          n = dest_size;
 
     return memcpy(dest, src, n);
+}
+
+
+static inline char *get_date_time_str(void){
+	struct timespec now_time;
+	struct rtc_time rtc_now_time;
+	static char time_data_buf[128] = { 0 };
+
+	getnstimeofday(&now_time);
+	rtc_time_to_tm(now_time.tv_sec, &rtc_now_time);
+	sprintf(time_data_buf, "%04d%02d%02d-%02d%02d%02d",
+		(rtc_now_time.tm_year + 1900), rtc_now_time.tm_mon + 1,
+		rtc_now_time.tm_mday, rtc_now_time.tm_hour, rtc_now_time.tm_min,
+		rtc_now_time.tm_sec);
+
+	return time_data_buf;
 }
 
 extern int mkdir(char *name, umode_t mode);
