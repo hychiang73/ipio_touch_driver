@@ -989,10 +989,8 @@ static int ilitek_platform_probe(struct spi_device *spi)
 		ipio_err("Failed to request gpios\n ");
 
 	/* Pull TP RST low to high after request GPIO succeed for normal work. */
-#ifndef HOST_DOWNLOAD
 	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0)
 		ipio_err("Failed to do hw reset\n");
-#endif
 
 	if (core_config_get_chip_id() < 0)
 		ipio_err("Failed to get chip id\n");
