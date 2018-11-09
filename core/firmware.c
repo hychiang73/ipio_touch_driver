@@ -367,7 +367,7 @@ static int tddi_check_fw_upgrade(void)
 
 check_hw_crc:
 	/* Check HW and Hex CRC */
-	for(i = 0; i < ARRAY_SIZE(fbi); i++) {
+	for (i = 0; i < ARRAY_SIZE(fbi); i++) {
 		start_addr = fbi[i].start_addr;
 		end_addr = fbi[i].end_addr;
 
@@ -383,7 +383,7 @@ check_hw_crc:
 		ipio_info("HW CRC = 0x%06x, HEX CRC = 0x%06x\n", fbi[i].hex_crc, fbi[i].block_crc);
 
 		/* Compare HW CRC with HEX CRC */
-		if(fbi[i].hex_crc != fbi[i].block_crc)
+		if (fbi[i].hex_crc != fbi[i].block_crc)
 			ret = NEED_UPDATE;
 	}
 
@@ -391,7 +391,7 @@ check_hw_crc:
 
 check_flash_crc:
 	/* Check Flash CRC and HW CRC */
-	for(i = 0; i < ARRAY_SIZE(fbi); i++) {
+	for (i = 0; i < ARRAY_SIZE(fbi); i++) {
 		start_addr = fbi[i].start_addr;
 		end_addr = fbi[i].end_addr;
 
@@ -412,7 +412,7 @@ check_flash_crc:
 		ipio_info("HW CRC = 0x%06x, Flash CRC = 0x%06x\n", fbi[i].block_crc, flash_crc_cb);
 
 		/* Compare Flash CRC with HW CRC */
-		if(flash_crc_cb != fbi[i].block_crc)
+		if (flash_crc_cb != fbi[i].block_crc)
 			ret = NEED_UPDATE;
 
 		memset(flash_crc, 0, sizeof(flash_crc));
@@ -1436,7 +1436,7 @@ int core_firmware_boot_upgrade(void)
 	}
 
 	/* store old version before upgrade fw */
-	if(protocol->mid >= 0x3) {
+	if (protocol->mid >= 0x3) {
 		core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
 		core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
 		core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];
@@ -1682,7 +1682,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
 				fbi[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
 
-				if(nType == 0xAF)
+				if (nType == 0xAF)
 				    fbi[block].number = HexToDec(&pBuf[i + 9 + 6 + 6], 2);
 			}
 			ipio_info("Block[%d]: start_addr = %x, end = %x, number = %d\n",
@@ -1824,7 +1824,7 @@ int core_firmware_upgrade(const char *pFilePath, bool host_download)
 		esd = true;
 	}
 
-	if(protocol->mid >= 0x3) {
+	if (protocol->mid >= 0x3) {
 		core_firmware->old_fw_ver[0] = core_config->firmware_ver[1];
 		core_firmware->old_fw_ver[1] = core_config->firmware_ver[2];
 		core_firmware->old_fw_ver[2] = core_config->firmware_ver[3];

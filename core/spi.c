@@ -42,7 +42,7 @@ int core_Rx_check(uint16_t check)
 	txbuf[3] = 0x0;
 	txbuf[4] = 0x2;
 
-	for(i = 0; i < count; i++) {
+	for (i = 0; i < count; i++) {
 
 		txbuf[0] = SPI_WRITE;
 		if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
@@ -59,7 +59,7 @@ int core_Rx_check(uint16_t check)
 		status = (rxbuf[2] << 8) + rxbuf[3];
 		size = (rxbuf[0] << 8) + rxbuf[1];
 
-		if(status == check)
+		if (status == check)
 			return size;
 
 		mdelay(1);
@@ -82,7 +82,7 @@ int core_Tx_unlock_check(void)
 	txbuf[3] = 0x0;
 	txbuf[4] = 0x2;
 
-	for(i = 0; i < count; i++) {
+	for (i = 0; i < count; i++) {
 		txbuf[0] = SPI_WRITE;
 		if (spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
 			ret = -EIO;
@@ -97,7 +97,7 @@ int core_Tx_unlock_check(void)
 
 		unlock = (rxbuf[2] << 8) + rxbuf[3];
 
-		if(unlock == 0x9881)
+		if (unlock == 0x9881)
 			return ret;
 
 		mdelay(1);
@@ -175,7 +175,7 @@ int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
 	txbuf[5 + size] = check_sum;
 	size++;
 	wsize = size;
-	if(wsize % 4 != 0)
+	if (wsize % 4 != 0)
 		wsize += 4 - (wsize % 4);
 
 	if (spi_write_then_read(core_spi->spi, txbuf, wsize + 5, txbuf, 0) < 0) {
@@ -241,7 +241,7 @@ int core_ice_mode_enable_9881H11(void)
 	}
 
 	/* check recover data */
-	if(rxbuf[0] == 0x82) {
+	if (rxbuf[0] == 0x82) {
 		ipio_err("Check Recovery data failed (0x%x)\n", rxbuf[0]);
 		return CHECK_RECOVER;
 	}
@@ -302,7 +302,7 @@ int core_spi_write_9881H11(uint8_t *pBuf, uint16_t nSize)
 	if (ret < 0)
 		goto out;
 
-	if(core_Tx_unlock_check() < 0) {
+	if (core_Tx_unlock_check() < 0) {
 		ret = -ETXTBSY;
 	}
 
@@ -324,7 +324,7 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 		goto out;
 	}
 
-	if(core_config->icemodeenable == false) {
+	if (core_config->icemodeenable == false) {
 		ret = core_spi_write_9881H11(pBuf, nSize);
 		core_ice_mode_disable_9881H11();
 		ipio_kfree((void **)&txbuf);
@@ -358,7 +358,7 @@ int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 
 	txbuf[0] = SPI_READ;
 
-	if(core_config->icemodeenable == false)
+	if (core_config->icemodeenable == false)
 		return core_spi_read_9881H11(pBuf, nSize);
 
 	if (spi_write_then_read(core_spi->spi, txbuf, 1, pBuf, nSize) < 0) {
@@ -377,20 +377,23 @@ out:
 }
 EXPORT_SYMBOL(core_spi_read);
 
-static void core_spi_speed_up(struct spi_device *spi, uint32_t chip_id)
+void core_spi_speed_up(struct spi_device *spi, uint32_t chip_id)
 {
-	if(!spi)
+	if (!spi)
 		return;
 
 	if (spi->max_speed_hz > 8600000) {
 		if (chip_id == CHIP_TYPE_ILI7807) {
-			ipio_info("set reg_tp_top_dummy_p1v 0x08\n");
+			ipio_info("Set register for SPI seepd up \n");
+			core_config_ice_mode_enable();
 			core_config_ice_mode_write(0x063820, 0x00000101, 4);
 			core_config_ice_mode_write(0x042c34, 0x00000008, 4);
 			core_config_ice_mode_write(0x063820, 0x00000000, 4);
+			core_config_ice_mode_disable();
 		}
 	}
 }
+EXPORT_SYMBOL(core_spi_speed_up);
 
 int core_spi_init(struct spi_device *spi)
 {
@@ -406,7 +409,7 @@ int core_spi_init(struct spi_device *spi)
 	spi->bits_per_word = 8;
 
 	ret = spi_setup(spi);
-	if (ret < 0){
+	if (ret < 0) {
 		ipio_err("ERR: fail to setup spi\n");
 		return -ENODEV;
 	}
@@ -415,8 +418,6 @@ int core_spi_init(struct spi_device *spi)
 	 spi->master->bus_num, spi->chip_select, spi->mode, spi->max_speed_hz);
 
 	core_spi->spi = spi;
-
-	core_spi_speed_up(core_spi->spi, ipd->chip_id);
 	return 0;
 }
 EXPORT_SYMBOL(core_spi_init);

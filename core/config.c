@@ -319,7 +319,7 @@ int core_config_ice_mode_bit_mask(uint32_t addr, uint32_t nMask, uint32_t value)
 	ipio_info("mask value data = %x\n", data);
 
 	ret = core_config_ice_mode_write(addr, data, 4);
-	if(ret < 0)
+	if (ret < 0)
 		ipio_err("Failed to re-write data in ICE mode, ret = %d\n", ret);
 
 	return ret;
@@ -477,7 +477,7 @@ void core_config_set_phone_cover(uint8_t *pattern)
 		return;
 	}
 
-	for(i = 0; i < 8; i++)
+	for (i = 0; i < 8; i++)
 		protocol->phone_cover_window[i+1] = pattern[i];
 
 	ipio_info("window: cmd = 0x%x\n", protocol->phone_cover_window[0]);
@@ -519,7 +519,7 @@ void core_config_ic_suspend(void)
 
 	if (core_config->isEnableGesture) {
 #ifdef HOST_DOWNLOAD
-		if(core_gesture_load_code() < 0)
+		if (core_gesture_load_code() < 0)
 			ipio_err("load gesture code fail\n");
 #else
 		core_config_switch_fw_mode(&protocol->gesture_mode);
@@ -561,12 +561,12 @@ void core_config_ic_resume(void)
 	if (core_config->isEnableGesture) {
 		disable_irq_wake(ipd->isr_gpio);
 #ifdef HOST_DOWNLOAD
-		if(core_gesture_load_ap_code() < 0) {
+		if (core_gesture_load_ap_code() < 0) {
 			ipio_err("load ap code fail\n");
-			ilitek_platform_reset_ctrl(true, HW_RST);
+			ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
 		}
 	} else {
-		ilitek_platform_reset_ctrl(true, HW_RST);
+		ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
 #endif
 	}
 
@@ -632,7 +632,7 @@ int core_config_set_watch_dog(bool enable)
 	}
 
 	/* FW will automatiacally disable WDT in I2C */
-	if(INTERFACE == I2C_INTERFACE) {
+	if (INTERFACE == I2C_INTERFACE) {
 		ipio_info("Interface is I2C, do nothing\n");
 		return 0;
 	}
@@ -641,7 +641,7 @@ int core_config_set_watch_dog(bool enable)
 	 if (core_config->chip_id == CHIP_TYPE_ILI9881 ) {
 		value_low = 0x81;
 		value_high = 0x98;
-	} else if(core_config->chip_id == CHIP_TYPE_ILI7807) {
+	} else if (core_config->chip_id == CHIP_TYPE_ILI7807) {
 		value_low = 0x78;
 		value_high = 0x98;
 	} else {
@@ -746,7 +746,7 @@ int core_config_check_int_status(bool high)
 
 	/* From FW request, timeout should at least be 5 sec */
 	while (timer) {
-		if(high) {
+		if (high) {
 			if (gpio_get_value(ipd->int_gpio)) {
 				ipio_info("Check busy is free\n");
 				ret = 0;
@@ -800,7 +800,7 @@ int core_config_get_project_id(uint8_t *pid_data)
 	core_config_ice_mode_write(0x041008, (pid_addr & 0x00FF00) >> 8, 1);
 	core_config_ice_mode_write(0x041008, (pid_addr & 0x0000FF), 1);
 
-	for(i = 0; i < pid_size; i++) {
+	for (i = 0; i < pid_size; i++) {
 		core_config_ice_mode_write(0x041008, 0xFF, 1);
 		pid_data[i] = core_config_ice_mode_read(0x41010);
 		ipio_info("pid_data[%d] = 0x%x\n", i, pid_data[i]);
@@ -1113,20 +1113,6 @@ int core_config_get_chip_id(void)
 	core_config->chip_type = (pid & 0x0000FF00) >> 8;
 	core_config->core_type = pid & 0xFF;
 	core_config->chip_otp_id = OTPIDData & 0xFF;
-	core_config->chip_ana_id = ANAIDData & 0xFF;
-
-	ipio_info("Chip PID = 0x%x\n", core_config->chip_pid);
-	ipio_info("Chip ID = 0x%x\n", core_config->chip_id);
-	ipio_info("Chip Type = 0x%x\n", core_config->chip_type);
-	ipio_info("Chip Core id = 0x%x\n", core_config->core_type);
-	ipio_info("OTP ID = 0x%x\n", core_config->chip_otp_id);
-	ipio_info("ANA ID = 0x%x\n", core_config->chip_ana_id);
-
-	core_config->chip_pid = pid;
-	core_config->chip_id = pid >> 16;
-	core_config->chip_type = (pid & 0x0000FF00) >> 8;
-	core_config->core_type = pid & 0xFF;
-	core_config->chip_otp_id = pid & 0xFF;
 	core_config->chip_ana_id = ANAIDData & 0xFF;
 
 	ipio_info("Chip PID = 0x%x\n", core_config->chip_pid);

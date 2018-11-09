@@ -92,6 +92,10 @@ struct ilitek_platform_data {
 	int debug_data_frame;
 	wait_queue_head_t inq;
 	unsigned char debug_buf[1024][2048];
+	int raw_count;
+	int delta_count;
+	int bg_count;
+	bool debug_data_start_flag;
 	struct mutex ilitek_debug_mutex;
 	struct mutex ilitek_debug_read_mutex;
 };
@@ -102,7 +106,7 @@ extern struct ilitek_platform_data *ipd;
 extern int ilitek_platform_reset_ctrl(bool rst, int mode);
 extern void ilitek_platform_disable_irq(void);
 extern void ilitek_platform_enable_irq(void);
-extern void ilitek_platform_read_tp_info(void);
+extern int ilitek_platform_read_tp_info(void);
 extern int ilitek_platform_tp_hw_reset(bool isEnable);
 #ifdef ENABLE_REGULATOR_POWER_ON
 extern void ilitek_regulator_power_on(bool status);

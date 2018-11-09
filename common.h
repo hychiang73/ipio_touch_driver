@@ -106,7 +106,7 @@
 #define INTERFACE I2C_INTERFACE
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.3.9"
+#define DRIVER_VERSION	"1.0.3.10"
 
 /* Driver core type */
 #define CORE_TYPE_B		0x00
@@ -245,8 +245,8 @@ enum ili7807_types {
  /* define the width and heigth of a screen. */
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
-#define TOUCH_SCREEN_X_MAX 1080
-#define TOUCH_SCREEN_Y_MAX 2246
+#define TOUCH_SCREEN_X_MAX 720
+#define TOUCH_SCREEN_Y_MAX 1280
 
 /* define the range on panel */
 #define TPD_HEIGHT 2048
@@ -296,21 +296,21 @@ enum ili7807_types {
 //#define ESD_CHECK
 
 static inline void ipio_kfree(void **mem) {
-	if(*mem != NULL) {
+	if (*mem != NULL) {
 		kfree(*mem);
 		*mem = NULL;
 	}
 }
 
 static inline void ipio_vfree(void **mem) {
-	if(*mem != NULL) {
+	if (*mem != NULL) {
 		vfree(*mem);
 		*mem = NULL;
 	}
 }
 
 static inline void *ipio_memcpy(void *dest, const void *src, size_t n, size_t dest_size) {
-    if(n > dest_size)
+    if (n > dest_size)
          n = dest_size;
 
     return memcpy(dest, src, n);

@@ -353,10 +353,10 @@ static int finger_report_ver_5_0(void)
 	if (ret < 0) {
 		ipio_err("Failed to read finger report packet\n");
 #ifdef HOST_DOWNLOAD
-		if(ret == CHECK_RECOVER) {
+		if (ret == CHECK_RECOVER) {
 			ipio_err("Doing host download recovery !\n");
-			ret = ilitek_platform_reset_ctrl(true, HW_RST);
-			if(ret < 0)
+			ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
+			if (ret < 0)
 				ipio_info("host download failed!\n");
 		}
 #endif
@@ -489,7 +489,7 @@ static uint16_t calc_packet_length(void)
 			rlen += 1;
 			break;
 		case P5_0_FIRMWARE_GESTURE_MODE:
-			if(core_gesture->mode == GESTURE_NORMAL_MODE)
+			if (core_gesture->mode == GESTURE_NORMAL_MODE)
 				rlen = GESTURE_MORMAL_LENGTH;
 			else
 				rlen = GESTURE_INFO_LENGTH;
@@ -530,6 +530,7 @@ fr_hashtable fr_t[] = {
  * Here will allocate the size of packet depending on what the current protocol
  * is used on its firmware.
  */
+
 void core_fr_handler(void)
 {
 	int i = 0;
@@ -623,6 +624,19 @@ void core_fr_handler(void)
 				mutex_unlock(&ipd->ilitek_debug_mutex);
 				wake_up(&(ipd->inq));
 			}
+
+			if (ipd->debug_data_start_flag && (ipd->debug_data_frame < 1024)) {
+				mutex_lock(&ipd->ilitek_debug_mutex);
+				memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
+						(uint8_t) sizeof(uint8_t) * 2048);
+				ipio_memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len, 2048);
+
+				ipd->debug_data_frame ++;
+
+
+				mutex_unlock(&ipd->ilitek_debug_mutex);
+				wake_up(&(ipd->inq));
+			}
 			break;
 		}
 		i++;
@@ -634,12 +648,12 @@ void core_fr_handler(void)
 out:
 	ipio_kfree((void **)&tdata);
 
-	if(g_fr_node != NULL) {
+	if (g_fr_node != NULL) {
 		ipio_kfree((void **)&g_fr_node->data);
 		ipio_kfree((void **)&g_fr_node);
 	}
 
-	if(g_fr_uart != NULL) {
+	if (g_fr_uart != NULL) {
 		ipio_kfree((void **)&g_fr_uart->data);
 		ipio_kfree((void **)&g_fr_uart);
 	}

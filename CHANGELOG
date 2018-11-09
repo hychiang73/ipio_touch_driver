@@ -1,3 +1,12 @@
+* V1.0.3.10
+  * Fix error when exit to ICE mode in pc counter function.
+  * Fix error when print delta/raw data in AP mode by reading its node.
+  * Add a node to print and store BG/delta/raw data in Debug mode (like APK).
+  * Fix error that got wrong commands in LCM off test item if use new format of ini file.
+  * Remove HW reset (I2C) and reload MP code (SPI) when doing MP retry.
+  * Change every characters to lower case in parsing ini file.
+  * Modifiy some coding styles.
+
 * V1.0.3.9
   * Fully support 7807G (I2C/PSI).
   * Add enable_irq_wake & disable_irq to solve deep sleep.
