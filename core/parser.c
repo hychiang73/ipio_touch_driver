@@ -426,7 +426,7 @@ int core_parser_get_u8_array(char *key, uint8_t *buf)
 	char *s = key;
 	char *pToken;
 	int ret, conut = 0;
-    long s_to_long = 0;
+    	long s_to_long = 0;
 
 	if (isspace_t((int)(unsigned char)*s) == 0)
 	{
@@ -495,8 +495,9 @@ int core_parser_path(char *path)
 		ret = -EINVAL;
 		goto out;
 	}
+	
+	tmp = vmalloc(fsize+1);
 
-	tmp = kmalloc(fsize+1, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(tmp)) {
 		ipio_err("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
 		ret = -ENOMEM;
@@ -511,7 +512,6 @@ int core_parser_path(char *path)
 	tmp[fsize] = 0x00;
 
 	init_ilitek_ini_data();
-
 	file_capital_to_lower_case(tmp,strlen(tmp));
 
 	ret = get_ini_phy_data(tmp,fsize);
@@ -519,11 +519,10 @@ int core_parser_path(char *path)
 		ipio_err("Failed to get physical ini data, ret = %d\n", ret);
 		goto out;
 	}
-
 	ipio_info("Parsing INI file doen\n");
 
 out:
-	ipio_kfree((void **)&tmp);
+	ipio_vfree((void **)&tmp);
 	filp_close(f, NULL);
 	return ret;
 }

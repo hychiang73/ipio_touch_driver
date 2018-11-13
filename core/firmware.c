@@ -1500,7 +1500,7 @@ int core_firmware_boot_upgrade(void)
 		goto out;
 	}
 
-	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
+	hex_buffer = vmalloc(fsize, sizeof(uint8_t));
 	if (ERR_ALLOC_MEM(hex_buffer)) {
 		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
 		ret = -ENOMEM;
@@ -1548,7 +1548,7 @@ out:
 
 	ipio_kfree((void **)&flash_fw);
 	ipio_kfree((void **)&g_flash_sector);
-	ipio_kfree((void **)&hex_buffer);
+	ipio_vfree((void **)&hex_buffer);
 	core_firmware->isUpgrading = false;
 	return ret;
 }
@@ -1676,7 +1676,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 		}
 
 		if (nType == 0xAE || nType == 0xAF) {
-			core_firmware->hex_tag = nType;
+			core_firmware->hex_tag = nType; //important
 			/* insert block info extracted from hex */
 			if (block < FW_BLOCK_INFO_NUM) {
 				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
@@ -2011,5 +2011,6 @@ int core_firmware_init(void)
 			}
 		}
 	}
+	
 	return 0;
 }

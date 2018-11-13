@@ -70,6 +70,10 @@
 
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
+#include <linux/rtc.h>
+#include <linux/syscalls.h>
+#include <linux/security.h>
+#include <linux/mount.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_address.h>
@@ -233,7 +237,7 @@ enum ili7807_types {
 /*
  * Other settings
  */
-#define CSV_PATH			"/sdcard"
+#define CSV_PATH			"/sdcard/ilitek_mp_log"
 #define INI_NAME_PATH		"/sdcard/mp.ini"
 #define UPDATE_FW_PATH		"/sdcard/ILITEK_FW"
 #define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
@@ -316,7 +320,22 @@ static inline void *ipio_memcpy(void *dest, const void *src, size_t n, size_t de
     return memcpy(dest, src, n);
 }
 
+static inline char *get_date_time_str(void){
+	struct timespec now_time;
+	struct rtc_time rtc_now_time;
+	static char time_data_buf[128] = { 0 };
+
+	getnstimeofday(&now_time);
+	rtc_time_to_tm(now_time.tv_sec, &rtc_now_time);
+	sprintf(time_data_buf, "%04d%02d%02d-%02d%02d%02d",
+		(rtc_now_time.tm_year + 1900), rtc_now_time.tm_mon + 1,
+		rtc_now_time.tm_mday, rtc_now_time.tm_hour, rtc_now_time.tm_min,
+		rtc_now_time.tm_sec);
+
+	return time_data_buf;
+}
+
+extern int dev_mkdir(char *name, umode_t mode);
 extern int katoi(char *string);
 extern int str2hex(char *str);
-
 #endif /* __COMMON_H */
