@@ -531,10 +531,11 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 	return send_data_len;
 }
 
-static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+static ssize_t ilitek_proc_mp_lcm_on_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int apk[100] = {0};
 	int ret;
+	bool lcm_on = true;
 
 	if (*pPos != 0)
 		return 0;
@@ -545,12 +546,48 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 	}
 
 	/* Create the directory for mp_test result */
-	ret = dev_mkdir(CSV_PATH, S_IRUGO | S_IWUSR);
+	ret = dev_mkdir(CSV_LCM_ON_PATH, S_IRUGO | S_IWUSR);
     if (ret != 0)
         ipio_err("Failed to create directory for mp_test\n");
 
 	/* Running MP Test */
-	ret = core_mp_start_test();
+	ret = core_mp_start_test(lcm_on);
+	if (ret < 0)
+		goto out;
+
+	/* copy MP result to user */
+	memset(apk, 2, sizeof(apk));
+	core_mp_copy_reseult(apk, sizeof(apk));
+	ret = copy_to_user((uint32_t *)buff, apk, sizeof(apk));
+	if (ret < 0)
+		ipio_err("Failed to copy data to user space\n");
+
+out:
+	core_mp_test_free();
+	return 0;
+}
+
+static ssize_t ilitek_proc_mp_lcm_off_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
+{
+	int apk[100] = {0};
+	int ret;
+	bool lcm_off = false;
+
+	if (*pPos != 0)
+		return 0;
+
+	if (core_firmware->isUpgrading) {
+		ipio_err("FW upgrading, please wait to complete\n");
+		return 0;
+	}
+
+	/* Create the directory for mp_test result */
+	ret = dev_mkdir(CSV_LCM_OFF_PATH, S_IRUGO | S_IWUSR);
+    if (ret != 0)
+        ipio_err("Failed to create directory for mp_test\n");
+
+	/* Running MP Test */
+	ret = core_mp_start_test(lcm_off);
 	if (ret < 0)
 		goto out;
 
@@ -1730,8 +1767,12 @@ struct file_operations proc_debug_level_fops = {
 	.read = ilitek_proc_debug_level_read,
 };
 
-struct file_operations proc_mp_test_fops = {
-	.read = ilitek_proc_mp_test_read,
+struct file_operations proc_mp_lcm_on_test_fops = {
+	.read = ilitek_proc_mp_lcm_on_test_read,
+};
+
+struct file_operations proc_mp_lcm_off_test_fops = {
+	.read = ilitek_proc_mp_lcm_off_test_read,
 };
 
 struct file_operations proc_debug_message_fops = {
@@ -1790,7 +1831,8 @@ proc_node_t proc_table[] = {
 	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"check_esd", NULL, &proc_check_esd_fops, false},
 	{"debug_level", NULL, &proc_debug_level_fops, false},
-	{"mp_test", NULL, &proc_mp_test_fops, false},
+	{"mp_lcm_on_test", NULL, &proc_mp_lcm_on_test_fops, false},
+	{"mp_lcm_off_test", NULL, &proc_mp_lcm_off_test_fops, false},
 	{"debug_message", NULL, &proc_debug_message_fops, false},
 	{"debug_message_switch", NULL, &proc_debug_message_switch_fops, false},
 	{"fw_pc_counter", NULL, &proc_fw_pc_counter_fops, false},
@@ -1798,7 +1840,6 @@ proc_node_t proc_table[] = {
 	{"show_raw_data", NULL, &proc_get_raw_data_fops, false},
 	{"get_debug_mode_data", NULL, &proc_get_debug_mode_data_fops, false},
 	{"read_write_register", NULL, &proc_read_write_register_fops, false},
-
 };
 
 #define NETLINK_USER 21

@@ -540,36 +540,6 @@ static int create_mp_test_frame_buffer(int index, int frame_count)
 	return 0;
 }
 
-static int mp_ctrl_lcm_status(bool on)
-{
-	int ret = 0, ctrl = 0, delay = 0;
-	uint8_t lcd[15] = {0};
-	uint8_t header = 0x0F;
-
-	memset(&lcd, 0xFF, ARRAY_SIZE(lcd));
-
-	ctrl = ((on) ? 1 : 2);
-	delay = ((on) ? 100 : 10);
-
-	lcd[0] = header;
-	lcd[1] = protocol->mutual_bg;
-	lcd[2] = 0;
-	lcd[3] = ctrl;
-
-	dump_data(lcd, 8, ARRAY_SIZE(lcd), 0, "LCM Command");
-
-	ret = core_write(core_config->slave_i2c_addr, lcd, ARRAY_SIZE(lcd));
-	if (ret < 0) {
-		ipio_err("Failed to write LCM command\n");
-		goto out;
-	}
-
-	mdelay(delay);
-
-out:
-	return ret;
-}
-
 static int allnode_key_cdc_data(int index)
 {
 	int i, ret = 0, len = 0;
@@ -1863,7 +1833,7 @@ static void mp_do_retry(int index, int count)
 		return mp_do_retry(index, count - 1);
 }
 
-static void mp_show_result(void)
+static void mp_show_result(const char *csv_path)
 {
 	int i, x, y, j, csv_len = 0, pass_item_count = 0 ,line_count = 0 ,get_frame_cont = 1;
 	int32_t *max_threshold = NULL, *min_threshold = NULL;
@@ -2026,10 +1996,10 @@ static void mp_show_result(void)
 
 	if (pass_item_count == 0) {
 		core_mp->final_result = MP_FAIL;
-		sprintf(csv_name, "%s/%s_%s.csv", CSV_PATH, get_date_time_str(), ret_fail_name);
+		sprintf(csv_name, "%s/%s_%s.csv", csv_path, get_date_time_str(), ret_fail_name);
 	} else {
 		core_mp->final_result = MP_PASS;
-		sprintf(csv_name, "%s/%s_%s.csv", CSV_PATH, get_date_time_str(), ret_pass_name);
+		sprintf(csv_name, "%s/%s_%s.csv", csv_path, get_date_time_str(), ret_pass_name);
 	}
 
 	ipio_info("Open CSV : %s\n", csv_name);
@@ -2184,10 +2154,6 @@ static void mp_run_test(char *item)
 					tItems[i].v_tdf_2, tItems[i].h_tdf_1, tItems[i].h_tdf_2);
 
 			if (tItems[i].run) {
-				/* LCM off */
-				if (strnstr(tItems[i].desp, "lcm", strlen(tItems[i].desp)) != NULL)
-					mp_ctrl_lcm_status(false);
-
 				ipio_info("Running Test Item : %s\n", tItems[i].desp);
 				tItems[i].do_test(i);
 
@@ -2198,10 +2164,6 @@ static void mp_run_test(char *item)
 						mp_do_retry(i, RETRY_COUNT);
 					}
 				}
-
-				/* LCM on */
-				if (strnstr(tItems[i].desp, "lcm", strlen(tItems[i].desp)) != NULL)
-					mp_ctrl_lcm_status(true);
 			}
 			break;
 		}
@@ -2585,9 +2547,10 @@ out:
 	return ret;
 }
 
-int core_mp_start_test(void)
+int core_mp_start_test(bool lcm_on)
 {
 	int ret = 0;
+	const char *csv_path = NULL;
 
 	mutex_lock(&ipd->plat_mutex);
 
@@ -2624,23 +2587,26 @@ int core_mp_start_test(void)
 	}
 
 	if (protocol->major >= 5 && protocol->mid >= 4) {
-
 		/* Do not chang the sequence of test */
-		mp_run_test("noise peak to peak(with panel)");
-		mp_run_test("noise peak to peak(ic only)");
-		mp_run_test("short test -ili9881");
-		mp_run_test("open test(integration)_sp");
-		mp_run_test("raw data(no bk)");
-		mp_run_test("raw data(have bk) (lcm off)");
-		mp_run_test("calibration data(dac)");
-		mp_run_test("raw data(no bk)");
-		mp_run_test("raw data(no bk) (lcm off)");
-		mp_run_test("noise peak to peak(with panel) (lcm off)");
-		mp_run_test("noise peak to peak(ic only) (lcm off)");
-		mp_run_test("raw data_td (lcm off)");
-		mp_run_test("peak to peak_td (lcm off)");
-		mp_run_test("doze raw data");
-		mp_run_test("doze peak to peak");
+		if (lcm_on) {
+			csv_path = CSV_LCM_ON_PATH;
+			mp_run_test("noise peak to peak(with panel)");
+			mp_run_test("noise peak to peak(ic only)");
+			mp_run_test("short test -ili9881");
+			mp_run_test("open test(integration)_sp");
+			mp_run_test("raw data(no bk)");
+			mp_run_test("calibration data(dac)");
+			mp_run_test("doze raw data");
+			mp_run_test("doze peak to peak");
+		} else {
+			csv_path = CSV_LCM_OFF_PATH;
+			mp_run_test("raw data(have bk) (lcm off)");
+			mp_run_test("raw data(no bk) (lcm off)");
+			mp_run_test("noise peak to peak(with panel) (lcm off)");
+			mp_run_test("noise peak to peak(ic only) (lcm off)");
+			mp_run_test("raw data_td (lcm off)");
+			mp_run_test("peak to peak_td (lcm off)");
+		}
 	} else {
 		mp_run_test("untouch peak to peak");
 		mp_run_test("open test(integration)");
@@ -2654,7 +2620,7 @@ int core_mp_start_test(void)
 		mp_run_test("pixel raw (have bk)");
 	}
 
-	mp_show_result();
+	mp_show_result(csv_path);
 
 #ifndef HOST_DOWNLOAD
 	ilitek_platform_reset_ctrl(true, HW_RST);

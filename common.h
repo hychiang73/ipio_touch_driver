@@ -237,7 +237,8 @@ enum ili7807_types {
 /*
  * Other settings
  */
-#define CSV_PATH			"/sdcard/ilitek_mp_log"
+#define CSV_LCM_ON_PATH     "/sdcard/ilitek_mp_lcm_on_log"
+#define CSV_LCM_OFF_PATH	"/sdcard/ilitek_mp_lcm_off_log"
 #define INI_NAME_PATH		"/sdcard/mp.ini"
 #define UPDATE_FW_PATH		"/sdcard/ILITEK_FW"
 #define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
