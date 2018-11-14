@@ -148,6 +148,21 @@ int str2hex(char *str)
 }
 EXPORT_SYMBOL(str2hex);
 
+static int dev_mkdir(char *name, umode_t mode)
+{
+    struct dentry *dentry;
+    struct path path;
+    int err;
+
+    dentry = kern_path_create(AT_FDCWD, name, &path, LOOKUP_DIRECTORY);
+    if (IS_ERR(dentry))
+        return PTR_ERR(dentry);
+
+    err = vfs_mkdir(path.dentry->d_inode, dentry, mode);
+    done_path_create(&path, dentry);
+    return err;
+}
+
 static ssize_t ilitek_proc_get_delta_data_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pos)
 {
 	int16_t *delta = NULL;
@@ -514,21 +529,6 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 	mutex_unlock(&ipd->ilitek_debug_mutex);
 	mutex_unlock(&ipd->ilitek_debug_read_mutex);
 	return send_data_len;
-}
-
-int dev_mkdir(char *name, umode_t mode)
-{
-    struct dentry *dentry;
-    struct path path;
-    int err;
-
-    dentry = kern_path_create(AT_FDCWD, name, &path, LOOKUP_DIRECTORY);
-    if (IS_ERR(dentry))
-        return PTR_ERR(dentry);
-
-    err = vfs_mkdir(path.dentry->d_inode, dentry, mode);	
-    done_path_create(&path, dentry);
-    return err;
 }
 
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
@@ -1891,6 +1891,7 @@ static int netlink_init(void)
 int ilitek_proc_init(void)
 {
 	int i = 0, ret = 0;
+
 	proc_dir_ilitek = proc_mkdir("ilitek", NULL);
 
 	for (; i < ARRAY_SIZE(proc_table); i++) {
@@ -1907,6 +1908,7 @@ int ilitek_proc_init(void)
 	}
 
 	netlink_init();
+
 	return ret;
 }
 EXPORT_SYMBOL(ilitek_proc_init);
@@ -1926,29 +1928,3 @@ void ilitek_proc_remove(void)
 	netlink_kernel_release(_gNetLinkSkb);
 }
 EXPORT_SYMBOL(ilitek_proc_remove);
-
-
-int mkdir(char *name, umode_t mode)
-{
-	struct dentry *dentry;
-	struct path path;
-	int error;
-	unsigned int lookup_flags = LOOKUP_DIRECTORY;
-
-retry:
-	dentry = kern_path_create(AT_FDCWD, name, &path, lookup_flags);
-	if (!IS_POSIXACL(path.dentry->d_inode))
-		mode &= ~current_umask();
-
-	error = security_path_mkdir(&path, dentry, mode);
-	if (!error)
-		error = vfs_mkdir(path.dentry->d_inode, dentry, mode);
-
-	done_path_create(&path, dentry);
-	if (retry_estale(error, lookup_flags)) {
-		lookup_flags |= LOOKUP_REVAL;
-		goto retry;
-	}
-
-	return error;
-}

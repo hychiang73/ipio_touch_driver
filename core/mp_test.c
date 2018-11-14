@@ -189,6 +189,22 @@ void dump_data(void *data, int type, int len, int row_len, const char *name)
 }
 EXPORT_SYMBOL(dump_data);
 
+static char *get_date_time_str(void)
+{
+	struct timespec now_time;
+	struct rtc_time rtc_now_time;
+	static char time_data_buf[128] = { 0 };
+
+	getnstimeofday(&now_time);
+	rtc_time_to_tm(now_time.tv_sec, &rtc_now_time);
+	sprintf(time_data_buf, "%04d%02d%02d-%02d%02d%02d",
+		(rtc_now_time.tm_year + 1900), rtc_now_time.tm_mon + 1,
+		rtc_now_time.tm_mday, rtc_now_time.tm_hour, rtc_now_time.tm_min,
+		rtc_now_time.tm_sec);
+
+	return time_data_buf;
+}
+
 static void mp_print_csv_header(char *csv, int *csv_len, int *csv_line)
 {
 	int i, tmp_len = *csv_len, tmp_line = *csv_line;
@@ -2007,7 +2023,7 @@ static void mp_show_result(void)
 	/* define csv file name */
 	ret_pass_name = NORMAL_CSV_PASS_NAME;
 	ret_fail_name = NORMAL_CSV_FAIL_NAME;
-	
+
 	if (pass_item_count == 0) {
 		core_mp->final_result = MP_FAIL;
 		sprintf(csv_name, "%s/%s_%s.csv", CSV_PATH, get_date_time_str(), ret_fail_name);
@@ -2039,6 +2055,7 @@ static void mp_show_result(void)
 	vfs_write(f, csv, csv_len, &pos);
 	set_fs(fs);
 	filp_close(f, NULL);
+
 	ipio_info("Writing Data into CSV succeed\n");
 
 fail_open:
@@ -2429,6 +2446,7 @@ EXPORT_SYMBOL(core_mp_test_free);
 static void mp_test_init_item(void)
 {
 	int i;
+
 	core_mp->mp_items = ARRAY_SIZE(tItems);
 
 	/* assign test functions run on MP flow according to their catalog */

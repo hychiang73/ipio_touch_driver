@@ -522,7 +522,7 @@ int core_parser_path(char *path)
 		ret = -EINVAL;
 		goto out;
 	}
-	
+
 	tmp = vmalloc(fsize+1);
 
 	if (ERR_ALLOC_MEM(tmp)) {
@@ -549,7 +549,8 @@ int core_parser_path(char *path)
 		ipio_err("Failed to get physical ini data, ret = %d\n", ret);
 		goto out;
 	}
-	ipio_info("Parsing INI file doen\n");
+
+	ipio_info("Parsing INI file done\n");
 
 out:
 	ipio_vfree((void **)&tmp);

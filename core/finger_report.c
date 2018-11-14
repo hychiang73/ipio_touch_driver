@@ -760,8 +760,6 @@ int core_fr_init(void)
 			}
 		}
 	}
-
-	ipio_err("Can't find this chip in support list\n");
 	return 0;
 }
 EXPORT_SYMBOL(core_fr_init);
