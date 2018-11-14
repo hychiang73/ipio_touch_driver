@@ -442,16 +442,20 @@ int core_parser_get_u8_array(char *key, uint8_t *buf, uint16_t base, size_t len)
 	char *s = key;
 	char *pToken;
 	int ret, conut = 0;
-    	long s_to_long = 0;
+    long s_to_long = 0;
+
+	if (strlen(s) == 0 || len <= 0) {
+		ipio_err("Can't find any characters inside buffer\n");
+		return -1;
+	}
 
 	/*
-	 *	@base: The number base to use. The maximum supported base is 16. If base is
-	 *  given as 0, then the base of the string is automatically detected with the
-	 *  conventional semantics - If it begins with 0x the number will be parsed as a
-	 *  hexadecimal (case insensitive), if it otherwise begins with 0, it will be
-	 *  parsed as an octal number. Otherwise it will be parsed as a decimal.
- 	 */
-
+	*  @base: The number base to use. The maximum supported base is 16. If base is
+	*  given as 0, then the base of the string is automatically detected with the
+	*  conventional semantics - If it begins with 0x the number will be parsed as a
+	*  hexadecimal (case insensitive), if it otherwise begins with 0, it will be
+	*  parsed as an octal number. Otherwise it will be parsed as a decimal.
+	*/
 	if (isspace_t((int)(unsigned char)*s) == 0)
 	{
 		while((pToken = strsep(&s, ",")) != NULL) {

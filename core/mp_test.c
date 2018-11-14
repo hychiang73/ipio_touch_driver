@@ -658,49 +658,43 @@ out:
 
 static int mp_get_timing_info(void)
 {
-	int ret = 0;
+	int slen = 0;
 	char str[256] = {0};
 	uint8_t info[64] = {0};
 	char *key = "timing_info_raw";
 
 	core_mp->isLongV = 0;
 
-	ret = core_parser_get_int_data("pv5_4 command", key, str);
-	if (ret < 0) {
-		ipio_err("Failed to parse PV54 command, ret = %d\n", ret);
-		goto out;
-	}
+	slen = core_parser_get_int_data("pv5_4 command", key, str);
+	if (slen < 0)
+		return -1;
 
-	core_parser_get_u8_array(str, info, 16, ret);
+	if (core_parser_get_u8_array(str, info, 16, slen) < 0)
+		return -1;
 
 	core_mp->isLongV = info[6];
 
 	ipio_info("DDI Mode = %s\n", (core_mp->isLongV ? "Long V" : "Long H"));
 
-out:
-	return ret;
+	return 0;
 }
 
 static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 {
-	int ret = 0;
+	int slen = 0;
 	char str[128] = {0};
-	char tmp[128] = {0};
 	char *key = tItems[index].desp;
 
-	ipio_info("%s gets %s command from INI.\n", tItems[index].desp, key);
+	ipio_info("Get cdc command for %s\n", key);
 
-	ret = core_parser_get_int_data("pv5_4 command", key, str);
-	if (ret < 0) {
-		ipio_err("Failed to parse PV54 command, ret = %d\n", ret);
-		goto out;
-	}
+	slen = core_parser_get_int_data("pv5_4 command", key, str);
+	if (slen < 0)
+		return -1;
 
-	strncpy(tmp, str, ret);
-	core_parser_get_u8_array(tmp, cmd, 16, len);
+	if (core_parser_get_u8_array(str, cmd, 16, len) < 0)
+		return -1;
 
-out:
-	return ret;
+	return 0;
 }
 
 static int mp_cdc_init_cmd_common(uint8_t *cmd, int len, int index)
@@ -763,7 +757,11 @@ static int allnode_mutual_cdc_data(int index)
 	memset(cmd, 0xFF, sizeof(cmd));
 
 	/* CDC init */
-	mp_cdc_init_cmd_common(cmd, sizeof(cmd), index);
+	ret = mp_cdc_init_cmd_common(cmd, sizeof(cmd), index);
+	if (ret < 0) {
+		ipio_err("Failed to get cdc command\n");
+		goto out;
+	}
 
 	dump_data(cmd, 8, protocol->cdc_len, 0, "Mutual CDC command");
 
