@@ -452,8 +452,6 @@ int core_parser_get_u8_array(char *key, uint8_t *buf, uint16_t base, size_t len)
 	 *  parsed as an octal number. Otherwise it will be parsed as a decimal.
  	 */
 
-	ipio_info("s = %s\n", s);
-
 	if (isspace_t((int)(unsigned char)*s) == 0)
 	{
 		while((pToken = strsep(&s, ",")) != NULL) {
