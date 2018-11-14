@@ -101,16 +101,6 @@ static int get_ini_phy_line(char *data, char *buffer, int maxlen)
 	return iRetNum;
 }
 
-static void file_capital_to_lower_case(char *data, int size)
-{
-	uint16_t i;
-
-	for (i = 0; i < size; i++) {
-		data[i] = tolower(data[i]);
-		ipio_debug(DEBUG_PARSER, "%c", data[i]);
-	}
-}
-
 static int get_ini_phy_data(char *data, int fsize)
 {
 	int i, n = 0, ret = 0 , banchmark_flag = 0, empty_section, nodetype_flag = 0;
@@ -421,17 +411,53 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 }
 EXPORT_SYMBOL(core_parser_benchmark);
 
-int core_parser_get_u8_array(char *key, uint8_t *buf, size_t len)
+int core_parser_get_tdf_value(char *str)
+{
+	int point = 0, tmp[10] = {0};
+	char *s = str;
+	char *token = NULL;
+
+	if (!s) {
+		ipio_err("String is null\n");
+		return -1;
+	}
+
+	for (token = strsep(&s, "."); token != NULL; token = strsep(&s, ".")) {
+		tmp[point] = katoi(token);
+		point++;
+
+		if (point >= sizeof(tmp))
+			break;
+	}
+
+	/* Multiply by 100 to shift out of decimal point */
+	if (point >= 2)
+		return (tmp[0] * 100) + tmp[1];
+	else
+		return tmp[0];
+}
+
+int core_parser_get_u8_array(char *key, uint8_t *buf, uint16_t base, size_t len)
 {
 	char *s = key;
 	char *pToken;
 	int ret, conut = 0;
     long s_to_long = 0;
 
+	/*
+	 *	@base: The number base to use. The maximum supported base is 16. If base is
+	 *  given as 0, then the base of the string is automatically detected with the
+	 *  conventional semantics - If it begins with 0x the number will be parsed as a
+	 *  hexadecimal (case insensitive), if it otherwise begins with 0, it will be
+	 *  parsed as an octal number. Otherwise it will be parsed as a decimal.
+ 	 */
+
+	ipio_info("s = %s\n", s);
+
 	if (isspace_t((int)(unsigned char)*s) == 0)
 	{
 		while((pToken = strsep(&s, ",")) != NULL) {
-			ret = kstrtol(pToken, 0, &s_to_long);
+			ret = kstrtol(pToken, base, &s_to_long);
 			if (ret == 0)
 				buf[conut] = s_to_long;
 			else
@@ -470,7 +496,7 @@ EXPORT_SYMBOL(core_parser_get_int_data);
 
 int core_parser_path(char *path)
 {
-	int ret = 0, fsize = 0;
+	int i, ret = 0, fsize = 0;
 	char *tmp = NULL;
 	struct file *f = NULL;
 	struct inode *inode;
@@ -515,7 +541,9 @@ int core_parser_path(char *path)
 
 	init_ilitek_ini_data();
 
-	file_capital_to_lower_case(tmp,strlen(tmp));
+	/* change all characters to lower case */
+	for (i = 0; i < strlen(tmp); i++)
+		tmp[i] = tolower(tmp[i]);
 
 	ret = get_ini_phy_data(tmp,fsize);
 	if (ret < 0) {
