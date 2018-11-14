@@ -355,7 +355,7 @@ static int finger_report_ver_5_0(void)
 #ifdef HOST_DOWNLOAD
 		if (ret == CHECK_RECOVER) {
 			ipio_err("Doing host download recovery !\n");
-			ret = ilitek_platform_reset_ctrl(true, HW_RST);
+			ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
 			if (ret < 0)
 				ipio_info("host download failed!\n");
 		}

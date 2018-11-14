@@ -554,84 +554,6 @@ out:
 	return ret;
 }
 
-static void mp_calc_nodp(bool long_v)
-{
-	uint8_t at, phase;
-	uint8_t r2d, rst, rst_back, dac_td, qsh_pw, qsh_td, dn;
-	uint16_t tshd, tsvd_to_tshd, qsh_tdf, dp2tp, twc, twcm, tp2dp;
-	uint16_t multi_term_num, tp_tsdh_wait, ddi_width;
-	uint32_t real_tx_dura, tmp, tmp1;
-
-	ipio_info("DDI Mode = %d\n", long_v);
-
-	tshd = core_mp->nodp.tshd;
-	tsvd_to_tshd = core_mp->nodp.tsvd_to_tshd;
-	multi_term_num = core_mp->nodp.multi_term_num_120;
-	qsh_tdf = core_mp->nodp.qsh_tdf;
-	at = core_mp->nodp.auto_trim;
-	tp_tsdh_wait = core_mp->nodp.tp_tshd_wait_120;
-	ddi_width = core_mp->nodp.ddi_width_120;
-	dp2tp = core_mp->nodp.dp_to_tp;
-	twc = core_mp->nodp.tx_wait_const;
-	twcm = core_mp->nodp.tx_wait_const_multi;
-	tp2dp = core_mp->nodp.tp_to_dp;
-	phase = core_mp->nodp.phase_adc;
-	r2d = core_mp->nodp.r2d_pw;
-	rst = core_mp->nodp.rst_pw;
-	rst_back = core_mp->nodp.rst_pw_back;
-	dac_td = core_mp->nodp.dac_td;
-	qsh_pw = core_mp->nodp.qsh_pw;
-	qsh_td = core_mp->nodp.qsh_td;
-	dn = core_mp->nodp.drop_nodp;
-
-	/* NODP formulation */
-	if (!long_v) {
-		if (core_mp->nodp.is60HZ) {
-			multi_term_num = core_mp->nodp.multi_term_num_60;
-			tp_tsdh_wait = core_mp->nodp.tp_tshd_wait_60;
-			ddi_width = core_mp->nodp.ddi_width_60;
-		}
-
-		if (multi_term_num == 0)
-			multi_term_num = 1;
-
-		tmp = ((tshd << 2) - (at << 6) - tp_tsdh_wait - ddi_width * (multi_term_num - 1) - 64 - dp2tp - twc) * 5;
-		tmp1 = (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (multi_term_num - 1));
-		real_tx_dura = (tmp - tmp1) / (multi_term_num * 5);
-
-		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + (phase << 5) + real_tx_dura * 5) / 5;
-		core_mp->nodp.tp_width = (((tp2dp * 10 + phase) << 6)  + real_tx_dura * 10) / 10;
-		core_mp->nodp.txpw = (qsh_tdf + rst + qsh_pw + qsh_td + 2);
-
-		if ( core_mp->nodp.txpw % 2 == 1 )
-			core_mp->nodp.txpw = core_mp->nodp.txpw + 1;
-
-		core_mp->nodp.nodp = real_tx_dura / core_mp->nodp.txpw / 2;
-	} else {
-		if (multi_term_num == 0)
-			multi_term_num = 1;
-
-		real_tx_dura = (((tshd << 2) - (at << 6) - ddi_width * (11) - 64 - dp2tp - twc) * 5 - (phase << 5) - ((twcm * 5 + (phase << 5) + (tp2dp * 5 << 6)) * (11))) / (12 * 5);
-
-		core_mp->nodp.long_tsdh_wait = (tsvd_to_tshd + 10) << 6;
-
-		core_mp->nodp.first_tp_width = (dp2tp * 5  + twc * 5  + (phase << 5) + real_tx_dura * 5) / 5;
-		core_mp->nodp.tp_width = (((tp2dp * 10 + phase) << 6)  + real_tx_dura * 10) / 10;
-		core_mp->nodp.txpw = (qsh_tdf + rst + qsh_pw + qsh_td + 2);
-
-		if (core_mp->nodp.txpw % 2 == 1)
-			core_mp->nodp.txpw = core_mp->nodp.txpw + 1;
-
-		core_mp->nodp.nodp = real_tx_dura / core_mp->nodp.txpw / 2;
-	}
-
-	ipio_info("Read Tx Duration = %d\n", real_tx_dura);
-	ipio_info("First TP Width = %d\n", core_mp->nodp.first_tp_width);
-	ipio_info("TP Width = %d\n", core_mp->nodp.tp_width);
-	ipio_info("TXPW = %d\n", core_mp->nodp.txpw);
-	ipio_info("NODP = %d\n", core_mp->nodp.nodp);
-}
-
 static int allnode_key_cdc_data(int index)
 {
 	int i, ret = 0, len = 0;
@@ -748,101 +670,30 @@ out:
 	return ret;
 }
 
-static int mp_calc_timing_nodp(void)
+static int mp_get_timing_info(void)
 {
 	int ret = 0;
-	uint8_t test_type = 0x0;
-	uint8_t timing_cmd[15] = {0};
-	uint8_t get_timing[64] = {0};
+	char str[256] = {0};
+	uint8_t info[64] = {0};
+	char *key = "timing_info_raw";
 
-	if (ERR_ALLOC_MEM(core_mp)) {
-		ipio_err("core_mp is NULL\n");
-		return -ENOMEM;
-	}
+	core_mp->isLongV = 0;
 
-	memset(timing_cmd, 0xFF, sizeof(timing_cmd));
-
-	timing_cmd[0] = protocol->cmd_cdc;
-	timing_cmd[1] = protocol->get_timing;
-	timing_cmd[2] = test_type;
-
-	/*
-	 * To calculate NODP, we need to get timing parameters first from fw,
-	 * which returnes 40 bytes data.
-	 */
-	dump_data(timing_cmd, 8, sizeof(timing_cmd), 0, "Timing command");
-
-	ret = core_write(core_config->slave_i2c_addr, timing_cmd, sizeof(timing_cmd));
+	ret = core_parser_get_int_data("pv5_4 command", key, str);
 	if (ret < 0) {
-		ipio_err("Failed to write timing command\n");
+		ipio_err("Failed to parse PV54 command, ret = %d\n", ret);
 		goto out;
 	}
 
-	ret = core_read(core_config->slave_i2c_addr, get_timing, sizeof(get_timing));
-	if (ret < 0) {
-		ipio_err("Failed to read timing parameters\n");
-		goto out;
-	}
+	core_parser_get_u8_array(str, info, 16, ret);
 
-	dump_data(get_timing, 8, 41, 0, "Timing parameters (41bytes)");
+	core_mp->isLongV = info[6];
 
-	/* Combine timing data */
-	core_mp->nodp.is60HZ = false; /* This will get from ini file by default.  */
-	core_mp->nodp.isLongV = get_timing[2];
-	core_mp->nodp.tshd = (get_timing[3] << 8) + get_timing[4];
-	core_mp->nodp.multi_term_num_120 = get_timing[5];
-	core_mp->nodp.multi_term_num_60 = get_timing[6];
-	core_mp->nodp.tsvd_to_tshd = (get_timing[7] << 8) + get_timing[8];
-	core_mp->nodp.qsh_tdf = (get_timing[9] << 8) + get_timing[10];
-	core_mp->nodp.auto_trim = get_timing[11];
-	core_mp->nodp.tp_tshd_wait_120 = (get_timing[12] << 8) + get_timing[13];
-	core_mp->nodp.ddi_width_120 = (get_timing[14] << 8) + get_timing[15];
-	core_mp->nodp.tp_tshd_wait_60 = (get_timing[16] << 8) + get_timing[17];
-	core_mp->nodp.ddi_width_60 = (get_timing[18] << 8) + get_timing[19];
-	core_mp->nodp.dp_to_tp = (get_timing[20] << 8) + get_timing[21];
-	core_mp->nodp.tx_wait_const = (get_timing[22] << 8) + get_timing[23];
-	core_mp->nodp.tx_wait_const_multi = (get_timing[24] << 8) + get_timing[25];
-	core_mp->nodp.tp_to_dp = (get_timing[26] << 8) + get_timing[27];
-	core_mp->nodp.phase_adc = get_timing[28];
-	core_mp->nodp.r2d_pw = get_timing[29];
-	core_mp->nodp.rst_pw = get_timing[30];
-	core_mp->nodp.rst_pw_back = get_timing[31];
-	core_mp->nodp.dac_td = get_timing[32];
-	core_mp->nodp.qsh_pw = get_timing[33];
-	core_mp->nodp.qsh_td = get_timing[34];
-	core_mp->nodp.drop_nodp = get_timing[35];
-
-	ipio_info("60HZ = %d\n", core_mp->nodp.is60HZ);
-	ipio_info("DDI Mode = %d\n", core_mp->nodp.isLongV);
-	ipio_info("TSHD = %d\n", core_mp->nodp.tshd);
-	ipio_info("Multi Term Num (120Hz) = %d\n", core_mp->nodp.multi_term_num_120);
-	ipio_info("Multi Term Num (60Hz) = %d\n", core_mp->nodp.multi_term_num_60);
-	ipio_info("TSVD to TSHD = %d\n", core_mp->nodp.tsvd_to_tshd);
-	ipio_info("QSH TDF = %d\n", core_mp->nodp.qsh_tdf);
-	ipio_info("AutoTrim Variation = %d\n", core_mp->nodp.auto_trim);
-	ipio_info("TP TSHD Wait (120Hz) = %d\n", core_mp->nodp.tp_tshd_wait_120);
-	ipio_info("DDI Width (120Hz) = %d\n", core_mp->nodp.ddi_width_120);
-	ipio_info("TP TSHD Wait (60Hz) = %d\n", core_mp->nodp.tp_tshd_wait_60);
-	ipio_info("DDI Width (60Hz) = %d\n", core_mp->nodp.ddi_width_60);
-	ipio_info("DP to TP = %d\n", core_mp->nodp.dp_to_tp);
-	ipio_info("TX Wait Const = %d\n", core_mp->nodp.tx_wait_const);
-	ipio_info("TX Wait Const Multi = %d\n", core_mp->nodp.tx_wait_const_multi);
-	ipio_info("TP to DP = %d\n", core_mp->nodp.tp_to_dp);
-	ipio_info("Phase ADC = %d\n", core_mp->nodp.phase_adc);
-	ipio_info("R2D PW = %d\n", core_mp->nodp.r2d_pw);
-	ipio_info("RST PW = %d\n", core_mp->nodp.rst_pw);
-	ipio_info("RST PW Back = %d\n", core_mp->nodp.rst_pw_back);
-	ipio_info("DAC TD = %d\n", core_mp->nodp.dac_td);
-	ipio_info("QSH PW = %d\n", core_mp->nodp.qsh_pw);
-	ipio_info("QSH TD = %d\n", core_mp->nodp.qsh_td);
-	ipio_info("Drop NODP Num = %d\n", core_mp->nodp.drop_nodp);
-
-	mp_calc_nodp(core_mp->nodp.isLongV);
+	ipio_info("DDI Mode = %s\n", (core_mp->isLongV ? "Long V" : "Long H"));
 
 out:
 	return ret;
 }
-
 
 static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 {
@@ -860,7 +711,7 @@ static int mp_cdc_get_pv5_4_command(uint8_t *cmd, int len, int index)
 	}
 
 	strncpy(tmp, str, ret);
-	core_parser_get_u8_array(tmp, cmd);
+	core_parser_get_u8_array(tmp, cmd, 16, len);
 
 out:
 	return ret;
@@ -908,7 +759,7 @@ static int allnode_mutual_cdc_data(int index)
 {
 	static int i = 0, ret = 0, len = 0;
 	int inDACp = 0, inDACn = 0;
-	static uint8_t cmd[15] = {0};
+	uint8_t cmd[15] = {0};
 	uint8_t *ori = NULL;
 
 	/* Multipling by 2 is due to the 16 bit in each node */
@@ -923,10 +774,10 @@ static int allnode_mutual_cdc_data(int index)
 		goto out;
 	}
 
-	memset(cmd, 0xFF, protocol->cdc_len);
+	memset(cmd, 0xFF, sizeof(cmd));
 
 	/* CDC init */
-	mp_cdc_init_cmd_common(cmd, protocol->cdc_len, index);
+	mp_cdc_init_cmd_common(cmd, sizeof(cmd), index);
 
 	dump_data(cmd, 8, protocol->cdc_len, 0, "Mutual CDC command");
 
@@ -1319,7 +1170,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	}
 
 	strncpy(tmp, str, ret);
-	core_parser_get_u8_array(tmp, cmd);
+	core_parser_get_u8_array(tmp, cmd, 16, sizeof(cmd));
 
 	dump_data(cmd, 8, sizeof(cmd), 0, "Open SP command");
 
@@ -1629,7 +1480,7 @@ out:
 	return ret;
 }
 
-int codeToOhm(int32_t Code)
+static int codeToOhm(int32_t Code, uint16_t *v_tdf, uint16_t *h_tdf)
 {
 	int douTDF1 = 0;
 	int douTDF2 = 0;
@@ -1640,12 +1491,12 @@ int codeToOhm(int32_t Code)
 	int douRinternal = 930;
 	int32_t temp = 0;
 
-	if (core_mp->nodp.isLongV) {
-		douTDF1 = 300;
-		douTDF2 = 100;
+	if (core_mp->isLongV) {
+		douTDF1 = *v_tdf;
+		douTDF2 = *(v_tdf + 1);
 	} else {
-		douTDF1 = 219;
-		douTDF2 = 100;
+		douTDF1 = *h_tdf;
+		douTDF2 = *(h_tdf + 1);
 	}
 
 	if (Code == 0) {
@@ -1661,11 +1512,18 @@ int codeToOhm(int32_t Code)
 static int short_test(int index, int frame_index)
 {
 	int j = 0, ret = 0;
+	uint16_t v_tdf[2] = {0};
+	uint16_t h_tdf[2] = {0};
+
+	v_tdf[0] = tItems[index].v_tdf_1;
+	v_tdf[1] = tItems[index].v_tdf_2;
+	h_tdf[0] = tItems[index].h_tdf_1;
+	h_tdf[1] = tItems[index].h_tdf_2;
 
 	if (protocol->major >= 5 && protocol->mid >= 4) {
 		/* Calculate code to ohm and save to tItems[index].buf */
 		for (j = 0; j < core_mp->frame_len; j++)
-			tItems[index].buf[frame_index * core_mp->frame_len + j] = codeToOhm(frame_buf[j]);
+			tItems[index].buf[frame_index * core_mp->frame_len + j] = codeToOhm(frame_buf[j], v_tdf, h_tdf);
 	} else {
 		for (j = 0; j < core_mp->frame_len; j++)
 			tItems[index].buf[frame_index * core_mp->frame_len + j] = frame_buf[j];
@@ -2262,6 +2120,23 @@ static void mp_run_test(char *item)
 			core_parser_get_int_data(item, "highest percentage", str);
 			tItems[i].highest_percentage= katoi(str);
 
+			/* Get TDF value from ini */
+			if (tItems[i].catalog == SHORT_TEST) {
+				core_parser_get_int_data(item, "v_tdf_1", str);
+				tItems[i].v_tdf_1 = core_parser_get_tdf_value(str);
+				core_parser_get_int_data(item, "v_tdf_2", str);
+				tItems[i].v_tdf_2 = core_parser_get_tdf_value(str);
+				core_parser_get_int_data(item, "h_tdf_1", str);
+				tItems[i].h_tdf_1 = core_parser_get_tdf_value(str);
+				core_parser_get_int_data(item, "h_tdf_2", str);
+				tItems[i].h_tdf_2 = core_parser_get_tdf_value(str);
+			} else {
+				core_parser_get_int_data(item, "v_tdf", str);
+				tItems[i].v_tdf_1 = core_parser_get_tdf_value(str);
+				core_parser_get_int_data(item, "h_tdf", str);
+				tItems[i].h_tdf_1 = core_parser_get_tdf_value(str);
+			}
+
 			/* Get threshold from ini structure in parser */
 			if (strcmp(item, "tx/rx delta") == 0) {
 				core_parser_get_int_data(item, "tx max", str);
@@ -2288,6 +2163,9 @@ static void mp_run_test(char *item)
 			ipio_debug(DEBUG_MP_TEST, "%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp,
 					tItems[i].run, tItems[i].max, tItems[i].min, tItems[i].frame_count);
 
+			ipio_debug(DEBUG_MP_TEST, "v_tdf_1 = %d, v_tdf_2 = %d, h_tdf_1 = %d, h_tdf_2 = %d\n", tItems[i].v_tdf_1,
+					tItems[i].v_tdf_2, tItems[i].h_tdf_1, tItems[i].h_tdf_2);
+
 			if (tItems[i].run) {
 				/* LCM off */
 				if (strnstr(tItems[i].desp, "lcm", strlen(tItems[i].desp)) != NULL)
@@ -2305,7 +2183,7 @@ static void mp_run_test(char *item)
 				}
 
 				/* LCM on */
-				if (strnstr(tItems[i].desp, "LCM", strlen(tItems[i].desp)) != NULL)
+				if (strnstr(tItems[i].desp, "lcm", strlen(tItems[i].desp)) != NULL)
 					mp_ctrl_lcm_status(true);
 			}
 			break;
@@ -2440,13 +2318,12 @@ int core_mp_move_code(void)
 	ipio_info("Start moving MP code\n");
 
 #ifdef HOST_DOWNLOAD
-	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0) {
+	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0) {
 		ipio_info("host download failed!\n");
 		ret = -1;
 		goto out;
 	}
 #else
-
 	/* Get Dma overlay info command only be used in I2C mode */
 	get_dma_overlay_info();
 
@@ -2495,7 +2372,6 @@ int core_mp_move_code(void)
 		ret = -1;
 		goto out;
 	}
-
 #endif
 
 out:
@@ -2570,6 +2446,10 @@ static void mp_test_init_item(void)
 		tItems[i].trimmed_mean = 0;
 		tItems[i].lowest_percentage = 0;
 		tItems[i].highest_percentage = 0;
+		tItems[i].v_tdf_1 = 0;
+		tItems[i].v_tdf_2 = 0;
+		tItems[i].h_tdf_1 = 0;
+		tItems[i].h_tdf_2 = 0;
 		tItems[i].result_buf = NULL;
 		tItems[i].buf = NULL;
 		tItems[i].max_buf = NULL;
@@ -2716,12 +2596,9 @@ int core_mp_start_test(void)
 		goto out;
 	}
 
-	/*
-	 * Get timing parameters first.
-	 * Howerver, it can be ignored if commands read from ini.
-	 */
+	/* Read timing info from ini file */
 	if (protocol->major >= 5 && protocol->mid >= 4) {
-		ret = mp_calc_timing_nodp();
+		ret = mp_get_timing_info();
 		if (ret < 0) {
 			ipio_err("Can't get timing parameters\n");
 			goto out;
@@ -2769,7 +2646,7 @@ int core_mp_start_test(void)
 		ipio_err("Switch to demo mode failed\n");
 
 #ifdef HOST_DOWNLOAD
-	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0)
+	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0)
 		ipio_info("host download failed!\n");
 #endif
 

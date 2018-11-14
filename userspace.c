@@ -1177,7 +1177,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 	ilitek_platform_disable_irq();
 
 #ifdef HOST_DOWNLOAD
-	ret = ilitek_platform_reset_ctrl(true, HW_RST);;
+	ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);;
 	if (ret < 0)
 		ipio_info("host download failed!\n");
 #else
@@ -1229,46 +1229,6 @@ static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buf
 }
 
 /* for debug */
-static ssize_t ilitek_proc_ioctl_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
-{
-	int ret = 0;
-	uint32_t len = 0;
-	uint8_t cmd[2] = { 0 };
-
-	if (*pPos != 0)
-		return 0;
-
-	if (size < 4095) {
-		ret = copy_from_user(cmd, buff, size - 1);
-		if (ret < 0) {
-			ipio_info("copy data from user space, failed\n");
-			return -1;
-		}
-	}
-
-	ipio_info("size = %d, cmd = %d", (int)size, cmd[0]);
-
-	/* test */
-	if (cmd[0] == 0x1) {
-		ipio_info("HW Reset\n");
-		ilitek_platform_reset_ctrl(true, HW_RST);;
-	} else if (cmd[0] == 0x02) {
-		ipio_info("Disable IRQ\n");
-		ilitek_platform_disable_irq();
-	} else if (cmd[0] == 0x03) {
-		ipio_info("Enable IRQ\n");
-		ilitek_platform_enable_irq();
-	} else if (cmd[0] == 0x04) {
-		ipio_info("Get Chip id\n");
-		core_config_get_chip_id();
-	}
-
-	*pPos = len;
-
-	return len;
-}
-
-/* for debug */
 static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
 {
 	int ret = 0, count = 0, i;
@@ -1302,7 +1262,11 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 
 	if (strcmp(cmd, "reset") == 0) {
 		ipio_info("HW Reset\n");
+#ifdef HOST_DOWNLOAD
+		ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
+#else
 		ilitek_platform_reset_ctrl(true, HW_RST);
+#endif
 	} else if (strcmp(cmd, "softreset") == 0) {
 		ipio_info("software Reset\n");
 		core_config_ic_reset();
@@ -1520,7 +1484,11 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 
 	case ILITEK_IOCTL_TP_HW_RESET:
 		ipio_info("ioctl: hw reset\n");
-		ilitek_platform_reset_ctrl(true, HW_RST);;
+#ifdef HOST_DOWNLOAD
+		ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
+#else
+		ilitek_platform_reset_ctrl(true, HW_RST);
+#endif
 		break;
 
 	case ILITEK_IOCTL_TP_POWER_SWITCH:
@@ -1726,7 +1694,6 @@ struct proc_dir_entry *proc_get_debug_mode_data;
 
 struct file_operations proc_ioctl_fops = {
 	.unlocked_ioctl = ilitek_proc_ioctl,
-	.read = ilitek_proc_ioctl_read,
 	.write = ilitek_proc_ioctl_write,
 };
 
