@@ -33,7 +33,6 @@
 #include "core/mp_test.h"
 #include "core/parser.h"
 #include "core/gesture.h"
-#include "core/mp_test.h"
 
 #define USER_STR_BUFF	PAGE_SIZE
 #define IOCTL_I2C_BUFF	PAGE_SIZE
@@ -517,6 +516,21 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 	return send_data_len;
 }
 
+int dev_mkdir(char *name, umode_t mode)
+{
+    struct dentry *dentry;
+    struct path path;
+    int err;
+
+    dentry = kern_path_create(AT_FDCWD, name, &path, LOOKUP_DIRECTORY);
+    if (IS_ERR(dentry))
+        return PTR_ERR(dentry);
+
+    err = vfs_mkdir(path.dentry->d_inode, dentry, mode);	
+    done_path_create(&path, dentry);
+    return err;
+}
+
 static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int apk[100] = {0};
@@ -529,6 +543,11 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 		ipio_err("FW upgrading, please wait to complete\n");
 		return 0;
 	}
+
+	/* Create the directory for mp_test result */
+	ret = dev_mkdir(CSV_PATH, S_IRUGO | S_IWUSR);
+    if (ret != 0)
+        ipio_err("Failed to create directory for mp_test\n");
 
 	/* Running MP Test */
 	ret = core_mp_start_test();
@@ -1872,7 +1891,6 @@ static int netlink_init(void)
 int ilitek_proc_init(void)
 {
 	int i = 0, ret = 0;
-
 	proc_dir_ilitek = proc_mkdir("ilitek", NULL);
 
 	for (; i < ARRAY_SIZE(proc_table); i++) {
@@ -1889,7 +1907,6 @@ int ilitek_proc_init(void)
 	}
 
 	netlink_init();
-
 	return ret;
 }
 EXPORT_SYMBOL(ilitek_proc_init);
@@ -1909,3 +1926,29 @@ void ilitek_proc_remove(void)
 	netlink_kernel_release(_gNetLinkSkb);
 }
 EXPORT_SYMBOL(ilitek_proc_remove);
+
+
+int mkdir(char *name, umode_t mode)
+{
+	struct dentry *dentry;
+	struct path path;
+	int error;
+	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+
+retry:
+	dentry = kern_path_create(AT_FDCWD, name, &path, lookup_flags);
+	if (!IS_POSIXACL(path.dentry->d_inode))
+		mode &= ~current_umask();
+
+	error = security_path_mkdir(&path, dentry, mode);
+	if (!error)
+		error = vfs_mkdir(path.dentry->d_inode, dentry, mode);
+
+	done_path_create(&path, dentry);
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+
+	return error;
+}

@@ -2007,13 +2007,13 @@ static void mp_show_result(void)
 	/* define csv file name */
 	ret_pass_name = NORMAL_CSV_PASS_NAME;
 	ret_fail_name = NORMAL_CSV_FAIL_NAME;
-
+	
 	if (pass_item_count == 0) {
 		core_mp->final_result = MP_FAIL;
-		sprintf(csv_name, "%s/%s.csv", CSV_PATH, ret_fail_name);
+		sprintf(csv_name, "%s/%s_%s.csv", CSV_PATH, get_date_time_str(), ret_fail_name);
 	} else {
 		core_mp->final_result = MP_PASS;
-		sprintf(csv_name, "%s/%s.csv", CSV_PATH, ret_pass_name);
+		sprintf(csv_name, "%s/%s_%s.csv", CSV_PATH, get_date_time_str(), ret_pass_name);
 	}
 
 	ipio_info("Open CSV : %s\n", csv_name);
@@ -2039,12 +2039,12 @@ static void mp_show_result(void)
 	vfs_write(f, csv, csv_len, &pos);
 	set_fs(fs);
 	filp_close(f, NULL);
-
 	ipio_info("Writing Data into CSV succeed\n");
 
 fail_open:
 	if (csv != NULL)
 		vfree(csv);
+
 	ipio_kfree((void **)&max_threshold);
 	ipio_kfree((void **)&min_threshold);
 }
@@ -2429,7 +2429,6 @@ EXPORT_SYMBOL(core_mp_test_free);
 static void mp_test_init_item(void)
 {
 	int i;
-
 	core_mp->mp_items = ARRAY_SIZE(tItems);
 
 	/* assign test functions run on MP flow according to their catalog */
@@ -2576,7 +2575,6 @@ int core_mp_start_test(void)
 
 	ilitek_platform_disable_irq();
 	core_fr->isEnableFR = false;
-
 
 	/* Init MP structure */
 	ret = mp_initial();
