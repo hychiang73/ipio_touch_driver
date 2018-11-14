@@ -442,7 +442,7 @@ int core_parser_get_u8_array(char *key, uint8_t *buf, uint16_t base, size_t len)
 	char *s = key;
 	char *pToken;
 	int ret, conut = 0;
-    long s_to_long = 0;
+    	long s_to_long = 0;
 
 	/*
 	 *	@base: The number base to use. The maximum supported base is 16. If base is
@@ -523,7 +523,8 @@ int core_parser_path(char *path)
 		goto out;
 	}
 
-	tmp = kmalloc(fsize+1, GFP_KERNEL);
+	tmp = vmalloc(fsize+1);
+
 	if (ERR_ALLOC_MEM(tmp)) {
 		ipio_err("Failed to allocate tmp memory, %ld\n", PTR_ERR(tmp));
 		ret = -ENOMEM;
@@ -549,10 +550,10 @@ int core_parser_path(char *path)
 		goto out;
 	}
 
-	ipio_info("Parsing INI file doen\n");
+	ipio_info("Parsing INI file done\n");
 
 out:
-	ipio_kfree((void **)&tmp);
+	ipio_vfree((void **)&tmp);
 	filp_close(f, NULL);
 	return ret;
 }

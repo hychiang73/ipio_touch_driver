@@ -33,7 +33,6 @@
 #include "core/mp_test.h"
 #include "core/parser.h"
 #include "core/gesture.h"
-#include "core/mp_test.h"
 
 #define USER_STR_BUFF	PAGE_SIZE
 #define IOCTL_I2C_BUFF	PAGE_SIZE
@@ -148,6 +147,21 @@ int str2hex(char *str)
 	return result;
 }
 EXPORT_SYMBOL(str2hex);
+
+static int dev_mkdir(char *name, umode_t mode)
+{
+    struct dentry *dentry;
+    struct path path;
+    int err;
+
+    dentry = kern_path_create(AT_FDCWD, name, &path, LOOKUP_DIRECTORY);
+    if (IS_ERR(dentry))
+        return PTR_ERR(dentry);
+
+    err = vfs_mkdir(path.dentry->d_inode, dentry, mode);
+    done_path_create(&path, dentry);
+    return err;
+}
 
 static ssize_t ilitek_proc_get_delta_data_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pos)
 {
@@ -529,6 +543,11 @@ static ssize_t ilitek_proc_mp_test_read(struct file *filp, char __user *buff, si
 		ipio_err("FW upgrading, please wait to complete\n");
 		return 0;
 	}
+
+	/* Create the directory for mp_test result */
+	ret = dev_mkdir(CSV_PATH, S_IRUGO | S_IWUSR);
+    if (ret != 0)
+        ipio_err("Failed to create directory for mp_test\n");
 
 	/* Running MP Test */
 	ret = core_mp_start_test();

@@ -70,6 +70,10 @@
 
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
+#include <linux/rtc.h>
+#include <linux/syscalls.h>
+#include <linux/security.h>
+#include <linux/mount.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_address.h>
@@ -103,7 +107,7 @@
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
-#define INTERFACE SPI_INTERFACE
+#define INTERFACE I2C_INTERFACE
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.3.10"
@@ -233,7 +237,7 @@ enum ili7807_types {
 /*
  * Other settings
  */
-#define CSV_PATH			"/sdcard"
+#define CSV_PATH			"/sdcard/ilitek_mp_log"
 #define INI_NAME_PATH		"/sdcard/mp.ini"
 #define UPDATE_FW_PATH		"/sdcard/ILITEK_FW"
 #define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
@@ -318,5 +322,4 @@ static inline void *ipio_memcpy(void *dest, const void *src, size_t n, size_t de
 
 extern int katoi(char *string);
 extern int str2hex(char *str);
-
 #endif /* __COMMON_H */

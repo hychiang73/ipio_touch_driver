@@ -1500,7 +1500,7 @@ int core_firmware_boot_upgrade(void)
 		goto out;
 	}
 
-	hex_buffer = kcalloc(fsize, sizeof(uint8_t), GFP_KERNEL);
+	hex_buffer = vmalloc(fsize, sizeof(uint8_t));
 	if (ERR_ALLOC_MEM(hex_buffer)) {
 		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
 		ret = -ENOMEM;
@@ -1548,7 +1548,7 @@ out:
 
 	ipio_kfree((void **)&flash_fw);
 	ipio_kfree((void **)&g_flash_sector);
-	ipio_kfree((void **)&hex_buffer);
+	ipio_vfree((void **)&hex_buffer);
 	core_firmware->isUpgrading = false;
 	return ret;
 }
