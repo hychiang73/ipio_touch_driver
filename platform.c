@@ -1058,7 +1058,7 @@ static struct of_device_id tp_match_table[] = {
 	{},
 };
 
-#if (TP_PLATFORM == PT_MTK)
+#if (TP_PLATFORM == PT_MTK && INTERFACE == I2C_INTERFACE)
 static int tpd_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
 	ipio_info("TPD detect i2c device\n");
@@ -1098,14 +1098,25 @@ static int tpd_local_init(void)
 {
 	ipio_info("TPD init device driver\n");
 
+#if (INTERFACE == I2C_INTERFACE)
 	if (i2c_add_driver(&tp_i2c_driver) != 0) {
 		ipio_err("Unable to add i2c driver\n");
 		return -1;
 	}
+#else
+	if (spi_register_driver(&tp_spi_driver) < 0) {
+		ipio_err("Failed to add ilitek driver\n");
+		spi_unregister_driver(&tp_spi_driver);
+		return -ENODEV;
+	}
+#endif
 	if (tpd_load_status == 0) {
 		ipio_err("Add error touch panel driver\n");
-
+#if (INTERFACE == I2C_INTERFACE)
 		i2c_del_driver(&tp_i2c_driver);
+#else
+		spi_unregister_driver(&tp_spi_driver);
+#endif
 		return -1;
 	}
 

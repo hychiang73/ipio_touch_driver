@@ -103,7 +103,7 @@
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
-#define INTERFACE I2C_INTERFACE
+#define INTERFACE SPI_INTERFACE
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.3.10"
