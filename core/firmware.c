@@ -1676,7 +1676,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 		}
 
 		if (nType == 0xAE || nType == 0xAF) {
-			core_firmware->hex_tag = nType;
+			core_firmware->hex_tag = nType; //important
 			/* insert block info extracted from hex */
 			if (block < FW_BLOCK_INFO_NUM) {
 				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
@@ -2011,5 +2011,6 @@ int core_firmware_init(void)
 			}
 		}
 	}
+	
 	return 0;
 }

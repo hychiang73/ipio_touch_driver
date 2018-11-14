@@ -2696,7 +2696,6 @@ int core_mp_start_test(void)
 	ilitek_platform_disable_irq();
 	core_fr->isEnableFR = false;
 
-
 	/* Init MP structure */
 	ret = mp_initial();
 	if (ret < 0) {

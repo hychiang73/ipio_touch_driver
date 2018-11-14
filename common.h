@@ -73,6 +73,10 @@
 #include <linux/rtc.h>
 #include <linux/syscalls.h>
 #include <linux/security.h>
+<<<<<<< HEAD
+=======
+#include <linux/mount.h>
+>>>>>>> master
 
 #ifdef CONFIG_OF
 #include <linux/of_address.h>
@@ -319,7 +323,6 @@ static inline void *ipio_memcpy(void *dest, const void *src, size_t n, size_t de
     return memcpy(dest, src, n);
 }
 
-
 static inline char *get_date_time_str(void){
 	struct timespec now_time;
 	struct rtc_time rtc_now_time;
@@ -336,7 +339,7 @@ static inline char *get_date_time_str(void){
 }
 
 extern int mkdir(char *name, umode_t mode);
+extern int dev_mkdir(char *name, umode_t mode);
 extern int katoi(char *string);
 extern int str2hex(char *str);
-
 #endif /* __COMMON_H */
