@@ -574,8 +574,6 @@ void core_config_ic_resume(void)
 	ilitek_platform_reset_ctrl(true, HW_RST);
 #endif
 
-	core_config_switch_fw_mode(&protocol->demo_mode);
-
 	if (ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue,
 			&ipd->check_power_status_work, ipd->work_delay);

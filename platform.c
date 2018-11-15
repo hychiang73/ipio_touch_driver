@@ -64,16 +64,19 @@ void ilitek_platform_disable_irq(void)
 
 	spin_lock_irqsave(&ipd->plat_spinlock, nIrqFlag);
 
-	if (ipd->isEnableIRQ) {
-		if (ipd->isr_gpio) {
-			disable_irq_nosync(ipd->isr_gpio);
-			ipd->isEnableIRQ = false;
-			ipio_debug(DEBUG_IRQ, "Disable IRQ: %d\n", ipd->isEnableIRQ);
-		} else
-			ipio_err("The number of gpio to irq is incorrect\n");
-	} else
-		ipio_debug(DEBUG_IRQ, "IRQ was already disabled\n");
+	if (!ipd->isEnableIRQ)
+		goto out;
 
+	if (!ipd->isr_gpio) {
+		ipio_err("gpio_to_irq (%d) is incorrect\n", ipd->isr_gpio);
+		goto out;
+	}
+
+	disable_irq_nosync(ipd->isr_gpio);
+	ipd->isEnableIRQ = false;
+	ipio_debug(DEBUG_IRQ, "Disable irq success\n");
+
+out:
 	spin_unlock_irqrestore(&ipd->plat_spinlock, nIrqFlag);
 }
 EXPORT_SYMBOL(ilitek_platform_disable_irq);
@@ -84,16 +87,19 @@ void ilitek_platform_enable_irq(void)
 
 	spin_lock_irqsave(&ipd->plat_spinlock, nIrqFlag);
 
-	if (!ipd->isEnableIRQ) {
-		if (ipd->isr_gpio) {
-			enable_irq(ipd->isr_gpio);
-			ipd->isEnableIRQ = true;
-			ipio_debug(DEBUG_IRQ, "Enable IRQ: %d\n", ipd->isEnableIRQ);
-		} else
-			ipio_err("The number of gpio to irq is incorrect\n");
-	} else
-		ipio_debug(DEBUG_IRQ, "IRQ was already enabled\n");
+	if (ipd->isEnableIRQ)
+		goto out;
 
+	if (!ipd->isr_gpio) {
+		ipio_err("gpio_to_irq (%d) is incorrect\n", ipd->isr_gpio);
+		goto out;
+	}
+
+	enable_irq(ipd->isr_gpio);
+	ipd->isEnableIRQ = true;
+	ipio_debug(DEBUG_IRQ, "Enable irq success\n");
+
+out:
 	spin_unlock_irqrestore(&ipd->plat_spinlock, nIrqFlag);
 }
 EXPORT_SYMBOL(ilitek_platform_enable_irq);
@@ -126,6 +132,8 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 #endif /* PT_MTK */
 	}
 
+	/* FW changes to AP mode automatically after hw reset's done */
+	core_fr->actual_fw_mode = protocol->demo_mode;
 	return ret;
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);

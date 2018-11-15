@@ -2550,6 +2550,10 @@ int core_mp_start_test(bool lcm_on)
 	int ret = 0;
 	const char *csv_path = NULL;
 
+	ilitek_platform_disable_irq();
+	mutex_lock(&ipd->plat_mutex);
+	mutex_lock(&ipd->touch_mutex);
+
 	/* Init MP structure */
 	ret = mp_data_init();
 	if (ret < 0) {
@@ -2567,19 +2571,15 @@ int core_mp_start_test(bool lcm_on)
 	ret = core_config_switch_fw_mode(&protocol->test_mode);
 	if (ret < 0) {
 		ipio_err("Switch to test mode failed\n");
-		goto out;
+		goto reset;
 	}
-
-	ilitek_platform_disable_irq();
-	mutex_lock(&ipd->plat_mutex);
-	mutex_lock(&ipd->touch_mutex);
 
 	/* Read timing info from ini file */
 	if (protocol->major >= 5 && protocol->mid >= 4) {
 		ret = mp_get_timing_info();
 		if (ret < 0) {
-			ipio_err("Can't get timing parameters\n");
-			goto out;
+			ipio_err("Failed to get timing info from ini\n");
+			goto reset;
 		}
 	}
 
@@ -2619,22 +2619,17 @@ int core_mp_start_test(bool lcm_on)
 
 	mp_show_result(csv_path);
 
-#ifndef HOST_DOWNLOAD
+reset:
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
+#else
 	ilitek_platform_reset_ctrl(true, HW_RST);
 #endif
 
-	if (core_config_switch_fw_mode(&protocol->demo_mode) < 0)
-		ipio_err("Switch to demo mode failed\n");
-
-#ifdef HOST_DOWNLOAD
-	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0)
-		ipio_info("host download failed!\n");
-#endif
-
 out:
-	ilitek_platform_enable_irq();
 	mutex_unlock(&ipd->plat_mutex);
 	mutex_unlock(&ipd->touch_mutex);
+	ilitek_platform_enable_irq();
 	return ret;
 }
 EXPORT_SYMBOL(core_mp_start_test);
