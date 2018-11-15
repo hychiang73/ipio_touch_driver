@@ -102,8 +102,6 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 {
 	int ret = 0;
 
-	ilitek_platform_disable_irq();
-
 	if (isEnable) {
 #if (TP_PLATFORM == PT_MTK)
 		tpd_gpio_output(ipd->reset_gpio, 1);
@@ -127,9 +125,6 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 		gpio_set_value(ipd->reset_gpio, 0);
 #endif /* PT_MTK */
 	}
-
-	if (core_fr->actual_fw_mode != protocol->test_mode)
-		ilitek_platform_enable_irq();
 
 	return ret;
 }
@@ -790,6 +785,7 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 	int ret = 0;
 
 	atomic_set(&ipd->do_reset, true);
+	ilitek_platform_disable_irq();
 
 	switch (mode) {
 		case SW_RST:
@@ -825,7 +821,7 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 	}
 
 	atomic_set(&ipd->do_reset, false);
-
+	ilitek_platform_enable_irq();
 	return ret;
 }
 

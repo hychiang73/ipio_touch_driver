@@ -496,7 +496,7 @@ EXPORT_SYMBOL(core_config_set_phone_cover);
 
 void core_config_ic_suspend(void)
 {
-	int i ;
+	int i;
 
 	ipio_info("Starting to suspend ...\n");
 

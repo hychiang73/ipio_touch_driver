@@ -2506,7 +2506,7 @@ static void mp_test_init_item(void)
 	tItems[34].cmd = protocol->peak_to_peak;
 }
 
-static int mp_initial(void)
+static int mp_data_init(void)
 {
 	int ret = 0;
 
@@ -2550,13 +2550,8 @@ int core_mp_start_test(bool lcm_on)
 	int ret = 0;
 	const char *csv_path = NULL;
 
-	mutex_lock(&ipd->plat_mutex);
-
-	ilitek_platform_disable_irq();
-	core_fr->isEnableFR = false;
-
 	/* Init MP structure */
-	ret = mp_initial();
+	ret = mp_data_init();
 	if (ret < 0) {
 		ipio_err("Failed to init mp\n");
 		goto out;
@@ -2574,6 +2569,10 @@ int core_mp_start_test(bool lcm_on)
 		ipio_err("Switch to test mode failed\n");
 		goto out;
 	}
+
+	ilitek_platform_disable_irq();
+	mutex_lock(&ipd->plat_mutex);
+	mutex_lock(&ipd->touch_mutex);
 
 	/* Read timing info from ini file */
 	if (protocol->major >= 5 && protocol->mid >= 4) {
@@ -2633,9 +2632,9 @@ int core_mp_start_test(bool lcm_on)
 #endif
 
 out:
-	core_fr->isEnableFR = true;
 	ilitek_platform_enable_irq();
 	mutex_unlock(&ipd->plat_mutex);
+	mutex_unlock(&ipd->touch_mutex);
 	return ret;
 }
 EXPORT_SYMBOL(core_mp_start_test);
