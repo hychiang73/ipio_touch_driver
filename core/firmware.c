@@ -90,7 +90,7 @@ struct flash_sector {
 	uint32_t crc32;
 	uint32_t dlength;
 	bool data_flag;
-	int16_t block_number; 
+	int16_t block_number;
 };
 
 struct flash_block_info {
@@ -1236,6 +1236,7 @@ static void convert_host_download_ili_file(int type)
 				block++;
 			}
 		}
+		core_firmware->block_number = block;
 	}
 }
 
@@ -1313,14 +1314,14 @@ static int convert_hex_array(void)
 		ipio_err("The size of CTPM_FW is invaild (%d)\n", (int)ARRAY_SIZE(CTPM_FW));
 		goto out;
 	}
-	
+
 	/* Extract block count info */
 	block_count = CTPM_FW[33];
 
 	if (block_count > 0) {
 		core_firmware->hex_tag = true;
 
-		/* Initialize block's index and length and 
+		/* Initialize block's index and length and
 		   extract block type*/
 		block_type = CTPM_FW[32];
 		block_addr_len = 6;
@@ -1330,7 +1331,7 @@ static int convert_hex_array(void)
 			if (((block_type >> i) & 0x01) == 0x01) {
 				fbi[i].number = i + 1;
 
-				for (j = 0; j < block_addr_len; j++) {					
+				for (j = 0; j < block_addr_len; j++) {
 					if (j < block_addr_len / 2)
 						fbi[i].start_addr =
 					    	(fbi[i].start_addr << 8) | CTPM_FW[block_addr_start_idx + j];
@@ -1408,7 +1409,7 @@ static int convert_hex_array(void)
 
 	core_firmware->start_addr = 0x0;
 	core_firmware->end_addr = g_flash_sector[g_section_len].se_addr;
-	ipio_info("start_addr = 0x%06X, end_addr = 0x%06X\n", 
+	ipio_info("start_addr = 0x%06X, end_addr = 0x%06X\n",
 		core_firmware->start_addr, core_firmware->end_addr);
 	return 0;
 
@@ -1556,6 +1557,9 @@ out:
 	ipio_kfree((void **)&flash_fw);
 	ipio_kfree((void **)&g_flash_sector);
 	ipio_vfree((void **)&hex_buffer);
+#ifdef BOOT_FW_UPGRADE_READ_HEX
+	release_firmware(fw);
+#endif
 	core_firmware->isUpgrading = false;
 	return ret;
 }
@@ -1683,7 +1687,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 		}
 
 		if (nType == 0xAE || nType == 0xAF) {
-			core_firmware->hex_tag = nType; //important
+			core_firmware->hex_tag = nType;
 			/* insert block info extracted from hex */
 			if (block < FW_BLOCK_INFO_NUM) {
 				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
@@ -2018,6 +2022,5 @@ int core_firmware_init(void)
 			}
 		}
 	}
-	
 	return 0;
 }
