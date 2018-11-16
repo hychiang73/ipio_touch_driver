@@ -82,6 +82,7 @@ int g_start_resrv = 0x1D000;
 int g_end_resrv = 0x1DFFF;
 #endif
 
+/*The value about block_number is -1, it means reserved area*/
 struct flash_sector {
 	uint32_t ss_addr;
 	uint32_t se_addr;
@@ -89,7 +90,7 @@ struct flash_sector {
 	uint32_t crc32;
 	uint32_t dlength;
 	bool data_flag;
-	bool inside_block;
+	int16_t block_number; 
 };
 
 struct flash_block_info {
@@ -459,7 +460,7 @@ static int verify_flash_data(void)
 
 	for (i = 0; i < g_section_len + 1; i++) {
 		if (g_flash_sector[i].data_flag) {
-			if (core_firmware->isboot && !g_flash_sector[i].inside_block) {
+			if (core_firmware->isboot && g_flash_sector[i].block_number == 0) {
 				if (len != 0) {
 					ret = do_check(ss, len);
 					if (ret < 0)
@@ -573,7 +574,7 @@ static int flash_program_sector(void)
 		 * otherwise data with the flag itself will be programed.
 		 */
 		if (core_firmware->isboot) {
-			if (!g_flash_sector[i].inside_block)
+			if (g_flash_sector[i].block_number == 0)
 				continue;
 		} else {
 			if (!g_flash_sector[i].data_flag)
@@ -652,10 +653,10 @@ static int flash_erase_sector(void)
 
 	for (i = 0; i < g_total_sector; i++) {
 		if (core_firmware->isboot) {
-			if (!g_flash_sector[i].inside_block)
+			if (g_flash_sector[i].block_number == 0)
 				continue;
 		} else {
-			if (!g_flash_sector[i].data_flag && !g_flash_sector[i].inside_block)
+			if (!g_flash_sector[i].data_flag && g_flash_sector[i].block_number == 0)
 				continue;
 		}
 
@@ -1296,8 +1297,8 @@ EXPORT_SYMBOL(core_firmware_boot_host_download);
 #ifndef BOOT_FW_UPGRADE_READ_HEX
 static int convert_hex_array(void)
 {
-	int i, j, index = 0;
-	int block = 0, blen = 0, bindex = 0;
+	int i, j, idx_for_sector = 0;
+	int block_count = 0, block_type = 0, block_addr_len = 0, block_addr_start_idx = 0;
 	uint32_t tmp_addr = 0x0;
 
 	core_firmware->start_addr = 0;
@@ -1312,40 +1313,47 @@ static int convert_hex_array(void)
 		ipio_err("The size of CTPM_FW is invaild (%d)\n", (int)ARRAY_SIZE(CTPM_FW));
 		goto out;
 	}
+	
+	/* Extract block count info */
+	block_count = CTPM_FW[33];
 
-	/* Extract block info */
-	block = CTPM_FW[33];
-
-	if (block > 0) {
+	if (block_count > 0) {
 		core_firmware->hex_tag = true;
 
-		/* Initialize block's index and length */
-		blen = 6;
-		bindex = 34;
+		/* Initialize block's index and length and 
+		   extract block type*/
+		block_type = CTPM_FW[32];
+		block_addr_len = 6;
+		block_addr_start_idx = 34;
 
-		for (i = 0; i < block; i++) {
-			for (j = 0; j < blen; j++) {
-				if (j < 3)
-					fbi[i].start_addr =
-					    (fbi[i].start_addr << 8) | CTPM_FW[bindex + j];
-				else
-					fbi[i].end_addr =
-					    (fbi[i].end_addr << 8) | CTPM_FW[bindex + j];
+		for (i = 0; i < FW_BLOCK_INFO_NUM; i++) {
+			if (((block_type >> i) & 0x01) == 0x01) {
+				fbi[i].number = i + 1;
+
+				for (j = 0; j < block_addr_len; j++) {					
+					if (j < block_addr_len / 2)
+						fbi[i].start_addr =
+					    	(fbi[i].start_addr << 8) | CTPM_FW[block_addr_start_idx + j];
+					else
+						fbi[i].end_addr =
+					    	(fbi[i].end_addr << 8) | CTPM_FW[block_addr_start_idx + j];
+				}
+				block_addr_start_idx += block_addr_len;
 			}
-			bindex += blen;
 		}
 	}
 
 	/* Fill data into buffer */
 	for (i = 0; i < ARRAY_SIZE(CTPM_FW) - 64; i++) {
 		flash_fw[i] = CTPM_FW[i + 64];
-		index = i / flashtab->sector;
-		if (!g_flash_sector[index].data_flag) {
-			g_flash_sector[index].ss_addr = index * flashtab->sector;
-			g_flash_sector[index].se_addr = (index + 1) * flashtab->sector - 1;
-			g_flash_sector[index].dlength =
-			    (g_flash_sector[index].se_addr - g_flash_sector[index].ss_addr) + 1;
-			g_flash_sector[index].data_flag = true;
+		idx_for_sector = i / flashtab->sector;
+
+		if (!g_flash_sector[idx_for_sector].data_flag) {
+			g_flash_sector[idx_for_sector].ss_addr = idx_for_sector * flashtab->sector;
+			g_flash_sector[idx_for_sector].se_addr = (idx_for_sector + 1) * flashtab->sector - 1;
+			g_flash_sector[idx_for_sector].dlength =
+			    (g_flash_sector[idx_for_sector].se_addr - g_flash_sector[idx_for_sector].ss_addr) + 1;
+			g_flash_sector[idx_for_sector].data_flag = true;
 		}
 	}
 
@@ -1353,7 +1361,7 @@ static int convert_hex_array(void)
 	core_firmware->new_fw_cb = (flash_fw[FW_VER_ADDR] << 24) | (flash_fw[FW_VER_ADDR + 1] << 16) |
 			(flash_fw[FW_VER_ADDR + 2] << 8) | (flash_fw[FW_VER_ADDR + 3]);
 
-	g_section_len = index;
+	g_section_len = idx_for_sector;
 
 	if (g_flash_sector[g_section_len].se_addr > flashtab->mem_size) {
 		ipio_err("The size written to flash is larger than it required (%x) (%x)\n",
@@ -1375,7 +1383,7 @@ static int convert_hex_array(void)
 			for (j = 0; j < ARRAY_SIZE(fbi); j++) {
 				if (g_flash_sector[i].ss_addr >= fbi[j].start_addr
 				    && g_flash_sector[i].se_addr <= fbi[j].end_addr) {
-					g_flash_sector[i].inside_block = true;
+					g_flash_sector[i].block_number = fbi[j].number;
 					break;
 				}
 			}
@@ -1383,24 +1391,25 @@ static int convert_hex_array(void)
 
 		/*
 		 * protects the reserved address been written and erased.
-		 * This feature only applies on the boot upgrade. The addr is progrmmable in normal case.
+		 * This feature only applies on the boot upgrade. The addr is progrmmable in normal case
 		 */
 		if (g_flash_sector[i].ss_addr == g_start_resrv && g_flash_sector[i].se_addr == g_end_resrv) {
-			g_flash_sector[i].inside_block = false;
+			g_flash_sector[i].block_number = -1;
 		}
 	}
 
 	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for (i = 0; i < g_total_sector; i++) {
 		ipio_info
-		    ("g_flash_sector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n",
-		     i, g_flash_sector[i].ss_addr, g_flash_sector[i].se_addr, g_flash_sector[index].dlength,
-		     g_flash_sector[i].data_flag, g_flash_sector[i].inside_block);
+		    ("g_flash_sector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, block_number = %d\n",
+		     	i, g_flash_sector[i].ss_addr, g_flash_sector[i].se_addr, g_flash_sector[idx_for_sector].dlength, 
+				g_flash_sector[i].data_flag, g_flash_sector[i].block_number);
 	}
 
 	core_firmware->start_addr = 0x0;
 	core_firmware->end_addr = g_flash_sector[g_section_len].se_addr;
-	ipio_info("start_addr = 0x%06X, end_addr = 0x%06X\n", core_firmware->start_addr, core_firmware->end_addr);
+	ipio_info("start_addr = 0x%06X, end_addr = 0x%06X\n", 
+		core_firmware->start_addr, core_firmware->end_addr);
 	return 0;
 
 out:
@@ -1418,7 +1427,6 @@ int core_firmware_boot_upgrade(void)
 	const struct firmware *fw;
 	int fsize = 0;
 #endif
-
 	ipio_info("BOOT: Starting to upgrade firmware ...\n");
 
 	core_firmware->isUpgrading = true;
@@ -1508,7 +1516,6 @@ int core_firmware_boot_upgrade(void)
 	}
 
 	ipio_memcpy(hex_buffer, fw->data, fsize * sizeof(*fw->data), fsize);
-
 	ret = convert_hex_file(hex_buffer, fsize, false);
 #else
 	ret = convert_hex_array();
@@ -1676,7 +1683,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 		}
 
 		if (nType == 0xAE || nType == 0xAF) {
-			core_firmware->hex_tag = nType;
+			core_firmware->hex_tag = nType; //important
 			/* insert block info extracted from hex */
 			if (block < FW_BLOCK_INFO_NUM) {
 				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
@@ -1768,7 +1775,7 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 			for (j = 0; j < ARRAY_SIZE(fbi); j++) {
 				if (g_flash_sector[i].ss_addr >= fbi[j].start_addr
 				    && g_flash_sector[i].se_addr <= fbi[j].end_addr) {
-					g_flash_sector[i].inside_block = true;
+					g_flash_sector[i].block_number = fbi[j].number;
 					break;
 				}
 			}
@@ -1778,9 +1785,9 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 	/* DEBUG: for showing data with address that will write into fw or be erased */
 	for (i = 0; i < g_total_sector; i++) {
 		ipio_debug(DEBUG_FIRMWARE,
-		    "g_flash_sector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, inside_block = %d\n", i,
+		    "g_flash_sector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, block_number = %d\n", i,
 		    g_flash_sector[i].ss_addr, g_flash_sector[i].se_addr, g_flash_sector[index].dlength,
-		    g_flash_sector[i].data_flag, g_flash_sector[i].inside_block);
+		    g_flash_sector[i].data_flag, g_flash_sector[i].block_number);
 	}
 
 hd_out:
@@ -1854,7 +1861,6 @@ int core_firmware_upgrade(const char *pFilePath, bool host_download)
 	}
 
 	fsize = pfile->f_inode->i_size;
-
 	ipio_info("fsize = %d\n", fsize);
 
 	if (fsize <= 0) {
@@ -1889,6 +1895,7 @@ int core_firmware_upgrade(const char *pFilePath, bool host_download)
 	memset(flash_fw, 0xff, sizeof(uint8_t) * flashtab->mem_size);
 
 	g_total_sector = flashtab->mem_size / flashtab->sector;
+
 	if (g_total_sector <= 0) {
 		ipio_err("Flash configure is wrong\n");
 		ret = -1;
@@ -2011,5 +2018,6 @@ int core_firmware_init(void)
 			}
 		}
 	}
+	
 	return 0;
 }
