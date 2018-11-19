@@ -762,7 +762,7 @@ int core_config_check_int_status(bool high)
 		timer--;
 	}
 
-	if (ret < -1) {
+	if (ret == -1) {
 		ipio_err("Check INT timeout\n");
 		core_config_read_pc_counter();
 	}
