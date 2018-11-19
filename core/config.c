@@ -823,7 +823,7 @@ int core_config_get_key_info(void)
 
 	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -831,7 +831,7 @@ int core_config_get_key_info(void)
 
 	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -839,7 +839,7 @@ int core_config_get_key_info(void)
 
 	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->key_info_len);
 	if (ret < 0) {
-		ipio_err("Failed to read data via I2C, %d\n", ret);
+		ipio_err("Failed to read data, %d\n", ret);
 		goto out;
 	}
 
@@ -879,7 +879,7 @@ int core_config_get_tp_info(void)
 
 	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -887,7 +887,7 @@ int core_config_get_tp_info(void)
 
 	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -895,7 +895,7 @@ int core_config_get_tp_info(void)
 
 	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->tp_info_len);
 	if (ret < 0) {
-		ipio_err("Failed to read data via I2C, %d\n", ret);
+		ipio_err("Failed to read data, %d\n", ret);
 		goto out;
 	}
 
@@ -943,7 +943,7 @@ int core_config_get_protocol_ver(void)
 
 	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -951,7 +951,7 @@ int core_config_get_protocol_ver(void)
 
 	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -959,7 +959,7 @@ int core_config_get_protocol_ver(void)
 
 	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->pro_ver_len);
 	if (ret < 0) {
-		ipio_err("Failed to read data via I2C, %d\n", ret);
+		ipio_err("Failed to read data, %d\n", ret);
 		goto out;
 	}
 
@@ -999,7 +999,7 @@ int core_config_get_core_ver(void)
 
 	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -1007,7 +1007,7 @@ int core_config_get_core_ver(void)
 
 	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -1015,7 +1015,7 @@ int core_config_get_core_ver(void)
 
 	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->core_ver_len);
 	if (ret < 0) {
-		ipio_err("Failed to read data via I2C, %d\n", ret);
+		ipio_err("Failed to read data, %d\n", ret);
 		goto out;
 	}
 
@@ -1048,7 +1048,7 @@ int core_config_get_fw_ver(void)
 
 	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
@@ -1056,7 +1056,7 @@ int core_config_get_fw_ver(void)
 
 	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
 	if (ret < 0) {
-		ipio_err("Failed to write data via I2C, %d\n", ret);
+		ipio_err("Failed to write data, %d\n", ret);
 		goto out;
 	}
 
