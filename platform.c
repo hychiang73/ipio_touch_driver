@@ -575,14 +575,10 @@ static int kthread_handler(void *arg)
 
 		ilitek_platform_disable_irq();
 
-#ifdef BOOT_FW_UPGRADE
-#ifdef HOST_DOWNLOAD
-		ret = core_firmware_boot_host_download();
-#else
+		/* In the case of host download, it had done before. */
+#if defined(BOOT_FW_UPGRADE) && !defined(HOST_DOWNLOAD)
 		ret = core_firmware_boot_upgrade();
 #endif
-#endif
-
 		if (ret < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
 
@@ -1000,10 +996,14 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 #ifdef HOST_DOWNLOAD
 	core_spi_speed_up(ipd->spi, ipd->chip_id);
-
 	/* Start to download AP code to iram with HW reset. */
+#ifdef BOOT_FW_UPGRADE
 	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_BOOT_RST) < 0)
 		ipio_err("Failed to do host download boot rest\n");
+#else
+	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0)
+		ipio_err("Failed to do host download boot rest\n");
+#endif
 #endif
 
 	if (ilitek_platform_read_tp_info() < 0)
