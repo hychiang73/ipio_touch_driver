@@ -107,7 +107,7 @@ int core_Tx_unlock_check(void)
 	return ret;
 }
 
-int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
+int core_spi_ice_mode_unlock_read(uint8_t *data, uint32_t size)
 {
 	int ret = 0;
 	uint8_t txbuf[64] = { 0 };
@@ -148,7 +148,7 @@ int core_ice_mode_read_9881H11(uint8_t *data, uint32_t size)
 	return ret;
 }
 
-int core_ice_mode_write_9881H11(uint8_t *data, uint32_t size)
+int core_spi_ice_mode_lock_write(uint8_t *data, uint32_t size)
 {
 	int ret = 0;
 	int safe_size = size;
@@ -204,7 +204,7 @@ out:
 	return ret;
 }
 
-int core_ice_mode_disable_9881H11(void)
+int core_spi_ice_mode_disable(void)
 {
 	int ret = 0;
 	uint8_t txbuf[5] = {0};
@@ -223,7 +223,7 @@ int core_ice_mode_disable_9881H11(void)
 	return ret;
 }
 
-int core_ice_mode_enable_9881H11(void)
+int core_spi_ice_mode_enable(void)
 {
 	int ret = 0;
 	uint8_t txbuf[5] = {0}, rxbuf[2]= {0};
@@ -254,11 +254,11 @@ int core_ice_mode_enable_9881H11(void)
 	return ret;
 }
 
-int core_spi_read_9881H11(uint8_t *pBuf, uint16_t nSize)
+int core_spi_ice_mode_read(uint8_t *pBuf, uint16_t nSize)
 {
 	int ret = 0, size = 0;
 
-	ret = core_ice_mode_enable_9881H11();
+	ret = core_spi_ice_mode_enable();
 	if (ret < 0) {
 		goto out;
 	}
@@ -269,12 +269,12 @@ int core_spi_read_9881H11(uint8_t *pBuf, uint16_t nSize)
 		goto out;
 	}
 
-	if (core_ice_mode_read_9881H11(pBuf, size) < 0) {
+	if (core_spi_ice_mode_unlock_read(pBuf, size) < 0) {
 		ret = -EIO;
 		goto out;
 	}
 
-	if (core_ice_mode_disable_9881H11() < 0) {
+	if (core_spi_ice_mode_disable() < 0) {
 		ret = -EIO;
 		goto out;
 	}
@@ -283,7 +283,7 @@ out:
 	return ret;
 }
 
-int core_spi_write_9881H11(uint8_t *pBuf, uint16_t nSize)
+int core_spi_ice_mode_write(uint8_t *pBuf, uint16_t nSize)
 {
 	int ret = 0;
 	uint8_t *txbuf = NULL;
@@ -294,11 +294,11 @@ int core_spi_write_9881H11(uint8_t *pBuf, uint16_t nSize)
 		return -ENOMEM;
 	}
 
-	ret = core_ice_mode_enable_9881H11();
+	ret = core_spi_ice_mode_enable();
 	if (ret < 0)
 		goto out;
 
-	ret = core_ice_mode_write_9881H11(pBuf, nSize);
+	ret = core_spi_ice_mode_lock_write(pBuf, nSize);
 	if (ret < 0)
 		goto out;
 
@@ -325,8 +325,8 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 	}
 
 	if (core_config->icemodeenable == false) {
-		ret = core_spi_write_9881H11(pBuf, nSize);
-		core_ice_mode_disable_9881H11();
+		ret = core_spi_ice_mode_write(pBuf, nSize);
+		core_spi_ice_mode_disable();
 		ipio_kfree((void **)&txbuf);
 		return ret;
 	}
@@ -359,7 +359,7 @@ int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 	txbuf[0] = SPI_READ;
 
 	if (core_config->icemodeenable == false)
-		return core_spi_read_9881H11(pBuf, nSize);
+		return core_spi_ice_mode_read(pBuf, nSize);
 
 	if (spi_write_then_read(core_spi->spi, txbuf, 1, pBuf, nSize) < 0) {
 		if (atomic_read(&ipd->do_reset)) {

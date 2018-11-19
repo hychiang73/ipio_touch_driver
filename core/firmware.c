@@ -1296,7 +1296,7 @@ EXPORT_SYMBOL(core_firmware_boot_host_download);
 
 #ifdef BOOT_FW_UPGRADE
 #ifndef BOOT_FW_UPGRADE_READ_HEX
-static int convert_hex_array(void)
+static int convert_ili_file(void)
 {
 	int i, j, idx_for_sector = 0;
 	int block_count = 0, block_type = 0, block_addr_len = 0, block_addr_start_idx = 0;
@@ -1403,8 +1403,8 @@ static int convert_hex_array(void)
 	for (i = 0; i < g_total_sector; i++) {
 		ipio_info
 		    ("g_flash_sector[%d]: ss_addr = 0x%x, se_addr = 0x%x, length = %x, data = %d, block_number = %d\n",
-		     	i, g_flash_sector[i].ss_addr, g_flash_sector[i].se_addr, g_flash_sector[idx_for_sector].dlength, 
-				g_flash_sector[i].data_flag, g_flash_sector[i].block_number);
+			i, g_flash_sector[i].ss_addr, g_flash_sector[i].se_addr, g_flash_sector[idx_for_sector].dlength,
+			g_flash_sector[i].data_flag, g_flash_sector[i].block_number);
 	}
 
 	core_firmware->start_addr = 0x0;
@@ -1519,7 +1519,7 @@ int core_firmware_boot_upgrade(void)
 	ipio_memcpy(hex_buffer, fw->data, fsize * sizeof(*fw->data), fsize);
 	ret = convert_hex_file(hex_buffer, fsize, false);
 #else
-	ret = convert_hex_array();
+	ret = convert_ili_file();
 	if (ret < 0) {
 		ipio_err("Failed to covert firmware data, ret = %d\n", ret);
 		goto out;
