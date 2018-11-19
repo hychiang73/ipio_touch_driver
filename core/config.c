@@ -729,7 +729,7 @@ int core_config_check_cdc_busy(int conut, int delay)
 		mdelay(delay);
 	}
 
-	if (ret < -1) {
+	if (ret == -1) {
 		ipio_err("Check busy (0x%x) timeout\n", busy);
 		core_config_read_pc_counter();
 	}

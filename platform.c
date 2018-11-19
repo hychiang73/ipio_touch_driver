@@ -301,21 +301,20 @@ static void ilitek_platform_esd_check(struct work_struct *pWork)
 #if (TP_PLATFORM == PT_MTK)
 static void tpd_resume(struct device *h)
 {
-	ipio_info("TP Resuem, MTK doing reset\n");
-	ilitek_platform_reset_ctrl(true, HW_RST);
+	ipio_info("TP Resume\n");
 
-	// if (!core_firmware->isUpgrading) {
-	// 	core_config_ic_resume();
-	// }
+	if (!core_firmware->isUpgrading) {
+		core_config_ic_resume();
+	}
 }
 
 static void tpd_suspend(struct device *h)
 {
-	ipio_info("TP Suspend, MTK do nothing\n");
+	ipio_info("TP Suspend\n");
 
-	// if (!core_firmware->isUpgrading) {
-	// 	core_config_ic_suspend();
-	// }
+	if (!core_firmware->isUpgrading) {
+		core_config_ic_suspend();
+	}
 }
 #elif defined CONFIG_FB
 static int ilitek_platform_notifier_fb(struct notifier_block *self, unsigned long event, void *data)
