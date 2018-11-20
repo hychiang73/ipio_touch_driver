@@ -589,12 +589,18 @@ static int kthread_handler(void *arg)
 		core_firmware->isboot = false;
 	} else if (strcmp(str, "irq") == 0) {
 		/* IRQ event */
+		DEFINE_WAIT_FUNC(wait, woken_wake_function);
 		struct sched_param param = {.sched_priority = 4 };
-
 		sched_setscheduler(current, SCHED_RR, &param);
 
 		while (!kthread_should_stop() && !ipd->free_irq_thread) {
-			set_current_state(TASK_INTERRUPTIBLE);
+			add_wait_queue(&waiter, &wait);
+			for (;;) {
+				if (ipd->irq_trigger)
+					break;
+				wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+			}
+			remove_wait_queue(&waiter, &wait);
 			wait_event_interruptible(waiter, ipd->irq_trigger);
 			ipd->irq_trigger = false;
 			set_current_state(TASK_RUNNING);
