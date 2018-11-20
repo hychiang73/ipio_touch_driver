@@ -1,3 +1,17 @@
+* V1.0.4.0
+  * Fix that kthread may cause sleep in some platform.
+  * Fix some characters couldn't be correctly recognised when parsing ini.
+  * Fix the issue of judeging max threshold before mp retry.
+  * Read timing info from ini. (remove calculation from driver)
+  * Read TDF values from ini.
+  * Create two nodes for mp lcm on/on test.
+  * Create MP directory to store csv logs.
+  * Add time stamp in the name of csv file.
+  * Remove control of lcm on/off in mp lcm off test.
+  * Add version of protocol 5.6.0
+  * Remove switching AP mode command from the flow of mp and resume.
+  * Add 0xAF tag in I2C firmware upgrade.
+
 * V1.0.3.10
   * Fix error when exit to ICE mode in pc counter function.
   * Fix error when print delta/raw data in AP mode by reading its node.
