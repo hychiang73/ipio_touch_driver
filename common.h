@@ -190,7 +190,9 @@ extern uint32_t ipio_chip_list[2];
 #define DLM_START_ADDRESS           0x20610
 #define DLM_HEX_ADDRESS             0x10000
 #define MP_HEX_ADDRESS              0x13000
-#define SPI_UPGRADE_LEN				2048
+#define SPI_UPGRADE_LEN				2048 // 20181116 take care for IRAM 4byte address alignment
+#define SPI_READ_LEN				2048 // 20181116 take care for IRAM 4byte address alignment
+
 #define FW_BLOCK_INFO_NUM			6
 #define UPDATE_RETRY_COUNT			3
 
@@ -281,7 +283,7 @@ enum ili7807_types {
 //#define I2C_SEGMENT
 
 /* Be able to upgrade fw at boot stage */
-//#define BOOT_FW_UPGRADE
+#define BOOT_FW_UPGRADE
 
 /* Read fw file by request_firmware */
 //#define BOOT_FW_UPGRADE_READ_HEX
