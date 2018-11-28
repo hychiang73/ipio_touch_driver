@@ -102,7 +102,7 @@ extern int core_config_ice_mode_disable(void);
 extern int core_config_ice_mode_enable(void);
 
 /* Touch IC status */
-
+extern void core_config_read_flash_info(void);
 extern uint32_t core_config_read_pc_counter(void);
 extern int core_config_switch_fw_mode(uint8_t *data);
 extern int core_config_set_watch_dog(bool enable);

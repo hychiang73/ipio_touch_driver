@@ -131,9 +131,6 @@ int ilitek_platform_tp_hw_reset(bool isEnable)
 		gpio_set_value(ipd->reset_gpio, 0);
 #endif /* PT_MTK */
 	}
-
-	/* FW changes to AP mode automatically after hw reset's done */
-	core_fr->actual_fw_mode = protocol->demo_mode;
 	return ret;
 }
 EXPORT_SYMBOL(ilitek_platform_tp_hw_reset);
@@ -1010,6 +1007,11 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0)
 		ipio_err("Failed to do host download boot rest\n");
 #endif
+#endif
+
+#ifndef HOST_DOWNLOAD
+	if (core_config_read_flash_info() < 0)
+		ipio_err("Failed to read flash info\n");
 #endif
 
 	if (ilitek_platform_read_tp_info() < 0)

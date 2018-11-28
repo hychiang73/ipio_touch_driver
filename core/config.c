@@ -38,21 +38,24 @@ uint32_t ipio_chip_list[] = {
 	CHIP_TYPE_ILI7807,
 };
 
-uint8_t g_read_buf[128] = { 0 };
+uint8_t g_read_buf[128] = {0};
 
 struct core_config_data *core_config = NULL;
 
-static void read_flash_info(uint8_t cmd, int len)
+void core_config_read_flash_info(void)
 {
 	int i;
 	uint16_t flash_id = 0, flash_mid = 0;
-	uint8_t buf[4] = { 0 };
+	uint8_t buf[4] = {0};
+	uint8_t cmd = 0x9F;
+
+	core_config_ice_mode_enable();
 
 	core_config_ice_mode_write(0x41000, 0x0, 1);	/* CS high */
 	core_config_ice_mode_write(0x41004, 0x66aa55, 3);	/* Key */
 
 	core_config_ice_mode_write(0x41008, cmd, 1);
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < ARRAY_SIZE(buf); i++) {
 		core_config_ice_mode_write(0x041008, 0xFF, 1);
 		buf[i] = core_config_ice_mode_read(0x41010);
 	}
@@ -63,6 +66,9 @@ static void read_flash_info(uint8_t cmd, int len)
 	flash_mid = buf[0];
 	flash_id = buf[1] << 8 | buf[2];
 	core_flash_init(flash_mid, flash_id);
+
+	core_config_ice_mode_disable();
+	return;
 }
 
 uint32_t core_config_read_pc_counter(void)
@@ -818,6 +824,9 @@ int core_config_get_key_info(void)
 
 	memset(g_read_buf, 0, sizeof(g_read_buf));
 
+	if (INTERFACE == SPI_INTERFACE)
+		return;
+
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_key_info;
 
@@ -1085,7 +1094,6 @@ EXPORT_SYMBOL(core_config_get_fw_ver);
 int core_config_get_chip_id(void)
 {
 	int ret = 0;
-	static int do_once = 0;
 	uint32_t pid = 0, OTPIDData = 0, ANAIDData = 0;
 
 	ret = core_config_ice_mode_enable();
@@ -1119,12 +1127,6 @@ int core_config_get_chip_id(void)
 	ipio_info("Chip Core id = 0x%x\n", core_config->core_type);
 	ipio_info("OTP ID = 0x%x\n", core_config->chip_otp_id);
 	ipio_info("ANA ID = 0x%x\n", core_config->chip_ana_id);
-
-	if (do_once == 0) {
-		/* reading flash id needs to let ic entry to ICE mode */
-		read_flash_info(0x9F, 4);
-		do_once = 1;
-	}
 
 out:
 	core_config_ice_mode_disable();

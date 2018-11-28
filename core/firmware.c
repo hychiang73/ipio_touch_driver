@@ -1581,7 +1581,6 @@ static void convert_hex_tag(void *hex_data, uint32_t addr, int addr_offset, int 
 						ges_info_addr = (fbi[i].end_addr + 1 - 60);
 
 						/* Parsing gesture info inside AP code */
-						ipio_info("ges_info_addr = 0x%X\n", ges_info_addr);
 						core_gesture->area_section = (ap_fw[ges_info_addr + 3] << 24) + (ap_fw[ges_info_addr + 2] << 16) + (ap_fw[ges_info_addr + 1] << 8) + ap_fw[ges_info_addr];
 						core_gesture->ap_start_addr = (ap_fw[ges_info_addr + 7] << 24) + (ap_fw[ges_info_addr + 6] << 16) + (ap_fw[ges_info_addr + 5] << 8) + ap_fw[ges_info_addr + 4];
 						core_gesture->start_addr = (ap_fw[ges_info_addr + 15] << 24) + (ap_fw[ges_info_addr + 14] << 16) + (ap_fw[ges_info_addr + 13] << 8) + ap_fw[ges_info_addr + 12];

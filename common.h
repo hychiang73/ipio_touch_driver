@@ -107,7 +107,7 @@
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
-#define INTERFACE I2C_INTERFACE
+#define INTERFACE SPI_INTERFACE
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.4.0"
@@ -174,6 +174,8 @@ extern uint32_t ipio_chip_list[2];
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #define USEC	1
 #define MSEC	(USEC * 1000)
+#define K (1024)
+#define M (K * K)
 
 /* The definition for firmware upgrade */
 #define MAX_HEX_FILE_SIZE			(160*1024)

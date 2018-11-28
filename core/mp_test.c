@@ -2626,6 +2626,9 @@ reset:
 	ilitek_platform_reset_ctrl(true, HW_RST);
 #endif
 
+	/* FW changes to AP mode automatically after hw reset's done */
+	core_fr->actual_fw_mode = protocol->demo_mode;
+
 out:
 	mutex_unlock(&ipd->plat_mutex);
 	mutex_unlock(&ipd->touch_mutex);

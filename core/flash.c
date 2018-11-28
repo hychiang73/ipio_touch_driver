@@ -27,9 +27,6 @@
 #include "config.h"
 #include "flash.h"
 
-#define K (1024)
-#define M (K * K)
-
 /*
  * The table contains fundamental data used to program our flash, which
  * would be different according to the vendors.
