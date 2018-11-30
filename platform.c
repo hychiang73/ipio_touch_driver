@@ -1010,8 +1010,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 #endif
 
 #ifndef HOST_DOWNLOAD
-	if (core_config_read_flash_info() < 0)
-		ipio_err("Failed to read flash info\n");
+	core_config_read_flash_info();
 #endif
 
 	if (ilitek_platform_read_tp_info() < 0)

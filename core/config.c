@@ -825,7 +825,7 @@ int core_config_get_key_info(void)
 	memset(g_read_buf, 0, sizeof(g_read_buf));
 
 	if (INTERFACE == SPI_INTERFACE)
-		return;
+		return 0;
 
 	cmd[0] = protocol->cmd_read_ctrl;
 	cmd[1] = protocol->cmd_get_key_info;
