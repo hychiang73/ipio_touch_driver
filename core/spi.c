@@ -75,7 +75,10 @@ static int core_mtk_spi_write_then_read(struct spi_device *spi,
 	spi_message_init(&message);
 	memset(xfer, 0, sizeof(xfer));
 
-	cmd = *((uint8_t *)txbuf);
+	if ((n_tx == 1) && (n_rx == 1))
+		cmd = SPI_READ;
+	else
+		cmd = *((uint8_t *)txbuf);
 
 	switch(cmd) {
 		case SPI_WRITE:
@@ -170,8 +173,12 @@ int core_Rx_check(uint16_t check)
 		status = (rxbuf[2] << 8) + rxbuf[3];
 		size = (rxbuf[0] << 8) + rxbuf[1];
 
-		if (status == check)
+		ipio_debug(DEBUG_SPI, "rx check = 0x%x\n", status);
+
+		if (status == check) {
+			ipio_info("rx check free\n");
 			return size;
+		}
 
 		mdelay(1);
 	}
@@ -208,8 +215,12 @@ int core_Tx_unlock_check(void)
 
 		unlock = (rxbuf[2] << 8) + rxbuf[3];
 
-		if (unlock == 0x9881)
+		ipio_debug(DEBUG_SPI, "tx check = 0x%x\n", unlock);
+
+		if (unlock == 0x9881) {
+			ipio_info("tx check free\n");
 			return ret;
+		}
 
 		mdelay(1);
 	}
@@ -352,7 +363,7 @@ int core_spi_ice_mode_enable(void)
 	}
 
 	/* check recover data */
-	if (rxbuf[0] == 0x82) {
+	if(rxbuf[0] != 0xA3){
 		ipio_err("Check Recovery data failed (0x%x)\n", rxbuf[0]);
 		return CHECK_RECOVER;
 	}
@@ -530,8 +541,11 @@ static int core_spi_setup(struct spi_device *spi, uint32_t frequency)
 	core_spi->spi_write_then_read = spi_write_then_read; // provided by kernel API
 #endif
 
+	ipio_info("spi clock = %d\n", frequency);
+
 	spi->mode = SPI_MODE_0;
 	spi->bits_per_word = 8;
+	spi->max_speed_hz = frequency;
 
 	ret = spi_setup(spi);
 	if (ret < 0) {
@@ -541,21 +555,35 @@ static int core_spi_setup(struct spi_device *spi, uint32_t frequency)
 	return 0;
 }
 
-void core_spi_speed_up(struct spi_device *spi, uint32_t chip_id)
+void core_spi_speed_up(bool Enable)
 {
-	if (!spi)
-		return;
+	int spi_clk = 0;
 
-	if (chip_id == CHIP_TYPE_ILI7807) {
-		ipio_info("Set register for SPI seepd up \n");
-		core_config_ice_mode_enable();
+	if(Enable) {
+		ipio_info("Set register for SPI speed up \n");
 		core_config_ice_mode_write(0x063820, 0x00000101, 4);
 		core_config_ice_mode_write(0x042c34, 0x00000008, 4);
 		core_config_ice_mode_write(0x063820, 0x00000000, 4);
-		core_config_ice_mode_disable();
+
+		spi_clk = 10 * M;
+
+		if (core_spi_setup(core_spi->spi, spi_clk) < 0) {
+			ipio_err("ERR: fail to setup spi\n");
+		}
+	} else {
+		ipio_info("Set register for SPI speed down \n");
+		core_config_ice_mode_write(0x063820, 0x00000101, 4);
+		core_config_ice_mode_write(0x042c34, 0x00000000, 4);
+		core_config_ice_mode_write(0x063820, 0x00000000, 4);
+
+		spi_clk = 1 * M;
+
+		if (core_spi_setup(core_spi->spi, spi_clk) < 0) {
+			ipio_err("ERR: fail to setup spi\n");
+		}
 	}
 }
-EXPORT_SYMBOL(core_spi_speed_up);
+EXPORT_SYMBOL(core_spi_set_speed);
 
 int core_spi_init(struct spi_device *spi)
 {

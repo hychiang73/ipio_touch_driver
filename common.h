@@ -98,6 +98,10 @@
 #define CHIP_TYPE_ILI7807	0x7807
 #define TP_TOUCH_IC		CHIP_TYPE_ILI7807
 
+#if (TP_TOUCH_IC == CHIP_TYPE_ILI7807)
+#define CHIP_TYPE_7807G_AA
+#endif
+
 /* A platform currently supported by driver */
 #define PT_QCOM	1
 #define PT_MTK	2
@@ -140,6 +144,7 @@ enum {
 	DEBUG_NETLINK = BIT(8),
 	DEBUG_PARSER = BIT(9),
 	DEBUG_GESTURE = BIT(10),
+	DEBUG_SPI = BIT(11),
 	DEBUG_ALL = ~0,
 };
 

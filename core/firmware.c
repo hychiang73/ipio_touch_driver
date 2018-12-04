@@ -1151,6 +1151,9 @@ out:
 		core_config_ice_mode_write(0x40040, 0xAE, 1);
 	}
 
+	/* Waiting for INT status becoming normal */
+	mdelay(10);
+
 	core_config_ice_mode_disable();
 
 	ipio_kfree((void **)&buf);

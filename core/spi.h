@@ -25,9 +25,9 @@
 #ifndef __SPI_H
 #define __SPI_H
 
-#define SPI_WRITE 		0X82
-#define SPI_READ 		0X83
-#define SPI_CLK_HZ		(1 * M)
+#define SPI_WRITE 		0x82
+#define SPI_READ 		0x83
+#define SPI_CLK_HZ		(10 * M)
 #define DMA_TRANSFER_MAX_TIMES 2
 #define DMA_TRANSFER_MAX_SIZE 1024
 #define SPI_WRITE_BUFF_MAXSIZE (1024 * DMA_TRANSFER_MAX_TIMES + 5)//plus 5 for IC Mode :(Head + Address) 0x82,0x25,Addr_L,Addr_M,Addr_H
@@ -42,7 +42,7 @@ struct core_spi_data {
 
 extern struct core_spi_data *core_spi;
 
-extern void core_spi_speed_up(struct spi_device *spi, uint32_t chip_id);
+extern void core_spi_speed_up(bool Enable);
 extern int core_spi_write(uint8_t *pBuf, uint16_t nSize);
 extern int core_spi_read(uint8_t *pBuf, uint16_t nSize);
 extern int core_spi_init(struct spi_device *spi);

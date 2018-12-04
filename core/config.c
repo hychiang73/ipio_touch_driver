@@ -31,6 +31,7 @@
 #include "finger_report.h"
 #include "gesture.h"
 #include "mp_test.h"
+#include "spi.h"
 
 /* the list of support chip */
 uint32_t ipio_chip_list[] = {
@@ -615,9 +616,15 @@ EXPORT_SYMBOL(core_config_ice_mode_disable);
 int core_config_ice_mode_enable(void)
 {
 	ipio_info("ICE Mode enabled\n");
+
 	core_config->icemodeenable = true;
+
 	if (core_config_ice_mode_write(0x181062, 0x0, 0) < 0)
 		return -1;
+
+#ifdef CHIP_TYPE_7807G_AA
+	core_spi_speed_up(true);
+#endif
 
 	return 0;
 }
