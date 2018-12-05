@@ -567,19 +567,17 @@ void core_config_ic_resume(void)
 
 	if (core_config->isEnableGesture) {
 		disable_irq_wake(ipd->isr_gpio);
-#ifdef HOST_DOWNLOAD
-		if (core_gesture_load_ap_code() < 0) {
-			ipio_err("load ap code fail\n");
-			ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
-		}
-	} else {
-		ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
-#endif
 	}
 
-#ifndef HOST_DOWNLOAD
+	/* Reload AP code by hw reset */
+#ifdef HOST_DOWNLOAD
+	ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
+#else
 	ilitek_platform_reset_ctrl(true, HW_RST);
 #endif
+
+	/* FW changes to AP mode automatically after hw reset's done */
+	core_fr->actual_fw_mode = protocol->demo_mode;
 
 	if (ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue,
@@ -623,9 +621,12 @@ int core_config_ice_mode_enable(void)
 		return -1;
 
 #ifdef CHIP_TYPE_7807G_AA
+#if (INTERFACE == SPI_INTERFACE)
 	core_spi_speed_up(true);
 #endif
+#endif
 
+	mdelay(25);
 	return 0;
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
@@ -1108,8 +1109,6 @@ int core_config_get_chip_id(void)
 		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
 		return ret;
 	}
-
-	mdelay(20);
 
 	pid = core_config_ice_mode_read(core_config->pid_addr);
 	OTPIDData = core_config_ice_mode_read(core_config->otp_id_addr);

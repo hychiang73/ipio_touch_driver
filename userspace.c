@@ -533,7 +533,7 @@ static ssize_t ilitek_proc_debug_message_read(struct file *filp, char __user *bu
 
 static ssize_t ilitek_proc_mp_lcm_on_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	int apk[100] = {0};
+	char apk[100] = {0};
 	int ret;
 	bool lcm_on = true;
 
@@ -556,9 +556,8 @@ static ssize_t ilitek_proc_mp_lcm_on_test_read(struct file *filp, char __user *b
 		goto out;
 
 	/* copy MP result to user */
-	memset(apk, 2, sizeof(apk));
-	core_mp_copy_reseult(apk, sizeof(apk));
-	ret = copy_to_user((uint32_t *)buff, apk, sizeof(apk));
+	core_mp_copy_reseult(apk, ARRAY_SIZE(apk));
+	ret = copy_to_user((char *)buff, apk, sizeof(apk) * 100);
 	if (ret < 0)
 		ipio_err("Failed to copy data to user space\n");
 
@@ -569,7 +568,7 @@ out:
 
 static ssize_t ilitek_proc_mp_lcm_off_test_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	int apk[100] = {0};
+	char apk[100] = {0};
 	int ret;
 	bool lcm_off = false;
 
@@ -592,9 +591,8 @@ static ssize_t ilitek_proc_mp_lcm_off_test_read(struct file *filp, char __user *
 		goto out;
 
 	/* copy MP result to user */
-	memset(apk, 2, sizeof(apk));
-	core_mp_copy_reseult(apk, sizeof(apk));
-	ret = copy_to_user((uint32_t *)buff, apk, sizeof(apk));
+	core_mp_copy_reseult(apk, ARRAY_SIZE(apk));
+	ret = copy_to_user((char *)buff, apk, sizeof(apk) * 100);
 	if (ret < 0)
 		ipio_err("Failed to copy data to user space\n");
 

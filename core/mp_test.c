@@ -100,7 +100,7 @@ struct mp_test_items tItems[] = {
 	{.id = 1, .name = "mutual_bg", .desp = "baseline data(bg)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 2, .name = "mutual_signal", .desp = "untouch signal data(bg-raw-4096) - mutual", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 3, .name = "mutual_no_bk", .desp = "raw data(no bk)", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.id = 4, .name = "mutual_has_bk", .desp = "raw data(no bk)", .result = "FAIL", .catalog = MUTUAL_TEST},
+	{.id = 4, .name = "mutual_has_bk", .desp = "raw data(have bk)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 5, .name = "mutual_bk_dac", .desp = "manual bk data(mutual)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 6, .name = "self_dac", .desp = "calibration data(dac) - self", .result = "FAIL", .catalog = SELF_TEST},
 	{.id = 7, .name = "self_bg", .desp = "baselin data(bg,self_tx,self_r)", .result = "FAIL", .catalog = SELF_TEST},
@@ -2035,7 +2035,7 @@ fail_open:
 }
 
 /* The method to copy results to user depends on what APK needs */
-void core_mp_copy_reseult(int *buf, int size)
+void core_mp_copy_reseult(char *buf, size_t size)
 {
 	int i, run = 0;
 
@@ -2045,17 +2045,16 @@ void core_mp_copy_reseult(int *buf, int size)
 	}
 
 	for (i = 0; i < core_mp->mp_items; i++) {
+		buf[i] = 2;
 		if (tItems[i].run) {
 			if (tItems[i].item_result == MP_FAIL)
-				buf[i + 1] = 1;
+				buf[i] = 1;
 			else
-				buf[i + 1] = 0;
+				buf[i] = 0;
 
 			run++;
 		}
 	}
-
-	buf[0] = run;
 }
 EXPORT_SYMBOL(core_mp_copy_reseult);
 

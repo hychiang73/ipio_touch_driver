@@ -120,9 +120,6 @@ int core_gesture_load_ap_code(void)
 	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
 		ipio_err("write command AP Flag error\n");
 	}
-	if ((core_read(core_config->slave_i2c_addr, temp, 20)) < 0) {
-		ipio_err("Read AP Flag error\n");
-	}
 
 	/* Leave Gesture Cmd LPWG Stop */
 	temp[0] = 0x01;

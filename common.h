@@ -197,8 +197,8 @@ extern uint32_t ipio_chip_list[2];
 #define DLM_START_ADDRESS           0x20610
 #define DLM_HEX_ADDRESS             0x10000
 #define MP_HEX_ADDRESS              0x13000
-#define SPI_UPGRADE_LEN				2048 // 20181116 take care for IRAM 4byte address alignment
-#define SPI_READ_LEN				2048 // 20181116 take care for IRAM 4byte address alignment
+#define SPI_UPGRADE_LEN				2048
+#define SPI_READ_LEN				2048
 
 #define FW_BLOCK_INFO_NUM			6
 #define UPDATE_RETRY_COUNT			3

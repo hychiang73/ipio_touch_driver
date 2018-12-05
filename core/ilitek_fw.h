@@ -1,3 +1,3 @@
 static unsigned char CTPM_FW[] = {
-	#include "FW_TDDI_TRUNK_FB.ili"
+	#include "ILITEK_FW_v11.ili"
 };

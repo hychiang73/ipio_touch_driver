@@ -685,8 +685,6 @@ int tddi_fw_upgrade(bool isIRAM)
 		goto out;
 	}
 
-	mdelay(25);
-
 	if (core_config_set_watch_dog(false) < 0) {
 		ipio_err("Failed to disable watch dog\n");
 		ret = -EINVAL;
@@ -735,8 +733,6 @@ int tddi_fw_upgrade(bool isIRAM)
 		ipio_err("Failed to enable ICE mode\n");
 		goto out;
 	}
-
-	mdelay(20);
 
 	/* check the data that we've just written into the iram. */
 	ret = verify_flash_data();
