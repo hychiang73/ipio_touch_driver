@@ -98,6 +98,7 @@ struct flash_block_info {
 	uint32_t end_addr;
 	uint32_t hex_crc;
 	uint32_t block_crc;
+	uint32_t change_start_addr;
 	uint8_t  number;
 };
 
@@ -869,6 +870,8 @@ static int host_download_dma_check(int block)
 		for (i = 0; i < core_firmware->block_number; i++) {
 			if (fbi[i].number == block) {
 				block_size = (fbi[i].end_addr - fbi[i].start_addr + 1) - 0x4;
+				if (fbi[i].change_start_addr != INT_MAX)
+					start_addr = fbi[i].change_start_addr;
 				break;
 			}
 		}
@@ -927,11 +930,13 @@ static int host_download_dma_check(int block)
 
 int tddi_host_download(bool mode)
 {
-	int i = 0, ret = 0;
-	uint8_t *buf = NULL, *read_ap_buf = NULL;
+	int i = 0, j = 0,  ret = 0;
+	uint8_t *buf = NULL, *read_ap_buf = NULL, *buf_ptr = NULL;
+	char block_name[8];
 	uint8_t *read_dlm_buf = NULL, *read_mp_buf = NULL;
 	uint8_t *read_gesture_buf = NULL, *gesture_ap_buf = NULL;
 	uint32_t data_firmware_size = 8 * 1024;
+	uint32_t start_addr = 0;
 	uint32_t ap_crc = 0, ap_dma = 0, dlm_crc = 0;
 	uint32_t dlm_dma = 0, tuning_crc = 0, tuning_dma = 0;
 
@@ -999,12 +1004,18 @@ int tddi_host_download(bool mode)
 		} else {
 			for (i = 0; i < core_firmware->block_number; i++) {
 				if (fbi[i].number == MP_BLOCK_NUM) {
+
+					start_addr = 0;
+
+					if (fbi[i].change_start_addr != INT_MAX)
+						start_addr = fbi[i].change_start_addr;
+
 					/* write hex to the addr of MP code */
 					ipio_info("Writing data into MP code ... len = 0x%X\n", (fbi[i].end_addr - fbi[i].start_addr + 1));
-					if (write_download(0, (fbi[i].end_addr - fbi[i].start_addr + 1), mp_fw, SPI_UPGRADE_LEN) < 0) {
+					if (write_download(start_addr, (fbi[i].end_addr - fbi[i].start_addr + 1), mp_fw, SPI_UPGRADE_LEN) < 0) {
 						ipio_err("SPI Write MP code data error\n");
 					}
-					if (read_download(0, (fbi[i].end_addr - fbi[i].start_addr + 1), read_mp_buf, SPI_UPGRADE_LEN)) {
+					if (read_download(start_addr, (fbi[i].end_addr - fbi[i].start_addr + 1), read_mp_buf, SPI_UPGRADE_LEN)) {
 						ipio_err("SPI Read MP code data error\n");
 					}
 					if (memcmp(mp_fw, read_mp_buf, (fbi[i].end_addr - fbi[i].start_addr + 1)) == 0) {
@@ -1068,22 +1079,35 @@ int tddi_host_download(bool mode)
 		} else {
 			for (i = 0; i < core_firmware->block_number; i++) {
 				if (fbi[i].number == AP_BLOCK_NUM) {
-					ipio_info("Writing data into AP code ... len = 0x%X\n", (fbi[i].end_addr - fbi[i].start_addr + 1));
-					if (write_download(0, (fbi[i].end_addr - fbi[i].start_addr + 1), ap_fw, SPI_UPGRADE_LEN) < 0)
-						ipio_err("SPI Write AP code data error\n");
+					start_addr = 0;
+					buf_ptr = ap_fw;
+					snprintf(block_name, sizeof(block_name), "AP");
 				} else if (fbi[i].number == DATA_BLOCK_NUM) {
-					data_firmware_size = (fbi[i].end_addr - fbi[i].start_addr + 1);
-					ipio_info("Writing data into DLM code ...len = 0x%X\n", data_firmware_size);
-					if (write_download(DLM_START_ADDRESS, data_firmware_size, dlm_fw, SPI_UPGRADE_LEN) < 0) {
-						ipio_err("SPI Write DLM code data error\n");
-					}
+					start_addr = DLM_START_ADDRESS;
+					buf_ptr = dlm_fw;
+					snprintf(block_name, sizeof(block_name), "Dlm");
 				} else if (fbi[i].number == TUNING_BLOCK_NUM) {
-					ipio_info("Writing data into Tuning code ...len = 0x%X\n", (fbi[i].end_addr - fbi[i].start_addr + 1));
-					if (write_download(DLM_START_ADDRESS + data_firmware_size, (fbi[i].end_addr - fbi[i].start_addr + 1), tuning_fw, SPI_UPGRADE_LEN) < 0) {
-						ipio_err("SPI Write TUNING code data error\n");
+					for (j = 0; j < core_firmware->block_number; j++) {
+						if (fbi[j].number == DATA_BLOCK_NUM) {
+							data_firmware_size = (fbi[j].end_addr - fbi[j].start_addr + 1);
+							break;
+						}
 					}
+					start_addr = DLM_START_ADDRESS + data_firmware_size;
+					buf_ptr = tuning_fw;
+					snprintf(block_name, sizeof(block_name), "Tuning");
+				}else {
+					continue;
 				}
+				if (fbi[i].change_start_addr != INT_MAX)
+					start_addr = fbi[i].change_start_addr;
+
+				ipio_info("Writing data into %s code ... start= 0x%x,len = 0x%X\n", block_name, start_addr, (fbi[i].end_addr - fbi[i].start_addr + 1));
+				if (write_download(start_addr, (fbi[i].end_addr - fbi[i].start_addr + 1), buf_ptr, SPI_UPGRADE_LEN) < 0)
+					ipio_err("SPI Write %s code data error\n", block_name);
+				ipio_err("\n");
 			}
+
 		}
 
 		/* Check AP/DLM/Tunning mode Buffer data */
@@ -1193,9 +1217,11 @@ static void convert_host_download_ili_file(int type)
 				if (fbi[block].number == 6) {
 					fbi[block].start_addr = (CTPM_FW[0] << 16) + (CTPM_FW[1] << 8) + (CTPM_FW[2]);
 					fbi[block].end_addr = (CTPM_FW[3] << 16) + (CTPM_FW[4] << 8) + (CTPM_FW[5]);
+					fbi[block].change_start_addr = INT_MAX;
 				} else {
 					fbi[block].start_addr = (CTPM_FW[34 + i * 6] << 16) + (CTPM_FW[35 + i * 6] << 8) + (CTPM_FW[36 + i * 6]);
 					fbi[block].end_addr = (CTPM_FW[37 + i * 6] << 16) + (CTPM_FW[38 + i * 6] << 8) + (CTPM_FW[39 + i * 6]);
+					fbi[block].change_start_addr = INT_MAX;
 				}
 
 				ipio_info("Block[%d]: start_addr = %x, end = %x number = 0x%X\n",
@@ -1637,7 +1663,8 @@ static void convert_hex_tag(void *hex_data, uint32_t addr, int addr_offset, int 
 static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 {
 	int index = 0, block = 0;
-	uint32_t i = 0, j = 0, k = 0;
+	int num_temp;
+	uint32_t i = 0, j = 0, k = 0, loop = 0;
 	uint32_t nLength = 0, nAddr = 0, nType = 0;
 	uint32_t nStartAddr = 0x0, nEndAddr = 0x0, nChecksum = 0x0, nExAddr = 0;
 	uint32_t tmp_addr = 0x0;
@@ -1690,13 +1717,23 @@ static int convert_hex_file(uint8_t *pBuf, uint32_t nSize, bool host_download)
 			if (block < FW_BLOCK_INFO_NUM) {
 				fbi[block].start_addr = HexToDec(&pBuf[i + 9], 6);
 				fbi[block].end_addr = HexToDec(&pBuf[i + 9 + 6], 6);
-
+				fbi[block].change_start_addr = INT_MAX;
 				if (nType == 0xAF)
 				    fbi[block].number = HexToDec(&pBuf[i + 9 + 6 + 6], 2);
 			}
 			ipio_info("Block[%d]: start_addr = %x, end = %x, number = %d\n",
 				block, fbi[block].start_addr, fbi[block].end_addr, fbi[block].number);
 			block++;
+		}
+
+		if (nType == 0xB0 && core_firmware->hex_tag == 0xAF) {
+			num_temp = HexToDec(&pBuf[i + 9 + 6], 2);
+			for (loop = 0; loop < FW_BLOCK_INFO_NUM; loop++ ) {
+				if (num_temp == fbi[loop].number) {
+					fbi[loop].change_start_addr = HexToDec(&pBuf[i + 9], 6);
+					ipio_info("number = 0x%x, change_start_addr = 0x%x",fbi[loop].number, fbi[loop].change_start_addr);
+				}
+			}
 		}
 
 		nAddr = nAddr + (nExAddr << 16);
