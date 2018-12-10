@@ -48,10 +48,6 @@ extern struct tpd_device *tpd;
 
 #define DEVICE_ID	"ILITEK_TDDI"
 
-#ifdef USE_KTHREAD
-static DECLARE_WAIT_QUEUE_HEAD(waiter);
-#endif
-
 /* Debug level */
 uint32_t ipio_debug_level = DEBUG_ALL;
 EXPORT_SYMBOL(ipio_debug_level);
@@ -474,32 +470,23 @@ static int ilitek_platform_reg_suspend(void)
 	return ret;
 }
 
-#ifndef USE_KTHREAD
-static void ilitek_platform_work_queue(struct work_struct *work)
+static irqreturn_t ilitek_platform_irq_top_half(int irq, void *dev_id)
 {
-	ipio_debug(DEBUG_IRQ, "work_queue: IRQ = %d\n", ipd->isEnableIRQ);
+	if (irq != ipd->isr_gpio || core_firmware->isUpgrading)
+		return IRQ_NONE;
 
-	core_fr_handler();
-
-	if (!ipd->isEnableIRQ)
-		ilitek_platform_enable_irq();
+	return IRQ_WAKE_THREAD;
 }
-#endif /* USE_KTHREAD */
 
-static irqreturn_t ilitek_platform_irq_handler(int irq, void *dev_id)
+static irqreturn_t ilitek_platform_irq_bottom_half(int irq, void *dev_id)
 {
-	ipio_debug(DEBUG_IRQ, "IRQ = %d\n", ipd->isEnableIRQ);
+	mutex_lock(&ipd->touch_mutex);
 
-	if (ipd->isEnableIRQ) {
-		ilitek_platform_disable_irq();
-#ifdef USE_KTHREAD
-		ipd->irq_trigger = true;
-		wake_up_interruptible(&waiter);
-#else
-		schedule_work(&ipd->report_work_queue);
-#endif /* USE_KTHREAD */
-	}
+	ilitek_platform_disable_irq();
+	core_fr_handler();
+	ilitek_platform_enable_irq();
 
+	mutex_unlock(&ipd->touch_mutex);
 	return IRQ_HANDLED;
 }
 
@@ -561,6 +548,7 @@ out:
 #endif /* PT_MTK */
 }
 
+#ifdef BOOT_FW_UPGRADE
 static int kthread_handler(void *arg)
 {
 	int ret = 0;
@@ -572,8 +560,8 @@ static int kthread_handler(void *arg)
 
 		ilitek_platform_disable_irq();
 
-		/* In the case of host download, it had done before. */
-#if defined(BOOT_FW_UPGRADE) && !defined(HOST_DOWNLOAD)
+		/* In the case of host download, it had been done before. */
+#ifndef HOST_DOWNLOAD
 		ret = core_firmware_boot_upgrade();
 #endif
 		if (ret < 0)
@@ -584,34 +572,13 @@ static int kthread_handler(void *arg)
 		ilitek_platform_input_init();
 
 		core_firmware->isboot = false;
-	} else if (strcmp(str, "irq") == 0) {
-		/* IRQ event */
-		DEFINE_WAIT_FUNC(wait, woken_wake_function);
-		struct sched_param param = {.sched_priority = 4 };
-		sched_setscheduler(current, SCHED_RR, &param);
-
-		while (!kthread_should_stop() && !ipd->free_irq_thread) {
-			add_wait_queue(&waiter, &wait);
-			for (;;) {
-				if (ipd->irq_trigger)
-					break;
-				wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
-			}
-			remove_wait_queue(&waiter, &wait);
-			wait_event_interruptible(waiter, ipd->irq_trigger);
-			ipd->irq_trigger = false;
-			set_current_state(TASK_RUNNING);
-			mutex_lock(&ipd->touch_mutex);
-			core_fr_handler();
-			ilitek_platform_enable_irq();
-			mutex_unlock(&ipd->touch_mutex);
-		}
-	} else {
+	}  else {
 		ipio_err("Unknown EVENT\n");
 	}
 
 	return ret;
 }
+#endif
 
 static int ilitek_platform_isr_register(void)
 {
@@ -619,20 +586,6 @@ static int ilitek_platform_isr_register(void)
 #if (TP_PLATFORM == PT_MTK)
 	struct device_node *node;
 #endif /* PT_MTK */
-
-#ifdef USE_KTHREAD
-	ipd->irq_thread = kthread_run(kthread_handler, "irq", "ili_irq_thread");
-	if (ipd->irq_thread == (struct task_struct *)ERR_PTR) {
-		ipd->irq_thread = NULL;
-		ipio_err("Failed to create kthread\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-	ipd->irq_trigger = false;
-	ipd->free_irq_thread = false;
-#else
-	INIT_WORK(&ipd->report_work_queue, ilitek_platform_work_queue);
-#endif /* USE_KTHREAD */
 
 #if (TP_PLATFORM == PT_MTK)
 	node = of_find_matching_node(NULL, touch_of_match);
@@ -646,8 +599,8 @@ static int ilitek_platform_isr_register(void)
 	ipio_info("ipd->isr_gpio = %d\n", ipd->isr_gpio);
 
 	ret = request_threaded_irq(ipd->isr_gpio,
-				   NULL,
-				   ilitek_platform_irq_handler, IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "ilitek", NULL);
+				   ilitek_platform_irq_top_half,
+				   ilitek_platform_irq_bottom_half, IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "ilitek", NULL);
 
 	if (ret != 0) {
 		ipio_err("Failed to register irq handler, irq = %d, ret = %d\n", ipd->isr_gpio, ret);
@@ -853,16 +806,6 @@ static int ilitek_platform_remove(struct spi_device *spi)
 #else
 	unregister_early_suspend(&ipd->early_suspend);
 #endif /* CONFIG_FB */
-
-#ifdef USE_KTHREAD
-	if (ipd->irq_thread != NULL) {
-		ipd->irq_trigger = true;
-		ipd->free_irq_thread = true;
-		wake_up_interruptible(&waiter);
-		kthread_stop(ipd->irq_thread);
-		ipd->irq_thread = NULL;
-	}
-#endif /* USE_KTHREAD */
 
 	if (ipd->input_device != NULL) {
 		input_unregister_device(ipd->input_device);

@@ -58,14 +58,6 @@ struct ilitek_platform_data {
 
 	atomic_t do_reset;
 
-#ifdef USE_KTHREAD
-	struct task_struct *irq_thread;
-	bool irq_trigger;
-	bool free_irq_thread;
-#else
-	struct work_struct report_work_queue;
-#endif
-
 #ifdef CONFIG_FB
 	struct notifier_block notifier_fb;
 #else

@@ -773,8 +773,8 @@ static ssize_t ilitek_proc_get_debug_mode_data_read(struct file *filp, char __us
 
 
 	/*save data to csv*/
-	printk("Get Raw data%d frame\n", ipd->raw_count);
-	printk("Get Delta data %d frame\n", ipd->delta_count);
+	ipio_info("Get Raw data%d frame\n", ipd->raw_count);
+	ipio_info("Get Delta data %d frame\n", ipd->delta_count);
 
 
 	csv.file_len += sprintf(csv.ptr + csv.file_len, "Get Raw data%d frame\n", ipd->raw_count);

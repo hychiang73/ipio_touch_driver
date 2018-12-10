@@ -280,9 +280,6 @@ enum ili7807_types {
 /* Enable the support of regulator power. */
 //#define REGULATOR_POWER_ON
 
-/* Either an interrupt event handled by kthread or work queue. */
-#define USE_KTHREAD
-
 /* Enable DMA with I2C. */
 //#define I2C_DMA
 
