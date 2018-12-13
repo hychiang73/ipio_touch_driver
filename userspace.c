@@ -746,13 +746,9 @@ static int debug_mode_get_data(struct file_buffer *file, uint8_t type, uint32_t 
 
 }
 
-
-
 static ssize_t ilitek_proc_get_debug_mode_data_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int ret;
-	// int i, j, index;
-	// unsigned char *ptr;
 	uint8_t cmd[5] = { 0 };
 	struct file_buffer csv;
 
@@ -770,7 +766,6 @@ static ssize_t ilitek_proc_get_debug_mode_data_read(struct file *filp, char __us
 		ipio_err("Failed to allocate CSV mem\n");
 		goto out;
 	}
-
 
 	/*save data to csv*/
 	ipio_info("Get Raw data%d frame\n", ipd->raw_count);

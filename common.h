@@ -114,7 +114,7 @@
 #define INTERFACE SPI_INTERFACE
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.4.0"
+#define DRIVER_VERSION	"1.0.4.1"
 
 /* Driver core type */
 #define CORE_TYPE_B		0x00
@@ -122,7 +122,7 @@
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
-#define PROTOCOL_MID		0x4
+#define PROTOCOL_MID		0x5
 #define PROTOCOL_MINOR		0x0
 
 /*  Debug messages */
