@@ -748,7 +748,7 @@ static int ilitek_platform_core_init(void)
 
 int ilitek_platform_reset_ctrl(bool rst, int mode)
 {
-	int ret = 0, i;
+	int ret = 0;
 
 	atomic_set(&ipd->do_reset, true);
 	ilitek_platform_disable_irq();
@@ -763,6 +763,7 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			ilitek_platform_tp_hw_reset(rst);
 			break;
 #ifdef HOST_DOWNLOAD
+		int i;
 		case HOST_DOWNLOAD_RST:
 			ipio_info("Howst Download RST\n");
 			for (i = 0; i < core_firmware->retry_times; i++) {
@@ -789,8 +790,8 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			}
 			if (ret < 0)
 				ipio_err("host download boot reset failed\n");
-#endif
 			break;
+#endif
 		default:
 			ipio_err("Unknown RST mode (%d)\n", mode);
 			ret = -1;
