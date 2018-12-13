@@ -603,7 +603,6 @@ void core_spi_speed_up(bool Enable)
 		}
 	}
 }
-EXPORT_SYMBOL(core_spi_set_speed);
 
 int core_spi_init(struct spi_device *spi)
 {
@@ -627,4 +626,3 @@ int core_spi_init(struct spi_device *spi)
 	core_spi->spi = spi;
 	return 0;
 }
-EXPORT_SYMBOL(core_spi_init);
