@@ -1033,11 +1033,11 @@ int tddi_host_download(bool mode)
 		if (mode) {
 			/* write hex to the addr of Gesture code */
 			ipio_info("Writing data into Gesture code ...\n");
-			if (write_download(core_gesture->ap_start_addr, core_gesture->length, gesture_fw, core_gesture->length) < 0) {
+			if (write_download(core_gesture->ap_start_addr, core_gesture->length, gesture_fw, SPI_UPGRADE_LEN) < 0) {
 				ipio_err("SPI Write Gesture code data error\n");
 			}
 
-			if (read_download(core_gesture->ap_start_addr, core_gesture->length, read_gesture_buf, core_gesture->length)) {
+			if (read_download(core_gesture->ap_start_addr, core_gesture->length, read_gesture_buf, SPI_UPGRADE_LEN)) {
 				ipio_err("SPI Read Gesture code data error\n");
 			}
 
@@ -1052,10 +1052,10 @@ int tddi_host_download(bool mode)
 			/* write hex to the addr of AP code */
 			ipio_memcpy(gesture_ap_buf, ap_fw + core_gesture->ap_start_addr, core_gesture->ap_length, MAX_GESTURE_FIRMWARE_SIZE);
 			ipio_info("Writing data into AP code ...\n");
-			if (write_download(core_gesture->ap_start_addr, core_gesture->ap_length, gesture_ap_buf, core_gesture->ap_length) < 0) {
+			if (write_download(core_gesture->ap_start_addr, core_gesture->ap_length, gesture_ap_buf, SPI_UPGRADE_LEN) < 0) {
 				ipio_err("SPI Write AP code data error\n");
 			}
-			if (read_download(core_gesture->ap_start_addr, core_gesture->ap_length, read_ap_buf, core_gesture->ap_length)) {
+			if (read_download(core_gesture->ap_start_addr, core_gesture->ap_length, read_ap_buf, SPI_UPGRADE_LEN)) {
 				ipio_err("SPI Read AP code data error\n");
 			}
 
@@ -1890,7 +1890,7 @@ int core_firmware_upgrade(const char *pFilePath, bool host_download)
 		ipio_err("Failed to open the file at %s.\n", pFilePath);
 #ifdef HOST_DOWNLOAD
 		ipio_info("Feed ili file to host download instead of hex\n");
-		ret = core_firmware->upgrade_func(host_download);
+		ret = core_firmware_boot_host_download();
 		if (ret < 0)
 			ipio_err("host download failed, ret = %d\n", ret);
 		goto out_hd;
@@ -2045,6 +2045,7 @@ int core_firmware_init(void)
 				case CHIP_TYPE_ILI9881:
 					core_firmware->max_count = 0x1FFFF;
 					core_firmware->isCRC = true;
+					core_firmware->retry_times = 3;
 #ifdef HOST_DOWNLOAD
 					core_firmware->upgrade_func = tddi_host_download;
 #else

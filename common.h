@@ -287,7 +287,7 @@ enum ili7807_types {
 //#define I2C_SEGMENT
 
 /* Be able to upgrade fw at boot stage */
-#define BOOT_FW_UPGRADE
+//#define BOOT_FW_UPGRADE
 
 /* Read fw file by request_firmware */
 //#define BOOT_FW_UPGRADE_READ_HEX

@@ -197,6 +197,7 @@ struct core_firmware_data {
 
 	uint32_t update_status;
 	uint32_t max_count;
+	uint8_t  retry_times;
 
 	int delay_after_upgrade;
 

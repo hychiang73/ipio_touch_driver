@@ -551,7 +551,7 @@ out:
 #ifdef BOOT_FW_UPGRADE
 static int kthread_handler(void *arg)
 {
-	int ret = 0;
+	int ret = 0, i;
 	char *str = (char *)arg;
 
 	if (strcmp(str, "boot_fw") == 0) {
@@ -562,7 +562,14 @@ static int kthread_handler(void *arg)
 
 		/* In the case of host download, it had been done before. */
 #ifndef HOST_DOWNLOAD
-		ret = core_firmware_boot_upgrade();
+		for (i = 0; i < core_firmware->retry_times; i++) {
+			ret = core_firmware_boot_upgrade();
+			if (ret >= 0) {
+				break;
+
+			ipio_err("boot host download failed %d times\n", (i + 1));
+			ilitek_platform_tp_hw_reset(rst);
+		}
 #endif
 		if (ret < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
@@ -741,7 +748,7 @@ static int ilitek_platform_core_init(void)
 
 int ilitek_platform_reset_ctrl(bool rst, int mode)
 {
-	int ret = 0;
+	int ret = 0, i;
 
 	atomic_set(&ipd->do_reset, true);
 	ilitek_platform_disable_irq();
@@ -755,20 +762,31 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			ipio_info("HW RESET\n");
 			ilitek_platform_tp_hw_reset(rst);
 			break;
+#ifdef HOST_DOWNLOAD
 		case HOST_DOWNLOAD_RST:
 			ipio_info("Howst Download RST\n");
-			ilitek_platform_tp_hw_reset(rst);
-			/* To write data into iram must enter to ICE mode */
-			core_config_ice_mode_enable();
-			ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
+			for (i = 0; i < core_firmware->retry_times; i++) {
+				ilitek_platform_tp_hw_reset(rst);
+				/* To write data into iram must enter to ICE mode */
+				core_config_ice_mode_enable();
+				ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
+				if (ret >= 0)
+					break;
+				ipio_err("host download failed %d times\n", (i + 1));
+
+			}
 			if (ret < 0)
 				ipio_err("host download failed!\n");
 			break;
 		case HOST_DOWNLOAD_BOOT_RST:
-#ifdef HOST_DOWNLOAD
 			ipio_info("Reset for host download in boot stage\n");
-			ilitek_platform_tp_hw_reset(rst);
-			ret = core_firmware_boot_host_download();
+			for (i = 0; i < core_firmware->retry_times; i++) {
+				ilitek_platform_tp_hw_reset(rst);
+				ret = core_firmware_boot_host_download();
+				if (ret >= 0)
+					break;
+				ipio_err("boot host download failed retry %d times\n", (i + 1));
+			}
 			if (ret < 0)
 				ipio_err("host download boot reset failed\n");
 #endif
@@ -942,13 +960,9 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 #ifdef HOST_DOWNLOAD
 	/* Start to download AP code to iram with HW reset. */
-#ifdef BOOT_FW_UPGRADE
-	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_BOOT_RST) < 0)
-		ipio_err("Failed to do host download boot rest\n");
-#else
 	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0)
 		ipio_err("Failed to do host download boot rest\n");
-#endif
+
 #endif
 
 #ifndef HOST_DOWNLOAD

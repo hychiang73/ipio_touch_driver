@@ -87,13 +87,14 @@ int core_gesture_load_code(void)
 	if (temp[0] != 0x91)
 		ipio_err("FW is busy, error\n");
 
-	/* load gesture code */
-	if (core_config_ice_mode_enable() < 0) {
-		ipio_err("Failed to enter ICE mode\n");
+	for (i = 0; i < core_firmware->retry_times; i++) {
+		ret = core_firmware->upgrade_func(true);
+		if (ret >= 0)
+			break;
+		ipio_err("Gesture load code failed %d times\n", (i + 1));
 	}
 
-	tddi_host_download(true);
-
+	/* FW star run gestrue code cmd*/
 	temp[0] = 0x01;
 	temp[1] = 0x0A;
 	temp[2] = 0x06;
