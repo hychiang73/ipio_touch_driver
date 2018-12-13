@@ -962,7 +962,6 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	/* Start to download AP code to iram with HW reset. */
 	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0)
 		ipio_err("Failed to do host download boot rest\n");
-
 #endif
 
 #ifndef HOST_DOWNLOAD

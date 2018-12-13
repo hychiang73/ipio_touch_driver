@@ -1,5 +1,14 @@
 * V1.0.4.1
-
+  * SPI ready on X20.
+  * SPI speed up combined with ICE mode if use 7807G_AA.
+  * Check 0xA3 read from IC before going to spi ice mode.
+  * Do retry 3 times in spi r/w and 10 times in rx/tx lock status wheh failed.
+  * Do retry 3 times in fw upgrade and gesture code (host download only) when failed.
+  * Use the thread called by request_threaded_irq directly.
+  * Add 0xB0 tag.
+  * Fix the issue when returning the result of mp to apk.
+  * Modify the code style with spi.c
+  * Fix some bugs of the previous version.
 
 * V1.0.4.0
   * Fix that kthread may cause sleep in some platform.
