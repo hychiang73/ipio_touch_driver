@@ -1,3 +1,6 @@
+* V1.0.4.1
+
+
 * V1.0.4.0
   * Fix that kthread may cause sleep in some platform.
   * Fix some characters couldn't be correctly recognised when parsing ini.

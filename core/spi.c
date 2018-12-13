@@ -148,7 +148,7 @@ out:
 
 int core_rx_lock_check(int *ret_size)
 {
-	int ret = 0, i, count = 10;
+	int ret = -EIO, i, count = 10;
 	uint8_t txbuf[5] = { 0 }, rxbuf[4] = {0};
 	uint16_t status = 0, lock = 0x5AA5;
 
@@ -193,7 +193,7 @@ out:
 
 int core_tx_unlock_check(void)
 {
-	int ret = 0, i, count = 10;
+	int ret = -EIO, i, count = 10;
 	uint8_t txbuf[5] = { 0 }, rxbuf[4] = {0};
 	uint16_t status = 0, unlock = 0x9881;
 
@@ -450,7 +450,8 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 
 	if (core_config->icemodeenable == false) {
 		do {
-			if (core_spi_ice_mode_write(pBuf, nSize) == 0)
+			ret = core_spi_ice_mode_write(pBuf, nSize);
+			if (ret >= 0)
 				break;
 
 			ipio_err("spi ice mode write failed, retry = %d\n", count);
@@ -493,7 +494,8 @@ int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 
 	if (core_config->icemodeenable == false) {
 		do {
-			if (core_spi_ice_mode_read(pBuf, nSize) == 0)
+			ret = core_spi_ice_mode_read(pBuf, nSize);
+			if (ret >= 0)
 				break;
 
 			ipio_err("spi ice mode write failed, retry = %d\n", count);

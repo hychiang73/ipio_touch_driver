@@ -60,6 +60,7 @@ int core_gesture_load_code(void)
 		ipio_err("Failed to switch gesture mode\n");
 
 	for (i = 0; i < 20; i++) {
+		/* Prepare Check Ready */
 		temp[0] = 0xF6;
 		temp[1] = 0x0A;
 		temp[2] = 0x05;
@@ -69,6 +70,7 @@ int core_gesture_load_code(void)
 
 		mdelay(i * 50);
 
+		/* Check ready for load code*/
 		temp[0] = 0x01;
 		temp[1] = 0x0A;
 		temp[2] = 0x05;
@@ -106,70 +108,6 @@ int core_gesture_load_code(void)
 	return ret;
 }
 EXPORT_SYMBOL(core_gesture_load_code);
-
-int core_gesture_load_ap_code(void)
-{
-	int i = 0, ret = 0;
-	uint8_t temp[64] = {0};
-
-	core_gesture->entry = true;
-
-	/* Write Load AP Flag */
-	temp[0] = 0x01;
-	temp[1] = 0x01;
-	temp[2] = 0x00;
-	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
-		ipio_err("write command AP Flag error\n");
-	}
-
-	/* Leave Gesture Cmd LPWG Stop */
-	temp[0] = 0x01;
-	temp[1] = 0x0A;
-	temp[2] = 0x00;
-	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
-		ipio_err("write command  LPWG Stop error\n");
-	}
-
-	for (i = 0; i < 20; i++) {
-
-		mdelay(i * 100 + 100);
-
-		temp[0] = 0x01;
-		temp[1] = 0x0A;
-		temp[2] = 0x05;
-		if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
-			ipio_err("write command error\n");
-		}
-		if ((core_read(core_config->slave_i2c_addr, temp, 1)) < 0) {
-			ipio_err("Read command error\n");
-		}
-		if (temp[0] == 0x91) {
-			ipio_info("check fw ready\n");
-			break;
-		}
-	}
-
-	if (i == 3 && temp[0] != 0x01)
-		ipio_err("FW is busy, error\n");
-
-	/* load AP code */
-	if (core_config_ice_mode_enable() < 0) {
-		ipio_err("Failed to enter ICE mode\n");
-	}
-
-	tddi_host_download(false);
-
-	temp[0] = 0x01;
-	temp[1] = 0x0A;
-	temp[2] = 0x06;
-	if ((core_write(core_config->slave_i2c_addr, temp, 3)) < 0) {
-		ipio_err("write command error\n");
-	}
-
-	core_gesture->entry = false;
-	return ret;
-}
-EXPORT_SYMBOL(core_gesture_load_ap_code);
 #endif
 
 int core_gesture_match_key(uint8_t gdata)
