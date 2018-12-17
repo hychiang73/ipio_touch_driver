@@ -767,7 +767,7 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 #ifdef HOST_DOWNLOAD
 		case HOST_DOWNLOAD_RST:
 			ipio_info("Howst Download RST\n");
-			while (retry != 0) {
+			do {
 				ilitek_platform_tp_hw_reset(rst);
 				/* To write data into iram must enter to ICE mode */
 				core_config_ice_mode_enable();
@@ -777,14 +777,14 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 
 				ipio_err("host download failed, do retry (%d)\n", retry);
 				retry--;
-			}
+			} while (retry != 0);
 
 			if (ret < 0 || retry <= 0)
 				ipio_err("host download still failed after retry\n");
 			break;
 		case HOST_DOWNLOAD_BOOT_RST:
 			ipio_info("Reset for host download in boot stage\n");
-			while (retry != 0) {
+			do {
 				ilitek_platform_tp_hw_reset(rst);
 				ret = core_firmware_boot_host_download();
 				if (ret >= 0)
@@ -792,7 +792,7 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 
 				ipio_err("boot host download failed, do retry (%d)\n", retry);
 				retry--;
-			}
+			} while (retry != 0);
 
 			if (ret < 0 || retry <= 0)
 				ipio_err("host download boot reset still failed after retry\n");

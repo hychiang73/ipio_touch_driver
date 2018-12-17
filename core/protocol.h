@@ -24,12 +24,6 @@
 #ifndef __PROTOCOL_H
 #define __PROTOCOL_H
 
-/* V3.2 */
-#define P3_2_GET_TP_INFORMATION		0x20
-#define P3_2_GET_KEY_INFORMATION	0x22
-#define P3_2_GET_FIRMWARE_VERSION	0x40
-#define P3_2_GET_PROTOCOL_VERSION	0x42
-
 /* V5.X */
 #define P5_0_READ_DATA_CTRL			    0xF6
 #define P5_0_GET_TP_INFORMATION		    0x20
