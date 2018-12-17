@@ -611,8 +611,6 @@ static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff
 
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(g_user_buf, "%d", ipio_debug_level);
-
 	ipio_info("Current DEBUG Level = %d\n", ipio_debug_level);
 	ipio_info("You can set one of levels for debug as below:\n");
 	ipio_info("DEBUG_NONE = %d\n", DEBUG_NONE);
@@ -627,12 +625,26 @@ static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff
 	ipio_info("DEBUG_NETLINK = %d\n", DEBUG_NETLINK);
 	ipio_info("DEBUG_ALL = %d\n", DEBUG_ALL);
 
-	ret = copy_to_user((uint32_t *) buff, &ipio_debug_level, len);
+	len = snprintf(g_user_buf, PAGE_SIZE, "Current DEBUG Level = %d\n", ipio_debug_level);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "You can set one of levels for debug as below:\n");
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_NONE = %d\n", DEBUG_NONE);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_IRQ = %d\n", DEBUG_IRQ);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_FINGER_REPORT = %d\n", DEBUG_FINGER_REPORT);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_FIRMWARE = %d\n", DEBUG_FIRMWARE);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_CONFIG = %d\n", DEBUG_CONFIG);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_I2C = %d\n", DEBUG_I2C);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_BATTERY = %d\n", DEBUG_BATTERY);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_MP_TEST = %d\n", DEBUG_MP_TEST);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_IOCTL = %d\n", DEBUG_IOCTL);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_NETLINK = %d\n", DEBUG_NETLINK);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_ALL = %d\n", DEBUG_ALL);
+
+	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
 	if (ret < 0) {
 		ipio_err("Failed to copy data to user space\n");
 	}
 
-	*pPos = len;
+	*pPos += len;
 
 	return len;
 }
@@ -947,11 +959,11 @@ static ssize_t ilitek_proc_gesture_read(struct file *filp, char __user *buff, si
 
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(g_user_buf, "%d", core_config->isEnableGesture);
+	len = sprintf(g_user_buf, "isEnableGesture = %d\n", core_config->isEnableGesture);
 
 	ipio_info("isEnableGesture = %d\n", core_config->isEnableGesture);
 
-	ret = copy_to_user((uint32_t *) buff, &core_config->isEnableGesture, len);
+	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
 	if (ret < 0) {
 		ipio_err("Failed to copy data to user space\n");
 	}
@@ -1004,11 +1016,11 @@ static ssize_t ilitek_proc_check_battery_read(struct file *filp, char __user *bu
 
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(g_user_buf, "%d", ipd->isEnablePollCheckPower);
+	len = sprintf(g_user_buf, "isEnablePollCheckPower = %d\n", ipd->isEnablePollCheckPower);
 
 	ipio_info("isEnablePollCheckPower = %d\n", ipd->isEnablePollCheckPower);
 
-	ret = copy_to_user((uint32_t *) buff, &ipd->isEnablePollCheckPower, len);
+	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
 	if (ret < 0) {
 		ipio_err("Failed to copy data to user space\n");
 	}
@@ -1068,11 +1080,11 @@ static ssize_t ilitek_proc_check_esd_read(struct file *filp, char __user *buff, 
 
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(g_user_buf, "%d", ipd->isEnablePollCheckEsd);
+	len = sprintf(g_user_buf, "isEnablePollCheckEsd = %d\n", ipd->isEnablePollCheckEsd);
 
 	ipio_info("isEnablePollCheckEsd = %d\n", ipd->isEnablePollCheckEsd);
 
-	ret = copy_to_user((uint32_t *) buff, &ipd->isEnablePollCheckEsd, len);
+	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
 	if (ret < 0) {
 		ipio_err("Failed to copy data to user space\n");
 	}
@@ -1137,13 +1149,13 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(g_user_buf, "%02d", core_firmware->update_status);
+	len = sprintf(g_user_buf, "update status = %02d\n", core_firmware->update_status);
 
 	ipio_info("update status = %d\n", core_firmware->update_status);
 
-	ret = copy_to_user((uint32_t *) buff, &core_firmware->update_status, len);
+	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
 	if (ret < 0) {
-		ipio_err("Failed to copy data to user space");
+		ipio_err("Failed to copy data to user space\n");
 	}
 
 	*pPos = len;
@@ -1204,6 +1216,8 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 	if (*pPos != 0)
 		return 0;
 
+	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
+
 	ilitek_platform_disable_irq();
 
 #ifdef HOST_DOWNLOAD
@@ -1224,33 +1238,11 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 		ipio_info("Succeed to upgrade firmware\n");
 	}
 
-	*pPos = len;
+	len = sprintf(g_user_buf, "upgrade firwmare %s\n", (ret < 0) ? "failed" : "succeed");
 
-	return len;
-}
-
-static ssize_t ilitek_proc_iram_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
-{
-	int ret = 0;
-	uint32_t len = 0;
-
-	ipio_info("Preparing to upgarde firmware by IRAM\n");
-
-	if (*pPos != 0)
-		return 0;
-
-	ilitek_platform_disable_irq();
-
-	ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
-
-	ilitek_platform_enable_irq();
-
+	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
 	if (ret < 0) {
-		/* return the status to user space even if any error occurs. */
-		core_firmware->update_status = ret;
-		ipio_err("Failed to upgrade firwmare by IRAM, ret = %d\n", ret);
-	} else {
-		ipio_info("Succeed to upgrade firmware by IRAM\n");
+		ipio_err("Failed to copy data to user space\n");
 	}
 
 	*pPos = len;
@@ -1713,7 +1705,6 @@ struct proc_dir_entry *proc_dir_ilitek;
 struct proc_dir_entry *proc_ioctl;
 struct proc_dir_entry *proc_fw_process;
 struct proc_dir_entry *proc_fw_upgrade;
-struct proc_dir_entry *proc_iram_upgrade;
 struct proc_dir_entry *proc_gesture;
 struct proc_dir_entry *proc_debug_level;
 struct proc_dir_entry *proc_mp_test;
@@ -1734,10 +1725,6 @@ struct file_operations proc_fw_process_fops = {
 struct file_operations proc_fw_upgrade_fops = {
 	.read = ilitek_proc_fw_upgrade_read,
 	.write = ilitek_proc_fw_upgrade_write,
-};
-
-struct file_operations proc_iram_upgrade_fops = {
-	.read = ilitek_proc_iram_upgrade_read,
 };
 
 struct file_operations proc_gesture_fops = {
@@ -1819,7 +1806,6 @@ proc_node_t proc_table[] = {
 	{"ioctl", NULL, &proc_ioctl_fops, false},
 	{"fw_process", NULL, &proc_fw_process_fops, false},
 	{"fw_upgrade", NULL, &proc_fw_upgrade_fops, false},
-	{"iram_upgrade", NULL, &proc_iram_upgrade_fops, false},
 	{"gesture", NULL, &proc_gesture_fops, false},
 	{"check_battery", NULL, &proc_check_battery_fops, false},
 	{"check_esd", NULL, &proc_check_esd_fops, false},
