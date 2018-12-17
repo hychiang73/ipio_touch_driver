@@ -201,19 +201,6 @@ void core_fr_touch_release(int32_t x, int32_t y, int32_t id)
 }
 EXPORT_SYMBOL(core_fr_touch_release);
 
-static int parse_touch_package_v3_2(void)
-{
-	ipio_info("Not implemented yet\n");
-	return 0;
-}
-
-static int finger_report_ver_3_2(void)
-{
-	ipio_info("Not implemented yet\n");
-	parse_touch_package_v3_2();
-	return 0;
-}
-
 /*
  * It mainly parses the packet assembled by protocol v5.0
  */
@@ -505,26 +492,6 @@ static uint16_t calc_packet_length(void)
 }
 
 /**
- * The table is used to handle calling functions that deal with packets of finger report.
- * The callback function might be different of what a protocol is used on a chip.
- *
- * It's possible to have the different protocol according to customer's requirement on the same
- * touch ic with customised firmware, so I don't have to identify which of the ic has been used; instead,
- * the version of protocol should match its parsing pattern.
- */
-typedef struct {
-	uint8_t protocol_marjor_ver;
-	uint8_t protocol_minor_ver;
-	int (*finger_report)(void);
-} fr_hashtable;
-
-fr_hashtable fr_t[] = {
-	{0x3, 0x2, finger_report_ver_3_2},
-	{0x5, 0x0, finger_report_ver_5_0},
-	{0x5, 0x1, finger_report_ver_5_0},
-};
-
-/**
  * The function is an entry for the work queue registered by ISR activates.
  *
  * Here will allocate the size of packet depending on what the current protocol
@@ -533,7 +500,6 @@ fr_hashtable fr_t[] = {
 
 void core_fr_handler(void)
 {
-	int i = 0;
 	uint8_t *tdata = NULL;
 
 	if (!core_fr->isEnableFR) {
@@ -579,71 +545,62 @@ void core_fr_handler(void)
 	g_fr_node->len = g_total_len;
 	memset(g_fr_node->data, 0xFF, (uint8_t) sizeof(uint8_t) * g_total_len);
 
-	while (i < ARRAY_SIZE(fr_t)) {
-		if (protocol->major == fr_t[i].protocol_marjor_ver) {
-			mutex_lock(&ipd->plat_mutex);
-			fr_t[i].finger_report();
-			mutex_unlock(&ipd->plat_mutex);
+	mutex_lock(&ipd->plat_mutex);
+	finger_report_ver_5_0();
+	mutex_unlock(&ipd->plat_mutex);
 
-			/* 2048 is referred to the defination by user */
-			if (g_total_len < 2048) {
-				tdata = kmalloc(g_total_len, GFP_ATOMIC);
-				if (ERR_ALLOC_MEM(tdata)) {
-					ipio_err("Failed to allocate g_fr_node memory %ld\n",
-						PTR_ERR(tdata));
-					goto out;
-				}
-
-				ipio_memcpy(tdata, g_fr_node->data, g_fr_node->len, g_total_len);
-				/* merge uart data if it's at i2cuart mode */
-				if (g_fr_uart != NULL)
-					ipio_memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len, g_total_len);
-			} else {
-				ipio_err("total length (%d) is too long than user can handle\n",
-					g_total_len);
-				goto out;
-			}
-
-			if (core_fr->isEnableNetlink)
-				netlink_reply_msg(tdata, g_total_len);
-
-			if (ipd->debug_node_open) {
-				mutex_lock(&ipd->ilitek_debug_mutex);
-				memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
-						(uint8_t) sizeof(uint8_t) * 2048);
-				ipio_memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len, 2048);
-				ipd->debug_data_frame++;
-				if (ipd->debug_data_frame > 1) {
-					ipio_info("ipd->debug_data_frame = %d\n", ipd->debug_data_frame);
-				}
-				if (ipd->debug_data_frame > 1023) {
-					ipio_err("ipd->debug_data_frame = %d > 1024\n",
-						ipd->debug_data_frame);
-					ipd->debug_data_frame = 1023;
-				}
-				mutex_unlock(&ipd->ilitek_debug_mutex);
-				wake_up(&(ipd->inq));
-			}
-
-			if (ipd->debug_data_start_flag && (ipd->debug_data_frame < 1024)) {
-				mutex_lock(&ipd->ilitek_debug_mutex);
-				memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
-						(uint8_t) sizeof(uint8_t) * 2048);
-				ipio_memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len, 2048);
-
-				ipd->debug_data_frame ++;
-
-
-				mutex_unlock(&ipd->ilitek_debug_mutex);
-				wake_up(&(ipd->inq));
-			}
-			break;
+	/* 2048 is referred to the defination by user */
+	if (g_total_len < 2048) {
+		tdata = kmalloc(g_total_len, GFP_ATOMIC);
+		if (ERR_ALLOC_MEM(tdata)) {
+			ipio_err("Failed to allocate g_fr_node memory %ld\n",
+				PTR_ERR(tdata));
+			goto out;
 		}
-		i++;
+
+		ipio_memcpy(tdata, g_fr_node->data, g_fr_node->len, g_total_len);
+		/* merge uart data if it's at i2cuart mode */
+		if (g_fr_uart != NULL)
+			ipio_memcpy(tdata + g_fr_node->len, g_fr_uart->data, g_fr_uart->len, g_total_len);
+	} else {
+		ipio_err("total length (%d) is too long than user can handle\n",
+			g_total_len);
+		goto out;
 	}
 
-	if (i >= ARRAY_SIZE(fr_t))
-		ipio_err("Can't find any callback functions to handle INT event\n");
+	if (core_fr->isEnableNetlink)
+		netlink_reply_msg(tdata, g_total_len);
+
+	if (ipd->debug_node_open) {
+		mutex_lock(&ipd->ilitek_debug_mutex);
+		memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
+				(uint8_t) sizeof(uint8_t) * 2048);
+		ipio_memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len, 2048);
+		ipd->debug_data_frame++;
+		if (ipd->debug_data_frame > 1) {
+			ipio_info("ipd->debug_data_frame = %d\n", ipd->debug_data_frame);
+		}
+		if (ipd->debug_data_frame > 1023) {
+			ipio_err("ipd->debug_data_frame = %d > 1024\n",
+				ipd->debug_data_frame);
+			ipd->debug_data_frame = 1023;
+		}
+		mutex_unlock(&ipd->ilitek_debug_mutex);
+		wake_up(&(ipd->inq));
+	}
+
+	if (ipd->debug_data_start_flag && (ipd->debug_data_frame < 1024)) {
+		mutex_lock(&ipd->ilitek_debug_mutex);
+		memset(ipd->debug_buf[ipd->debug_data_frame], 0x00,
+				(uint8_t) sizeof(uint8_t) * 2048);
+		ipio_memcpy(ipd->debug_buf[ipd->debug_data_frame], tdata, g_total_len, 2048);
+
+		ipd->debug_data_frame ++;
+
+
+		mutex_unlock(&ipd->ilitek_debug_mutex);
+		wake_up(&(ipd->inq));
+	}
 
 out:
 	ipio_kfree((void **)&tdata);
