@@ -841,16 +841,18 @@ static ssize_t ilitek_proc_read_write_register_read(struct file *pFile, char __u
 
 	ipio_info("stop_mcu = %d\n", temp[0]);
 
-	if (stop_mcu == NO_STOP_MCU)
+	if (stop_mcu == NO_STOP_MCU) {
 		ret = core_config_ice_mode_enable(NO_STOP_MCU);
 		if (ret < 0) {
 			ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
 			return -1;
+		}
 	} else {
 		ret = core_config_ice_mode_enable(STOP_MCU);
 		if (ret < 0) {
 			ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
 			return -1;
+		}
 	}
 
 	if (type == REGISTER_READ) {
