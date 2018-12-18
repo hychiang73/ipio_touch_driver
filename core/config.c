@@ -611,7 +611,7 @@ int core_config_ice_mode_enable(bool stop_mcu)
 	int ret = 0;
 	uint8_t cmd[4] = {0x25, 0x62, 0x10, 0x18};
 
-	ipio_info("ICE Mode enabled, stop muc = %d\n", stop_mcu);
+	ipio_info("ICE Mode enabled, stop mcu = %d\n", stop_mcu);
 
 	if (!stop_mcu)
 		cmd[0] = 0x1F;

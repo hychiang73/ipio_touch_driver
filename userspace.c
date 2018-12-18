@@ -826,22 +826,31 @@ out:
 static ssize_t ilitek_proc_read_write_register_read(struct file *pFile, char __user *buf, size_t nCount, loff_t *pos)
 {
 	int ret = 0;
-	uint32_t type, addr, read_data, write_data, write_len;
+	uint32_t type, addr, read_data, write_data, write_len, stop_mcu;
 
 	if (*pos != 0)
 		return 0;
 
-	type = temp[0];
-	addr = temp[1];
-	write_data = temp[2];
-	write_len = temp[3];
+	stop_mcu = temp[0];
+	type = temp[1];
+	addr = temp[2];
+	write_data = temp[3];
+	write_len = temp[4];
 
 	mutex_lock(&ipd->plat_mutex);
 
-	ret = core_config_ice_mode_enable(NO_STOP_MCU);
-	if (ret < 0) {
-		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
-		return -1;
+	ipio_info("stop_mcu = %d\n", temp[0]);
+
+	if (stop_mcu == NO_STOP_MCU)
+		ret = core_config_ice_mode_enable(NO_STOP_MCU);
+		if (ret < 0) {
+			ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
+			return -1;
+	} else {
+		ret = core_config_ice_mode_enable(STOP_MCU);
+		if (ret < 0) {
+			ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
+			return -1;
 	}
 
 	if (type == REGISTER_READ) {
