@@ -50,7 +50,7 @@ void core_config_read_flash_info(void)
 	uint8_t buf[4] = {0};
 	uint8_t cmd = 0x9F;
 
-	core_config_ice_mode_enable();
+	core_config_ice_mode_enable(NO_STOP_MCU);
 
 	core_config_ice_mode_write(0x41000, 0x0, 1);	/* CS high */
 	core_config_ice_mode_write(0x41004, 0x66aa55, 3);	/* Key */
@@ -79,10 +79,8 @@ uint32_t core_config_read_pc_counter(void)
 
 	ic_mode_flag = core_config->icemodeenable;
 
-	if (ic_mode_flag == false) {
-		if (core_config_ice_mode_enable() < 0)
-			ipio_err("Failed to enter ice mode\n");
-	}
+	if (ic_mode_flag == false)
+		core_config_ice_mode_enable(STOP_MCU);
 
 	/* Read fw status if it was hanging on a unknown status */
 	pc_cnt = core_config_ice_mode_read(ILI9881_PC_COUNTER_ADDR);
@@ -339,13 +337,12 @@ int core_config_ic_reset(void)
 	uint32_t key = 0;
 
 	if (!core_config->icemodeenable)
-		core_config_ice_mode_enable();
+		core_config_ice_mode_enable(NO_STOP_MCU);
 
-	if (core_config->chip_id == CHIP_TYPE_ILI9881) {
+	if (core_config->chip_id == CHIP_TYPE_ILI9881)
 		key = 0x00019881;
-	} else if (core_config->chip_id == CHIP_TYPE_ILI7807) {
+	else if (core_config->chip_id == CHIP_TYPE_ILI7807)
 		key = 0x00019878;
-	}
 
 	ipio_debug(DEBUG_CONFIG, "key = 0x%x\n", key);
 	if (key != 0) {
@@ -595,30 +592,35 @@ EXPORT_SYMBOL(core_config_ic_resume);
 int core_config_ice_mode_disable(void)
 {
 	int ret = 0;
-	uint8_t cmd[4] = {0};
-
-	cmd[0] = 0x1b;
-	cmd[1] = 0x62;
-	cmd[2] = 0x10;
-	cmd[3] = 0x18;
+	uint8_t cmd[4] = {0x1b, 0x62, 0x10, 0x18};
 
 	ipio_info("ICE Mode disabled\n")
 
 	ret = core_write(core_config->slave_i2c_addr, cmd, 4);
+	if (ret < 0)
+		ipio_err("Failed to write ice mode disable\n");
+
 	core_config->icemodeenable = false;
 
 	return ret;
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
-int core_config_ice_mode_enable(void)
+int core_config_ice_mode_enable(bool stop_mcu)
 {
-	ipio_info("ICE Mode enabled\n");
+	int ret = 0;
+	uint8_t cmd[4] = {0x25, 0x62, 0x10, 0x18};
+
+	ipio_info("ICE Mode enabled, stop muc = %d\n", stop_mcu);
+
+	if (!stop_mcu)
+		cmd[0] = 0x1F;
+
+	ret = core_write(core_config->slave_i2c_addr, cmd, 4);
+	if (ret < 0)
+		ipio_err("Failed to write ice mode enable\n");
 
 	core_config->icemodeenable = true;
-
-	if (core_config_ice_mode_write(0x181062, 0x0, 0) < 0)
-		return -1;
 
 #ifdef CHIP_TYPE_7807G_AA
 #if (INTERFACE == SPI_INTERFACE)
@@ -627,7 +629,7 @@ int core_config_ice_mode_enable(void)
 #endif
 
 	mdelay(25);
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
 
@@ -790,11 +792,7 @@ int core_config_get_project_id(uint8_t *pid_data)
 	int i = 0, ret = 0;
 	uint32_t pid_addr = 0x1D000, pid_size = 10;
 
-	ret = core_config_ice_mode_enable();
-	if (ret < 0) {
-		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
-		return -1;
-	}
+	core_config_ice_mode_enable(NO_STOP_MCU);
 
 	/* Disable watch dog */
 	core_config_set_watch_dog(false);
@@ -1104,7 +1102,7 @@ int core_config_get_chip_id(void)
 	int ret = 0;
 	uint32_t pid = 0, OTPIDData = 0, ANAIDData = 0;
 
-	ret = core_config_ice_mode_enable();
+	ret = core_config_ice_mode_enable(NO_STOP_MCU);
 	if (ret < 0) {
 		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
 		return ret;

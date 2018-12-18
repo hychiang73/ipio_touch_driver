@@ -680,7 +680,7 @@ int tddi_fw_upgrade(bool isIRAM)
 
 	ipio_info("Enter to ICE Mode\n");
 
-	ret = core_config_ice_mode_enable();
+	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
 		ipio_err("Failed to enable ICE mode\n");
 		goto out;
@@ -729,7 +729,7 @@ int tddi_fw_upgrade(bool isIRAM)
 
 	/* ensure that the chip has been updated */
 	ipio_info("Enter to ICE Mode again\n");
-	ret = core_config_ice_mode_enable();
+	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
 		ipio_err("Failed to enable ICE mode\n");
 		goto out;
@@ -940,7 +940,7 @@ int tddi_host_download(bool mode)
 	uint32_t ap_crc = 0, ap_dma = 0, dlm_crc = 0;
 	uint32_t dlm_dma = 0, tuning_crc = 0, tuning_dma = 0;
 
-	ret = core_config_ice_mode_enable();
+	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
 		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
 		return ret;

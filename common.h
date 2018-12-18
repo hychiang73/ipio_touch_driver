@@ -111,7 +111,7 @@
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
-#define INTERFACE SPI_INTERFACE
+#define INTERFACE I2C_INTERFACE
 
 /* Driver version */
 #define DRIVER_VERSION	"1.0.4.1"
@@ -166,6 +166,12 @@ enum {
 	HW_RST,
 	HOST_DOWNLOAD_RST,
 	HOST_DOWNLOAD_BOOT_RST
+};
+
+/* MCU status */
+enum {
+	NO_STOP_MCU = 0,
+	STOP_MCU
 };
 
 /* Distributed to all core functions */

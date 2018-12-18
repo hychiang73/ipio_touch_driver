@@ -838,7 +838,7 @@ static ssize_t ilitek_proc_read_write_register_read(struct file *pFile, char __u
 
 	mutex_lock(&ipd->plat_mutex);
 
-	ret = core_config_ice_mode_enable();
+	ret = core_config_ice_mode_enable(NO_STOP_MCU);
 	if (ret < 0) {
 		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
 		return -1;

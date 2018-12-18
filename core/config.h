@@ -99,7 +99,7 @@ extern int core_config_ice_mode_write(uint32_t addr, uint32_t data, uint32_t siz
 extern int core_config_ice_mode_bit_mask(uint32_t addr, uint32_t nMask, uint32_t value);
 extern uint32_t core_config_read_write_onebyte(uint32_t addr);
 extern int core_config_ice_mode_disable(void);
-extern int core_config_ice_mode_enable(void);
+extern int core_config_ice_mode_enable(bool stop_mcu);
 
 /* Touch IC status */
 extern void core_config_read_flash_info(void);

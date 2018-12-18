@@ -770,7 +770,7 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			do {
 				ilitek_platform_tp_hw_reset(rst);
 				/* To write data into iram must enter to ICE mode */
-				core_config_ice_mode_enable();
+				core_config_ice_mode_enable(STOP_MCU);
 				ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
 				if (ret >= 0)
 					break;

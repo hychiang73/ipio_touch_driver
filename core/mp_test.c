@@ -2303,7 +2303,7 @@ int core_mp_move_code(void)
 	/* Get Dma overlay info command only be used in I2C mode */
 	get_dma_overlay_info();
 
-	if (core_config_ice_mode_enable() < 0) {
+	if (core_config_ice_mode_enable(STOP_MCU) < 0) {
 		ipio_err("Failed to enter ICE mode\n");
 		ret = -1;
 		goto out;
