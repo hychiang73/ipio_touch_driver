@@ -127,6 +127,7 @@ extern void core_config_plug_ctrl(bool out);
 extern void core_config_set_phone_cover(uint8_t *pattern);
 
 /* Touch IC information */
+extern int core_config_get_project_id(void);
 extern int core_config_get_core_ver(void);
 extern int core_config_get_key_info(void);
 extern int core_config_get_tp_info(void);

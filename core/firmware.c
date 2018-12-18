@@ -76,12 +76,6 @@ uint8_t ddi_fw[MAX_DDI_FIRMWARE_SIZE] = { 0 };
 int g_section_len = 0;
 int g_total_sector = 0;
 
-#ifdef BOOT_FW_UPGRADE
-/* The addr of block reserved for customers */
-int g_start_resrv = 0x1D000;
-int g_end_resrv = 0x1DFFF;
-#endif
-
 /*The value about block_number is -1, it means reserved area*/
 struct flash_sector {
 	uint32_t ss_addr;

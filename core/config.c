@@ -25,6 +25,7 @@
 #include "../common.h"
 #include "../platform.h"
 #include "config.h"
+#include "firmware.h"
 #include "protocol.h"
 #include "i2c.h"
 #include "flash.h"
@@ -146,7 +147,7 @@ uint32_t core_config_ice_mode_read(uint32_t addr)
 	if (ret < 0)
 		goto out;
 
-	data = (szOutBuf[0] + szOutBuf[1] * 256 + szOutBuf[2] * 256 * 256 + szOutBuf[3] * 256 * 256 * 256);
+	data = (szOutBuf[0] | szOutBuf[1] << 8 | szOutBuf[2] << 16 | szOutBuf[3] << 24);
 
 	return data;
 
@@ -787,10 +788,10 @@ int core_config_check_int_status(bool high)
 }
 EXPORT_SYMBOL(core_config_check_int_status);
 
-int core_config_get_project_id(uint8_t *pid_data)
+int core_config_get_project_id(void)
 {
 	int i = 0, ret = 0;
-	uint32_t pid_addr = 0x1D000, pid_size = 10;
+	uint8_t pid_data[10] = {0};
 
 	core_config_ice_mode_enable(NO_STOP_MCU);
 
@@ -806,14 +807,14 @@ int core_config_get_project_id(uint8_t *pid_data)
 	core_config_ice_mode_write(0x041004, 0x66aa55, 3);  /* Key */
 	core_config_ice_mode_write(0x041008, 0x03, 1);
 
-	core_config_ice_mode_write(0x041008, (pid_addr & 0xFF0000) >> 16, 1);
-	core_config_ice_mode_write(0x041008, (pid_addr & 0x00FF00) >> 8, 1);
-	core_config_ice_mode_write(0x041008, (pid_addr & 0x0000FF), 1);
+	core_config_ice_mode_write(0x041008, (RESERVE_BLOCK_START_ADDR & 0xFF0000) >> 16, 1);
+	core_config_ice_mode_write(0x041008, (RESERVE_BLOCK_START_ADDR & 0x00FF00) >> 8, 1);
+	core_config_ice_mode_write(0x041008, (RESERVE_BLOCK_START_ADDR & 0x0000FF), 1);
 
-	for (i = 0; i < pid_size; i++) {
+	for (i = 0; i < ARRAY_SIZE(pid_data); i++) {
 		core_config_ice_mode_write(0x041008, 0xFF, 1);
-		pid_data[i] = core_config_ice_mode_read(0x41010);
-		ipio_info("pid_data[%d] = 0x%x\n", i, pid_data[i]);
+		pid_data[i] = core_config_read_write_onebyte(0x41010);
+		ipio_info("project_id[%d] = 0x%x\n", i, pid_data[i]);
 	}
 
 	core_config_ice_mode_write(0x041010, 0x1, 0);   /* CS high */

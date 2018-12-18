@@ -183,6 +183,10 @@
 #define SYS53_ADDR  SYS_BASED_ADDR+0xD4
 #define SYS53_reg_dummy_0 					   SYS53_ADDR	// [RESET] h0
 
+/* The addr of block reserved for customers */
+#define RESERVE_BLOCK_START_ADDR 0x1D000
+#define RESERVE_BLOCK_END_ADDR 0x1DFFF
+
 struct core_firmware_data {
 	uint8_t new_fw_ver[4];
 	uint8_t old_fw_ver[4];
