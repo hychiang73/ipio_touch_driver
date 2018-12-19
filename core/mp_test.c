@@ -120,7 +120,7 @@ struct mp_test_items tItems[] = {
 	{.id = 21, .name = "st_has_bk", .desp = "st raw(have bk)", .result = "FAIL", .catalog = ST_TEST},
 	{.id = 22, .name = "st_open", .desp = "st open data", .result = "FAIL", .catalog = ST_TEST},
 	{.id = 23, .name = "tx_short", .desp = "tx short test", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.id = 24, .name = "rx_short", .desp = "short test -ili9881", .result = "FAIL", .catalog = SHORT_TEST},
+	{.id = 24, .name = "rx_short", .desp = "short test", .result = "FAIL", .catalog = SHORT_TEST},
 	{.id = 25, .name = "rx_open", .desp = "rx open", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 26, .name = "cm_data", .desp = "untouch cm data", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 27, .name = "cs_data", .desp = "untouch cs data", .result = "FAIL", .catalog = MUTUAL_TEST},
