@@ -51,9 +51,9 @@ void core_config_read_flash_info(void)
 	uint8_t buf[4] = {0};
 	uint8_t cmd = 0x9F;
 
-	core_config_ice_mode_enable(NO_STOP_MCU);
+	core_config_ice_mode_enable(STOP_MCU);
 
-	core_config_ice_mode_write(0x41000, 0x0, 1);	/* CS high */
+	core_config_ice_mode_write(0x41000, 0x0, 1);	/* CS low */
 	core_config_ice_mode_write(0x41004, 0x66aa55, 3);	/* Key */
 
 	core_config_ice_mode_write(0x41008, cmd, 1);
@@ -791,9 +791,9 @@ EXPORT_SYMBOL(core_config_check_int_status);
 int core_config_get_project_id(void)
 {
 	int i = 0, ret = 0;
-	uint8_t pid_data[10] = {0};
+	uint8_t pid_data[5] = {0};
 
-	core_config_ice_mode_enable(NO_STOP_MCU);
+	core_config_ice_mode_enable(STOP_MCU);
 
 	/* Disable watch dog */
 	core_config_set_watch_dog(false);
@@ -801,10 +801,6 @@ int core_config_get_project_id(void)
 	core_config_ice_mode_write(0x041000, 0x0, 1);   /* CS low */
 	core_config_ice_mode_write(0x041004, 0x66aa55, 3);  /* Key */
 
-	core_config_ice_mode_write(0x041008, 0x06, 1);
-	core_config_ice_mode_write(0x041000, 0x01, 1);
-	core_config_ice_mode_write(0x041000, 0x00, 1);
-	core_config_ice_mode_write(0x041004, 0x66aa55, 3);  /* Key */
 	core_config_ice_mode_write(0x041008, 0x03, 1);
 
 	core_config_ice_mode_write(0x041008, (RESERVE_BLOCK_START_ADDR & 0xFF0000) >> 16, 1);
@@ -817,7 +813,8 @@ int core_config_get_project_id(void)
 		ipio_info("project_id[%d] = 0x%x\n", i, pid_data[i]);
 	}
 
-	core_config_ice_mode_write(0x041010, 0x1, 0);   /* CS high */
+	core_config_ice_mode_write(0x041000, 0x1, 1);   /* CS high */
+
 	core_config_ice_mode_disable();
 
 	return ret;
