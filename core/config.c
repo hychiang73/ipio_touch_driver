@@ -614,14 +614,14 @@ int core_config_ice_mode_enable(bool stop_mcu)
 
 	ipio_info("ICE Mode enabled, stop mcu = %d\n", stop_mcu);
 
+	core_config->icemodeenable = true;
+
 	if (!stop_mcu)
 		cmd[0] = 0x1F;
 
 	ret = core_write(core_config->slave_i2c_addr, cmd, 4);
 	if (ret < 0)
 		ipio_err("Failed to write ice mode enable\n");
-
-	core_config->icemodeenable = true;
 
 #ifdef CHIP_TYPE_7807G_AA
 #if (INTERFACE == SPI_INTERFACE)
