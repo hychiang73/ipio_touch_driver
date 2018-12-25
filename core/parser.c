@@ -391,7 +391,7 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 						if (data[0] == 1) {
 							if (type == VALUE) {
 								max_ptr[count/4] = data[1] + data[2];
-								min_ptr[count/4] = data[1] + data[3];
+								min_ptr[count/4] = data[1] - data[3];
 							} else {
 								max_ptr[count/4] = data[1] + (data[1] * data[2]) / 100;
 								min_ptr[count/4] = data[1] - (data[1] * data[3]) / 100;
