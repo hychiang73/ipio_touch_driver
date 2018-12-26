@@ -216,7 +216,7 @@ int core_config_switch_fw_mode(uint8_t *data)
 
 			ret = core_write(core_config->slave_i2c_addr, cmd, 3);
 			if (ret < 0)
-				ipio_err("Failed to switch I2CUART mode\n");
+				ipio_err("Failed to switch Gesture mode\n");
 			break;
 		case P5_0_FIRMWARE_TEST_MODE:
 			ipio_info("Switch to Test mode\n");
@@ -812,6 +812,8 @@ int core_config_get_project_id(void)
 		pid_data[i] = core_config_read_write_onebyte(0x41010);
 		ipio_info("project_id[%d] = 0x%x\n", i, pid_data[i]);
 	}
+
+	tddi_clear_dma_flash();
 
 	core_config_ice_mode_write(0x041000, 0x1, 1);   /* CS high */
 

@@ -257,6 +257,8 @@ out:
 
 void tddi_clear_dma_flash(void)
 {
+	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
+
 	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_preclk_sel, (2 << 16));
 	core_config_ice_mode_write(FLASH0_reg_flash_csb, 0x01, 1);	/* CS high */
 
