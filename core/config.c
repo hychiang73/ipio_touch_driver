@@ -790,7 +790,9 @@ EXPORT_SYMBOL(core_config_check_int_status);
 
 int core_config_get_project_id(void)
 {
-	int i = 0, ret = 0;
+	int ret = 0;
+#ifndef HOST_DOWNLOAD
+	int i = 0;
 	uint8_t pid_data[5] = {0};
 
 	core_config_ice_mode_enable(STOP_MCU);
@@ -807,6 +809,7 @@ int core_config_get_project_id(void)
 	core_config_ice_mode_write(0x041008, (RESERVE_BLOCK_START_ADDR & 0x00FF00) >> 8, 1);
 	core_config_ice_mode_write(0x041008, (RESERVE_BLOCK_START_ADDR & 0x0000FF), 1);
 
+
 	for (i = 0; i < ARRAY_SIZE(pid_data); i++) {
 		core_config_ice_mode_write(0x041008, 0xFF, 1);
 		pid_data[i] = core_config_read_write_onebyte(0x41010);
@@ -815,10 +818,11 @@ int core_config_get_project_id(void)
 
 	tddi_clear_dma_flash();
 
+
 	core_config_ice_mode_write(0x041000, 0x1, 1);   /* CS high */
 
 	core_config_ice_mode_disable();
-
+#endif /* HOST_DOWNLOAD */
 	return ret;
 }
 EXPORT_SYMBOL(core_config_get_project_id);
