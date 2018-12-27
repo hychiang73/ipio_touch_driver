@@ -40,7 +40,7 @@
 #include "protocol.h"
 #include "parser.h"
 #include "finger_report.h"
-#include "firmware.h"
+#include "flash.h"
 
 #define RETRY_COUNT 3
 
@@ -2196,7 +2196,7 @@ static void dma_clear_register_setting(void)
 	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
 
 	ipio_info("clear dma flash setting\n");
-	tddi_clear_dma_flash();
+	core_flash_dma_clear();
 }
 
 static void dma_trigger_register_setting(uint32_t nRegDestAddr, uint32_t nFlashStartAddr, uint32_t nCopySize)
@@ -2230,7 +2230,7 @@ static void dma_trigger_register_setting(uint32_t nRegDestAddr, uint32_t nFlashS
 	core_config_ice_mode_bit_mask(DMA48_ADDR, DMA48_reg_dma_ch0_trigger_sel, (1 << 16));
 
 	ipio_info("set dma flash setting, FlashAddr = 0x%x\n",nFlashStartAddr);
-	tddi_write_dma_flash(nFlashStartAddr,(nFlashStartAddr+nCopySize), nCopySize);
+	core_flash_dma_write(nFlashStartAddr,(nFlashStartAddr+nCopySize), nCopySize);
 
 	ipio_info("clear flash and dma ch0 int flag\n");
 	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));

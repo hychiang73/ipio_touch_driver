@@ -816,8 +816,7 @@ int core_config_get_project_id(void)
 		ipio_info("project_id[%d] = 0x%x\n", i, pid_data[i]);
 	}
 
-	tddi_clear_dma_flash();
-
+	core_flash_dma_clear();
 
 	core_config_ice_mode_write(0x041000, 0x1, 1);   /* CS high */
 

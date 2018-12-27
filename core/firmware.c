@@ -255,52 +255,6 @@ out:
 
 }
 
-void tddi_clear_dma_flash(void)
-{
-	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
-
-	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_preclk_sel, (2 << 16));
-	core_config_ice_mode_write(FLASH0_reg_flash_csb, 0x01, 1);	/* CS high */
-
-	core_config_ice_mode_bit_mask(FLASH4_ADDR, FLASH4_reg_flash_dma_trigger_en, (0 << 24));
-	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_rx_dual, (0 << 24));
-
-	core_config_ice_mode_write(FLASH3_reg_rcv_cnt, 0x00, 1);
-	core_config_ice_mode_write(FLASH4_reg_rcv_data, 0xFF, 1);
-}
-
-void tddi_write_dma_flash(uint32_t start, uint32_t end, uint32_t len)
-{
-	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_preclk_sel, 1 << 16);
-
-	core_config_ice_mode_write(FLASH0_reg_flash_csb, 0x00, 1);	/* CS low */
-	core_config_ice_mode_write(FLASH1_reg_flash_key1, 0x66aa55, 3);	/* Key */
-
-	core_config_ice_mode_write(FLASH2_reg_tx_data, 0x0b, 1);
-	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
-	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
-
-	core_config_ice_mode_write(FLASH2_reg_tx_data, (start & 0xFF0000) >> 16, 1);
-	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
-	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
-
-	core_config_ice_mode_write(FLASH2_reg_tx_data, (start & 0x00FF00) >> 8, 1);
-	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
-	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
-
-	core_config_ice_mode_write(FLASH2_reg_tx_data, (start & 0x0000FF), 1);
-	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
-	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
-
-	core_config_ice_mode_bit_mask(FLASH0_ADDR, FLASH0_reg_rx_dual, 0 << 24);
-
-	core_config_ice_mode_write(FLASH2_reg_tx_data, 0x00, 1);	/* Dummy */
-	while(!(core_config_ice_mode_read(INTR1_ADDR) & BIT(25)));
-	core_config_ice_mode_bit_mask(INTR1_ADDR, INTR1_reg_flash_int_flag, (1 << 25));
-
-	core_config_ice_mode_write(FLASH3_reg_rcv_cnt, len, 4);	/* Write Length */
-}
-
 static int tddi_read_flash(uint32_t start, uint32_t end, uint8_t *data, int dlen)
 {
 	uint32_t i, cont = 0;
