@@ -120,7 +120,7 @@ struct mp_test_items tItems[] = {
 	{.id = 21, .name = "st_has_bk", .desp = "st raw(have bk)", .result = "FAIL", .catalog = ST_TEST},
 	{.id = 22, .name = "st_open", .desp = "st open data", .result = "FAIL", .catalog = ST_TEST},
 	{.id = 23, .name = "tx_short", .desp = "tx short test", .result = "FAIL", .catalog = MUTUAL_TEST},
-	{.id = 24, .name = "rx_short", .desp = "short test", .result = "FAIL", .catalog = SHORT_TEST},
+	{.id = 24, .name = "rx_short", .desp = "short test -ili9881", .result = "FAIL", .catalog = SHORT_TEST},
 	{.id = 25, .name = "rx_open", .desp = "rx open", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 26, .name = "cm_data", .desp = "untouch cm data", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 27, .name = "cs_data", .desp = "untouch cs data", .result = "FAIL", .catalog = MUTUAL_TEST},
@@ -143,6 +143,7 @@ struct mp_test_items tItems[] = {
 	{.id = 42, .name = "doze_p2p", .desp = "doze peak to peak", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 	{.id = 43, .name = "doze_raw_td_lcm_off", .desp = "raw data_td (lcm off)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 44, .name = "doze_p2p_td_lcm_off", .desp = "peak to peak_td (lcm off)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
+	{.id = 45, .name = "rx_short", .desp = "short test", .result = "FAIL", .catalog = SHORT_TEST},
 };
 
 int32_t *frame_buf = NULL;
@@ -2588,7 +2589,8 @@ int core_mp_start_test(bool lcm_on)
 			csv_path = CSV_LCM_ON_PATH;
 			mp_run_test("noise peak to peak(with panel)");
 			mp_run_test("noise peak to peak(ic only)");
-			mp_run_test("short test -ili9881");
+			mp_run_test("short test -ili9881"); //compatible with old ini version.
+			mp_run_test("short test");
 			mp_run_test("open test(integration)_sp");
 			mp_run_test("raw data(no bk)");
 			mp_run_test("calibration data(dac)");
