@@ -188,7 +188,7 @@ int core_gesture_load_code(void)
 		ipio_err("FW is busy, error\n");
 
 	for (i = 0; i < core_firmware->retry_times; i++) {
-		ret = core_firmware->upgrade_func(true);
+		ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 		if (ret >= 0)
 			break;
 		ipio_err("Gesture load code failed %d times\n", (i + 1));

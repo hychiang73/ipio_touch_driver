@@ -113,6 +113,11 @@
 #define SPI_INTERFACE 2
 #define INTERFACE I2C_INTERFACE
 
+/* Choise open hex file function*/
+#define REQUEST_FIRMWARE	0
+#define FILP_OPEN 			1
+#define OPEN_FW_METHOD FILP_OPEN
+
 /* Driver version */
 #define DRIVER_VERSION	"1.0.4.1"
 
@@ -165,7 +170,6 @@ enum {
 	SW_RST = 0,
 	HW_RST,
 	HOST_DOWNLOAD_RST,
-	HOST_DOWNLOAD_BOOT_RST
 };
 
 /* MCU status */
@@ -206,7 +210,7 @@ extern uint32_t ipio_chip_list[2];
 #define SPI_UPGRADE_LEN				2048
 #define SPI_READ_LEN				2048
 
-#define FW_BLOCK_INFO_NUM			6
+#define FW_BLOCK_INFO_NUM			7
 #define UPDATE_RETRY_COUNT			3
 
 #define AP_BLOCK_NUM					1
@@ -294,17 +298,11 @@ enum ili7807_types {
 
 /* Be able to upgrade fw at boot stage */
 //#define BOOT_FW_UPGRADE
-
-/* Read fw file by request_firmware */
-//#define BOOT_FW_UPGRADE_READ_HEX
-
-#ifdef BOOT_FW_UPGRADE_READ_HEX
-#define BOOT_FW_HEX_NAME "ilitek_fw.hex"
+#define BOOT_FW_HEX_NAME "ILITEK_FW"
 #define BOOT_UPDATE_FW_DELAY_TIME 10000
-#endif
 
 /* Enable gesture function */
-//#define GESTURE_ENABLE
+#define GESTURE_ENABLE
 
 /* Check battery's status in order to avoid some effects from charge. */
 //#define BATTERY_CHECK
