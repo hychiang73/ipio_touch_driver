@@ -121,13 +121,9 @@
 /* Driver version */
 #define DRIVER_VERSION	"1.0.4.1"
 
-/* Driver core type */
-#define CORE_TYPE_B		0x00
-#define CORE_TYPE_E		0x03
-
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
-#define PROTOCOL_MID		0x5
+#define PROTOCOL_MID		0x6
 #define PROTOCOL_MINOR		0x0
 
 /*  Debug messages */
@@ -270,7 +266,7 @@ enum ili7807_types {
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
 #define TOUCH_SCREEN_X_MAX 720
-#define TOUCH_SCREEN_Y_MAX 1280
+#define TOUCH_SCREEN_Y_MAX 1440
 
 /* define the range on panel */
 #define TPD_HEIGHT 2048
@@ -302,7 +298,7 @@ enum ili7807_types {
 #define BOOT_UPDATE_FW_DELAY_TIME 10000
 
 /* Enable gesture function */
-#define GESTURE_ENABLE
+//#define GESTURE_ENABLE
 
 /* Check battery's status in order to avoid some effects from charge. */
 //#define BATTERY_CHECK

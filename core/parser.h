@@ -28,7 +28,6 @@
 
 #define BENCHMARK_KEY_NAME "benchmark_data"
 #define NODE_TYPE_KEY_NAME "node type"
-#define TYPE_MARK "[driver type mark]"
 #define VALUE 0
 
 extern int core_parser_get_tdf_value(char *str);
