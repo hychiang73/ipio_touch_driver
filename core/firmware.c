@@ -163,6 +163,17 @@ static void upgrade_info_setting(u8 *pfw, u8 type)
 			fbi[GESTURE].end = (pfw[0xFFDF] << 24) + (pfw[0xFFDE] << 16) + (pfw[0xFFDD] << 8) + pfw[0xFFDC];
 		}
 
+		fbi[AP].name ="AP";
+		fbi[DATA].name ="DATA";
+		fbi[TUNING].name ="TUNING";
+		fbi[MP].name ="MP";
+		fbi[GESTURE].name ="GESTURE";
+
+		/* upgrade mode define */
+		fbi[DATA].mode = fbi[AP].mode = fbi[TUNING].mode = AP;
+		fbi[MP].mode = MP;
+		fbi[GESTURE].mode = GESTURE;
+
 		/* Parsing gesture info form AP code */
 		core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
 
@@ -341,7 +352,7 @@ static int hex_file_open_convert(u8 open_file_method, u8 *pfw)
 			break;
 		case FILP_OPEN:
 			ipio_err("filp_open path %s \n", UPDATE_FW_PATH);
-			f = filp_open(UPDATE_FW_PATH, O_RDONLY, 0);
+			f = filp_open(UPDATE_FW_PATH, O_RDONLY, 0644);
 			if (ERR_ALLOC_MEM(f)) {
 				ipio_err("Failed to open the file at %ld.\n", PTR_ERR(f));
 				return -ENOMEM;
@@ -388,6 +399,8 @@ static int upgrade_file_convert(int target, u8 *pfw, int open_file_method)
 {
 	int ret = 0;
 
+	ipio_info("Convert fw data from %s\n", (target == ILI_FILE ? "ILI_FILE" : "HEX_FILE"));
+
 	switch(target) {
 		case ILI_FILE:
 			convert_ili_file(pfw);
@@ -398,6 +411,10 @@ static int upgrade_file_convert(int target, u8 *pfw, int open_file_method)
 				ipio_err("Open hex file fail, try ili file upgrade");
 				convert_ili_file(pfw);
 			}
+			break;
+		default:
+			ipio_err("Unknown convert file, %d\n", target);
+			ret = UPDATE_FAIL;
 			break;
 	}
 	return ret;
@@ -990,9 +1007,8 @@ out:
 
 static int fw_upgrade_iram(u8 *pfw)
 {
-	int ret = 0;
-	uint32_t ap_crc = 0, ap_dma = 0, dlm_crc = 0, mp_crc = 0, ges_crc = 0;
-	uint32_t dlm_dma = 0, tuning_crc = 0, tuning_dma = 0, mp_dma = 0, ges_dma = 0;
+	int ret = 0, i;
+	uint32_t mode, crc, dma;
 
 	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
@@ -1006,74 +1022,26 @@ static int fw_upgrade_iram(u8 *pfw)
 		goto out;
 	}
 
-	if (core_fr->actual_fw_mode == protocol->test_mode) {
-		ipio_info("Download MP code from hex 0x%x to IRAN 0x%x len = 0x%X\n", fbi[MP].start, fbi[MP].mem_start, fbi[MP].len);
-		write_download(fbi[MP].mem_start, fbi[MP].len, (pfw + fbi[MP].start) , SPI_UPGRADE_LEN);
+	if (core_fr->actual_fw_mode == protocol->test_mode)
+		mode = MP;
+	else if (core_gesture->entry)
+		mode = GESTURE;
+	else
+		mode = AP;
 
-		mp_crc = calc_crc32(fbi[MP].start, fbi[MP].len - 4 , pfw);
-		mp_dma = host_download_dma_check(fbi[MP].mem_start, fbi[MP].len - 4);
+	/* Program data to iram acorrding to each block */
+	for (i = 0; i < ARRAY_SIZE(fbi); i++) {
+		if (fbi[i].mode == mode && fbi[i].len != 0) {
+			ipio_info("Download %s code from hex 0x%x to IRAN 0x%x len = 0x%x\n", fbi[i].name, fbi[i].start, fbi[i].mem_start, fbi[i].len);
+			write_download(fbi[i].mem_start, fbi[i].len, (pfw + fbi[i].start) , SPI_UPGRADE_LEN);
 
-		ipio_info("MP CRC %s (%x) : (%x)\n",
-			(mp_crc != mp_dma ? "Invalid !" : "Correct !"), mp_crc, mp_dma);
+			crc = calc_crc32(fbi[i].start, fbi[i].len - 4 , pfw);
+			dma = host_download_dma_check(fbi[i].mem_start, fbi[i].len - 4);
 
-		if (CHECK_EQUAL(mp_crc, mp_dma) == UPDATE_FAIL) {
-			ret = UPDATE_FAIL;
-			goto out;
-		}
-	} else if (core_gesture->entry) {
-		/* write hex to the addr of Gesture code */
-		ipio_info("Download GESTURE code from hex 0x%x to IRAN 0x%x len = 0x%X\n", fbi[GESTURE].start, fbi[GESTURE].mem_start, fbi[GESTURE].len);
-		write_download(fbi[GESTURE].mem_start, fbi[GESTURE].len, pfw + fbi[GESTURE].start, SPI_UPGRADE_LEN);
+			ipio_info("%s CRC is %s (%x) : (%x)\n",fbi[i].name, (crc != dma ? "Invalid !" : "Correct !"), crc, dma);
 
-		ges_crc = calc_crc32(fbi[GESTURE].start, fbi[GESTURE].len - 4, pfw);
-		ges_dma = host_download_dma_check(fbi[GESTURE].mem_start, fbi[GESTURE].len - 4);
-
-		ipio_info("GESTURE CRC %s (%x) : (%x)\n",
-			(ges_crc != ges_dma ? "Invalid !" : "Correct !"), ges_crc, ges_dma);
-
-		if (CHECK_EQUAL(ges_crc, ges_dma) == UPDATE_FAIL) {
-			ret = UPDATE_FAIL;
-			goto out;
-		}
-	} else {
-		ipio_info("Download AP code from hex 0x%x to IRAN 0x%x len = 0x%X\n", fbi[AP].start, fbi[AP].mem_start, fbi[AP].len);
-		write_download(fbi[AP].mem_start, fbi[AP].len, (pfw + fbi[AP].start), SPI_UPGRADE_LEN);
-
-		ipio_info("Download DATA code from hex 0x%x to IRAN 0x%x len = 0x%X\n", fbi[DATA].start, fbi[DATA].mem_start, fbi[DATA].len);
-		write_download(fbi[DATA].mem_start, fbi[DATA].len, (pfw + fbi[DATA].start), SPI_UPGRADE_LEN);
-
-		ap_crc = calc_crc32(fbi[AP].start, (fbi[AP].len - 4) , pfw);
-		ap_dma = host_download_dma_check(fbi[AP].mem_start, (fbi[AP].len - 4));
-
-		dlm_crc = calc_crc32(fbi[DATA].start, (fbi[DATA].len - 4), pfw);
-		dlm_dma = host_download_dma_check(fbi[DATA].mem_start, (fbi[DATA].len -4));
-
-		if (core_firmware->hex_tag == BLOCK_TAG_AF && fbi[TUNING].len != 0) {
-			ipio_info("Download TUNING code from hex 0x%x to IRAN 0x%x len = 0x%X\n", fbi[TUNING].start, fbi[TUNING].mem_start, fbi[TUNING].len);
-			write_download(fbi[TUNING].mem_start, fbi[TUNING].len, (pfw + fbi[TUNING].start), SPI_UPGRADE_LEN);
-
-			tuning_crc = calc_crc32(fbi[TUNING].start, (fbi[TUNING].len - 4), pfw);
-			tuning_dma = host_download_dma_check(fbi[TUNING].mem_start, (fbi[TUNING].len -4));
-		}
-
-		/* Check AP/DLM/Tunning mode Buffer data */
-		ipio_info("AP CRC %s (%x) : (%x)\n",
-			(ap_crc != ap_dma ? "Invalid !" : "Correct !"), ap_crc, ap_dma);
-
-		ipio_info("DLM CRC %s (%x) : (%x)\n",
-			(dlm_crc != dlm_dma ? "Invalid !" : "Correct !"), dlm_crc, dlm_dma);
-
-		if (core_firmware->hex_tag == BLOCK_TAG_AF && fbi[TUNING].len != 0) {
-			ipio_info("TUNING CRC %s (%x) : (%x)\n",
-				(tuning_crc != tuning_dma ? "Invalid !" : "Correct !"), tuning_crc, tuning_dma);
-		}
-
-		if (CHECK_EQUAL(ap_crc, ap_dma) == UPDATE_FAIL ||
-			CHECK_EQUAL(dlm_crc, dlm_dma) == UPDATE_FAIL ||
-			CHECK_EQUAL(tuning_crc, tuning_dma) == UPDATE_FAIL) {
-			ipio_info("Check AP/DLM/TUNING Mode upgrade: FAIL\n");
-			ret = UPDATE_FAIL;
-			goto out;
+			if (CHECK_EQUAL(crc, dma) == UPDATE_FAIL)
+				ret = UPDATE_FAIL;
 		}
 	}
 
@@ -1126,13 +1094,14 @@ int core_firmware_upgrade(int upgrade_type, int file_type, int open_file_method)
 
 	switch(upgrade_type) {
 		case UPGRADE_FLASH:
-			fw_upgrade_flash(pfw);
+			ret = fw_upgrade_flash(pfw);
 			break;
 		case UPGRADE_IRAM:
-			fw_upgrade_iram(pfw);
+			ret = fw_upgrade_iram(pfw);
 			break;
 		default:
 			ipio_err("Unknown upgrade type, %d\n", upgrade_type);
+			ret = UPDATE_FAIL;
 			break;
 	}
 
@@ -1156,6 +1125,8 @@ out:
 
 	core_firmware->isUpgrading = false;
 	ipio_vfree((void **)&pfw);
+
+	ipio_info("Upgrade firmware %s !\n", ((ret < 0) ? "failed" : "succed"));
 
 	return ret;
 }

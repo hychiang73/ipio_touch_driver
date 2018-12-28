@@ -47,6 +47,7 @@ struct core_firmware_data {
 };
 
 struct flash_block_info {
+	char *name;
 	uint32_t start;
 	uint32_t end;
 	uint32_t len;
@@ -56,12 +57,12 @@ struct flash_block_info {
 };
 
 enum upgrade_target {
-	ILI_FILE,
+	ILI_FILE = 0,
 	HEX_FILE
 };
 
 enum upgrade_type {
-	UPGRADE_FLASH,
+	UPGRADE_FLASH = 0,
 	UPGRADE_IRAM
 };
 
