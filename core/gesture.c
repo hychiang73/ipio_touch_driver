@@ -30,8 +30,106 @@
 #include "protocol.h"
 #include "config.h"
 
+#define ESD_GESTURE_PWD			0xF38A94EF
+#define ESD_GESTURE_RUN			0x5B92E7F4
+#define ESD_GESTURE_PWD_ADDR	0x25FF8
+
 struct core_gesture_data *core_gesture = NULL;
 extern uint8_t ap_fw[MAX_AP_FIRMWARE_SIZE];
+
+int core_esd_gesture(void)
+{
+	int ret = 0, retry = 100;
+	u32 answer = 0;
+
+	/* start to download AP code with HW reset or host download */
+	if (INTERFACE == SPI_INTERFACE) {
+		ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
+		if (ret < 0) {
+			ipio_err("Failed to do host download reset\n");
+			goto out;
+		}
+	} else {
+		ret = ilitek_platform_reset_ctrl(true, HW_RST);
+		if (ret < 0) {
+			ipio_err("Failed to do hw reset\n");
+			goto out;
+		}
+	}
+
+	ret = core_config_ice_mode_enable(STOP_MCU);
+	if (ret < 0) {
+		ipio_err("Failed to enable ICE mode\n");
+		goto out;
+	}
+
+	/* write a special password to inform FW go back into gesture mode */
+	ret = core_config_ice_mode_write(ESD_GESTURE_PWD_ADDR, ESD_GESTURE_PWD, 4);
+	if (ret < 0) {
+		ipio_err("esd gesture : write password failed, ret = %d\n", ret);
+		goto out;
+	}
+
+	/* HW reset or host download again gives effect to FW receives password successed */
+	if (INTERFACE == SPI_INTERFACE) {
+		ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
+		if (ret < 0) {
+			ipio_err("Failed to do host download reset\n");
+			goto out;
+		}
+	} else {
+		ret = ilitek_platform_reset_ctrl(true, HW_RST);
+		if (ret < 0) {
+			ipio_err("Failed to do hw reset\n");
+			goto out;
+		}
+	}
+
+	/* waiting for FW reloading code */
+    msleep(100);
+
+	ret = core_config_ice_mode_enable(NO_STOP_MCU);
+	if (ret < 0) {
+		ipio_err("Failed to enable ICE mode\n");
+		goto out;
+	}
+
+	/* polling another specific register to see if gesutre is enabled properly */
+	do {
+		answer = core_config_ice_mode_read(ESD_GESTURE_PWD_ADDR);
+		ipio_info("answer = 0x%x\n", answer);
+
+		msleep(10);
+
+		retry--;
+	} while (answer != ESD_GESTURE_RUN && retry > 0);
+
+	if (retry <= 0) {
+		ipio_err("reenter gesture failed\n");
+		goto out;
+	}
+
+	core_config_ice_mode_disable();
+
+	/* reloading gesture code if host download is enabled */
+#ifdef HOST_DOWNLOAD
+	ret = core_gesture_load_code();
+	if (ret < 0) {
+		ipio_err("load gesture code failed\n");
+		goto out;
+	}
+#endif
+
+	return 0;
+
+out:
+	if (core_config->icemodeenable)
+		core_config_ice_mode_disable();
+
+	ipio_err("esd failure handling failed on gesture mode\n");
+	return ret;
+}
+EXPORT_SYMBOL(core_esd_gesture);
 
 #ifdef HOST_DOWNLOAD
 int core_gesture_load_code(void)
