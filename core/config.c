@@ -196,11 +196,14 @@ int core_config_switch_fw_mode(uint8_t *data)
 
 			break;
 		case P5_0_FIRMWARE_DEMO_MODE:
+			ipio_info("Switch to Demo mode by hw reset\n");
+			ilitek_platform_reset_ctrl(true, HW_RST);
+			break;
 		case P5_0_FIRMWARE_DEBUG_MODE:
 			cmd[0] = protocol->cmd_mode_ctrl;
 			cmd[1] = mode;
 
-			ipio_info("Switch to Demo/Debug mode, cmd = 0x%x, b1 = 0x%x\n", cmd[0], cmd[1]);
+			ipio_info("Switch to Debug mode\n");
 
 			ret = core_write(core_config->slave_i2c_addr, cmd, 2);
 			if (ret < 0)
@@ -567,15 +570,7 @@ void core_config_ic_resume(void)
 		disable_irq_wake(ipd->isr_gpio);
 	}
 
-	/* Reload AP code by hw reset */
-#ifdef HOST_DOWNLOAD
-	ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
-#else
-	ilitek_platform_reset_ctrl(true, HW_RST);
-#endif
-
-	/* FW changes to AP mode automatically after hw reset's done */
-	core_fr->actual_fw_mode = protocol->demo_mode;
+	core_config_switch_fw_mode(&protocol->demo_mode);
 
 	if (ipd->isEnablePollCheckPower)
 		queue_delayed_work(ipd->check_power_status_queue,

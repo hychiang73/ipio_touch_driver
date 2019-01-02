@@ -169,6 +169,7 @@ void dump_data(void *data, int type, int len, int row_len, const char *name)
 
 		printk(KERN_CONT "\n\n");
 		printk(KERN_CONT "Dump %s data\n", name);
+		printk(KERN_CONT "ILITEK: ");
 
 		if (type == 8)
 			p8 = (uint8_t *) data;
@@ -182,8 +183,10 @@ void dump_data(void *data, int type, int len, int row_len, const char *name)
 				printk(KERN_CONT " %4x ", p32[i]);
 			else if (type == 10)
 				printk(KERN_CONT " %4d ", p32[i]);
-			if ((i % row) == row-1)
+			if ((i % row) == row - 1) {
 				printk(KERN_CONT "\n");
+				printk(KERN_CONT "ILITEK: ");
+			}
 		}
 		printk(KERN_CONT "\n\n");
 	}
@@ -2295,7 +2298,7 @@ int core_mp_move_code(void)
 	ipio_info("Start moving MP code\n");
 
 #ifdef HOST_DOWNLOAD
-	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0) {
+	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0) {
 		ipio_info("host download failed!\n");
 		ret = -1;
 		goto out;
@@ -2571,7 +2574,7 @@ int core_mp_start_test(bool lcm_on)
 	ret = core_config_switch_fw_mode(&protocol->test_mode);
 	if (ret < 0) {
 		ipio_err("Switch to test mode failed\n");
-		goto reset;
+		goto out;
 	}
 
 	/* Read timing info from ini file */
@@ -2579,7 +2582,7 @@ int core_mp_start_test(bool lcm_on)
 		ret = mp_get_timing_info();
 		if (ret < 0) {
 			ipio_err("Failed to get timing info from ini\n");
-			goto reset;
+			goto out;
 		}
 	}
 
@@ -2620,17 +2623,8 @@ int core_mp_start_test(bool lcm_on)
 
 	mp_show_result(csv_path);
 
-reset:
-#ifdef HOST_DOWNLOAD
-	ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
-#else
-	ilitek_platform_reset_ctrl(true, HW_RST);
-#endif
-
-	/* FW changes to AP mode automatically after hw reset's done */
-	core_fr->actual_fw_mode = protocol->demo_mode;
-
 out:
+	core_config_switch_fw_mode(&protocol->demo_mode);
 	mutex_unlock(&ipd->plat_mutex);
 	mutex_unlock(&ipd->touch_mutex);
 	ilitek_platform_enable_irq();

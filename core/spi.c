@@ -148,7 +148,7 @@ out:
 
 int core_rx_lock_check(int *ret_size)
 {
-	int ret = -EIO, i, count = 10;
+	int i, count = 10;
 	uint8_t txbuf[5] = { 0 }, rxbuf[4] = {0};
 	uint16_t status = 0, lock = 0x5AA5;
 
@@ -160,16 +160,14 @@ int core_rx_lock_check(int *ret_size)
 
 	for (i = 0; i < count; i++) {
 		txbuf[0] = SPI_WRITE;
-		ret = core_spi->spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0);
-		if (ret < 0) {
-			ipio_err("spi Write Error, ret = %d\n", ret);
+		if (core_spi->spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
+			ipio_err("spi Write Error\n");
 			goto out;
 		}
 
 		txbuf[0] = SPI_READ;
-		ret = core_spi->spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4);
-		if (ret < 0) {
-			ipio_err("spi Read Error, ret = %d\n", ret);
+		if (core_spi->spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4) < 0) {
+			ipio_err("spi Read Error\n");
 			goto out;
 		}
 
@@ -188,12 +186,12 @@ int core_rx_lock_check(int *ret_size)
 
 out:
 	ipio_err("Rx check lock error\n");
-	return ret;
+	return -EIO;
 }
 
 int core_tx_unlock_check(void)
 {
-	int ret = -EIO, i, count = 10;
+	int i, count = 10;
 	uint8_t txbuf[5] = { 0 }, rxbuf[4] = {0};
 	uint16_t status = 0, unlock = 0x9881;
 
@@ -205,16 +203,14 @@ int core_tx_unlock_check(void)
 
 	for (i = 0; i < count; i++) {
 		txbuf[0] = SPI_WRITE;
-		ret = core_spi->spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0);
-		if (ret < 0) {
-			ipio_err("spi Write Error, ret = %d\n", ret);
+		if (core_spi->spi_write_then_read(core_spi->spi, txbuf, 5, txbuf, 0) < 0) {
+			ipio_err("spi Write Error\n");
 			goto out;
 		}
 
 		txbuf[0] = SPI_READ;
-		ret = core_spi->spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4);
-		if (ret < 0) {
-			ipio_err("spi Read Error, ret = %d\n", ret);
+		if (core_spi->spi_write_then_read(core_spi->spi, txbuf, 1, rxbuf, 4) < 0) {
+			ipio_err("spi Read Error\n");
 			goto out;
 		}
 
@@ -232,7 +228,7 @@ int core_tx_unlock_check(void)
 
 out:
 	ipio_err("Tx check unlock error\n");
-	return ret;
+	return -EIO;
 }
 
 int core_spi_ice_mode_unlock_read(uint8_t *data, uint32_t size)
@@ -382,7 +378,7 @@ int core_spi_ice_mode_enable(void)
 	return ret;
 }
 
-int core_spi_ice_mode_read(uint8_t *pBuf, uint16_t nSize)
+int core_spi_ice_mode_read(uint8_t *pBuf)
 {
 	int ret = 0, size = 0;
 
@@ -405,9 +401,10 @@ int core_spi_ice_mode_read(uint8_t *pBuf, uint16_t nSize)
 	}
 
 out:
-	ret = core_spi_ice_mode_disable();
-	if (ret < 0)
+	if (core_spi_ice_mode_disable() < 0) {
+		ret = -EIO;
 		ipio_err("spi ice mode disable failed\n");
+	}
 
 	return ret;
 }
@@ -435,9 +432,10 @@ int core_spi_ice_mode_write(uint8_t *pBuf, uint16_t nSize)
 	}
 
 out:
-	ret = core_spi_ice_mode_disable();
-	if (ret < 0)
+	if (core_spi_ice_mode_disable() < 0) {
+		ret = -EIO;
 		ipio_err("spi ice mode disable failed\n");
+	}
 
 	return ret;
 }
@@ -455,7 +453,7 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 				break;
 
 			ipio_err("spi ice mode write failed, retry = %d\n", count);
-		} while(--count > 0);
+		} while(--count >= 0);
 		goto out;
 	}
 
@@ -494,12 +492,12 @@ int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 
 	if (core_config->icemodeenable == false) {
 		do {
-			ret = core_spi_ice_mode_read(pBuf, nSize);
+			ret = core_spi_ice_mode_read(pBuf);
 			if (ret >= 0)
 				break;
 
 			ipio_err("spi ice mode write failed, retry = %d\n", count);
-		} while(--count > 0);
+		} while(--count >= 0);
 		goto out;
 	}
 

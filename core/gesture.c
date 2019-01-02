@@ -43,18 +43,10 @@ int core_esd_gesture(void)
 	u32 answer = 0;
 
 	/* start to download AP code with HW reset or host download */
-	if (INTERFACE == SPI_INTERFACE) {
-		ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
-		if (ret < 0) {
-			ipio_err("Failed to do host download reset\n");
-			goto out;
-		}
-	} else {
-		ret = ilitek_platform_reset_ctrl(true, HW_RST);
-		if (ret < 0) {
-			ipio_err("Failed to do hw reset\n");
-			goto out;
-		}
+	ret = ilitek_platform_reset_ctrl(true, HW_RST);
+	if (ret < 0) {
+		ipio_err("Failed to do hw reset\n");
+		goto out;
 	}
 
 	ret = core_config_ice_mode_enable(STOP_MCU);
@@ -71,18 +63,10 @@ int core_esd_gesture(void)
 	}
 
 	/* HW reset or host download again gives effect to FW receives password successed */
-	if (INTERFACE == SPI_INTERFACE) {
-		ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
-		if (ret < 0) {
-			ipio_err("Failed to do host download reset\n");
-			goto out;
-		}
-	} else {
-		ret = ilitek_platform_reset_ctrl(true, HW_RST);
-		if (ret < 0) {
-			ipio_err("Failed to do hw reset\n");
-			goto out;
-		}
+	ret = ilitek_platform_reset_ctrl(true, HW_RST);
+	if (ret < 0) {
+		ipio_err("Failed to do hw reset\n");
+		goto out;
 	}
 
 	/* waiting for FW reloading code */

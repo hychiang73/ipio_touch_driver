@@ -262,7 +262,7 @@ static void ilitek_platform_esd_recovery(struct work_struct *work)
 	int ret = 0;
 
 	mutex_lock(&ipd->plat_mutex);
-	ret = ilitek_platform_reset_ctrl(true, HW_RST);;
+	ret = ilitek_platform_reset_ctrl(true, HW_RST);
 	if (ret < 0)
 		ipio_err("host download failed!\n");
 	mutex_unlock(&ipd->plat_mutex);
@@ -758,21 +758,21 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			ret = core_config_ic_reset();
 			break;
 		case HW_RST:
-			ipio_info("HW RESET\n");
-			ilitek_platform_tp_hw_reset(rst);
-			break;
-
-		case HOST_DOWNLOAD_RST:
-			ipio_info("Reset for host download in boot stage\n");
+#ifdef HOST_DOWNLOAD
+			ipio_info("TP Reset with host download\n");
 			for (i = 0; i < core_firmware->retry_times; i++) {
 				ilitek_platform_tp_hw_reset(rst);
 				core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 				if (ret >= 0)
 					break;
-				ipio_err("boot host download failed retry %d times\n", (i + 1));
+				ipio_err("host download failed retry %d times\n", (i + 1));
 			}
 			if (ret < 0)
-				ipio_err("host download boot reset failed\n");
+				ipio_err("host download with retry failed\n");
+#else
+			ipio_info("TP Reset only\n");
+			ilitek_platform_tp_hw_reset(rst);
+#endif
 			break;
 		default:
 			ipio_err("Unknown RST mode (%d)\n", mode);
@@ -943,7 +943,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 #ifdef HOST_DOWNLOAD
 	/* Start to download AP code to iram with HW reset. */
-	if (ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST) < 0)
+	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0)
 		ipio_err("Failed to do host download boot rest\n");
 #endif
 
