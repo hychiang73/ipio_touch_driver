@@ -270,7 +270,6 @@ static void ilitek_platform_esd_recovery(struct work_struct *work)
 
 static void ilitek_platform_esd_check(struct work_struct *pWork)
 {
-	int ret;
 	uint8_t tx_data = 0x82, rx_data = 0;
 
 #if (INTERFACE == SPI_INTERFACE)
@@ -279,7 +278,7 @@ static void ilitek_platform_esd_check(struct work_struct *pWork)
 		ipio_err("spi Write Error\n");
 	}
 
-	if (rx_data == 0x82) {
+	if (rx_data != 0xA3) {
 		ipio_info("Doing ESD recovery (0x%x)\n", rx_data);
 		schedule_work(&ipd->esd_recovery);
 	} else {
