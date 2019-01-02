@@ -113,16 +113,17 @@
 #define SPI_INTERFACE 2
 #define INTERFACE I2C_INTERFACE
 
+/* Choise open hex file function*/
+#define REQUEST_FIRMWARE	0
+#define FILP_OPEN 			1
+#define OPEN_FW_METHOD FILP_OPEN
+
 /* Driver version */
 #define DRIVER_VERSION	"1.0.4.1"
 
-/* Driver core type */
-#define CORE_TYPE_B		0x00
-#define CORE_TYPE_E		0x03
-
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5
-#define PROTOCOL_MID		0x5
+#define PROTOCOL_MID		0x6
 #define PROTOCOL_MINOR		0x0
 
 /*  Debug messages */
@@ -165,7 +166,6 @@ enum {
 	SW_RST = 0,
 	HW_RST,
 	HOST_DOWNLOAD_RST,
-	HOST_DOWNLOAD_BOOT_RST
 };
 
 /* MCU status */
@@ -206,7 +206,7 @@ extern uint32_t ipio_chip_list[2];
 #define SPI_UPGRADE_LEN				2048
 #define SPI_READ_LEN				2048
 
-#define FW_BLOCK_INFO_NUM			6
+#define FW_BLOCK_INFO_NUM			7
 #define UPDATE_RETRY_COUNT			3
 
 #define AP_BLOCK_NUM					1
@@ -266,7 +266,7 @@ enum ili7807_types {
 #define TOUCH_SCREEN_X_MIN 0
 #define TOUCH_SCREEN_Y_MIN 0
 #define TOUCH_SCREEN_X_MAX 720
-#define TOUCH_SCREEN_Y_MAX 1280
+#define TOUCH_SCREEN_Y_MAX 1440
 
 /* define the range on panel */
 #define TPD_HEIGHT 2048
@@ -294,14 +294,8 @@ enum ili7807_types {
 
 /* Be able to upgrade fw at boot stage */
 //#define BOOT_FW_UPGRADE
-
-/* Read fw file by request_firmware */
-//#define BOOT_FW_UPGRADE_READ_HEX
-
-#ifdef BOOT_FW_UPGRADE_READ_HEX
-#define BOOT_FW_HEX_NAME "ilitek_fw.hex"
+#define BOOT_FW_HEX_NAME "ILITEK_FW"
 #define BOOT_UPDATE_FW_DELAY_TIME 10000
-#endif
 
 /* Enable gesture function */
 //#define GESTURE_ENABLE

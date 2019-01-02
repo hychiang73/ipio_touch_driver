@@ -560,16 +560,15 @@ static int kthread_handler(void *arg)
 		ilitek_platform_disable_irq();
 
 		/* In the case of host download, it had been done before. */
-#ifndef HOST_DOWNLOAD
 		for (i = 0; i < core_firmware->retry_times; i++) {
-			ret = core_firmware_boot_upgrade();
-			if (ret >= 0) {
+			ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
+			if (ret >= 0)
 				break;
 
 			ipio_err("boot host download failed %d times\n", (i + 1));
-			ilitek_platform_tp_hw_reset(rst);
+			ilitek_platform_reset_ctrl(true, HW_RST);
 		}
-#endif
+
 		if (ret < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
 
@@ -747,12 +746,10 @@ static int ilitek_platform_core_init(void)
 
 int ilitek_platform_reset_ctrl(bool rst, int mode)
 {
-	int ret = 0, retry = 0;
+	int ret = 0, i;
 
 	atomic_set(&ipd->do_reset, true);
 	ilitek_platform_disable_irq();
-
-	retry = core_firmware->retry_times;
 
 	switch (mode) {
 		case SW_RST:
@@ -763,40 +760,19 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			ipio_info("HW RESET\n");
 			ilitek_platform_tp_hw_reset(rst);
 			break;
-#ifdef HOST_DOWNLOAD
+
 		case HOST_DOWNLOAD_RST:
-			ipio_info("Howst Download RST\n");
-			do {
-				ilitek_platform_tp_hw_reset(rst);
-				/* To write data into iram must enter to ICE mode */
-				core_config_ice_mode_enable(STOP_MCU);
-				ret = core_firmware_upgrade(UPDATE_FW_PATH, true);
-				if (ret >= 0)
-					break;
-
-				ipio_err("host download failed, do retry (%d)\n", retry);
-				retry--;
-			} while (retry != 0);
-
-			if (ret < 0 || retry <= 0)
-				ipio_err("host download still failed after retry\n");
-			break;
-		case HOST_DOWNLOAD_BOOT_RST:
 			ipio_info("Reset for host download in boot stage\n");
-			do {
+			for (i = 0; i < core_firmware->retry_times; i++) {
 				ilitek_platform_tp_hw_reset(rst);
-				ret = core_firmware_boot_host_download();
+				core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 				if (ret >= 0)
 					break;
-
-				ipio_err("boot host download failed, do retry (%d)\n", retry);
-				retry--;
-			} while (retry != 0);
-
-			if (ret < 0 || retry <= 0)
-				ipio_err("host download boot reset still failed after retry\n");
+				ipio_err("boot host download failed retry %d times\n", (i + 1));
+			}
+			if (ret < 0)
+				ipio_err("host download boot reset failed\n");
 			break;
-#endif
 		default:
 			ipio_err("Unknown RST mode (%d)\n", mode);
 			ret = -1;

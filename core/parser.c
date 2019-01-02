@@ -105,7 +105,7 @@ static int get_ini_phy_data(char *data, int fsize)
 {
 	int i, n = 0, ret = 0 , banchmark_flag = 0, empty_section, nodetype_flag = 0;
 	int offset = 0, isEqualSign = 0;
-	char *ini_buf = NULL, *tmpSectionName = NULL, *temp;
+	char *ini_buf = NULL, *tmpSectionName = NULL;
 	char M_CFG_SSL = '[';
 	char M_CFG_SSR = ']';
 /* char M_CFG_NIS = ':'; */
@@ -130,15 +130,6 @@ static int get_ini_phy_data(char *data, int fsize)
 		ipio_err("Failed to allocate tmpSectionName memory, %ld\n", PTR_ERR(tmpSectionName));
 		ret = -ENOMEM;
 		goto out;
-	}
-
-	temp = strnstr(data, TYPE_MARK, fsize);
-	if (temp != NULL) {
-		ipio_debug(DEBUG_PARSER, "Find Type mark, locat = %d",(int)(temp - data));
-		if (core_config->core_type == CORE_TYPE_B)
-			offset = temp-data;
-		else
-			fsize = temp-data;
 	}
 
 	while (true) {

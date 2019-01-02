@@ -25,21 +25,14 @@
 #ifndef __FIRMWARE_H
 #define __FIRMWARE_H
 
-/* The addr of block reserved for customers */
-#define RESERVE_BLOCK_START_ADDR 0x1D000
-#define RESERVE_BLOCK_END_ADDR 0x1DFFF
-
 struct core_firmware_data {
 	uint8_t new_fw_ver[4];
-	uint8_t old_fw_ver[4];
 	uint8_t  block_number;
 
 	uint32_t start_addr;
 	uint32_t end_addr;
-	uint32_t checksum;
-	uint32_t crc32;
+	uint32_t current_fw_cb;
 	uint32_t new_fw_cb;
-	uint32_t old_fw_cb;
 
 	uint32_t update_status;
 	uint32_t max_count;
@@ -51,23 +44,52 @@ struct core_firmware_data {
 	bool isCRC;
 	bool isboot;
 	int hex_tag;
-
-	int (*upgrade_func)(bool isIRAM);
 };
 
-extern struct core_firmware_data *core_firmware;
+struct flash_block_info {
+	char *name;
+	uint32_t start;
+	uint32_t end;
+	uint32_t len;
+	uint32_t mem_start;
+	uint32_t fix_mem_start;
+	uint8_t mode;
+};
 
-#ifdef HOST_DOWNLOAD
-extern int core_firmware_boot_host_download(void);
-extern int tddi_host_download(bool isIRAM);
-#else
-#ifdef BOOT_FW_UPGRADE
-extern int core_firmware_boot_upgrade(void);
-#endif
-extern int tddi_fw_upgrade(bool isIRAM);
-#endif
-/* extern int core_firmware_iram_upgrade(const char* fpath); */
-extern int core_firmware_upgrade(const char *, bool isIRAM);
+enum upgrade_target {
+	ILI_FILE = 0,
+	HEX_FILE
+};
+
+enum upgrade_type {
+	UPGRADE_FLASH = 0,
+	UPGRADE_IRAM
+};
+
+/*
+ * block define
+ */
+enum block_num {
+	AP = 1,
+	DATA = 2,
+	TUNING = 3,
+	GESTURE = 4,
+	MP = 5,
+	DDI = 6
+};
+
+/* The addr of block reserved for customers */
+#define RESERVE_BLOCK_START_ADDR 0x1D000
+#define RESERVE_BLOCK_END_ADDR 0x1DFFF
+
+#define UPGRADE_BUFFER_SIZE	   MAX_HEX_FILE_SIZE
+
+#define BLOCK_TAG_AE	0xAE
+#define BLOCK_TAG_AF	0xAF
+#define BLOCK_TAG_B0	0xB0
+
+extern struct core_firmware_data *core_firmware;
+extern int core_firmware_upgrade(int type, int file_type, int open_file_method);
 extern int core_firmware_init(void);
 
 #endif /* __FIRMWARE_H */

@@ -600,7 +600,6 @@ out:
 	core_mp_test_free();
 	return 0;
 }
-
 static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
 	int ret = 0;
@@ -1174,48 +1173,6 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 	return len;
 }
 
-static ssize_t ilitek_proc_fw_upgrade_write(struct file *filp, const char *buff, size_t size, loff_t *pPos)
-{
-	int ret = 0;
-	uint32_t len = 0;
-	uint8_t *temp_path = NULL;
-
-	if (*pPos != 0)
-		return 0;
-
-	temp_path = kcalloc(size, sizeof(uint8_t), GFP_KERNEL);
-	if (ERR_ALLOC_MEM(temp_path)) {
-		ipio_err("Failed to allocate mem\n");
-		return 0;
-	}
-
-
-	if (buff != NULL) {
-		ret = copy_from_user(temp_path, buff, size - 1);
-		if (ret < 0) {
-			ipio_info("copy data from user space, failed\n");
-			return -1;
-		}
-	}
-
-	ipio_info("update hex path: %s\n", temp_path);
-
-	ilitek_platform_disable_irq();
-	ret = core_firmware_upgrade(temp_path, false);
-	ilitek_platform_enable_irq();
-
-	if (ret < 0) {
-		core_firmware->update_status = ret;
-		ipio_err("Failed to upgrade firwmare\n");
-	} else {
-		core_firmware->update_status = 100;
-		ipio_info("Succeed to upgrade firmware\n");
-	}
-
-	*pPos = len;
-	ipio_kfree((void **)&temp_path);
-	return len;
-}
 
 static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
@@ -1227,16 +1184,16 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 	if (*pPos != 0)
 		return 0;
 
-	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
+	 memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
 	ilitek_platform_disable_irq();
 
 #ifdef HOST_DOWNLOAD
-	ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);;
+	ret = ilitek_platform_reset_ctrl(true, HOST_DOWNLOAD_RST);
 	if (ret < 0)
 		ipio_info("host download failed!\n");
 #else
-	ret = core_firmware_upgrade(UPDATE_FW_PATH, false);
+	ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
 #endif
 
 	ilitek_platform_enable_irq();
@@ -1253,7 +1210,7 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 
 	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
 	if (ret < 0) {
-		ipio_err("Failed to copy data to user space\n");
+	        ipio_err("Failed to copy data to user space\n");
 	}
 
 	*pPos = len;
@@ -1735,7 +1692,6 @@ struct file_operations proc_fw_process_fops = {
 
 struct file_operations proc_fw_upgrade_fops = {
 	.read = ilitek_proc_fw_upgrade_read,
-	.write = ilitek_proc_fw_upgrade_write,
 };
 
 struct file_operations proc_gesture_fops = {
@@ -1796,7 +1752,6 @@ struct file_operations proc_read_write_register_fops = {
 	.read = ilitek_proc_read_write_register_read,
 	.write = ilitek_proc_read_write_register_write,
 };
-
 /**
  * This struct lists all file nodes will be created under /proc filesystem.
  *
