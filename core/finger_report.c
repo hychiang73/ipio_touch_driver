@@ -613,8 +613,8 @@ out:
 
 	if (ipd->isEnablePollCheckEsd) {
 		mutex_lock(&ipd->plat_mutex);
-		queue_delayed_work(ipd->check_power_status_queue,
-				&ipd->check_power_status_work, ipd->work_delay);
+		queue_delayed_work(ipd->check_esd_status_queue,
+			&ipd->check_esd_status_work, ipd->esd_check_time);
 		mutex_unlock(&ipd->plat_mutex);
 	}
 
