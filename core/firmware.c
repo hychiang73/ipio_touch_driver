@@ -58,6 +58,7 @@
 struct flash_sector *g_flash_sector = NULL;
 struct flash_block_info fbi[FW_BLOCK_INFO_NUM];
 struct core_firmware_data *core_firmware = NULL;
+u8 gestrue_fw[(10 * K)];
 
 static int convert_hex_file(u8 *phex, uint32_t nSize, u8 *pfw);
 
@@ -124,9 +125,9 @@ static int write_download(uint32_t start, uint32_t size, uint8_t *w_buf, uint32_
 	return 0;
 }
 
-static void upgrade_info_setting(u8 *pfw, u8 type)
+static void fw_upgrade_info_setting(u8 *pfw, u8 type)
 {
-	int  ges_info_addr;
+	uint32_t  ges_info_addr, ges_fw_start, ges_fw_end;
 
 	if (type == UPGRADE_IRAM) {
 		if (core_firmware->hex_tag == BLOCK_TAG_AF) {
@@ -141,8 +142,9 @@ static void upgrade_info_setting(u8 *pfw, u8 type)
 			core_gesture->area_section = (pfw[ges_info_addr + 3] << 24) + (pfw[ges_info_addr + 2] << 16) + (pfw[ges_info_addr + 1] << 8) + pfw[ges_info_addr];
 			fbi[GESTURE].mem_start = (pfw[ges_info_addr + 7] << 24) + (pfw[ges_info_addr + 6] << 16) + (pfw[ges_info_addr + 5] << 8) + pfw[ges_info_addr + 4];
 			fbi[GESTURE].len = MAX_GESTURE_FIRMWARE_SIZE;
-			fbi[GESTURE].start = (pfw[ges_info_addr + 15] << 24) + (pfw[ges_info_addr + 14] << 16) + (pfw[ges_info_addr + 13] << 8) + pfw[ges_info_addr + 12];
-
+			ges_fw_start = (pfw[ges_info_addr + 15] << 24) + (pfw[ges_info_addr + 14] << 16) + (pfw[ges_info_addr + 13] << 8) + pfw[ges_info_addr + 12];
+			ges_fw_end = fbi[GESTURE].end;
+			fbi[GESTURE].start = 0;
 		} else {
 			fbi[AP].start = 0;
 			fbi[AP].mem_start = 0;
@@ -159,9 +161,19 @@ static void upgrade_info_setting(u8 *pfw, u8 type)
 			core_gesture->area_section = (pfw[0xFFCF] << 24) + (pfw[0xFFCE] << 16) + (pfw[0xFFCD] << 8) + pfw[0xFFCC];;
 			fbi[GESTURE].mem_start = (pfw[0xFFD3] << 24) + (pfw[0xFFD2] << 16) + (pfw[0xFFD1] << 8) + pfw[0xFFD0];;
 			fbi[GESTURE].len = MAX_GESTURE_FIRMWARE_SIZE;
-			fbi[GESTURE].start = (pfw[0xFFDB] << 24) + (pfw[0xFFDA] << 16) + (pfw[0xFFD9] << 8) + pfw[0xFFD8];
-			fbi[GESTURE].end = (pfw[0xFFDF] << 24) + (pfw[0xFFDE] << 16) + (pfw[0xFFDD] << 8) + pfw[0xFFDC];
+			ges_fw_start = (pfw[0xFFDB] << 24) + (pfw[0xFFDA] << 16) + (pfw[0xFFD9] << 8) + pfw[0xFFD8];
+			ges_fw_end = (pfw[0xFFDB] << 24) + (pfw[0xFFDA] << 16) + (pfw[0xFFD9] << 8) + pfw[0xFFD8];
+			fbi[GESTURE].start = 0;
 		}
+
+		memset(gestrue_fw, 0xff, sizeof(gestrue_fw));
+
+#ifdef GESTURE_ENABLE
+		if (fbi[GESTURE].mem_start != 0xffffffff && ges_fw_start != 0xffffffff && fbi[GESTURE].mem_start != 0 && ges_fw_start != 0)
+			ipio_memcpy(gestrue_fw, (pfw + ges_fw_start), fbi[GESTURE].len, sizeof(gestrue_fw));
+		else
+			ipio_err("There is no gesture data inside fw\n");
+#endif
 
 		fbi[AP].name ="AP";
 		fbi[DATA].name ="DATA";
@@ -180,7 +192,7 @@ static void upgrade_info_setting(u8 *pfw, u8 type)
 		ipio_info("GESTURE memory start = 0x%x, upgrade lenth = 0x%x",
 					fbi[GESTURE].mem_start, MAX_GESTURE_FIRMWARE_SIZE);
 		ipio_info("hex area = %d, ap_start_addr = 0x%x, ap_end_addr = 0x%x\n",
-					core_gesture->area_section, fbi[GESTURE].start, fbi[GESTURE].end);
+					core_gesture->area_section, ges_fw_start, ges_fw_end);
 	}
 
 	/* Get hex fw vers */
@@ -395,7 +407,7 @@ static int hex_file_open_convert(u8 open_file_method, u8 *pfw)
 	return ret;
 }
 
-static int upgrade_file_convert(int target, u8 *pfw, int open_file_method)
+static int fw_upgrade_file_convert(int target, u8 *pfw, int open_file_method)
 {
 	int ret = 0;
 
@@ -778,7 +790,6 @@ static int flash_erase(void)
 	uint32_t i, j, ret = 0;
 
 	for (i = 0; i < ARRAY_SIZE(fbi); i++) {
-
 		if (fbi[i].end == 0)
 			continue;
 		ipio_debug(DEBUG_FIRMWARE, "Block[%d] earsing start 0x%x to end 0x%x \n", i, fbi[i].start, fbi[i].end);
@@ -949,7 +960,7 @@ out:
 
 static int fw_upgrade_flash(u8 *pfw)
 {
-	int ret = 0;
+	int ret = UPDATE_OK;
 
 	ilitek_platform_reset_ctrl(true, HW_RST);
 
@@ -1001,14 +1012,15 @@ static int fw_upgrade_flash(u8 *pfw)
 		ipio_info("Data Correct !\n");
 
 out:
-	ret = core_config_ice_mode_disable();
+	core_config_ice_mode_disable();
 	return ret;
 }
 
 static int fw_upgrade_iram(u8 *pfw)
 {
-	int ret = 0, i;
+	int ret = UPDATE_OK, i;
 	uint32_t mode, crc, dma;
+	u8 *fw_ptr = NULL;
 
 	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
@@ -1022,20 +1034,23 @@ static int fw_upgrade_iram(u8 *pfw)
 		goto out;
 	}
 
-	if (core_fr->actual_fw_mode == protocol->test_mode)
+	fw_ptr = pfw;
+	if (core_fr->actual_fw_mode == protocol->test_mode) {
 		mode = MP;
-	else if (core_gesture->entry)
+	} else if (core_gesture->entry) {
 		mode = GESTURE;
-	else
+		fw_ptr = gestrue_fw;
+	} else {
 		mode = AP;
+	}
 
 	/* Program data to iram acorrding to each block */
 	for (i = 0; i < ARRAY_SIZE(fbi); i++) {
 		if (fbi[i].mode == mode && fbi[i].len != 0) {
 			ipio_info("Download %s code from hex 0x%x to IRAN 0x%x len = 0x%x\n", fbi[i].name, fbi[i].start, fbi[i].mem_start, fbi[i].len);
-			write_download(fbi[i].mem_start, fbi[i].len, (pfw + fbi[i].start) , SPI_UPGRADE_LEN);
+			write_download(fbi[i].mem_start, fbi[i].len, (fw_ptr + fbi[i].start) , SPI_UPGRADE_LEN);
 
-			crc = calc_crc32(fbi[i].start, fbi[i].len - 4 , pfw);
+			crc = calc_crc32(fbi[i].start, fbi[i].len - 4 , fw_ptr);
 			dma = host_download_dma_check(fbi[i].mem_start, fbi[i].len - 4);
 
 			ipio_info("%s CRC is %s (%x) : (%x)\n",fbi[i].name, (crc != dma ? "Invalid !" : "Correct !"), crc, dma);
@@ -1060,7 +1075,7 @@ out:
 int core_firmware_upgrade(int upgrade_type, int file_type, int open_file_method)
 {
 	u8 *pfw = NULL;
-	int ret  = 0;
+	int ret  = UPDATE_OK;
 	bool power = false, esd = false;
 
 	core_firmware->isUpgrading = true;
@@ -1087,10 +1102,10 @@ int core_firmware_upgrade(int upgrade_type, int file_type, int open_file_method)
 	memset(pfw, 0xFF, UPGRADE_BUFFER_SIZE * sizeof(uint8_t));
 
 	/* Parse ili/hex file */
-	if (upgrade_file_convert(file_type, pfw, open_file_method) < 0)
+	if (fw_upgrade_file_convert(file_type, pfw, open_file_method) < 0)
 		goto out;
 
-	upgrade_info_setting(pfw, upgrade_type);
+	fw_upgrade_info_setting(pfw, upgrade_type);
 
 	switch(upgrade_type) {
 		case UPGRADE_FLASH:
@@ -1127,7 +1142,6 @@ out:
 	ipio_vfree((void **)&pfw);
 
 	ipio_info("Upgrade firmware %s !\n", ((ret < 0) ? "failed" : "succed"));
-
 	return ret;
 }
 

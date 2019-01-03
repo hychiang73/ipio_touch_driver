@@ -174,7 +174,7 @@ int core_rx_lock_check(int *ret_size)
 		status = (rxbuf[2] << 8) + rxbuf[3];
 		*ret_size = (rxbuf[0] << 8) + rxbuf[1];
 
-		ipio_debug(DEBUG_SPI, "Rx lock = 0x%x, size = %d\n", status, *ret_size);
+		//ipio_debug(DEBUG_SPI, "Rx lock = 0x%x, size = %d\n", status, *ret_size);
 
 		if (CHECK_EQUAL(status, lock) == 0) {
 			ipio_info("Rx check lock free!!\n");
@@ -185,7 +185,7 @@ int core_rx_lock_check(int *ret_size)
 	}
 
 out:
-	ipio_err("Rx check lock error\n");
+	ipio_err("Rx check lock error, lock = 0x%x, size = %d\n", status, *ret_size);
 	return -EIO;
 }
 
@@ -216,7 +216,7 @@ int core_tx_unlock_check(void)
 
 		status = (rxbuf[2] << 8) + rxbuf[3];
 
-		ipio_debug(DEBUG_SPI, "Tx unlock = 0x%x\n", status);
+		//ipio_debug(DEBUG_SPI, "Tx unlock = 0x%x\n", status);
 
 		if (CHECK_EQUAL(status, unlock) == 0) {
 			ipio_info("Tx check unlock free!\n");
@@ -227,7 +227,7 @@ int core_tx_unlock_check(void)
 	}
 
 out:
-	ipio_err("Tx check unlock error\n");
+	ipio_err("Tx check unlock error, unlock = 0x%x\n", status);
 	return -EIO;
 }
 
@@ -442,7 +442,7 @@ out:
 
 int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 {
-	int ret = 0, count = 5;
+	int ret = 0, count = SPI_RETRY;
 	uint8_t *txbuf = NULL;
 	uint16_t safe_size = nSize;
 
@@ -452,7 +452,7 @@ int core_spi_write(uint8_t *pBuf, uint16_t nSize)
 			if (ret >= 0)
 				break;
 
-			ipio_err("spi ice mode write failed, retry = %d\n", count);
+			//ipio_debug(DEBUG_SPI, "spi ice mode Write failed, retry = %d\n", count);
 		} while(--count >= 0);
 		goto out;
 	}
@@ -485,7 +485,7 @@ EXPORT_SYMBOL(core_spi_write);
 
 int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 {
-	int ret = 0, count = 5;
+	int ret = 0, count = SPI_RETRY;
 	uint8_t txbuf[1] = {0};
 
 	txbuf[0] = SPI_READ;
@@ -496,7 +496,7 @@ int core_spi_read(uint8_t *pBuf, uint16_t nSize)
 			if (ret >= 0)
 				break;
 
-			ipio_err("spi ice mode write failed, retry = %d\n", count);
+			//ipio_debug(DEBUG_SPI, "spi ice mode Read failed, retry = %d\n", count);
 		} while(--count >= 0);
 		goto out;
 	}

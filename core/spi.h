@@ -28,6 +28,7 @@
 #define SPI_WRITE 		0x82
 #define SPI_READ 		0x83
 #define SPI_CLK_HZ		(10 * M)
+#define SPI_RETRY		5
 #define DMA_TRANSFER_MAX_TIMES 2
 #define DMA_TRANSFER_MAX_SIZE 1024
 #define SPI_WRITE_BUFF_MAXSIZE (1024 * DMA_TRANSFER_MAX_TIMES + 5)//plus 5 for IC Mode :(Head + Address) 0x82,0x25,Addr_L,Addr_M,Addr_H

@@ -638,8 +638,8 @@ static int ilitek_platform_gpio(void)
 #endif /* CONFIG_OF */
 #endif /* PT_MTK */
 
-	ipio_info("GPIO INT: %d\n", ipd->int_gpio);
-	ipio_info("GPIO RESET: %d\n", ipd->reset_gpio);
+	ipio_info("TP GPIO INT: %d\n", ipd->int_gpio);
+	ipio_info("TP GPIO RESET: %d\n", ipd->reset_gpio);
 
 	if (!gpio_is_valid(ipd->int_gpio)) {
 		ipio_err("Invalid INT gpio: %d\n", ipd->int_gpio);
@@ -757,20 +757,20 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			ret = core_config_ic_reset();
 			break;
 		case HW_RST:
+			ipio_info("HW RESET\n");
+			ilitek_platform_tp_hw_reset(rst);
 #ifdef HOST_DOWNLOAD
-			ipio_info("TP Reset with host download\n");
+			ipio_info("host download load code\n");
 			for (i = 0; i < core_firmware->retry_times; i++) {
-				ilitek_platform_tp_hw_reset(rst);
+
 				core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 				if (ret >= 0)
 					break;
+				ilitek_platform_tp_hw_reset(rst);
 				ipio_err("host download failed retry %d times\n", (i + 1));
 			}
 			if (ret < 0)
 				ipio_err("host download with retry failed\n");
-#else
-			ipio_info("TP Reset only\n");
-			ilitek_platform_tp_hw_reset(rst);
 #endif
 			break;
 		default:
@@ -939,12 +939,6 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 	if (core_config_get_chip_id() < 0)
 		ipio_err("Failed to get chip id\n");
-
-#ifdef HOST_DOWNLOAD
-	/* Start to download AP code to iram with HW reset. */
-	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0)
-		ipio_err("Failed to do host download boot rest\n");
-#endif
 
 #ifndef HOST_DOWNLOAD
 	core_config_read_flash_info();

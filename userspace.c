@@ -622,6 +622,9 @@ static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff
 	ipio_info("DEBUG_MP_TEST = %d\n", DEBUG_MP_TEST);
 	ipio_info("DEBUG_IOCTL = %d\n", DEBUG_IOCTL);
 	ipio_info("DEBUG_NETLINK = %d\n", DEBUG_NETLINK);
+	ipio_info("DEBUG_PARSER = %d\n", DEBUG_PARSER);
+	ipio_info("DEBUG_GESTURE = %d\n", DEBUG_GESTURE);
+	ipio_info("DEBUG_SPI = %d\n", DEBUG_SPI);
 	ipio_info("DEBUG_ALL = %d\n", DEBUG_ALL);
 
 	len = snprintf(g_user_buf, PAGE_SIZE, "Current DEBUG Level = %d\n", ipio_debug_level);
@@ -636,6 +639,9 @@ static ssize_t ilitek_proc_debug_level_read(struct file *filp, char __user *buff
 	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_MP_TEST = %d\n", DEBUG_MP_TEST);
 	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_IOCTL = %d\n", DEBUG_IOCTL);
 	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_NETLINK = %d\n", DEBUG_NETLINK);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_PARSER = %d\n", DEBUG_PARSER);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_GESTURE = %d\n", DEBUG_GESTURE);
+	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_SPI = %d\n", DEBUG_SPI);
 	len += snprintf(g_user_buf +len, PAGE_SIZE - len, "DEBUG_ALL = %d\n", DEBUG_ALL);
 
 	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);

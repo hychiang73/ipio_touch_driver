@@ -168,7 +168,7 @@ void dump_data(void *data, int type, int len, int row_len, const char *name)
 		}
 
 		printk(KERN_CONT "\n\n");
-		printk(KERN_CONT "Dump %s data\n", name);
+		printk(KERN_CONT "ILITEK: Dump %s data\n", name);
 		printk(KERN_CONT "ILITEK: ");
 
 		if (type == 8)

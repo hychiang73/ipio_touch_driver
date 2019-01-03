@@ -98,10 +98,6 @@
 #define CHIP_TYPE_ILI7807	0x7807
 #define TP_TOUCH_IC		CHIP_TYPE_ILI7807
 
-#if (TP_TOUCH_IC == CHIP_TYPE_ILI7807)
-#define CHIP_TYPE_7807G_AA
-#endif
-
 /* A platform currently supported by driver */
 #define PT_QCOM	1
 #define PT_MTK	2
@@ -111,7 +107,7 @@
 /* A interface currently supported by driver */
 #define I2C_INTERFACE 1
 #define SPI_INTERFACE 2
-#define INTERFACE I2C_INTERFACE
+#define INTERFACE SPI_INTERFACE
 
 /* Choise open hex file function*/
 #define REQUEST_FIRMWARE	0
@@ -165,7 +161,6 @@ enum {
 enum {
 	SW_RST = 0,
 	HW_RST,
-	HOST_DOWNLOAD_RST,
 };
 
 /* MCU status */
@@ -278,6 +273,11 @@ enum ili7807_types {
 /* It's only for spi interface used to download data to iram */
 #if (INTERFACE == SPI_INTERFACE)
 #define HOST_DOWNLOAD
+#endif
+
+/* Set spi clk up to 10Mhz (it must be enabled if chip is ILI7807G_AA) */
+#if (TP_TOUCH_IC == CHIP_TYPE_ILI7807 && INTERFACE == SPI_INTERFACE)
+#define ENABLE_SPI_SPEED_UP
 #endif
 
 /* Linux multiple touch protocol, either B type or A type. */

@@ -66,9 +66,7 @@ enum upgrade_type {
 	UPGRADE_IRAM
 };
 
-/*
- * block define
- */
+/* FW block number */
 enum block_num {
 	AP = 1,
 	DATA = 2,
@@ -78,15 +76,18 @@ enum block_num {
 	DDI = 6
 };
 
+/* FW block info tag */
+enum {
+	BLOCK_TAG_AE = 0xAE,
+	BLOCK_TAG_AF = 0xAF,
+	BLOCK_TAG_B0 = 0xB0
+};
+
 /* The addr of block reserved for customers */
 #define RESERVE_BLOCK_START_ADDR 0x1D000
 #define RESERVE_BLOCK_END_ADDR 0x1DFFF
 
 #define UPGRADE_BUFFER_SIZE	   MAX_HEX_FILE_SIZE
-
-#define BLOCK_TAG_AE	0xAE
-#define BLOCK_TAG_AF	0xAF
-#define BLOCK_TAG_B0	0xB0
 
 extern struct core_firmware_data *core_firmware;
 extern int core_firmware_upgrade(int type, int file_type, int open_file_method);
