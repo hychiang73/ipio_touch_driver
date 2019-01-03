@@ -746,10 +746,12 @@ static int ilitek_platform_core_init(void)
 
 int ilitek_platform_reset_ctrl(bool rst, int mode)
 {
-	int ret = 0, i;
+	int ret = 0, retry = 0;
 
 	atomic_set(&ipd->do_reset, true);
 	ilitek_platform_disable_irq();
+
+	retry = core_firmware->retry_times;
 
 	switch (mode) {
 		case SW_RST:
@@ -761,14 +763,14 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			ilitek_platform_tp_hw_reset(rst);
 #ifdef HOST_DOWNLOAD
 			ipio_info("host download load code\n");
-			for (i = 0; i < core_firmware->retry_times; i++) {
-
+			do {
 				core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 				if (ret >= 0)
 					break;
 				ilitek_platform_tp_hw_reset(rst);
-				ipio_err("host download failed retry %d times\n", (i + 1));
-			}
+				ipio_err("host download failed retry %d times\n", retry);
+			} while (--retry >= 0);
+
 			if (ret < 0)
 				ipio_err("host download with retry failed\n");
 #endif
