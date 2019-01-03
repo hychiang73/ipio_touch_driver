@@ -703,6 +703,10 @@ int ilitek_platform_read_tp_info(void)
 		goto out;
 	}
 
+	if (core_config_get_panel_info() < 0) {
+		ipio_err("Failed to get panel information\n");
+		goto out;
+	}
 #ifndef HOST_DOWNLOAD
 	if (core_config_get_key_info() < 0) {
 		ipio_err("Failed to get key information\n");

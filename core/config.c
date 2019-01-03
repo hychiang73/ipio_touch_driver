@@ -44,6 +44,8 @@ uint8_t g_read_buf[128] = {0};
 
 struct core_config_data *core_config = NULL;
 
+struct set_res_data set_res;
+
 void core_config_read_flash_info(void)
 {
 	int i;
@@ -818,6 +820,58 @@ int core_config_get_project_id(void)
 	return ret;
 }
 EXPORT_SYMBOL(core_config_get_project_id);
+
+int core_config_get_panel_info(void)
+{
+	int ret = 0;
+	uint8_t cmd[2] = { 0 };
+
+	memset(g_read_buf, 0, sizeof(g_read_buf));
+
+	cmd[0] = protocol->cmd_read_ctrl;
+	cmd[1] = protocol->cmd_get_panel_info;
+
+	ret = core_write(core_config->slave_i2c_addr, cmd, 2);
+	if (ret < 0) {
+		ipio_err("Failed to write data, %d\n", ret);
+		goto out;
+	}
+
+	mdelay(1);
+
+	ret = core_write(core_config->slave_i2c_addr, &cmd[1], 1);
+	if (ret < 0) {
+		ipio_err("Failed to write data, %d\n", ret);
+		goto out;
+	}
+
+	ret = core_read(core_config->slave_i2c_addr, &g_read_buf[0], protocol->panel_info_len);
+	if (ret < 0) {
+		ipio_err("Failed to read data, %d\n", ret);
+		goto out;
+	}
+
+	core_config->tp_info->res_width = (g_read_buf[1] << 8) | g_read_buf[2];
+	core_config->tp_info->res_height = (g_read_buf[3] << 8) | g_read_buf[4];
+
+	if ((!core_config->tp_info->res_width) || (!core_config->tp_info->res_height)) {
+		set_res.width = TOUCH_SCREEN_X_MAX;
+		set_res.height = TOUCH_SCREEN_Y_MAX;
+	} else {
+		set_res.width = core_config->tp_info->res_width;
+		set_res.height = core_config->tp_info->res_height;
+	}
+
+	printk("Ryder : %d %d\n", set_res.width, set_res.height);
+	ipio_info("resolution width = %d, resolution height = %d\n",
+		core_config->tp_info->res_width, core_config->tp_info->res_height);
+
+
+out:
+	return ret;
+
+}
+EXPORT_SYMBOL(core_config_get_panel_info);
 
 int core_config_get_key_info(void)
 {

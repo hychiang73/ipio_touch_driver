@@ -234,13 +234,13 @@ static int parse_report_data(uint8_t pid)
 			nX = (((g_fr_node->data[(4 * i) + 1] & 0xF0) << 4) | (g_fr_node->data[(4 * i) + 2]));
 			nY = (((g_fr_node->data[(4 * i) + 1] & 0x0F) << 8) | (g_fr_node->data[(4 * i) + 3]));
 
-			if (!core_fr->isSetResolution) {
-				g_mutual_data.mtp[g_mutual_data.touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-				g_mutual_data.mtp[g_mutual_data.touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-				g_mutual_data.mtp[g_mutual_data.touch_num].id = i;
-			} else {
+			if (core_fr->isSetResolution) {
 				g_mutual_data.mtp[g_mutual_data.touch_num].x = nX;
 				g_mutual_data.mtp[g_mutual_data.touch_num].y = nY;
+				g_mutual_data.mtp[g_mutual_data.touch_num].id = i;
+			} else {
+				g_mutual_data.mtp[g_mutual_data.touch_num].x = nX * set_res.width / TPD_WIDTH;
+				g_mutual_data.mtp[g_mutual_data.touch_num].y = nY * set_res.height / TPD_HEIGHT;
 				g_mutual_data.mtp[g_mutual_data.touch_num].id = i;
 			}
 
@@ -277,13 +277,13 @@ static int parse_report_data(uint8_t pid)
 			nX = (((g_fr_node->data[(3 * i) + 5] & 0xF0) << 4) | (g_fr_node->data[(3 * i) + 6]));
 			nY = (((g_fr_node->data[(3 * i) + 5] & 0x0F) << 8) | (g_fr_node->data[(3 * i) + 7]));
 
-			if (!core_fr->isSetResolution) {
-				g_mutual_data.mtp[g_mutual_data.touch_num].x = nX * TOUCH_SCREEN_X_MAX / TPD_WIDTH;
-				g_mutual_data.mtp[g_mutual_data.touch_num].y = nY * TOUCH_SCREEN_Y_MAX / TPD_HEIGHT;
-				g_mutual_data.mtp[g_mutual_data.touch_num].id = i;
-			} else {
+			if (core_fr->isSetResolution) {
 				g_mutual_data.mtp[g_mutual_data.touch_num].x = nX;
 				g_mutual_data.mtp[g_mutual_data.touch_num].y = nY;
+				g_mutual_data.mtp[g_mutual_data.touch_num].id = i;
+			} else {
+				g_mutual_data.mtp[g_mutual_data.touch_num].x = nX * set_res.width / TPD_WIDTH;
+				g_mutual_data.mtp[g_mutual_data.touch_num].y = nY * set_res.height / TPD_HEIGHT;
 				g_mutual_data.mtp[g_mutual_data.touch_num].id = i;
 			}
 
@@ -644,8 +644,8 @@ void core_fr_input_set_param(struct input_dev *input_device)
 		min_y = core_config->tp_info->nMinY;
 		max_tp = core_config->tp_info->nMaxTouchNum;
 	} else {
-		max_x = TOUCH_SCREEN_X_MAX;
-		max_y = TOUCH_SCREEN_Y_MAX;
+		max_x = set_res.width;
+		max_y = set_res.height;
 		min_x = TOUCH_SCREEN_X_MIN;
 		min_y = TOUCH_SCREEN_Y_MIN;
 		max_tp = MAX_TOUCH_NUM;

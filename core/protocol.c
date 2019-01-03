@@ -243,6 +243,7 @@ static void config_protocol_v5_cmd(void)
 
 	protocol->tp_info_len = 14;
 	protocol->key_info_len = 30;
+	protocol->panel_info_len = 5;
 	protocol->core_ver_len = 5;
 	protocol->window_len = 8;
 
@@ -250,6 +251,7 @@ static void config_protocol_v5_cmd(void)
 	protocol->cmd_read_ctrl = P5_0_READ_DATA_CTRL;
 	protocol->cmd_get_tp_info = P5_0_GET_TP_INFORMATION;
 	protocol->cmd_get_key_info = P5_0_GET_KEY_INFORMATION;
+	protocol->cmd_get_panel_info = P5_0_GET_PANEL_INFORMATION;
 	protocol->cmd_get_fw_ver = P5_0_GET_FIRMWARE_VERSION;
 	protocol->cmd_get_pro_ver = P5_0_GET_PROTOCOL_VERSION;
 	protocol->cmd_get_core_ver = P5_0_GET_CORE_VERSION;

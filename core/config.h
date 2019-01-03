@@ -52,6 +52,9 @@ typedef struct {
 
 	VIRTUAL_KEYS virtual_key[10];
 
+	uint16_t res_width;
+	uint16_t res_height;
+
 	/* added for protocol v5 */
 	uint8_t self_tx_channel_num;
 	uint8_t self_rx_channel_num;
@@ -85,12 +88,19 @@ struct core_config_data {
 	TP_INFO *tp_info;
 };
 
+struct set_res_data {
+	uint16_t width;
+	uint16_t height;
+};
+
 extern struct core_config_data *core_config;
+extern struct set_res_data set_res;
 
 extern int fw_cmd_len;
 extern int protocol_cmd_len;
 extern int tp_info_len;
 extern int key_info_len;
+extern int panel_info_len;
 extern int core_cmd_len;
 
 /* R/W with Touch ICs */
@@ -131,6 +141,7 @@ extern int core_config_get_project_id(void);
 extern int core_config_get_core_ver(void);
 extern int core_config_get_key_info(void);
 extern int core_config_get_tp_info(void);
+extern int core_config_get_panel_info(void);
 extern int core_config_get_protocol_ver(void);
 extern int core_config_get_fw_ver(void);
 extern int core_config_get_chip_id(void);

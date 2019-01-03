@@ -28,6 +28,7 @@
 #define P5_0_READ_DATA_CTRL			    0xF6
 #define P5_0_GET_TP_INFORMATION		    0x20
 #define P5_0_GET_KEY_INFORMATION	    0x27
+#define P5_0_GET_PANEL_INFORMATION	    0x29
 #define P5_0_GET_FIRMWARE_VERSION	    0x21
 #define P5_0_GET_PROTOCOL_VERSION	    0x22
 #define P5_0_GET_CORE_VERSION		    0x23
@@ -69,6 +70,7 @@ struct protocol_cmd_list {
 	int pro_ver_len;
 	int tp_info_len;
 	int key_info_len;
+	int panel_info_len;
 	int core_ver_len;
 	int func_ctrl_len;
 	int window_len;
@@ -80,6 +82,7 @@ struct protocol_cmd_list {
 	uint8_t cmd_read_ctrl;
 	uint8_t cmd_get_tp_info;
 	uint8_t cmd_get_key_info;
+	uint8_t cmd_get_panel_info;
 	uint8_t cmd_get_fw_ver;
 	uint8_t cmd_get_pro_ver;
 	uint8_t cmd_get_core_ver;
