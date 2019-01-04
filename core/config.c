@@ -854,7 +854,8 @@ int core_config_get_panel_info(void)
 	core_config->tp_info->res_width = (g_read_buf[1] << 8) | g_read_buf[2];
 	core_config->tp_info->res_height = (g_read_buf[3] << 8) | g_read_buf[4];
 
-	if ((!core_config->tp_info->res_width) || (!core_config->tp_info->res_height)) {
+out:
+	if (g_read_buf[0] != protocol->cmd_get_panel_info) {
 		set_res.width = TOUCH_SCREEN_X_MAX;
 		set_res.height = TOUCH_SCREEN_Y_MAX;
 	} else {
@@ -862,14 +863,8 @@ int core_config_get_panel_info(void)
 		set_res.height = core_config->tp_info->res_height;
 	}
 
-	printk("Ryder : %d %d\n", set_res.width, set_res.height);
-	ipio_info("resolution width = %d, resolution height = %d\n",
-		core_config->tp_info->res_width, core_config->tp_info->res_height);
-
-
-out:
+	ipio_info("Panel info: width = %d, height = %d\n", set_res.width, set_res.height);
 	return ret;
-
 }
 EXPORT_SYMBOL(core_config_get_panel_info);
 

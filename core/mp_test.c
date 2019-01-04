@@ -2062,9 +2062,8 @@ void core_mp_copy_reseult(char *buf, size_t size)
 }
 EXPORT_SYMBOL(core_mp_copy_reseult);
 
-static void mp_run_test(char *item)
+static void mp_run_test(char *item, int id)
 {
-	int i = 0;
 	char str[512] = { 0 };
 
 	if (ERR_ALLOC_MEM(core_mp)) {
@@ -2083,90 +2082,86 @@ static void mp_run_test(char *item)
 	core_mp->frame_len = core_mp->xch_len * core_mp->ych_len;
 
 	if (item == NULL || strncmp(item, " ", strlen(item)) == 0 || core_mp->frame_len == 0 ) {
-		tItems[i].result = "FAIL";
+		tItems[id].result = "FAIL";
 		core_mp->final_result = MP_FAIL;
-		ipio_err("Invaild string or length\n");
+		ipio_err("Invaild string (%s) or frame length (%d)\n", item, core_mp->frame_len);
 		return;
 	}
 
-	ipio_debug(DEBUG_MP_TEST, "item = %s, core type = %d\n", item, core_config->core_type);
+	ipio_debug(DEBUG_MP_TEST, "id = %d, item = %s, core type = %d\n", id, item, core_config->core_type);
 
-	for (i = 0; i < core_mp->mp_items; i++) {
-		if (strncmp(item, tItems[i].desp, strlen(item)) == 0) {
-			core_parser_get_int_data(item, "enable", str);
-			tItems[i].run = katoi(str);
-			core_parser_get_int_data(item, "spec option", str);
-			tItems[i].spec_option= katoi(str);
-			core_parser_get_int_data(item, "type option", str);
-			tItems[i].type_option= katoi(str);
-			core_parser_get_int_data(item, "frame count", str);
-			tItems[i].frame_count= katoi(str);
-			core_parser_get_int_data(item, "trimmed mean", str);
-			tItems[i].trimmed_mean= katoi(str);
-			core_parser_get_int_data(item, "lowest percentage", str);
-			tItems[i].lowest_percentage= katoi(str);
-			core_parser_get_int_data(item, "highest percentage", str);
-			tItems[i].highest_percentage= katoi(str);
+	/* Get parameters from ini */
+	core_parser_get_int_data(item, "enable", str);
+	tItems[id].run = katoi(str);
+	core_parser_get_int_data(item, "spec option", str);
+	tItems[id].spec_option= katoi(str);
+	core_parser_get_int_data(item, "type option", str);
+	tItems[id].type_option= katoi(str);
+	core_parser_get_int_data(item, "frame count", str);
+	tItems[id].frame_count= katoi(str);
+	core_parser_get_int_data(item, "trimmed mean", str);
+	tItems[id].trimmed_mean= katoi(str);
+	core_parser_get_int_data(item, "lowest percentage", str);
+	tItems[id].lowest_percentage= katoi(str);
+	core_parser_get_int_data(item, "highest percentage", str);
+	tItems[id].highest_percentage= katoi(str);
 
-			/* Get TDF value from ini */
-			if (tItems[i].catalog == SHORT_TEST) {
-				core_parser_get_int_data(item, "v_tdf_1", str);
-				tItems[i].v_tdf_1 = core_parser_get_tdf_value(str);
-				core_parser_get_int_data(item, "v_tdf_2", str);
-				tItems[i].v_tdf_2 = core_parser_get_tdf_value(str);
-				core_parser_get_int_data(item, "h_tdf_1", str);
-				tItems[i].h_tdf_1 = core_parser_get_tdf_value(str);
-				core_parser_get_int_data(item, "h_tdf_2", str);
-				tItems[i].h_tdf_2 = core_parser_get_tdf_value(str);
-			} else {
-				core_parser_get_int_data(item, "v_tdf", str);
-				tItems[i].v_tdf_1 = core_parser_get_tdf_value(str);
-				core_parser_get_int_data(item, "h_tdf", str);
-				tItems[i].h_tdf_1 = core_parser_get_tdf_value(str);
+	/* Get TDF value from ini */
+	if (tItems[id].catalog == SHORT_TEST) {
+		core_parser_get_int_data(item, "v_tdf_1", str);
+		tItems[id].v_tdf_1 = core_parser_get_tdf_value(str);
+		core_parser_get_int_data(item, "v_tdf_2", str);
+		tItems[id].v_tdf_2 = core_parser_get_tdf_value(str);
+		core_parser_get_int_data(item, "h_tdf_1", str);
+		tItems[id].h_tdf_1 = core_parser_get_tdf_value(str);
+		core_parser_get_int_data(item, "h_tdf_2", str);
+		tItems[id].h_tdf_2 = core_parser_get_tdf_value(str);
+	} else {
+		core_parser_get_int_data(item, "v_tdf", str);
+		tItems[id].v_tdf_1 = core_parser_get_tdf_value(str);
+		core_parser_get_int_data(item, "h_tdf", str);
+		tItems[id].h_tdf_1 = core_parser_get_tdf_value(str);
+	}
+
+	/* Get threshold from ini structure in parser */
+	if (strcmp(item, "tx/rx delta") == 0) {
+		core_parser_get_int_data(item, "tx max", str);
+		core_mp->TxDeltaMax = katoi(str);
+		core_parser_get_int_data(item, "tx min", str);
+		core_mp->TxDeltaMin = katoi(str);
+		core_parser_get_int_data(item, "rx max", str);
+		core_mp->RxDeltaMax = katoi(str);
+		core_parser_get_int_data(item, "rx min", str);
+		core_mp->RxDeltaMin = katoi(str);
+		ipio_debug(DEBUG_MP_TEST, "%s: Tx Max = %d, Tx Min = %d, Rx Max = %d,  Rx Min = %d\n",
+				tItems[id].desp, core_mp->TxDeltaMax, core_mp->TxDeltaMin,
+				core_mp->RxDeltaMax, core_mp->RxDeltaMin);
+	} else {
+		core_parser_get_int_data(item, "max", str);
+		tItems[id].max = katoi(str);
+		core_parser_get_int_data(item, "min", str);
+		tItems[id].min = katoi(str);
+	}
+
+	core_parser_get_int_data(item, "frame count", str);
+	tItems[id].frame_count = katoi(str);
+
+	ipio_debug(DEBUG_MP_TEST, "%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[id].desp,
+			tItems[id].run, tItems[id].max, tItems[id].min, tItems[id].frame_count);
+
+	ipio_debug(DEBUG_MP_TEST, "v_tdf_1 = %d, v_tdf_2 = %d, h_tdf_1 = %d, h_tdf_2 = %d\n", tItems[id].v_tdf_1,
+			tItems[id].v_tdf_2, tItems[id].h_tdf_1, tItems[id].h_tdf_2);
+
+	if (tItems[id].run) {
+		ipio_info("Running Test Item : %s\n", tItems[id].desp);
+		tItems[id].do_test(id);
+
+		/* Check result before do retry (if enabled)  */
+		if (mp_comp_result_before_retry(id) == MP_FAIL) {
+			if (core_mp->retry) {
+				ipio_info("MP failed, doing retry\n");
+				mp_do_retry(id, RETRY_COUNT);
 			}
-
-			/* Get threshold from ini structure in parser */
-			if (strcmp(item, "tx/rx delta") == 0) {
-				core_parser_get_int_data(item, "tx max", str);
-				core_mp->TxDeltaMax = katoi(str);
-				core_parser_get_int_data(item, "tx min", str);
-				core_mp->TxDeltaMin = katoi(str);
-				core_parser_get_int_data(item, "rx max", str);
-				core_mp->RxDeltaMax = katoi(str);
-				core_parser_get_int_data(item, "rx min", str);
-				core_mp->RxDeltaMin = katoi(str);
-				ipio_debug(DEBUG_MP_TEST, "%s: Tx Max = %d, Tx Min = %d, Rx Max = %d,  Rx Min = %d\n",
-						tItems[i].desp, core_mp->TxDeltaMax, core_mp->TxDeltaMin,
-						core_mp->RxDeltaMax, core_mp->RxDeltaMin);
-			} else {
-				core_parser_get_int_data(item, "max", str);
-				tItems[i].max = katoi(str);
-				core_parser_get_int_data(item, "min", str);
-				tItems[i].min = katoi(str);
-			}
-
-			core_parser_get_int_data(item, "frame count", str);
-			tItems[i].frame_count = katoi(str);
-
-			ipio_debug(DEBUG_MP_TEST, "%s: run = %d, max = %d, min = %d, frame_count = %d\n", tItems[i].desp,
-					tItems[i].run, tItems[i].max, tItems[i].min, tItems[i].frame_count);
-
-			ipio_debug(DEBUG_MP_TEST, "v_tdf_1 = %d, v_tdf_2 = %d, h_tdf_1 = %d, h_tdf_2 = %d\n", tItems[i].v_tdf_1,
-					tItems[i].v_tdf_2, tItems[i].h_tdf_1, tItems[i].h_tdf_2);
-
-			if (tItems[i].run) {
-				ipio_info("Running Test Item : %s\n", tItems[i].desp);
-				tItems[i].do_test(i);
-
-				/* Check result before do retry (if enabled)  */
-				if (mp_comp_result_before_retry(i) == MP_FAIL) {
-					if (core_mp->retry) {
-						ipio_info("MP failed, doing retry\n");
-						mp_do_retry(i, RETRY_COUNT);
-					}
-				}
-			}
-			break;
 		}
 	}
 }
@@ -2586,39 +2581,39 @@ int core_mp_start_test(bool lcm_on)
 		}
 	}
 
+	/* Do not chang the sequence of test */
 	if (protocol->major >= 5 && protocol->mid >= 4) {
-		/* Do not chang the sequence of test */
 		if (lcm_on) {
 			csv_path = CSV_LCM_ON_PATH;
-			mp_run_test("noise peak to peak(with panel)");
-			mp_run_test("noise peak to peak(ic only)");
-			mp_run_test("short test -ili9881"); //compatible with old ini version.
-			mp_run_test("short test");
-			mp_run_test("open test(integration)_sp");
-			mp_run_test("raw data(no bk)");
-			mp_run_test("calibration data(dac)");
-			mp_run_test("doze raw data");
-			mp_run_test("doze peak to peak");
+			mp_run_test("noise peak to peak(with panel)", 35);
+			mp_run_test("noise peak to peak(ic only)", 34);
+			mp_run_test("short test -ili9881", 24); //compatible with old ini version.
+			mp_run_test("short test", 45);
+			mp_run_test("open test(integration)_sp", 40);
+			mp_run_test("raw data(no bk)", 3);
+			mp_run_test("calibration data(dac)", 0);
+			mp_run_test("doze raw data", 41);
+			mp_run_test("doze peak to peak", 42);
 		} else {
 			csv_path = CSV_LCM_OFF_PATH;
-			mp_run_test("raw data(have bk) (lcm off)");
-			mp_run_test("raw data(no bk) (lcm off)");
-			mp_run_test("noise peak to peak(with panel) (lcm off)");
-			mp_run_test("noise peak to peak(ic only) (lcm off)");
-			mp_run_test("raw data_td (lcm off)");
-			mp_run_test("peak to peak_td (lcm off)");
+			mp_run_test("raw data(have bk) (lcm off)", 39);
+			mp_run_test("raw data(no bk) (lcm off)", 38);
+			mp_run_test("noise peak to peak(with panel) (lcm off)", 37);
+			mp_run_test("noise peak to peak(ic only) (lcm off)", 36);
+			mp_run_test("raw data_td (lcm off)", 43);
+			mp_run_test("peak to peak_td (lcm off)", 44);
 		}
 	} else {
-		mp_run_test("untouch peak to peak");
-		mp_run_test("open test(integration)");
-		mp_run_test("open test(cap)");
-		mp_run_test("Short Test (Rx)");
-		mp_run_test("Untouch Calibration Data(DAC) - Mutual");
-		mp_run_test("Untouch Raw Data(Have BK) - Mutual");
-		mp_run_test("Untouch Raw Data(No BK) - Mutual");
-		mp_run_test("untouch cm data");
-		mp_run_test("pixel raw (no bk)");
-		mp_run_test("pixel raw (have bk)");
+		mp_run_test("untouch peak to peak", 29);
+		mp_run_test("open test(integration)", 32);
+		mp_run_test("open test(cap)", 33);
+		// mp_run_test("Short Test (Rx)");
+		// mp_run_test("Untouch Calibration Data(DAC) - Mutual");
+		// mp_run_test("Untouch Raw Data(Have BK) - Mutual");
+		// mp_run_test("Untouch Raw Data(No BK) - Mutual");
+		mp_run_test("untouch cm data", 26);
+		mp_run_test("pixel raw (no bk)", 30);
+		mp_run_test("pixel raw (have bk)", 31);
 	}
 
 	mp_show_result(csv_path);
