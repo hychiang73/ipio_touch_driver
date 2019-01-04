@@ -1,3 +1,18 @@
+* V1.0.5.0
+  * Remove protocol 3.2 with its report handler.
+  * Remove driver type mark in parser.c
+  * Add stop/start mcu when enabling ice mode.
+  * Add 0x29 command to get panel information.
+  * Update and fix errors in core_config_get_project_id.
+  * Add short test/short test -ili9881 for compatible with old ini version.
+  * Depends on ID from item table when running mp test.
+  * Fix the error of calculation in getting open benchmark.
+  * Add ESD Gesture funciton.
+  * Rewrite firmware.c
+  * Fix some bugs of previous version.
+    * Crash after run mp test.
+    * Crash in touch after open ESD_CHECK macro.
+
 * V1.0.4.1
   * SPI ready on X20.
   * SPI speed up combined with ICE mode if use 7807G_AA.
