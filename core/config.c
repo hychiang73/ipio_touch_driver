@@ -199,7 +199,13 @@ int core_config_switch_fw_mode(uint8_t *data)
 			break;
 		case P5_0_FIRMWARE_DEMO_MODE:
 			ipio_info("Switch to Demo mode by hw reset\n");
+#ifdef HOST_DOWNLOAD
+			ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
+			if (ret < 0)
+				ipio_info("host download failed!\n");
+#else
 			ilitek_platform_reset_ctrl(true, HW_RST);
+#endif
 			break;
 		case P5_0_FIRMWARE_DEBUG_MODE:
 			cmd[0] = protocol->cmd_mode_ctrl;
@@ -620,8 +626,9 @@ int core_config_ice_mode_enable(bool stop_mcu)
 	if (ret < 0)
 		ipio_err("Failed to write ice mode enable\n");
 
-#ifdef ENABLE_SPI_SPEED_UP
-	core_spi_speed_up(true);
+#if (INTERFACE == SPI_INTERFACE)
+	if (core_config->chip_id == CHIP_TYPE_ILI7807)
+		core_spi_speed_up(true);
 #endif
 
 	mdelay(25);
@@ -1157,12 +1164,6 @@ int core_config_get_chip_id(void)
 	OTPIDData = core_config_ice_mode_read(core_config->otp_id_addr);
 	ANAIDData = core_config_ice_mode_read(core_config->ana_id_addr);
 
-	if ((pid >> 16) != TP_TOUCH_IC) {
-		ipio_err("Get CHIP ID Error, pid = 0x%x\n", pid);
-		ret = -ENODEV;
-		goto out;
-	}
-
 	core_config->chip_pid = pid;
 	core_config->chip_id = pid >> 16;
 	core_config->chip_type = (pid & 0x0000FF00) >> 8;
@@ -1177,7 +1178,6 @@ int core_config_get_chip_id(void)
 	ipio_info("OTP ID = 0x%x\n", core_config->chip_otp_id);
 	ipio_info("ANA ID = 0x%x\n", core_config->chip_ana_id);
 
-out:
 	core_config_ice_mode_disable();
 	return ret;
 }
@@ -1185,8 +1185,6 @@ EXPORT_SYMBOL(core_config_get_chip_id);
 
 int core_config_init(void)
 {
-	int i = 0;
-
 	core_config = devm_kzalloc(ipd->dev, sizeof(struct core_config_data) * sizeof(uint8_t) * 6, GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_config)) {
 		ipio_err("Failed to allocate core_config mem, %ld\n", PTR_ERR(core_config));
@@ -1206,33 +1204,13 @@ int core_config_init(void)
 #else
 	core_config->isEnableGesture = false;
 #endif
+	core_config->ice_mode_addr = ICE_MODE_ADDR;
+	core_config->pid_addr = PID_ADDR;
+	core_config->otp_id_addr = OTP_ID_ADDR;
+	core_config->ana_id_addr = ANA_ID_ADDR;
+	core_config->wdt_addr = WDT_ADDR;
+	core_config->ic_reset_addr = CHIP_RESET_ADDR;
 
-	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		if (ipio_chip_list[i] == TP_TOUCH_IC) {
-			switch (ipio_chip_list[i]) {
-				case CHIP_TYPE_ILI7807:
-					core_config->chip_id = ipio_chip_list[i];
-					core_config->ice_mode_addr = ILI7807_ICE_MODE_ADDR;
-					core_config->pid_addr = ILI7807_PID_ADDR;
-					core_config->otp_id_addr = ILI7807_OTP_ID_ADDR;
-					core_config->ana_id_addr = ILI7807_ANA_ID_ADDR;
-					core_config->wdt_addr = ILI7807_WDT_ADDR;
-					core_config->ic_reset_addr = ILI7807_CHIP_RESET_ADDR;
-					break;
-				case CHIP_TYPE_ILI9881:
-					core_config->chip_id = ipio_chip_list[i];
-					core_config->ice_mode_addr = ILI9881_ICE_MODE_ADDR;
-					core_config->pid_addr = ILI9881_PID_ADDR;
-					core_config->otp_id_addr = ILI9881_OTP_ID_ADDR;
-					core_config->ana_id_addr = ILI9881_ANA_ID_ADDR;
-					core_config->wdt_addr = ILI9881_WDT_ADDR;
-					core_config->ic_reset_addr = ILI9881_CHIP_RESET_ADDR;
-					break;
-				default:
-					break;
-			}
-		}
-	}
 	return 0;
 }
 EXPORT_SYMBOL(core_config_init);

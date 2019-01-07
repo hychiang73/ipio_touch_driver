@@ -161,6 +161,7 @@ enum {
 enum {
 	SW_RST = 0,
 	HW_RST,
+	HW_RST_HOST_DOWNLOAD,
 };
 
 /* MCU status */
@@ -213,6 +214,13 @@ extern uint32_t ipio_chip_list[2];
 
 #define ILITEK_I2C_ADDR			0x41
 
+#define PID_ADDR		0x4009C
+#define OTP_ID_ADDR		0x400A0
+#define ANA_ID_ADDR		0x400A4
+#define WDT_ADDR		0x5100C
+#define ICE_MODE_ADDR		0x181062
+#define CHIP_RESET_ADDR 	0x40050
+
 /*
  * ILI9881 Series
  */
@@ -220,14 +228,7 @@ enum ili9881_types {
 	TYPE_F = 0x0F,
 	TYPE_H = 0x11
 };
-
-#define ILI9881_ICE_MODE_ADDR	0x181062
-#define ILI9881_PID_ADDR		0x4009C
-#define ILI9881_OTP_ID_ADDR		0x400A0
-#define ILI9881_ANA_ID_ADDR		0x400A4
 #define ILI9881_PC_COUNTER_ADDR 0x44008
-#define ILI9881_WDT_ADDR		0x5100C
-#define ILI9881_CHIP_RESET_ADDR 0x40050
 
 /*
  * ILI7807 Series
@@ -235,14 +236,7 @@ enum ili9881_types {
 enum ili7807_types {
 	TYPE_G = 0x10,
 };
-
-#define ILI7807_ICE_MODE_ADDR	0x181062
-#define ILI7807_PID_ADDR		0x4009C
-#define ILI7807_OTP_ID_ADDR		0x400A0
-#define ILI7807_ANA_ID_ADDR		0x400A4
 #define ILI7807_PC_COUNTER_ADDR 0x44008
-#define ILI7807_WDT_ADDR		0x5100C
-#define ILI7807_CHIP_RESET_ADDR 0x40050
 
 /*
  * Other settings
@@ -273,11 +267,6 @@ enum ili7807_types {
 /* It's only for spi interface used to download data to iram */
 #if (INTERFACE == SPI_INTERFACE)
 #define HOST_DOWNLOAD
-#endif
-
-/* Set spi clk up to 10Mhz (it must be enabled if chip is ILI7807G_AA) */
-#if (TP_TOUCH_IC == CHIP_TYPE_ILI7807 && INTERFACE == SPI_INTERFACE)
-#define ENABLE_SPI_SPEED_UP
 #endif
 
 /* Linux multiple touch protocol, either B type or A type. */

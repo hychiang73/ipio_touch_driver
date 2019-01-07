@@ -43,11 +43,13 @@ int core_esd_gesture(void)
 	u32 answer = 0;
 
 	/* start to download AP code with HW reset or host download */
-	ret = ilitek_platform_reset_ctrl(true, HW_RST);
-	if (ret < 0) {
-		ipio_err("Failed to do hw reset\n");
-		goto out;
-	}
+#ifdef HOST_DOWNLOAD
+	ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
+	if (ret < 0)
+		ipio_info("host download failed!\n");
+#else
+	ilitek_platform_reset_ctrl(true, HW_RST);
+#endif
 
 	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
@@ -63,14 +65,17 @@ int core_esd_gesture(void)
 	}
 
 	/* HW reset or host download again gives effect to FW receives password successed */
-	ret = ilitek_platform_reset_ctrl(true, HW_RST);
+#ifdef HOST_DOWNLOAD
+	ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
 	if (ret < 0) {
-		ipio_err("Failed to do hw reset\n");
+		ipio_info("host download failed!\n");
 		goto out;
 	}
-
+#else
+	ilitek_platform_reset_ctrl(true, HW_RST);
+#endif
 	/* waiting for FW reloading code */
-    msleep(100);
+    	msleep(100);
 
 	ret = core_config_ice_mode_enable(NO_STOP_MCU);
 	if (ret < 0) {
@@ -118,10 +123,11 @@ EXPORT_SYMBOL(core_esd_gesture);
 #ifdef HOST_DOWNLOAD
 int core_gesture_load_code(void)
 {
-	int i = 0, ret = 0;
+	int i = 0, ret = 0, retry = 0;
 	uint8_t temp[64] = {0};
 
 	core_gesture->entry = true;
+	retry = core_firmware->retry_times;
 
 	/* Already read during parsing hex file */
 	ipio_info("gesture_start_addr = 0x%x, length = 0x%x\n", core_gesture->start_addr, core_gesture->length);
@@ -171,12 +177,12 @@ int core_gesture_load_code(void)
 	if (temp[0] != 0x91)
 		ipio_err("FW is busy, error\n");
 
-	for (i = 0; i < core_firmware->retry_times; i++) {
+	do {
 		ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 		if (ret >= 0)
 			break;
-		ipio_err("Gesture load code failed %d times\n", (i + 1));
-	}
+		ipio_err("Gesture load code failed %d times\n", (retry + 1));
+	} while (--retry >= 0);
 
 	/* FW star run gestrue code cmd*/
 	temp[0] = 0x01;

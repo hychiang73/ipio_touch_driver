@@ -1182,8 +1182,10 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 
 static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
-	int ret = 0;
+	int ret = 0, retry = 0;
 	uint32_t len = 0;
+
+	retry = core_firmware->retry_times;
 
 	ipio_info("Preparing to upgarde firmware\n");
 
@@ -1195,11 +1197,17 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 	ilitek_platform_disable_irq();
 
 #ifdef HOST_DOWNLOAD
-	ret = ilitek_platform_reset_ctrl(true, HW_RST);
+	ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
 	if (ret < 0)
 		ipio_info("host download failed!\n");
 #else
-	ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
+	do {
+		ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
+		if (ret >= 0)
+			break;
+		ilitek_platform_reset_ctrl(true, HW_RST);
+		ipio_err("upgrade failed retry %d times\n", (retry + 1));
+	} while (--retry >= 0);
 #endif
 
 	ilitek_platform_enable_irq();
@@ -1257,8 +1265,14 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 	ipio_info("cmd = %s\n", cmd);
 
 	if (strcmp(cmd, "reset") == 0) {
-		ipio_info("HW Reset\n");
+		ipio_info("hw reset\n");
+#ifdef HOST_DOWNLOAD
+		ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
+		if (ret < 0)
+			ipio_info("host download failed!\n");
+#else
 		ilitek_platform_reset_ctrl(true, HW_RST);
+#endif
 	} else if (strcmp(cmd, "softreset") == 0) {
 		ipio_info("software Reset\n");
 		core_config_ic_reset();
@@ -1476,7 +1490,13 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 
 	case ILITEK_IOCTL_TP_HW_RESET:
 		ipio_info("ioctl: hw reset\n");
+#ifdef HOST_DOWNLOAD
+		ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
+		if (ret < 0)
+			ipio_info("host download failed!\n");
+#else
 		ilitek_platform_reset_ctrl(true, HW_RST);
+#endif
 		break;
 
 	case ILITEK_IOCTL_TP_POWER_SWITCH:

@@ -335,7 +335,7 @@ static int do_report_handle(void)
 #ifdef HOST_DOWNLOAD
 		if (ret == CHECK_RECOVER) {
 			ipio_err("Doing host download recovery !\n");
-			ret = ilitek_platform_reset_ctrl(true, HW_RST);
+			ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
 			if (ret < 0)
 				ipio_info("host download failed!\n");
 		}
@@ -682,30 +682,18 @@ EXPORT_SYMBOL(core_fr_input_set_param);
 
 int core_fr_init(void)
 {
-	int i = 0;
-
 	core_fr = devm_kzalloc(ipd->dev, sizeof(struct core_fr_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_fr)) {
 		ipio_err("Failed to allocate core_fr mem, %ld\n", PTR_ERR(core_fr));
 		return -ENOMEM;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		if (ipio_chip_list[i] == TP_TOUCH_IC) {
-			switch (ipio_chip_list[i]) {
-				case CHIP_TYPE_ILI7807:
-				case CHIP_TYPE_ILI9881:
-					core_fr->isEnableFR = true;
-					core_fr->isEnableNetlink = false;
-					core_fr->isEnablePressure = false;
-					core_fr->isSetResolution = false;
-					core_fr->actual_fw_mode = protocol->demo_mode;
-					break;;
-				default:
-					break;
-			}
-		}
-	}
+	core_fr->isEnableFR = true;
+	core_fr->isEnableNetlink = false;
+	core_fr->isEnablePressure = false;
+	core_fr->isSetResolution = false;
+	core_fr->actual_fw_mode = protocol->demo_mode;
+
 	return 0;
 }
 EXPORT_SYMBOL(core_fr_init);

@@ -202,8 +202,6 @@ EXPORT_SYMBOL(core_i2c_segmental_read);
 
 int core_i2c_init(struct i2c_client *client)
 {
-	int i;
-
 	core_i2c = devm_kmalloc(ipd->dev, sizeof(struct core_i2c_data), GFP_KERNEL);
 	if (ERR_ALLOC_MEM(core_i2c)) {
 		ipio_err("Failed to alllocate core_i2c mem %ld\n", PTR_ERR(core_i2c));
@@ -218,18 +216,10 @@ int core_i2c_init(struct i2c_client *client)
 		ipio_err("Failed to alllocate DMA mem %ld\n", PTR_ERR(core_i2c));
 		return -ENOMEM;
 	}
-#endif /* I2C_DMA */
+#endif
+	core_i2c->clk = 400000;
 
-	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		if (ipio_chip_list[i] == TP_TOUCH_IC) {
-			 if (ipio_chip_list[i] == CHIP_TYPE_ILI9881)
-				core_i2c->clk = 400000;
-
-			return 0;
-		}
-	}
-
-	ipio_err("Can't find this chip in support list\n");
 	return 0;
+
 }
 EXPORT_SYMBOL(core_i2c_init);

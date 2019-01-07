@@ -169,12 +169,19 @@ static void fw_upgrade_info_setting(u8 *pfw, u8 type)
 		memset(gestrue_fw, 0xff, sizeof(gestrue_fw));
 
 #ifdef GESTURE_ENABLE
+		/* Parsing gesture info and code */
 		if (fbi[GESTURE].mem_start != 0xffffffff && ges_fw_start != 0xffffffff && fbi[GESTURE].mem_start != 0 && ges_fw_start != 0)
 			ipio_memcpy(gestrue_fw, (pfw + ges_fw_start), fbi[GESTURE].len, sizeof(gestrue_fw));
 		else
 			ipio_err("There is no gesture data inside fw\n");
-#endif
 
+		core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
+
+		ipio_info("GESTURE memory start = 0x%x, upgrade lenth = 0x%x",
+					fbi[GESTURE].mem_start, MAX_GESTURE_FIRMWARE_SIZE);
+		ipio_info("hex area = %d, ap_start_addr = 0x%x, ap_end_addr = 0x%x\n",
+					core_gesture->area_section, ges_fw_start, ges_fw_end);
+#endif
 		fbi[AP].name ="AP";
 		fbi[DATA].name ="DATA";
 		fbi[TUNING].name ="TUNING";
@@ -185,14 +192,6 @@ static void fw_upgrade_info_setting(u8 *pfw, u8 type)
 		fbi[DATA].mode = fbi[AP].mode = fbi[TUNING].mode = AP;
 		fbi[MP].mode = MP;
 		fbi[GESTURE].mode = GESTURE;
-
-		/* Parsing gesture info form AP code */
-		core_gesture->ap_length = MAX_GESTURE_FIRMWARE_SIZE;
-
-		ipio_info("GESTURE memory start = 0x%x, upgrade lenth = 0x%x",
-					fbi[GESTURE].mem_start, MAX_GESTURE_FIRMWARE_SIZE);
-		ipio_info("hex area = %d, ap_start_addr = 0x%x, ap_end_addr = 0x%x\n",
-					core_gesture->area_section, ges_fw_start, ges_fw_end);
 	}
 
 	/* Get hex fw vers */
@@ -854,7 +853,7 @@ static int do_program_flash(uint32_t start_addr, u8* pfw)
 		core_firmware->update_status = 90;
 
 	/* Don't use ipio_info to print log because it needs to be kpet in the same line */
-	printk("%cUpgrading firmware ... start_addr = 0x%x, %02d%c", 0x0D,
+	printk(KERN_CONT "%c ILITEK: Upgrading firmware ... start_addr = 0x%x, %02d%c \n", 0x0D,
 			start_addr, core_firmware->update_status,'%');
 
 out:
@@ -1101,11 +1100,13 @@ int core_firmware_upgrade(int upgrade_type, int file_type, int open_file_method)
 	}
 	memset(pfw, 0xFF, UPGRADE_BUFFER_SIZE * sizeof(uint8_t));
 
-	/* Parse ili/hex file */
-	if (fw_upgrade_file_convert(file_type, pfw, open_file_method) < 0)
-		goto out;
+	if (!core_gesture->entry) {
+		/* Parse ili/hex file */
+		if (fw_upgrade_file_convert(file_type, pfw, open_file_method) < 0)
+			goto out;
 
-	fw_upgrade_info_setting(pfw, upgrade_type);
+		fw_upgrade_info_setting(pfw, upgrade_type);
+	}
 
 	switch(upgrade_type) {
 		case UPGRADE_FLASH:
@@ -1161,20 +1162,10 @@ int core_firmware_init(void)
 	for (j = 0; j < 4; j++)
 		core_firmware->new_fw_ver[i] = 0x0;
 
-	for (i = 0; i < ARRAY_SIZE(ipio_chip_list); i++) {
-		if (ipio_chip_list[i] == TP_TOUCH_IC) {
-			switch (ipio_chip_list[i]) {
-				case CHIP_TYPE_ILI7807:
-				case CHIP_TYPE_ILI9881:
-					core_firmware->max_count = 0x1FFFF;
-					core_firmware->isCRC = true;
-					core_firmware->retry_times = 3;
-					core_firmware->delay_after_upgrade = 200;
-					break;
-				default:
-					break;
-			}
-		}
-	}
+	core_firmware->max_count = 0x1FFFF;
+	core_firmware->isCRC = true;
+	core_firmware->retry_times = 3;
+	core_firmware->delay_after_upgrade = 200;
+
 	return 0;
 }

@@ -262,7 +262,7 @@ static void ilitek_platform_esd_recovery(struct work_struct *work)
 	int ret = 0;
 
 	mutex_lock(&ipd->plat_mutex);
-	ret = ilitek_platform_reset_ctrl(true, HW_RST);
+	ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
 	if (ret < 0)
 		ipio_err("host download failed!\n");
 	mutex_unlock(&ipd->plat_mutex);
@@ -550,8 +550,10 @@ out:
 #ifdef BOOT_FW_UPGRADE
 static int kthread_handler(void *arg)
 {
-	int ret = 0, i;
+	int ret = 0, retry = 0;
 	char *str = (char *)arg;
+
+	retry = core_firmware->retry_times;
 
 	if (strcmp(str, "boot_fw") == 0) {
 		/* FW Upgrade event */
@@ -559,15 +561,13 @@ static int kthread_handler(void *arg)
 
 		ilitek_platform_disable_irq();
 
-		/* In the case of host download, it had been done before. */
-		for (i = 0; i < core_firmware->retry_times; i++) {
+		do {
 			ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
 			if (ret >= 0)
 				break;
-
-			ipio_err("boot host download failed %d times\n", (i + 1));
 			ilitek_platform_reset_ctrl(true, HW_RST);
-		}
+			ipio_err("boot upgrade failed retry %d times\n", (retry + 1));
+		} while (--retry >= 0);
 
 		if (ret < 0)
 			ipio_err("Failed to upgrade FW at boot stage\n");
@@ -763,21 +763,25 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			ret = core_config_ic_reset();
 			break;
 		case HW_RST:
+			ipio_info("HW RESET ONLY\n");
+			ilitek_platform_tp_hw_reset(rst);
+			mdelay(100);
+			break;
+		case HW_RST_HOST_DOWNLOAD:
 			ipio_info("HW RESET\n");
 			ilitek_platform_tp_hw_reset(rst);
-#ifdef HOST_DOWNLOAD
+
 			ipio_info("host download load code\n");
 			do {
-				core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
+				ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 				if (ret >= 0)
 					break;
 				ilitek_platform_tp_hw_reset(rst);
-				ipio_err("host download failed retry %d times\n", retry);
+				ipio_err("host download failed retry %d times\n", (retry + 1));
 			} while (--retry >= 0);
 
 			if (ret < 0)
 				ipio_err("host download with retry failed\n");
-#endif
 			break;
 		default:
 			ipio_err("Unknown RST mode (%d)\n", mode);
@@ -890,8 +894,6 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ipd->spi = spi;
 	ipd->dev = &spi->dev;
 #endif
-
-	ipd->chip_id = TP_TOUCH_IC;
 	ipd->isEnableIRQ = false;
 	ipd->isEnablePollCheckPower = false;
 	ipd->isEnablePollCheckEsd = false;
@@ -899,7 +901,6 @@ static int ilitek_platform_probe(struct spi_device *spi)
 	ipd->vesd_reg_nb = false;
 
 	ipio_info("Driver Version : %s\n", DRIVER_VERSION);
-	ipio_info("Driver for Touch IC :  %x\n", TP_TOUCH_IC);
 	ipio_info("Driver on platform :  %x\n", TP_PLATFORM);
 	ipio_info("Driver interface :  %s\n", (INTERFACE == I2C_INTERFACE) ? "I2C" : "SPI");
 
@@ -948,6 +949,9 @@ static int ilitek_platform_probe(struct spi_device *spi)
 
 #ifndef HOST_DOWNLOAD
 	core_config_read_flash_info();
+#else
+	if (ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD) < 0)
+		ipio_err("Failed to doHOST_DOWNLOAD\n");
 #endif
 
 	if (ilitek_platform_read_tp_info() < 0)
