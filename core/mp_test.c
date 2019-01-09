@@ -1481,10 +1481,10 @@ static int codeToOhm(int32_t Code, uint16_t *v_tdf, uint16_t *h_tdf)
 
 	if (core_mp->isLongV) {
 		douTDF1 = *v_tdf;
-		douTDF2 = *(v_tdf + 1);
+		douTDF2 = *(v_tdf + 1) * 100;
 	} else {
 		douTDF1 = *h_tdf;
-		douTDF2 = *(h_tdf + 1);
+		douTDF2 = *(h_tdf + 1) * 100;
 	}
 
 	if (Code == 0) {
