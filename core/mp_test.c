@@ -1837,8 +1837,9 @@ static void mp_do_retry(int index, int count)
 
 static void mp_show_result(const char *csv_path)
 {
-	int i, x, y, j, csv_len = 0, pass_item_count = 0 ,line_count = 0 ,get_frame_cont = 1;
+	int i, x, y, j, csv_len = 0, pass_item_count = 0 ,line_count = 0 ,get_frame_cont = 1, slen = 0;
 	int32_t *max_threshold = NULL, *min_threshold = NULL;
+	char str[128] = {0};
 	char *csv = NULL;
 	char csv_name[128] = { 0 };
 	char *ret_pass_name = NULL, *ret_fail_name = NULL;
@@ -1871,6 +1872,14 @@ static void mp_show_result(const char *csv_path)
 		} else {
 			pr_info("\n\n[%s],NG \n", tItems[i].desp);
 			csv_len += sprintf(csv + csv_len, "\n\n[%s],NG\n", tItems[i].desp);
+		}
+
+		/* show CDC command corresponding to test items */
+		slen = core_parser_get_int_data("pv5_4 command", tItems[i].desp, str);
+		if (slen < 0) {
+			ipio_err("Failed to get CDC command %s from ini\n", tItems[i].desp);
+		} else {
+			csv_len += sprintf(csv + csv_len, "CDC command = ,%s\n", str);
 		}
 
 		pr_info("Frame count = %d\n",tItems[i].frame_count);
