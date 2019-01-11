@@ -30,7 +30,21 @@
 #define NODE_TYPE_KEY_NAME "node type"
 #define VALUE 0
 
-extern int core_parser_get_tdf_value(char *str);
+enum mp_test_catalog {
+	MUTUAL_TEST = 0,
+	SELF_TEST = 1,
+	KEY_TEST = 2,
+	ST_TEST = 3,
+	TX_RX_DELTA = 4,
+	UNTOUCH_P2P = 5,
+	PIXEL = 6,
+	OPEN_TEST = 7,
+	PEAK_TO_PEAK_TEST = 8,
+	SHORT_TEST = 9,
+};
+
+
+extern int core_parser_get_tdf_value(char *str, int catalog);
 extern void core_parser_nodetype(int32_t* type_ptr, char *desp, size_t frame_len);
 extern void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char *desp, size_t frame_len);
 extern int core_parser_get_u8_array(char *key, uint8_t *buf, uint16_t base, size_t len);

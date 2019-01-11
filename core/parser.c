@@ -25,6 +25,7 @@
 #include "../common.h"
 #include "parser.h"
 #include "config.h"
+#include "mp_test.h"
 
 #define PARSER_MAX_CFG_BUF          (512 * 3)
 #define PARSER_MAX_KEY_NUM	        (600 * 3)
@@ -402,7 +403,7 @@ void core_parser_benchmark(int32_t* max_ptr, int32_t* min_ptr, int8_t type, char
 }
 EXPORT_SYMBOL(core_parser_benchmark);
 
-int core_parser_get_tdf_value(char *str)
+int core_parser_get_tdf_value(char *str, int catalog)
 {
 	int point = 0, tmp[10] = {0};
 	char *s = str;
@@ -422,10 +423,18 @@ int core_parser_get_tdf_value(char *str)
 	}
 
 	/* Multiply by 100 to shift out of decimal point */
-	if (point >= 2)
-		return (tmp[0] * 100) + tmp[1];
-	else
-		return tmp[0];
+	if (catalog == SHORT_TEST) {
+		if (point >= 2) {
+			if (tmp[1] < 10)
+				return (tmp[0] * 100) + (tmp[1] * 10);
+			else if (tmp[1] < 100)
+				return (tmp[0] * 100) + tmp[1];
+		} else {
+			return (tmp[0] * 100);
+		}
+	}
+
+	return tmp[0] ;
 }
 
 int core_parser_get_u8_array(char *key, uint8_t *buf, uint16_t base, size_t len)

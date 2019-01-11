@@ -72,18 +72,6 @@
 		printk(KERN_CONT fmt, ##arg);	\
 	} while (0)
 
-enum mp_test_catalog {
-	MUTUAL_TEST = 0,
-	SELF_TEST = 1,
-	KEY_TEST = 2,
-	ST_TEST = 3,
-	TX_RX_DELTA = 4,
-	UNTOUCH_P2P = 5,
-	PIXEL = 6,
-	OPEN_TEST = 7,
-	PEAK_TO_PEAK_TEST = 8,
-	SHORT_TEST = 9,
-};
 
 enum open_test_node_type {
 	NO_COMPARE = 0x00,  /*Not A Area, No Compare  */
@@ -1481,10 +1469,10 @@ static int codeToOhm(int32_t Code, uint16_t *v_tdf, uint16_t *h_tdf)
 
 	if (core_mp->isLongV) {
 		douTDF1 = *v_tdf;
-		douTDF2 = *(v_tdf + 1) * 100;
+		douTDF2 = *(v_tdf + 1);
 	} else {
 		douTDF1 = *h_tdf;
-		douTDF2 = *(h_tdf + 1) * 100;
+		douTDF2 = *(h_tdf + 1);
 	}
 
 	if (Code == 0) {
@@ -2109,18 +2097,18 @@ static void mp_run_test(char *item, int id)
 	/* Get TDF value from ini */
 	if (tItems[id].catalog == SHORT_TEST) {
 		core_parser_get_int_data(item, "v_tdf_1", str);
-		tItems[id].v_tdf_1 = core_parser_get_tdf_value(str);
+		tItems[id].v_tdf_1 = core_parser_get_tdf_value(str, tItems[id].catalog);
 		core_parser_get_int_data(item, "v_tdf_2", str);
-		tItems[id].v_tdf_2 = core_parser_get_tdf_value(str);
+		tItems[id].v_tdf_2 = core_parser_get_tdf_value(str, tItems[id].catalog);
 		core_parser_get_int_data(item, "h_tdf_1", str);
-		tItems[id].h_tdf_1 = core_parser_get_tdf_value(str);
+		tItems[id].h_tdf_1 = core_parser_get_tdf_value(str, tItems[id].catalog);
 		core_parser_get_int_data(item, "h_tdf_2", str);
-		tItems[id].h_tdf_2 = core_parser_get_tdf_value(str);
+		tItems[id].h_tdf_2 = core_parser_get_tdf_value(str, tItems[id].catalog);
 	} else {
 		core_parser_get_int_data(item, "v_tdf", str);
-		tItems[id].v_tdf_1 = core_parser_get_tdf_value(str);
+		tItems[id].v_tdf_1 = core_parser_get_tdf_value(str, tItems[id].catalog);
 		core_parser_get_int_data(item, "h_tdf", str);
-		tItems[id].h_tdf_1 = core_parser_get_tdf_value(str);
+		tItems[id].h_tdf_1 = core_parser_get_tdf_value(str, tItems[id].catalog);
 	}
 
 	/* Get threshold from ini structure in parser */
