@@ -406,7 +406,7 @@ EXPORT_SYMBOL(core_parser_benchmark);
 int core_parser_get_tdf_value(char *str, int catalog)
 {
 	u32  i, ans , index = 0, flag = 0, count = 0;
-	char s[10];
+	char s[10] = {0};
 
 	if (!str) {
 		ipio_err("String is null\n");
