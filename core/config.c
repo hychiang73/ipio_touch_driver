@@ -617,8 +617,8 @@ static int core_config_ice_mode_chipid_check(void)
 
 	pid = core_config_ice_mode_read(core_config->pid_addr);
 
-	if((pid >> 16) != CHIP_TYPE_ILI9881 || (pid >> 16) != CHIP_TYPE_ILI7807) {
-		ipio_info("read PID Fail  pid = 0x%x\n", pid);
+	if(((pid >> 16) != CHIP_TYPE_ILI9881) && ((pid >> 16) != CHIP_TYPE_ILI7807)) {
+		ipio_info("read PID Fail  pid = 0x%x\n", (pid >> 16));
 		ret = -EINVAL;
 	}
 
