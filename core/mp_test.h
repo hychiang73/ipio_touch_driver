@@ -36,12 +36,24 @@
 #define TYPE_JUGE 2
 
 struct mp_test_P540_open {
+	int32_t *tdf_700;
+	int32_t *tdf_250;
+	int32_t *tdf_200;
 	int32_t *cbk_700;
 	int32_t *cbk_250;
 	int32_t *cbk_200;
 	int32_t *charg_rate;
 	int32_t *full_Open;
 	int32_t *dac;
+};
+
+struct mp_test_open_c {
+	int32_t *cap1_dac;
+	int32_t *cap2_dac;
+	int32_t *cap1_raw;
+	int32_t *cap2_raw;
+	int32_t *dcl_cap;
+	int32_t *lfd_cap;
 };
 
 struct mp_test_items {

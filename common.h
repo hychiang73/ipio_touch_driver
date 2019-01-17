@@ -115,7 +115,7 @@
 #define OPEN_FW_METHOD FILP_OPEN
 
 /* Driver version */
-#define DRIVER_VERSION	"1.0.5.0"
+#define DRIVER_VERSION	"1.0.5.1"
 
 /* Protocol version */
 #define PROTOCOL_MAJOR		0x5

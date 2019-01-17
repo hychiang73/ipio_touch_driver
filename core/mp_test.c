@@ -82,6 +82,12 @@ enum open_test_node_type {
 	Skip_Micro = 0x10   /* Skip_Micro, No Compare */
 };
 
+struct open_test_c_spec {
+	int tvch;
+	int tvcl;
+	int gain;
+} open_c_spec;
+
 /* You must declare a new test in this struct before running a new process of mp test */
 struct mp_test_items tItems[] = {
 	{.id = 0, .name = "mutual_dac", .desp = "calibration data(dac)", .result = "FAIL", .catalog = MUTUAL_TEST},
@@ -132,12 +138,14 @@ struct mp_test_items tItems[] = {
 	{.id = 43, .name = "doze_raw_td_lcm_off", .desp = "raw data_td (lcm off)", .result = "FAIL", .catalog = MUTUAL_TEST},
 	{.id = 44, .name = "doze_p2p_td_lcm_off", .desp = "peak to peak_td (lcm off)", .result = "FAIL", .catalog = PEAK_TO_PEAK_TEST},
 	{.id = 45, .name = "rx_short", .desp = "short test", .result = "FAIL", .catalog = SHORT_TEST},
+	{.id = 46, .name = "open test_c", .desp = "open test_c", .result = "FAIL", .catalog = OPEN_TEST},
 };
 
 int32_t *frame_buf = NULL;
 int32_t *key_buf = NULL;
 /* For printing open_test_sp data */
 int32_t *frame1_cbk700 = NULL, *frame1_cbk250 = NULL, *frame1_cbk200 = NULL;
+int32_t *cap1_dac = NULL, *cap1_raw = NULL, *cap2_dac = NULL, *cap2_raw = NULL;
 struct core_mp_test_data *core_mp = NULL;
 
 void dump_data(void *data, int type, int len, int row_len, const char *name)
@@ -263,6 +271,45 @@ static void mp_print_csv_tail(char *csv, int *csv_len)
 	}
 
 	*csv_len = tmp_len;
+}
+
+static void mp_print_csv_cdc_cmd(char *csv, int *csv_len, int index)
+{
+	int i, slen = 0, tmp_len = *csv_len;
+	char str[128] = {0};
+	char *open_sp_cmd[] = {"open dac", "open raw1", "open raw2", "open raw3"};
+	char *open_c_cmd[] = {"open cap1 dac", "open cap1 raw", "open cap2 dac", "open cap2 raw"};
+
+	if (strcmp(tItems[index].desp, "open test(integration)_sp") == 0) {
+		for (i = 0; i < ARRAY_SIZE(open_sp_cmd); i++) {
+			slen = core_parser_get_int_data("pv5_4 command", open_sp_cmd[i], str);
+			if (slen < 0) {
+				ipio_err("Failed to get CDC command %s from ini\n", open_sp_cmd[i]);
+			} else {
+				tmp_len += sprintf(csv + tmp_len, "%s = ,%s\n", open_sp_cmd[i], str);
+			}
+		}
+	} else if (strcmp(tItems[index].desp, "open test_c") == 0) {
+		for (i = 0; i < ARRAY_SIZE(open_c_cmd); i++) {
+			slen = core_parser_get_int_data("pv5_4 command", open_c_cmd[i], str);
+			if (slen < 0) {
+				ipio_err("Failed to get CDC command %s from ini\n", open_sp_cmd[i]);
+			} else {
+				tmp_len += sprintf(csv + tmp_len, "%s = ,%s\n", open_c_cmd[i], str);
+				printk("Ryder : %s%s\n", open_c_cmd[i], str);
+			}
+		}
+	} else {
+		slen = core_parser_get_int_data("pv5_4 command", tItems[index].desp, str);
+		if (slen < 0) {
+			ipio_err("Failed to get CDC command %s from ini\n", tItems[index].desp);
+		} else {
+			tmp_len += sprintf(csv + tmp_len, "CDC command = ,%s\n", str);
+		}
+	}
+
+	*csv_len = tmp_len;
+
 }
 
 static void dump_benchmark_data(int32_t* max_ptr, int32_t* min_ptr)
@@ -1114,9 +1161,29 @@ int compare_charge(int32_t* charge_rate, int x, int y, int32_t* inNodeType, int 
 	}
 	return ret;
 }
+void allnode_open_cdc_result(int index, int *buf, int *dac, int *raw)
+{
+	int i;
+
+	if (strcmp(tItems[index].name, "open_integration_sp") == 0) {
+		for (i = 0; i < core_mp->frame_len; i++) {
+			if (core_config->chip_id == CHIP_TYPE_ILI9881) {
+				buf[i] = (int)((int)(dac[i] * 2 * 10000 * 161 / 100) - (int)(16384 / 2 - (int)raw[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
+			} else if (core_config->chip_id == CHIP_TYPE_ILI7807) {
+				buf[i] = (int)((int)(dac[i] * 2 * 10000 * 131 / 100) - (int)(16384 / 2 - (int)raw[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
+			}
+		}
+	} else if (strcmp(tItems[index].name, "open test_c") == 0) {
+		for (i = 0; i < core_mp->frame_len; i++) {
+			buf[i] = (int)((int)(dac[i] * 414 * 39 / 2) + (int)(((int)raw[i] - 8192) * 36 * (7 * 100 - 22) * 10 / 16384)) /
+						(open_c_spec.tvch - open_c_spec.tvcl) / 100 / open_c_spec.gain;
+		}
+	}
+
+}
 
 /* This will be merged to allnode_mutual_cdc_data in next version */
-int allnode_open_cdc_data(int mode, int *buf, int *dac)
+int allnode_open_cdc_data(int mode, int *buf)
 {
 	int i = 0, ret = 0, len = 0;
 	int inDACp = 0, inDACn = 0;
@@ -1124,7 +1191,8 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 	uint8_t *ori = NULL;
 	char str[128] = {0};
 	char tmp[128] = {0};
-	char *key[] = {"open dac", "open raw1", "open raw2", "open raw3"};
+	char *key[] = {"open dac", "open raw1", "open raw2", "open raw3",
+					"open cap1 dac", "open cap1 raw", "open cap2 dac", "open cap2 raw"};
 
 	/* Multipling by 2 is due to the 16 bit in each node */
 	len = (core_mp->xch_len * core_mp->ych_len * 2) + 2;
@@ -1210,7 +1278,7 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 
 	/* Convert original data to the physical one in each node */
 	for (i = 0; i < core_mp->frame_len; i++) {
-		if (mode == 0) {
+		if ((mode == 0) || (mode == 4) || (mode == 6)) {
 			/* DAC - P */
 			if (((ori[(2 * i) + 1] & 0x80) >> 7) == 1) {
 				/* Negative */
@@ -1227,7 +1295,11 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 				inDACn = ori[(1 + (2 * i)) + 1] & 0x7F;
 			}
 
-			buf[i] = (inDACp + inDACn) / 2;
+			if (mode == 0)
+				buf[i] = (inDACp + inDACn) / 2;
+			else
+				buf[i] = inDACp + inDACn;
+
 		} else {
 			/* H byte + L byte */
 			int32_t tmp = (ori[(2 * i) + 1] << 8) + ori[(1 + (2 * i)) + 1];
@@ -1236,17 +1308,177 @@ int allnode_open_cdc_data(int mode, int *buf, int *dac)
 			else
 				buf[i] = tmp;
 
-			if (core_config->chip_id == CHIP_TYPE_ILI9881) {
-				buf[i] = (int)((int)(dac[i] * 2 * 10000 * 161 / 100) - (int)(16384 / 2 - (int)buf[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
-			} else if (core_config->chip_id == CHIP_TYPE_ILI7807) {
-				buf[i] = (int)((int)(dac[i] * 2 * 10000 * 131 / 100) - (int)(16384 / 2 - (int)buf[i]) * 20000 * 7 / 16384 * 36 / 10) / 31 / 2;
-			}
-
 		}
 	}
 	dump_data(buf, 10, core_mp->frame_len,  core_mp->xch_len, "Open SP CDC combined");
 out:
 	ipio_kfree((void **)&ori);
+
+	return ret;
+}
+
+static int open_test_cap(int index)
+{
+	struct mp_test_open_c open[tItems[index].frame_count];
+	int i = 0, x = 0, y = 0, ret = 0, addr = 0;
+	char str[512] = { 0 };
+
+	if (tItems[index].frame_count <= 0) {
+		ipio_err("Frame count is zero, which is at least set as 1\n");
+		tItems[index].frame_count = 1;
+	}
+
+	ret = create_mp_test_frame_buffer(index, tItems[index].frame_count);
+	if (ret < 0)
+		goto out;
+
+	if (cap1_dac == NULL) {
+		cap1_dac = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(cap1_dac)) {
+			ipio_err("Failed to allocate cap1_dac buffer\n");
+			return -ENOMEM;
+		}
+	} else {
+		memset(cap1_dac, 0x0, core_mp->frame_len);
+	}
+
+	if (cap1_raw == NULL) {
+		cap1_raw = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(cap1_raw)) {
+			ipio_err("Failed to allocate cap1_raw buffer\n");
+			ipio_kfree((void **)&cap1_dac);
+			return -ENOMEM;
+		}
+	} else {
+		memset(cap1_raw, 0x0, core_mp->frame_len);
+	}
+
+	if (cap2_dac == NULL) {
+		cap2_dac = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(cap2_dac)) {
+			ipio_err("Failed to allocate cap2_dac buffer\n");
+			ipio_kfree((void **)&cap1_dac);
+			ipio_kfree((void **)&cap1_raw);
+			return -ENOMEM;
+		}
+	} else {
+		memset(cap2_dac, 0x0, core_mp->frame_len);
+	}
+
+	if (cap2_raw == NULL) {
+		cap2_raw = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		if (ERR_ALLOC_MEM(cap2_raw)) {
+			ipio_err("Failed to allocate cap2_raw buffer\n");
+			ipio_kfree((void **)&cap1_dac);
+			ipio_kfree((void **)&cap1_raw);
+			ipio_kfree((void **)&cap2_dac);
+			return -ENOMEM;
+		}
+	} else {
+		memset(cap2_raw, 0x0, core_mp->frame_len);
+	}
+
+	/* Init Max/Min buffer */
+	for (y = 0; y < core_mp->ych_len; y++) {
+		for (x = 0; x < core_mp->xch_len; x++) {
+				tItems[index].max_buf[y * core_mp->xch_len + x] = INT_MIN;
+				tItems[index].min_buf[y * core_mp->xch_len + x] = INT_MAX;
+		}
+	}
+
+	if (tItems[index].spec_option == BENCHMARK) {
+		core_parser_benchmark(tItems[index].bench_mark_max, tItems[index].bench_mark_min,
+							tItems[index].type_option, tItems[index].desp, core_mp->frame_len);
+		if (ipio_debug_level && DEBUG_PARSER > 0)
+			dump_benchmark_data(tItems[index].bench_mark_max , tItems[index].bench_mark_min);
+	}
+
+	ret = core_parser_get_int_data(tItems[index].desp, "gain", str);
+	if (ret || ret == 0)
+		open_c_spec.gain = katoi(str);
+
+	ret = core_parser_get_int_data(tItems[index].desp, "tvch", str);
+	if (ret || ret == 0)
+		open_c_spec.tvch = katoi(str);
+
+	ret = core_parser_get_int_data(tItems[index].desp, "tvcl", str);
+	if (ret || ret == 0)
+		open_c_spec.tvcl = katoi(str);
+
+	if (ret < 0) {
+		ipio_err("Failed to get parameters from ini file\n");
+		goto out;
+	}
+
+	for (i = 0; i < tItems[index].frame_count; i++) {
+		open[i].cap1_dac = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		open[i].cap2_dac = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		open[i].cap1_raw = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		open[i].cap2_raw = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		open[i].dcl_cap = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		open[i].lfd_cap = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+	}
+
+	for (i = 0; i < tItems[index].frame_count; i++) {
+		ret = allnode_open_cdc_data(4, open[i].cap1_dac);
+		if (ret < 0) {
+			ipio_err("Failed to get Open CAP1 DAC data, %d\n", ret);
+			goto out;
+		}
+		ret = allnode_open_cdc_data(5, open[i].cap1_raw);
+		if (ret < 0) {
+			ipio_err("Failed to get Open CAP1 RAW data, %d\n", ret);
+			goto out;
+		}
+		ret = allnode_open_cdc_data(6, open[i].cap2_dac);
+		if (ret < 0) {
+			ipio_err("Failed to get Open CAP2 DAC data, %d\n", ret);
+			goto out;
+		}
+		ret = allnode_open_cdc_data(7, open[i].cap2_raw);
+		if (ret < 0) {
+			ipio_err("Failed to get Open CAP2 RAW data, %d\n", ret);
+			goto out;
+		}
+
+		allnode_open_cdc_result(index, open[i].dcl_cap, open[i].cap1_dac, open[i].cap1_raw);
+		allnode_open_cdc_result(index, open[i].lfd_cap, open[i].cap2_dac, open[i].cap2_raw);
+
+		/* record fist frame for debug */
+		if (i == 0) {
+			ipio_memcpy(cap1_dac, open[i].cap1_dac, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len * sizeof(int32_t));
+			ipio_memcpy(cap1_raw, open[i].cap1_raw, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len * sizeof(int32_t));
+			ipio_memcpy(cap2_dac, open[i].cap2_dac, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len * sizeof(int32_t));
+			ipio_memcpy(cap2_raw, open[i].cap2_raw, core_mp->frame_len * sizeof(int32_t), core_mp->frame_len * sizeof(int32_t));
+		}
+
+		dump_data(open[i].dcl_cap, 10, core_mp->frame_len, core_mp->xch_len, "DCL_Cap");
+		dump_data(open[i].lfd_cap, 10, core_mp->frame_len, core_mp->xch_len, "LFD_Cap");
+
+		addr = 0;
+		for (y = 0; y < core_mp->ych_len; y++) {
+			for (x = 0; x < core_mp->xch_len; x++) {
+				tItems[index].buf[(i * core_mp->frame_len) + addr] = open[i].dcl_cap[addr] - open[i].lfd_cap[addr];
+				addr++;
+			}
+		}
+
+		if (ipio_debug_level & DEBUG_MP_TEST) {
+			dump_data(&tItems[index].buf[(i * core_mp->frame_len)], 10, core_mp->frame_len, core_mp->xch_len, "SX_SRC CAP");
+		}
+	}
+
+out:
+	ipio_kfree((void **)&tItems[index].node_type);
+
+	for (i = 0; i < tItems[index].frame_count; i++) {
+		ipio_kfree((void **)&open[i].cap1_dac);
+		ipio_kfree((void **)&open[i].cap2_dac);
+		ipio_kfree((void **)&open[i].cap1_raw);
+		ipio_kfree((void **)&open[i].cap2_raw);
+		ipio_kfree((void **)&open[i].dcl_cap);
+		ipio_kfree((void **)&open[i].lfd_cap);
+	}
 
 	return ret;
 }
@@ -1357,6 +1589,9 @@ static int open_test_sp(int index)
 			tItems[index].frame_count,Charge_AA,Charge_Border,Charge_Notch,full_open_rate);
 
 	for (i = 0; i < tItems[index].frame_count; i++) {
+		open[i].tdf_700 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		open[i].tdf_250 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
+		open[i].tdf_200 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		open[i].cbk_700 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		open[i].cbk_250 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
 		open[i].cbk_200 = kcalloc(core_mp->frame_len, sizeof(int32_t), GFP_KERNEL);
@@ -1366,26 +1601,30 @@ static int open_test_sp(int index)
 	}
 
 	for (i = 0; i < tItems[index].frame_count; i++) {
-		ret = allnode_open_cdc_data(0, open[i].dac, open[i].dac);
+		ret = allnode_open_cdc_data(0, open[i].dac);
 		if (ret < 0) {
 			ipio_err("Failed to get Open SP DAC data, %d\n", ret);
 			goto out;
 		}
-		ret = allnode_open_cdc_data(1, open[i].cbk_700, open[i].dac);
+		ret = allnode_open_cdc_data(1, open[i].tdf_700);
 		if (ret < 0) {
 			ipio_err("Failed to get Open SP Raw1 data, %d\n", ret);
 			goto out;
 		}
-		ret = allnode_open_cdc_data(2, open[i].cbk_250, open[i].dac);
+		ret = allnode_open_cdc_data(2, open[i].tdf_250);
 		if (ret < 0) {
 			ipio_err("Failed to get Open SP Raw2 data, %d\n", ret);
 			goto out;
 		}
-		ret = allnode_open_cdc_data(3, open[i].cbk_200, open[i].dac);
+		ret = allnode_open_cdc_data(3, open[i].tdf_200);
 		if (ret < 0) {
 			ipio_err("Failed to get Open SP Raw3 data, %d\n", ret);
 			goto out;
 		}
+
+		allnode_open_cdc_result(index, open[i].cbk_700, open[i].dac, open[i].tdf_700);
+		allnode_open_cdc_result(index, open[i].cbk_250, open[i].dac, open[i].tdf_250);
+		allnode_open_cdc_result(index, open[i].cbk_200, open[i].dac, open[i].tdf_200);
 
 		addr = 0;
 
@@ -1445,6 +1684,9 @@ out:
 	ipio_kfree((void **)&tItems[index].node_type);
 
 	for (i = 0; i < tItems[index].frame_count; i++) {
+		ipio_kfree((void **)&open[i].tdf_700);
+		ipio_kfree((void **)&open[i].tdf_250);
+		ipio_kfree((void **)&open[i].tdf_200);
 		ipio_kfree((void **)&open[i].cbk_700);
 		ipio_kfree((void **)&open[i].cbk_250);
 		ipio_kfree((void **)&open[i].cbk_200);
@@ -1825,9 +2067,8 @@ static void mp_do_retry(int index, int count)
 
 static void mp_show_result(const char *csv_path)
 {
-	int i, x, y, j, csv_len = 0, pass_item_count = 0 ,line_count = 0 ,get_frame_cont = 1, slen = 0;
+	int i, x, y, j, csv_len = 0, pass_item_count = 0 ,line_count = 0 ,get_frame_cont = 1;
 	int32_t *max_threshold = NULL, *min_threshold = NULL;
-	char str[128] = {0};
 	char *csv = NULL;
 	char csv_name[128] = { 0 };
 	char *ret_pass_name = NULL, *ret_fail_name = NULL;
@@ -1862,13 +2103,7 @@ static void mp_show_result(const char *csv_path)
 			csv_len += sprintf(csv + csv_len, "\n\n[%s],NG\n", tItems[i].desp);
 		}
 
-		/* show CDC command corresponding to test items */
-		slen = core_parser_get_int_data("pv5_4 command", tItems[i].desp, str);
-		if (slen < 0) {
-			ipio_err("Failed to get CDC command %s from ini\n", tItems[i].desp);
-		} else {
-			csv_len += sprintf(csv + csv_len, "CDC command = ,%s\n", str);
-		}
+		mp_print_csv_cdc_cmd(csv, &csv_len, i);
 
 		pr_info("Frame count = %d\n",tItems[i].frame_count);
 		csv_len += sprintf(csv + csv_len, "Frame count = %d\n", tItems[i].frame_count);
@@ -1908,6 +2143,13 @@ static void mp_show_result(const char *csv_path)
 			mp_compare_cdc_show_result(i, frame1_cbk700, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk700");
 			mp_compare_cdc_show_result(i, frame1_cbk250, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk250");
 			mp_compare_cdc_show_result(i, frame1_cbk200, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "frame1 cbk200");
+		}
+
+		if (strcmp(tItems[i].name, "open test_c") == 0) {
+			mp_compare_cdc_show_result(i, cap1_dac, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "CAP1_DAC");
+			mp_compare_cdc_show_result(i, cap1_raw, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "CAP1_RAW");
+			mp_compare_cdc_show_result(i, cap2_dac, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "CAP2_DAC");
+			mp_compare_cdc_show_result(i, cap2_raw, csv, &csv_len, TYPE_NO_JUGE, max_threshold, min_threshold, "CAP2_RAW");
 		}
 
 		if (tItems[i].catalog == TX_RX_DELTA) {
@@ -2442,6 +2684,8 @@ static void mp_test_init_item(void)
 		} else if (tItems[i].catalog == OPEN_TEST) {
 			if (strcmp(tItems[i].name, "open_integration_sp") == 0)
 				tItems[i].do_test = open_test_sp;
+			else if (strcmp(tItems[i].name, "open test_c") == 0)
+				tItems[i].do_test = open_test_cap;
 			else
 				tItems[i].do_test = mutual_test;
 		} else if (tItems[i].catalog == KEY_TEST) {
@@ -2591,6 +2835,7 @@ int core_mp_start_test(bool lcm_on)
 			mp_run_test("calibration data(dac)", 0);
 			mp_run_test("doze raw data", 41);
 			mp_run_test("doze peak to peak", 42);
+			mp_run_test("open test_c", 46);
 		} else {
 			csv_path = CSV_LCM_OFF_PATH;
 			mp_run_test("raw data(have bk) (lcm off)", 39);
