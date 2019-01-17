@@ -405,36 +405,34 @@ EXPORT_SYMBOL(core_parser_benchmark);
 
 int core_parser_get_tdf_value(char *str, int catalog)
 {
-	int point = 0, tmp[10] = {0};
-	char *s = str;
-	char *token = NULL;
+	u32  i, ans , index = 0, flag = 0, count = 0;
+	char s[10] = {0};
 
-	if (!s) {
+	if (!str) {
 		ipio_err("String is null\n");
 		return -1;
 	}
 
-	for (token = strsep(&s, "."); token != NULL; token = strsep(&s, ".")) {
-		tmp[point] = katoi(token);
-		point++;
-
-		if (point >= sizeof(tmp))
-			break;
+	for (i = 0, count = 0; i < strlen(str); i++) {
+		if(str[i] == '.') {
+			flag = 1;
+			continue;
+		}
+		s[index++] = str[i];
+		if(flag)
+			count++;
 	}
+	ans = katoi(s);
 
 	/* Multiply by 100 to shift out of decimal point */
 	if (catalog == SHORT_TEST) {
-		if (point >= 2) {
-			if (tmp[1] < 10)
-				return (tmp[0] * 100) + (tmp[1] * 10);
-			else if (tmp[1] < 100)
-				return (tmp[0] * 100) + tmp[1];
-		} else {
-			return (tmp[0] * 100);
-		}
+		if(count == 0)
+			ans = ans * 100;
+		else if(count == 1)
+			ans = ans * 10;
 	}
 
-	return tmp[0] ;
+	return ans ;
 }
 
 int core_parser_get_u8_array(char *key, uint8_t *buf, uint16_t base, size_t len)

@@ -610,9 +610,24 @@ int core_config_ice_mode_disable(void)
 }
 EXPORT_SYMBOL(core_config_ice_mode_disable);
 
-int core_config_ice_mode_enable(bool stop_mcu)
+static int core_config_ice_mode_chipid_check(void)
 {
 	int ret = 0;
+	uint32_t pid = 0;
+
+	pid = core_config_ice_mode_read(core_config->pid_addr);
+
+	if(((pid >> 16) != CHIP_TYPE_ILI9881) && ((pid >> 16) != CHIP_TYPE_ILI7807)) {
+		ipio_info("read PID Fail  pid = 0x%x\n", (pid >> 16));
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+int core_config_ice_mode_enable(bool stop_mcu)
+{
+	int ret = 0, retry = 3;
 	uint8_t cmd[4] = {0x25, 0x62, 0x10, 0x18};
 
 	ipio_info("ICE Mode enabled, stop mcu = %d\n", stop_mcu);
@@ -622,16 +637,23 @@ int core_config_ice_mode_enable(bool stop_mcu)
 	if (!stop_mcu)
 		cmd[0] = 0x1F;
 
-	ret = core_write(core_config->slave_i2c_addr, cmd, 4);
-	if (ret < 0)
-		ipio_err("Failed to write ice mode enable\n");
+	do {
+		ret = core_write(core_config->slave_i2c_addr, cmd, 4);
+		if (ret < 0)
+			ipio_err("Failed to write ice mode enable\n");
 
 #if (INTERFACE == SPI_INTERFACE)
-	if (core_config->chip_id == CHIP_TYPE_ILI7807)
-		core_spi_speed_up(true);
+		if (core_config->chip_id == CHIP_TYPE_ILI7807)
+			core_spi_speed_up(true);
 #endif
+		mdelay(25);
 
-	mdelay(25);
+		if (core_config_ice_mode_chipid_check() >= 0)
+			return ret;
+		ipio_info("ICE Mode enabled fail %d time\n", (4 - retry));
+	} while(--retry > 0);
+
+	ipio_info("ICE Mode enabled fail \n");
 	return ret;
 }
 EXPORT_SYMBOL(core_config_ice_mode_enable);
