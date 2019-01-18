@@ -135,6 +135,9 @@ extern void core_config_finger_sense_ctrl(bool enable);
 extern void core_config_proximity_ctrl(bool enable);
 extern void core_config_plug_ctrl(bool out);
 extern void core_config_set_phone_cover(uint8_t *pattern);
+extern void core_get_ddi_register_onlyone(uint8_t page, uint8_t reg);
+extern uint32_t core_config_get_reg_data(uint32_t addr);
+extern void core_set_ddi_register_onlyone(uint8_t page, uint8_t reg, uint8_t data);
 
 /* Touch IC information */
 extern int core_config_get_project_id(void);

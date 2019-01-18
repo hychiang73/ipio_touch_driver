@@ -1422,6 +1422,32 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 
 		for (i = 0; i < r_len; i++)
 			ipio_info("temp[%d] = %x\n", i, temp[i]);
+	} else if (strcmp(cmd, "gettpregdata") == 0) {
+		ipio_info("test gettpregdata set reg is 0x%X\n",\
+			(data[1] << 24 | data[2] << 16 | data[3] << 8 | data[4]));
+		mutex_lock(&ipd->plat_mutex);
+		core_config_get_reg_data(data[1] << 24 | data[2] << 16 | data[3] << 8 | data[4]);
+		mutex_unlock(&ipd->plat_mutex);
+	} else if (strcmp(cmd, "getoneddiregdata") == 0) {
+		ipio_info("test getoneddiregdata\n");
+		mutex_lock(&ipd->plat_mutex);
+		ret = core_config_ice_mode_enable(NO_STOP_MCU);
+		if (ret < 0) {
+			ipio_info("Failed to enter ICE mode, res = %d\n", ret);
+		}
+		core_get_ddi_register_onlyone(data[1], data[2]);
+		core_config_ice_mode_disable();
+		mutex_unlock(&ipd->plat_mutex);
+	} else if (strcmp(cmd, "setoneddiregdata") == 0) {
+		ipio_info("test getoneddiregdata\n");
+		mutex_lock(&ipd->plat_mutex);
+		ret = core_config_ice_mode_enable(NO_STOP_MCU);
+		if (ret < 0) {
+			ipio_info("Failed to enter ICE mode, res = %d\n", ret);
+		}
+		core_set_ddi_register_onlyone(data[1], data[2], data[3]);
+		core_config_ice_mode_disable();
+		mutex_unlock(&ipd->plat_mutex);
 	} else {
 		ipio_err("Unknown command\n");
 	}

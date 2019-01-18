@@ -1176,6 +1176,124 @@ out:
 }
 EXPORT_SYMBOL(core_config_get_fw_ver);
 
+static uint32_t core_config_rd_pack( int packet)
+{
+	int retry = 100;
+	uint32_t reg_data = 0;
+	while(retry--) {
+		reg_data = core_config_read_write_onebyte(0x73010);
+		if ((reg_data & 0x02) == 0) {
+			ipio_info("check  ok 0x73010 read 0x%X retry = %d\n", reg_data, retry);
+			break;
+		}
+		mdelay(10);
+	}
+	if (retry <= 0) {
+		ipio_info("check 0x73010 error read 0x%X\n", reg_data);
+	}
+	core_config_ice_mode_write(0x73000, packet, 4);
+
+	retry = 100;
+	while(retry--) {
+		reg_data = core_config_read_write_onebyte(0x4800A);
+		if ((reg_data & 0x02) == 0x02) {
+			ipio_info("check  ok 0x4800A read 0x%X retry = %d\n", reg_data, retry);
+			break;
+		}
+		mdelay(10);
+	}
+	if (retry <= 0) {
+		ipio_info("check 0x4800A error read 0x%X\n", reg_data);
+	}
+	core_config_ice_mode_write(0x4800A, 0x02, 1);
+	reg_data = core_config_ice_mode_read(0x73016);
+	return reg_data;
+}
+
+
+static void core_config_wr_pack( int packet )
+{
+	int retry = 100;
+	uint32_t reg_data = 0;
+	while(retry--) {
+		reg_data = core_config_read_write_onebyte(0x73010);
+		if ((reg_data & 0x02) == 0) {
+			ipio_info("check ok 0x73010 read 0x%X retry = %d\n", reg_data, retry);
+			break;
+		}
+		mdelay(10);
+	}
+	if (retry <= 0) {
+		ipio_info("check 0x73010 error read 0x%X\n", reg_data);
+	}
+	core_config_ice_mode_write(0x73000, packet, 4);
+}
+
+void core_set_ddi_register_onlyone(uint8_t page, uint8_t reg, uint8_t data)
+{
+	uint32_t setpage = 0x1FFFFF00 | page;
+	uint32_t setreg = 0x1F000100 | (reg << 16) | data;
+	ipio_info("setpage =  0x%X setreg = 0x%X\n", setpage, setreg);
+	/*TDI_WR_KEY*/
+	core_config_wr_pack(0x1FFF9527);
+	/*Switch to Page*/
+	core_config_wr_pack(setpage);
+	/* Page*/
+	core_config_wr_pack(setreg);
+	/*TDI_WR_KEY OFF*/
+	core_config_wr_pack(0x1FFF9500);
+}
+
+
+void core_get_ddi_register_onlyone(uint8_t page, uint8_t reg)
+{
+	uint32_t reg_data = 0;
+	uint32_t setpage = 0x1FFFFF00 | page;
+	uint32_t setreg = 0x2F000100 | (reg << 16);
+	ipio_info("setpage =  0x%X setreg = 0x%X\n", setpage, setreg);
+
+	/*TDI_WR_KEY*/
+	core_config_wr_pack(0x1FFF9527);
+	/*Set Read Page reg*/
+	core_config_wr_pack(setpage);
+
+	/*TDI_RD_KEY*/
+	core_config_wr_pack(0x1FFF9487);
+	/*( *( __IO uint8 *)	(0x4800A) ) =0x2*/
+	core_config_ice_mode_write(0x4800A, 0x02, 1);
+
+	reg_data = core_config_rd_pack(setreg);
+	ipio_info("check page = 0x%X reg = 0x%X read 0x%X\n", page, reg, reg_data);
+
+	/*TDI_RD_KEY OFF*/
+	core_config_wr_pack(0x1FFF9400);
+	/*TDI_WR_KEY OFF*/
+	core_config_wr_pack(0x1FFF9500);
+}
+
+uint32_t core_config_get_reg_data(uint32_t addr)
+{
+	int res = 0;
+	uint32_t reg_data = 0;
+	bool ice_enable = core_config->icemodeenable;
+	if (!ice_enable) {
+		res = core_config_ice_mode_enable(NO_STOP_MCU);
+		if (res < 0) {
+			ipio_info("Failed to enter ICE mode, res = %d\n", res);
+			goto out;
+		}
+		mdelay(1);
+	}
+	reg_data = core_config_ice_mode_read(addr);
+	ipio_info("ice_enable = %d addr = 0x%X reg_data = 0x%X\n", ice_enable, addr, reg_data);
+
+out:
+	if (!ice_enable) {
+		core_config_ice_mode_disable();
+	}
+	return reg_data;
+}
+
 int core_config_get_chip_id(void)
 {
 	int ret = 0;
