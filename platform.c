@@ -561,16 +561,9 @@ static int kthread_handler(void *arg)
 
 		ilitek_platform_disable_irq();
 
-		do {
-			ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
-			if (ret >= 0)
-				break;
-			ilitek_platform_reset_ctrl(true, HW_RST);
-			ipio_err("boot upgrade failed retry %d times\n", (retry + 1));
-		} while (--retry >= 0);
-
+		ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
 		if (ret < 0)
-			ipio_err("Failed to upgrade FW at boot stage\n");
+			ipio_err("boot upgrade failed");
 
 		ilitek_platform_enable_irq();
 
@@ -768,18 +761,8 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			mdelay(100);
 			break;
 		case HW_RST_HOST_DOWNLOAD:
-			ipio_info("HW RESET\n");
-			ilitek_platform_tp_hw_reset(rst);
-
-			ipio_info("host download load code\n");
-			do {
-				ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
-				if (ret >= 0)
-					break;
-				ilitek_platform_tp_hw_reset(rst);
-				ipio_err("host download failed retry %d times\n", (retry + 1));
-			} while (--retry >= 0);
-
+			ipio_info("HW_RST_HOST_DOWNLOAD\n");
+			ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 			if (ret < 0)
 				ipio_err("host download with retry failed\n");
 			break;

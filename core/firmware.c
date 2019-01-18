@@ -792,7 +792,7 @@ static int flash_erase(void)
 		if (fbi[i].end == 0)
 			continue;
 		ipio_debug(DEBUG_FIRMWARE, "Block[%d] earsing start 0x%x to end 0x%x \n", i, fbi[i].start, fbi[i].end);
-		for(j = fbi[i].start; j <= (fbi[i].end + 1) ; j+= flashtab->sector) {
+		for(j = fbi[i].start; j <= fbi[i].end; j+= flashtab->sector) {
 			ret = do_erase_flash(j);
 			if (ret < 0)
 				goto out;
@@ -1021,6 +1021,10 @@ static int fw_upgrade_iram(u8 *pfw)
 	uint32_t mode, crc, dma;
 	u8 *fw_ptr = NULL;
 
+	/* Reset before load AP and MP code*/
+	if (!core_gesture->entry)
+		ilitek_platform_tp_hw_reset(true);
+
 	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
 		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
@@ -1071,11 +1075,41 @@ out:
 	return ret;
 }
 
+static int flash_erase_mode(uint32_t mode)
+{
+	uint32_t i, ret = 0;
+
+	ilitek_platform_reset_ctrl(true, HW_RST);
+
+	ret = core_config_ice_mode_enable(STOP_MCU);
+	if (ret < 0) {
+		ipio_err("Failed to enable ICE mode\n");
+		goto out;
+	}
+	core_flash_enable_protect(false);
+
+	if (fbi[mode].end == 0)
+		goto out;
+
+	ipio_debug(DEBUG_FIRMWARE, "Block[%d] earsing start 0x%x to end 0x%x \n", mode, fbi[mode].start, fbi[mode].end);
+	for(i = fbi[mode].start; i <= fbi[mode].end ; i+= flashtab->sector) {
+		ret = do_erase_flash(i);
+		if (ret < 0)
+			goto out;
+	}
+
+out:
+	core_config_ice_mode_disable();
+	return ret;
+}
+
 int core_firmware_upgrade(int upgrade_type, int file_type, int open_file_method)
 {
 	u8 *pfw = NULL;
-	int ret  = UPDATE_OK;
+	int ret  = UPDATE_OK, retry, rel = 0;
 	bool power = false, esd = false;
+
+	retry = core_firmware->retry_times;
 
 	core_firmware->isUpgrading = true;
 	core_firmware->update_status = 0;
@@ -1108,17 +1142,36 @@ int core_firmware_upgrade(int upgrade_type, int file_type, int open_file_method)
 		fw_upgrade_info_setting(pfw, upgrade_type);
 	}
 
-	switch(upgrade_type) {
-		case UPGRADE_FLASH:
-			ret = fw_upgrade_flash(pfw);
+	do {
+		switch(upgrade_type) {
+			case UPGRADE_FLASH:
+				ret = fw_upgrade_flash(pfw);
+				break;
+			case UPGRADE_IRAM:
+				ret = fw_upgrade_iram(pfw);
+				break;
+			default:
+				ipio_err("Unknown upgrade type, %d\n", upgrade_type);
+				ret = UPDATE_FAIL;
+				break;
+		}
+		if (ret >= 0)
 			break;
-		case UPGRADE_IRAM:
-			ret = fw_upgrade_iram(pfw);
-			break;
-		default:
-			ipio_err("Unknown upgrade type, %d\n", upgrade_type);
-			ret = UPDATE_FAIL;
-			break;
+
+		ipio_info("Upgrade firmware retry Fail %d times !\n", (core_firmware->retry_times - retry + 1));
+	} while(--retry > 0);
+
+	if (ret < 0) {
+		ipio_info("Upgrade firmware failed, erase %s \n", ((ret == UPGRADE_FLASH) ? "FLASH" : "IRAM"));
+		if (upgrade_type == UPGRADE_FLASH)
+			rel = flash_erase_mode(AP);
+		else
+			rel = ilitek_platform_reset_ctrl(true, HW_RST);
+
+		if (rel < 0)
+			ipio_err("Failed to erase %s\n", ((upgrade_type == UPGRADE_FLASH) ? "FLASH" : "IRAM"));
+
+		goto out;
 	}
 
 	core_config_get_fw_ver();

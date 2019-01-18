@@ -177,12 +177,9 @@ int core_gesture_load_code(void)
 	if (temp[0] != 0x91)
 		ipio_err("FW is busy, error\n");
 
-	do {
-		ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
-		if (ret >= 0)
-			break;
-		ipio_err("Gesture load code failed %d times\n", (retry + 1));
-	} while (--retry >= 0);
+	ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
+	if (ret < 0)
+		ipio_err("Gesture load code failed \n");
 
 	/* FW star run gestrue code cmd*/
 	temp[0] = 0x01;

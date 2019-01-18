@@ -1201,13 +1201,9 @@ static ssize_t ilitek_proc_fw_upgrade_read(struct file *filp, char __user *buff,
 	if (ret < 0)
 		ipio_info("host download failed!\n");
 #else
-	do {
-		ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
-		if (ret >= 0)
-			break;
-		ilitek_platform_reset_ctrl(true, HW_RST);
-		ipio_err("upgrade failed retry %d times\n", (retry + 1));
-	} while (--retry >= 0);
+	ret = core_firmware_upgrade(UPGRADE_FLASH, HEX_FILE, OPEN_FW_METHOD);
+	if (ret < 0)
+		ipio_err("firmware upgrade failed\n");
 #endif
 
 	ilitek_platform_enable_irq();
