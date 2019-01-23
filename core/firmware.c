@@ -53,8 +53,6 @@
 #define NO_NEED_UPDATE 	 0
 #define UPDATE_OK		 0
 #define FW_VER_ADDR	   0xFFE0
-#define TIMEOUT_SECTOR	 500
-#define TIMEOUT_PAGE	 3500
 #define CRC_ONESET(X, Y)	({Y = (*(X+0) << 24) | (*(X+1) << 16) | (*(X+2) << 8) | (*(X+3));})
 
 struct flash_sector *g_flash_sector = NULL;
@@ -738,6 +736,7 @@ check_flash_crc:
 static int do_erase_flash(uint32_t start_addr)
 {
 	int ret = 0;
+	uint32_t temp_buf = 0;
 
 	ret = core_flash_write_enable();
 	if (ret < 0) {
@@ -748,11 +747,7 @@ static int do_erase_flash(uint32_t start_addr)
 	core_config_ice_mode_write(0x041000, 0x0, 1);	/* CS low */
 	core_config_ice_mode_write(0x041004, 0x66aa55, 3);	/* Key */
 
-	if (start_addr == fbi[AP].start)
-		core_config_ice_mode_write(0x041008, 0xD8, 1);
-	else
-		core_config_ice_mode_write(0x041008, 0x20, 1);
-
+	core_config_ice_mode_write(0x041008, 0x20, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0xFF0000) >> 16, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
@@ -761,13 +756,25 @@ static int do_erase_flash(uint32_t start_addr)
 
 	mdelay(1);
 
-	if (start_addr == fbi[AP].start)
-		ret = core_flash_poll_busy(TIMEOUT_PAGE);
-	else
-		ret = core_flash_poll_busy(TIMEOUT_SECTOR);
-
+	ret = core_flash_poll_busy();
 	if (ret < 0)
 		goto out;
+
+	core_config_ice_mode_write(0x041000, 0x0, 1);	/* CS low */
+	core_config_ice_mode_write(0x041004, 0x66aa55, 3);	/* Key */
+
+	core_config_ice_mode_write(0x041008, 0x3, 1);
+	core_config_ice_mode_write(0x041008, (start_addr & 0xFF0000) >> 16, 1);
+	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
+	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
+	core_config_ice_mode_write(0x041008, 0xFF, 1);
+
+	temp_buf = core_config_read_write_onebyte(0x041010);
+	if (temp_buf != 0xFF) {
+		ipio_err("Failed to erase data(0x%x) at 0x%x\n", temp_buf, start_addr);
+		ret = -EINVAL;
+		goto out;
+	}
 
 	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
 
@@ -789,8 +796,6 @@ static int flash_erase(void)
 			ret = do_erase_flash(j);
 			if (ret < 0)
 				goto out;
-			if (i == AP)
-				break;
 		}
 	}
 
@@ -803,27 +808,6 @@ static int do_program_flash(uint32_t start_addr, u8* pfw)
 	int ret = 0;
 	uint32_t k;
 	uint8_t buf[512] = { 0 };
-	bool skip = true;
-
-	buf[0] = 0x25;
-	buf[3] = 0x04;
-	buf[2] = 0x10;
-	buf[1] = 0x08;
-
-	for (k = 0; k < flashtab->program_page; k++) {
-		if (start_addr + k <= core_firmware->end_addr)
-			buf[4 + k] = pfw[start_addr + k];
-		else
-			buf[4 + k] = 0xFF;
-
-		if (buf[4 + k] != 0xFF)
-			skip = false;
-	}
-
-	if (skip) {
-		core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
-		goto out;
-	}
 
 	ret = core_flash_write_enable();
 	if (ret < 0)
@@ -837,6 +821,18 @@ static int do_program_flash(uint32_t start_addr, u8* pfw)
 	core_config_ice_mode_write(0x041008, (start_addr & 0x00FF00) >> 8, 1);
 	core_config_ice_mode_write(0x041008, (start_addr & 0x0000FF), 1);
 
+	buf[0] = 0x25;
+	buf[3] = 0x04;
+	buf[2] = 0x10;
+	buf[1] = 0x08;
+
+	for (k = 0; k < flashtab->program_page; k++) {
+		if (start_addr + k <= core_firmware->end_addr)
+			buf[4 + k] = pfw[start_addr + k];
+		else
+			buf[4 + k] = 0xFF;
+	}
+
 	if (core_write(core_config->slave_i2c_addr, buf, flashtab->program_page + 4) < 0) {
 		ipio_err("Failed to write data at start_addr = 0x%X, k = 0x%X, addr = 0x%x\n",
 			start_addr, k, start_addr + k);
@@ -846,10 +842,9 @@ static int do_program_flash(uint32_t start_addr, u8* pfw)
 
 	core_config_ice_mode_write(0x041000, 0x1, 1);	/* CS high */
 
-	if (flashtab->mid == 0x85)
-		mdelay(2);
-	else
-		mdelay(1);
+	ret = core_flash_poll_busy();
+	if (ret < 0)
+		goto out;
 
 	core_firmware->update_status = (start_addr * 101) / core_firmware->end_addr;
 
