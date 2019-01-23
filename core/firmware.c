@@ -337,7 +337,7 @@ static int hex_file_open_convert(u8 open_file_method, u8 *pfw)
 		case REQUEST_FIRMWARE:
 			ipio_info("Request_firmware_file, name = %s \n", BOOT_FW_HEX_NAME);
 			msleep(BOOT_UPDATE_FW_DELAY_TIME);
-			ret = request_firmware(&fw, BOOT_FW_HEX_NAME, &ipd->client->dev);
+			ret = request_firmware(&fw, BOOT_FW_HEX_NAME, ipd->dev);
 			if (ret < 0) {
 				ipio_err("Failed to open the file Name %s,try to open ili file\n", BOOT_FW_HEX_NAME);
 				return -ENOMEM;
