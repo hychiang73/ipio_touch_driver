@@ -1299,7 +1299,7 @@ int core_config_get_chip_id(void)
 	int ret = 0;
 	uint32_t pid = 0, OTPIDData = 0, ANAIDData = 0;
 
-	ret = core_config_ice_mode_enable(NO_STOP_MCU);
+	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
 		ipio_err("Failed to enter ICE mode, ret = %d\n", ret);
 		return ret;

@@ -762,6 +762,7 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 			break;
 		case HW_RST_HOST_DOWNLOAD:
 			ipio_info("HW_RST_HOST_DOWNLOAD\n");
+			ilitek_platform_tp_hw_reset(rst);
 			ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 			if (ret < 0)
 				ipio_err("host download with retry failed\n");
