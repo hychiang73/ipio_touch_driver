@@ -269,6 +269,11 @@ enum ili7807_types {
 #define HOST_DOWNLOAD
 #endif
 
+/* Set spi clk up to 10Mhz (it must be enabled if chip is ILI7807G_AA) */
+#if (TP_TOUCH_IC == CHIP_TYPE_ILI7807 && INTERFACE == SPI_INTERFACE)
+#define ENABLE_SPI_SPEED_UP
+#endif
+
 /* Linux multiple touch protocol, either B type or A type. */
 #define MT_B_TYPE
 

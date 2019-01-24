@@ -647,9 +647,8 @@ int core_config_ice_mode_enable(bool stop_mcu)
 		if (ret < 0)
 			ipio_err("Failed to write ice mode enable\n");
 
-#if (INTERFACE == SPI_INTERFACE)
-		if (core_config->chip_id == CHIP_TYPE_ILI7807)
-			core_spi_speed_up(true);
+#ifdef ENABLE_SPI_SPEED_UP
+		core_spi_speed_up(true);
 #endif
 		mdelay(25);
 

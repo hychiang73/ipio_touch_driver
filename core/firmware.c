@@ -118,7 +118,7 @@ static int write_download(uint32_t start, uint32_t size, uint8_t *w_buf, uint32_
 		}
 
 		update_status = (i * 101) / end;
-		printk("%cupgrade firmware(mp code), %02d%c", 0x0D, update_status, '%');
+		//printk("%cupgrade firmware(mp code), %02d%c", 0x0D, update_status, '%');
 	}
 
 	ipio_kfree((void **)&buf);
@@ -853,8 +853,8 @@ static int do_program_flash(uint32_t start_addr, u8* pfw)
 		core_firmware->update_status = 90;
 
 	/* Don't use ipio_info to print log because it needs to be kpet in the same line */
-	printk(KERN_CONT "%c ILITEK: Upgrading firmware ... start_addr = 0x%x, %02d%c \n", 0x0D,
-			start_addr, core_firmware->update_status,'%');
+	//printk(KERN_CONT "%c ILITEK: Upgrading firmware ... start_addr = 0x%x, %02d%c \n", 0x0D,
+			//start_addr, core_firmware->update_status,'%');
 
 out:
 	return ret;
