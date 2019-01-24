@@ -1,3 +1,15 @@
+* V1.0.5.1
+	1.	進入ICEM mode 增加讀取chip id判斷
+		讀取成功=> 取代目前chip id (為避免開機第一次讀取chip id 失敗)
+		讀取失敗=> retry 3次, 3次都失敗則return fail
+	2.	加入DDI Reg 寫入/讀取的節點
+	3.	讀取chip id時stop MCU
+	4.	修正sort test 讀取ini TDF參數錯誤=>改為讀進來的參數統一乘以100，ini  tdf最多到小數點後第二位
+	5.	Show mp 各測試項driver 下給FW cmd於測試報告csv上
+	6.	MP新增open test_c 測試項
+	7.	修正NoFlash load code retry如果失敗，沒有讀取結果
+	8.	修改fw 更新retry機制，如果retry失敗則清除flash/IRAM(HW reset)
+
 * V1.0.5.0
   * Remove protocol 3.2 with its report handler.
   * Remove driver type mark in parser.c
