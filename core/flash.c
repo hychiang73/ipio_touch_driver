@@ -89,9 +89,9 @@ void core_flash_dma_write(uint32_t start, uint32_t end, uint32_t len)
 	core_config_ice_mode_write(FLASH3_reg_rcv_cnt, len, 4);	/* Write Length */
 }
 
-int core_flash_poll_busy(void)
+int core_flash_poll_busy(int timer)
 {
-	int timer = 500, ret = 0;
+	int ret = 0;
 
 	core_config_ice_mode_write(0x041000, 0x0, 1);	/* CS low */
 	core_config_ice_mode_write(0x041004, 0x66aa55, 3);	/* Key */

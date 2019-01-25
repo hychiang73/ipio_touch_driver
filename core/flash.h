@@ -197,7 +197,7 @@ extern struct flash_table *flashtab;
 
 extern void core_flash_dma_clear(void);
 extern void core_flash_dma_write(uint32_t start, uint32_t end, uint32_t len);
-extern int core_flash_poll_busy(void);
+extern int core_flash_poll_busy(int timer);
 extern int core_flash_write_enable(void);
 extern void core_flash_enable_protect(bool status);
 extern void core_flash_init(uint16_t mid, uint16_t did);
