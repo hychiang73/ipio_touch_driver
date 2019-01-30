@@ -37,7 +37,7 @@
 #define USER_STR_BUFF	PAGE_SIZE
 #define IOCTL_I2C_BUFF	PAGE_SIZE
 #define ILITEK_IOCTL_MAGIC	100
-#define ILITEK_IOCTL_MAXNR	19
+#define ILITEK_IOCTL_MAXNR	20
 
 #define ILITEK_IOCTL_I2C_WRITE_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 0, uint8_t*)
 #define ILITEK_IOCTL_I2C_SET_WRITE_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 1, int)
@@ -64,6 +64,7 @@
 #define ILITEK_IOCTL_TP_MODE_CTRL			_IOWR(ILITEK_IOCTL_MAGIC, 17, uint8_t*)
 #define ILITEK_IOCTL_TP_MODE_STATUS			_IOWR(ILITEK_IOCTL_MAGIC, 18, int*)
 #define ILITEK_IOCTL_ICE_MODE_SWITCH		_IOWR(ILITEK_IOCTL_MAGIC, 19, int)
+#define ILITEK_IOCTL_TP_INTERFACE_TYPE		_IOWR(ILITEK_IOCTL_MAGIC, 20, uint8_t*)
 
 unsigned char g_user_buf[USER_STR_BUFF] = { 0 };
 #define DEBUG_DATA_FILE_SIZE	(10 * 1024)
@@ -1459,7 +1460,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0, length = 0;
-	uint8_t *szBuf = NULL;
+	uint8_t *szBuf = NULL, if_to_user = 0;
 	static uint16_t i2c_rw_length = 0;
 	uint32_t id_to_user[3] = {0};
 	char dbg[10] = { 0 };
@@ -1697,6 +1698,13 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				core_config->icemodeenable = true;
 			else
 				core_config->icemodeenable = false;
+		}
+		break;
+	case ILITEK_IOCTL_TP_INTERFACE_TYPE:
+		if_to_user = INTERFACE;
+		ret = copy_to_user((uint8_t *) arg, &if_to_user, sizeof(if_to_user));
+		if (ret < 0) {
+			ipio_err("Failed to copy interface type to user space\n");
 		}
 		break;
 
