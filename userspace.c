@@ -1676,7 +1676,9 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			ipio_err("Failed to copy data from user space\n");
 		} else {
 			ipio_info("ioctl: switch fw mode = %d\n", szBuf[0]);
-			core_config_switch_fw_mode(szBuf);
+			ret = core_config_switch_fw_mode(szBuf);
+			if (ret < 0)
+				ipio_err("switch to fw mode (%d) failed\n", szBuf[0]);
 		}
 		break;
 
