@@ -246,6 +246,7 @@ enum ili7807_types {
 #define INI_NAME_PATH		"/sdcard/mp.ini"
 #define UPDATE_FW_PATH		"/sdcard/ILITEK_FW"
 #define POWER_STATUS_PATH 	"/sys/class/power_supply/battery/status"
+#define DUMP_FLASH_PATH		"/sdcard/flash_dump"
 #define CHECK_BATTERY_TIME  2000
 #define CHECK_ESD_TIME		4000
 #define VDD_VOLTAGE			1800000

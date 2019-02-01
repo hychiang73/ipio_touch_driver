@@ -631,6 +631,51 @@ static int tddi_read_flash(uint32_t start, uint32_t end, uint8_t *data, int dlen
 	return 0;
 }
 
+int core_dump_flash(void)
+{
+	struct file *f = NULL;
+	uint8_t *hex_buffer = NULL;
+	mm_segment_t old_fs;
+	loff_t pos = 0;
+	u32 start_addr = 0x0, end_addr = 0x1FFFF;
+	int length;
+
+	core_config_ice_mode_enable(STOP_MCU);
+
+	f = filp_open(DUMP_FLASH_PATH, O_WRONLY | O_CREAT | O_TRUNC, 644);
+	if (ERR_ALLOC_MEM(f)) {
+		ipio_err("Failed to open the file at %ld.\n", PTR_ERR(f));
+		goto out;
+	}
+
+	length = end_addr - start_addr + 1;
+
+	hex_buffer = vmalloc(length * sizeof(uint8_t));
+	if (ERR_ALLOC_MEM(hex_buffer)) {
+		ipio_err("Failed to allocate hex_buffer memory, %ld\n", PTR_ERR(hex_buffer));
+		filp_close(f, NULL);
+		goto out;
+	}
+
+	tddi_read_flash(start_addr, end_addr, hex_buffer, length);
+
+	old_fs = get_fs();
+	set_fs(get_ds());
+	set_fs(KERNEL_DS);
+	pos = 0;
+	vfs_write(f, hex_buffer, length, &pos);
+	set_fs(old_fs);
+	filp_close(f, NULL);
+
+	ipio_info("dump flash success\n");
+
+	return 0;
+
+out:
+	core_config_ice_mode_disable();
+	return -1;
+}
+
 static int check_fw_upgrade(u8 *pfw)
 {
 	int ret = NO_NEED_UPDATE;
