@@ -304,7 +304,6 @@ static void mp_print_csv_cdc_cmd(char *csv, int *csv_len, int index)
 				ipio_err("Failed to get CDC command %s from ini\n", open_sp_cmd[i]);
 			} else {
 				tmp_len += sprintf(csv + tmp_len, "%s = ,%s\n", open_c_cmd[i], str);
-				printk("Ryder : %s%s\n", open_c_cmd[i], str);
 			}
 		}
 	} else {
