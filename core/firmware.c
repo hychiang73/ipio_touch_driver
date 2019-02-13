@@ -965,7 +965,7 @@ static int fw_upgrade_flash(u8 *pfw)
 {
 	int ret = UPDATE_OK;
 
-	ilitek_platform_reset_ctrl(true, HW_RST);
+	ilitek_platform_reset_ctrl(true, SW_RST);
 
 	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
@@ -996,7 +996,7 @@ static int fw_upgrade_flash(u8 *pfw)
 	}
 
 	/* We do have to reset chip in order to move new code from flash to iram. */
-	ilitek_platform_reset_ctrl(true, HW_RST);
+	ilitek_platform_reset_ctrl(true, SW_RST);
 
 	/* the delay time moving code depends on what the touch IC you're using. */
 	mdelay(core_firmware->delay_after_upgrade);
@@ -1026,8 +1026,12 @@ static int fw_upgrade_iram(u8 *pfw)
 	u8 *fw_ptr = NULL;
 
 	/* Reset before load AP and MP code*/
-	if (!core_gesture->entry)
-		ilitek_platform_tp_hw_reset(true);
+	if (!core_gesture->entry) {
+		if (RST_METHODS == HW_RST_HOST_DOWNLOAD)
+			ilitek_platform_reset_ctrl(true, HW_RST);
+		else
+			ilitek_platform_reset_ctrl(true, SW_RST);
+	}
 
 	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
@@ -1083,7 +1087,7 @@ static int flash_erase_mode(uint32_t mode)
 {
 	uint32_t i, ret = 0;
 
-	ilitek_platform_reset_ctrl(true, HW_RST);
+	ilitek_platform_reset_ctrl(true, SW_RST);
 
 	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {

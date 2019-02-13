@@ -199,13 +199,9 @@ int core_config_switch_fw_mode(uint8_t *data)
 			break;
 		case P5_0_FIRMWARE_DEMO_MODE:
 			ipio_info("Switch to Demo mode by hw reset\n");
-#ifdef HOST_DOWNLOAD
-			ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
-			if (ret < 0)
-				ipio_info("host download failed!\n");
-#else
-			ilitek_platform_reset_ctrl(true, HW_RST);
-#endif
+
+			ret = ilitek_platform_reset_ctrl(true, RST_METHODS);
+
 			break;
 		case P5_0_FIRMWARE_DEBUG_MODE:
 			cmd[0] = protocol->cmd_mode_ctrl;
@@ -348,6 +344,7 @@ int core_config_ic_reset(void)
 	int ret = 0;
 	uint32_t key = 0;
 
+	/*Whole chip reset*/
 	if (!core_config->icemodeenable)
 		core_config_ice_mode_enable(NO_STOP_MCU);
 

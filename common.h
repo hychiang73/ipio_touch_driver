@@ -109,6 +109,13 @@
 #define SPI_INTERFACE 2
 #define INTERFACE SPI_INTERFACE
 
+/* Reset methods */
+#define SW_RST	1
+#define HW_RST	2
+#define HW_RST_HOST_DOWNLOAD	3
+#define SW_RST_HOST_DOWNLOAD	4
+#define RST_METHODS	SW_RST_HOST_DOWNLOAD
+
 /* Choise open hex file function*/
 #define REQUEST_FIRMWARE	0
 #define FILP_OPEN 			1
@@ -156,13 +163,6 @@ enum {
 		if (level & ipio_debug_level)									\
 		pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 	} while (0)
-
-/* Reset methods */
-enum {
-	SW_RST = 0,
-	HW_RST,
-	HW_RST_HOST_DOWNLOAD,
-};
 
 /* MCU status */
 enum {

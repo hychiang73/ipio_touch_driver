@@ -43,13 +43,7 @@ int core_esd_gesture(void)
 	u32 answer = 0;
 
 	/* start to download AP code with HW reset or host download */
-#ifdef HOST_DOWNLOAD
-	ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
-	if (ret < 0)
-		ipio_info("host download failed!\n");
-#else
-	ilitek_platform_reset_ctrl(true, HW_RST);
-#endif
+	ret = ilitek_platform_reset_ctrl(true, RST_METHODS);
 
 	ret = core_config_ice_mode_enable(STOP_MCU);
 	if (ret < 0) {
@@ -65,15 +59,11 @@ int core_esd_gesture(void)
 	}
 
 	/* HW reset or host download again gives effect to FW receives password successed */
-#ifdef HOST_DOWNLOAD
-	ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
-	if (ret < 0) {
-		ipio_info("host download failed!\n");
+
+	ret = ilitek_platform_reset_ctrl(true, RST_METHODS);
+	if (ret < 0)
 		goto out;
-	}
-#else
-	ilitek_platform_reset_ctrl(true, HW_RST);
-#endif
+
 	/* waiting for FW reloading code */
     	msleep(100);
 

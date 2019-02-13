@@ -2532,9 +2532,7 @@ int core_mp_move_code(void)
 	ipio_info("Start moving MP code\n");
 
 #ifdef HOST_DOWNLOAD
-	if (ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD) < 0) {
-		ipio_info("host download failed!\n");
-		ret = -1;
+	if (ilitek_platform_reset_ctrl(true, RST_METHODS) < 0) {
 		goto out;
 	}
 #else

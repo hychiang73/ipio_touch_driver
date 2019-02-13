@@ -262,9 +262,7 @@ static void ilitek_platform_esd_recovery(struct work_struct *work)
 	int ret = 0;
 
 	mutex_lock(&ipd->plat_mutex);
-	ret = ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD);
-	if (ret < 0)
-		ipio_err("host download failed!\n");
+	ret = ilitek_platform_reset_ctrl(true, RST_METHODS);
 	mutex_unlock(&ipd->plat_mutex);
 }
 
@@ -743,12 +741,10 @@ static int ilitek_platform_core_init(void)
 
 int ilitek_platform_reset_ctrl(bool rst, int mode)
 {
-	int ret = 0, retry = 0;
+	int ret = 0;
 
 	atomic_set(&ipd->do_reset, true);
 	ilitek_platform_disable_irq();
-
-	retry = core_firmware->retry_times;
 
 	switch (mode) {
 		case SW_RST:
@@ -763,6 +759,13 @@ int ilitek_platform_reset_ctrl(bool rst, int mode)
 		case HW_RST_HOST_DOWNLOAD:
 			ipio_info("HW_RST_HOST_DOWNLOAD\n");
 			ilitek_platform_tp_hw_reset(rst);
+			ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
+			if (ret < 0)
+				ipio_err("host download with retry failed\n");
+			break;
+		case SW_RST_HOST_DOWNLOAD:
+			ipio_info("SW_RST_HOST_DOWNLOAD\n");
+			ret = core_config_ic_reset();
 			ret = core_firmware_upgrade(UPGRADE_IRAM, HEX_FILE, OPEN_FW_METHOD);
 			if (ret < 0)
 				ipio_err("host download with retry failed\n");
@@ -925,7 +928,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 		ipio_err("Failed to request gpios\n ");
 
 	/* Pull TP RST low to high after request GPIO succeed for normal work. */
-	if (ilitek_platform_reset_ctrl(true, HW_RST) < 0)
+	if (ilitek_platform_reset_ctrl(true, SW_RST) < 0)
 		ipio_err("Failed to do hw reset\n");
 
 	if (core_config_get_chip_id() < 0)
@@ -934,8 +937,7 @@ static int ilitek_platform_probe(struct spi_device *spi)
 #ifndef HOST_DOWNLOAD
 	core_config_read_flash_info();
 #else
-	if (ilitek_platform_reset_ctrl(true, HW_RST_HOST_DOWNLOAD) < 0)
-		ipio_err("Failed to doHOST_DOWNLOAD\n");
+	ilitek_platform_reset_ctrl(true, RST_METHODS);
 #endif
 
 	if (ilitek_platform_read_tp_info() < 0)
