@@ -115,12 +115,6 @@ struct core_mp_test_data {
 	int mp_items;
 	int final_result;
 
-	uint32_t overlay_start_addr;
-	uint32_t overlay_end_addr;
-	uint32_t mp_flash_addr;
-	uint32_t mp_size;
-	uint8_t dma_trigger_enable;
-
 	/* Tx/Rx threshold & buffer */
 	int TxDeltaMax;
 	int TxDeltaMin;

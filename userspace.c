@@ -37,7 +37,7 @@
 #define USER_STR_BUFF	PAGE_SIZE
 #define IOCTL_I2C_BUFF	PAGE_SIZE
 #define ILITEK_IOCTL_MAGIC	100
-#define ILITEK_IOCTL_MAXNR	19
+#define ILITEK_IOCTL_MAXNR	21
 
 #define ILITEK_IOCTL_I2C_WRITE_DATA			_IOWR(ILITEK_IOCTL_MAGIC, 0, uint8_t*)
 #define ILITEK_IOCTL_I2C_SET_WRITE_LENGTH	_IOWR(ILITEK_IOCTL_MAGIC, 1, int)
@@ -64,6 +64,8 @@
 #define ILITEK_IOCTL_TP_MODE_CTRL			_IOWR(ILITEK_IOCTL_MAGIC, 17, uint8_t*)
 #define ILITEK_IOCTL_TP_MODE_STATUS			_IOWR(ILITEK_IOCTL_MAGIC, 18, int*)
 #define ILITEK_IOCTL_ICE_MODE_SWITCH		_IOWR(ILITEK_IOCTL_MAGIC, 19, int)
+#define ILITEK_IOCTL_TP_INTERFACE_TYPE		_IOWR(ILITEK_IOCTL_MAGIC, 20, uint8_t*)
+#define ILITEK_IOCTL_TP_DUMP_FLASH			_IOWR(ILITEK_IOCTL_MAGIC, 21, int)
 
 unsigned char g_user_buf[USER_STR_BUFF] = { 0 };
 #define DEBUG_DATA_FILE_SIZE	(10 * 1024)
@@ -1165,11 +1167,11 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(g_user_buf, "update status = %02d\n", core_firmware->update_status);
+	len = sprintf(g_user_buf, "%02d", core_firmware->update_status);
 
 	ipio_info("update status = %d\n", core_firmware->update_status);
 
-	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
+	ret = copy_to_user((uint32_t *) buff, &core_firmware->update_status, len);
 	if (ret < 0) {
 		ipio_err("Failed to copy data to user space\n");
 	}
@@ -1451,7 +1453,7 @@ static ssize_t ilitek_proc_ioctl_write(struct file *filp, const char *buff, size
 static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0, length = 0;
-	uint8_t *szBuf = NULL;
+	uint8_t *szBuf = NULL, if_to_user = 0;
 	static uint16_t i2c_rw_length = 0;
 	uint32_t id_to_user[3] = {0};
 	char dbg[10] = { 0 };
@@ -1661,7 +1663,9 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			ipio_err("Failed to copy data from user space\n");
 		} else {
 			ipio_info("ioctl: switch fw mode = %d\n", szBuf[0]);
-			core_config_switch_fw_mode(szBuf);
+			ret = core_config_switch_fw_mode(szBuf);
+			if (ret < 0)
+				ipio_err("ioctl: switch to fw mode (%d) failed\n", szBuf[0]);
 		}
 		break;
 
@@ -1683,6 +1687,22 @@ static long ilitek_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 				core_config->icemodeenable = true;
 			else
 				core_config->icemodeenable = false;
+		}
+		break;
+
+	case ILITEK_IOCTL_TP_INTERFACE_TYPE:
+		if_to_user = INTERFACE;
+		ret = copy_to_user((uint8_t *) arg, &if_to_user, sizeof(if_to_user));
+		if (ret < 0) {
+			ipio_err("ioctl: Failed to copy interface type to user space\n");
+		}
+		break;
+
+	case ILITEK_IOCTL_TP_DUMP_FLASH:
+		ipio_info("ioctl: dump flash data\n");
+		ret = core_dump_flash();
+		if (ret < 0) {
+			ipio_err("ioctl: Failed to dump flash data\n");
 		}
 		break;
 

@@ -88,6 +88,14 @@ struct open_test_c_spec {
 	int gain;
 } open_c_spec;
 
+struct mp_move_code_data {
+	uint32_t overlay_start_addr;
+	uint32_t overlay_end_addr;
+	uint32_t mp_flash_addr;
+	uint32_t mp_size;
+	uint8_t dma_trigger_enable;
+} mp_move;
+
 /* You must declare a new test in this struct before running a new process of mp test */
 struct mp_test_items tItems[] = {
 	{.id = 0, .name = "mutual_dac", .desp = "calibration data(dac)", .result = "FAIL", .catalog = MUTUAL_TEST},
@@ -296,7 +304,6 @@ static void mp_print_csv_cdc_cmd(char *csv, int *csv_len, int index)
 				ipio_err("Failed to get CDC command %s from ini\n", open_sp_cmd[i]);
 			} else {
 				tmp_len += sprintf(csv + tmp_len, "%s = ,%s\n", open_c_cmd[i], str);
-				printk("Ryder : %s%s\n", open_c_cmd[i], str);
 			}
 		}
 	} else {
@@ -2507,18 +2514,18 @@ void get_dma_overlay_info(void)
 		return;
 	}
 
-	core_mp->dma_trigger_enable = 0;
+	mp_move.dma_trigger_enable = 0;
 
-	core_mp->mp_flash_addr = szOutBuf[3] + (szOutBuf[2] << 8) + (szOutBuf[1] << 16);
-	core_mp->mp_size = szOutBuf[6] + (szOutBuf[5] << 8) + (szOutBuf[4] << 16);
-	core_mp->overlay_start_addr = szOutBuf[9] + (szOutBuf[8] << 8) + (szOutBuf[7] << 16);
-	core_mp->overlay_end_addr = szOutBuf[12] + (szOutBuf[11] << 8) + (szOutBuf[10] << 16);
+	mp_move.mp_flash_addr = szOutBuf[3] + (szOutBuf[2] << 8) + (szOutBuf[1] << 16);
+	mp_move.mp_size = szOutBuf[6] + (szOutBuf[5] << 8) + (szOutBuf[4] << 16);
+	mp_move.overlay_start_addr = szOutBuf[9] + (szOutBuf[8] << 8) + (szOutBuf[7] << 16);
+	mp_move.overlay_end_addr = szOutBuf[12] + (szOutBuf[11] << 8) + (szOutBuf[10] << 16);
 
-	if (core_mp->overlay_start_addr != 0x0 && core_mp->overlay_end_addr != 0x0 && szOutBuf[0] == protocol->cmd_get_mp_info)
-		core_mp->dma_trigger_enable = 1;
+	if (mp_move.overlay_start_addr != 0x0 && mp_move.overlay_end_addr != 0x0 && szOutBuf[0] == protocol->cmd_get_mp_info)
+		mp_move.dma_trigger_enable = 1;
 
 	ipio_info("Overlay addr = 0x%x ~ 0x%x , flash addr = 0x%x , mp size = 0x%x\n",
-		core_mp->overlay_start_addr, core_mp->overlay_end_addr, core_mp->mp_flash_addr, core_mp->mp_size);
+		mp_move.overlay_start_addr, mp_move.overlay_end_addr, mp_move.mp_flash_addr, mp_move.mp_size);
 }
 #endif
 
@@ -2545,25 +2552,25 @@ int core_mp_move_code(void)
 		goto out;
 	}
 
-	ipio_info("DMA trigger = %d\n", core_mp->dma_trigger_enable);
+	ipio_info("DMA trigger = %d\n", mp_move.dma_trigger_enable);
 
-	if (core_mp->dma_trigger_enable) {
-		mp_andes_init_size = core_mp->overlay_start_addr;
-		mp_text_size = (core_mp->mp_size - core_mp->overlay_end_addr) + 1;
+	if (mp_move.dma_trigger_enable) {
+		mp_andes_init_size = mp_move.overlay_start_addr;
+		mp_text_size = (mp_move.mp_size - mp_move.overlay_end_addr) + 1;
 		ipio_info("Mp andes init size = %d , Mp text size = %d\n",mp_andes_init_size , mp_text_size);
 
 		ipio_info("[clear register setting]\n");
 		dma_clear_register_setting();
 
 		ipio_info("[Move ANDES.INIT to DRAM]\n");
-		dma_trigger_register_setting(0, core_mp->mp_flash_addr, mp_andes_init_size);   /* DMA ANDES.INIT */
+		dma_trigger_register_setting(0, mp_move.mp_flash_addr, mp_andes_init_size);   /* DMA ANDES.INIT */
 
 		ipio_info("[Clear register setting]\n");
 		dma_clear_register_setting();
 
 		ipio_info("[Move MP.TEXT to DRAM]\n");
-		//dma_trigger_register_setting(NUM_OF_4_MULTIPLE(core_mp->overlay_end_addr), (core_mp->mp_flash_addr + NUM_OF_4_MULTIPLE(core_mp->overlay_end_addr)), mp_text_size);  /* DMA MP.TEXT */
-		dma_trigger_register_setting(core_mp->overlay_end_addr, (core_mp->mp_flash_addr + core_mp->overlay_start_addr), mp_text_size);
+		//dma_trigger_register_setting(NUM_OF_4_MULTIPLE(mp_move.overlay_end_addr), (mp_move.mp_flash_addr + NUM_OF_4_MULTIPLE(mp_move.overlay_end_addr)), mp_text_size);  /* DMA MP.TEXT */
+		dma_trigger_register_setting(mp_move.overlay_end_addr, (mp_move.mp_flash_addr + mp_move.overlay_start_addr), mp_text_size);
 	} else {
 		/* DMA Trigger */
 		core_config_ice_mode_write(FLASH4_reg_rcv_data, 0xFF, 1);
@@ -2804,11 +2811,14 @@ int core_mp_start_test(bool lcm_on)
 		goto out;
 	}
 
-	/* Switch to Test mode nad move mp code */
-	ret = core_config_switch_fw_mode(&protocol->test_mode);
-	if (ret < 0) {
-		ipio_err("Switch to test mode failed\n");
-		goto out;
+	if (core_fr->actual_fw_mode != protocol->test_mode)
+	{
+		/* Switch to Test mode nad move mp code */
+		ret = core_config_switch_fw_mode(&protocol->test_mode);
+		if (ret < 0) {
+			ipio_err("Switch to test mode failed\n");
+			goto out;
+		}
 	}
 
 	/* Read timing info from ini file */
