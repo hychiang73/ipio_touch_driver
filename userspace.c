@@ -1167,11 +1167,11 @@ static ssize_t ilitek_proc_fw_process_read(struct file *filp, char __user *buff,
 
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 
-	len = sprintf(g_user_buf, "update status = %02d\n", core_firmware->update_status);
+	len = sprintf(g_user_buf, "%02d", core_firmware->update_status);
 
 	ipio_info("update status = %d\n", core_firmware->update_status);
 
-	ret = copy_to_user((uint32_t *) buff, g_user_buf, len);
+	ret = copy_to_user((uint32_t *) buff, &core_firmware->update_status, len);
 	if (ret < 0) {
 		ipio_err("Failed to copy data to user space\n");
 	}
